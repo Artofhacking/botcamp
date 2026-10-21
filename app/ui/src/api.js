@@ -1,6 +1,15 @@
 // The window talks only to ds-bot's own channel in the engine: POST api/bot for reads and
 // actions (the Bot views' own `call`), and the live feed api/bot/feed for what changes.
 const RETRY_MS = [500, 1000, 2000, 5000]
+// The Demox function closes the feed after the first event. Reconnecting at once
+// would hammer it, so a stream that ends on its own within a few seconds waits.
+const QUIET_MS = 5000
+const IMMEDIATE_MS = 3500
+
+export function feedRetryDelay(elapsedMs, ended, failures) {
+  if (ended && elapsedMs < IMMEDIATE_MS) return QUIET_MS
+  return RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]
+}
 
 function parseEvent(block) {
   let event = 'message'
@@ -21,8 +30,15 @@ export function openFeed(onEvent) {
   const run = async () => {
     for (let failures = 0; !stopped;) {
       controller = new AbortController()
+      const openedAt = Date.now()
+      let ended = false
       try {
-        const response = await fetch('api/bot/feed', { signal: controller.signal, cache: 'no-store' })
+        const response = await fetch('api/bot/feed', { signal: controller.signal, cache: 'no-store', credentials: 'same-origin' })
+        if (response.status === 401) {
+          stopped = true
+          onEvent('lost', {})
+          return
+        }
         if (!response.ok || response.body === null) throw new Error(`HTTP ${response.status}`)
         failures = 0
         const reader = response.body.getReader()
@@ -38,13 +54,17 @@ export function openFeed(onEvent) {
             if (parsed !== undefined) onEvent(parsed.event, parsed.data)
           }
         }
+        ended = true
       } catch {
         // The engine restarted or the window is going away; the loop decides.
       }
       if (stopped) return
       onEvent('lost', {})
-      await new Promise(resolve => setTimeout(resolve, RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]))
-      failures += 1
+      const elapsed = Date.now() - openedAt
+      const immediate = ended && elapsed < IMMEDIATE_MS
+      const wait = feedRetryDelay(elapsed, ended, failures)
+      await new Promise(resolve => setTimeout(resolve, wait))
+      if (!immediate) failures += 1
     }
   }
   void run()

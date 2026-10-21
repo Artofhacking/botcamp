@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Build the DeepSeek Bot page and publish app/ui/dist to the Demox botcamp project.
-# Requires `demox login` or DEMOX_TOKEN. Does not install plugins on the kernel.
+# Build the DeepSeek Bot page and publish app/ui/dist plus the authenticated bot function.
+# Requires demox login or DEMOX_TOKEN. Does not install plugins on the kernel.
+# Does not print function env values. Set BOTCAMP_ADMIN_EMAIL and BOTCAMP_ADMIN_PASSWORD
+# with `demox env set` after this script; do not put those values in git.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/app/ui/dist"
@@ -37,7 +39,17 @@ PY
 fi
 
 npm --prefix "$ROOT/app" ci
+npm --prefix "$ROOT/app" test
 npm --prefix "$ROOT/app" run build
+
+python3 - "$DIST/index.html" <<'PY'
+import sys
+from pathlib import Path
+html = Path(sys.argv[1]).read_text()
+if "location.replace" in html or "camp.aigc.sx.cn" in html:
+    raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
+print("dist/index.html stays on the Demox origin")
+PY
 
 ID=""
 if [[ -f "$META" ]]; then
@@ -45,7 +57,15 @@ if [[ -f "$META" ]]; then
   PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("projectId") or "PQBDTM6GLZ")' "$META")"
 fi
 
-DEMOX=(npx --yes @demox-site/cli)
+DEMOX=(npx --yes @demox-site/cli@1.1.6)
+FN_SLUG="bot"
+FN_ROUTES="/api/bot,/api/bot/feed"
+
+if [[ -z "${DEMOX_TOKEN:-}" && ! -f "${HOME}/.demox/token.json" ]]; then
+  echo "未登录 Demox（没有 DEMOX_TOKEN，也没有 ~/.demox/token.json）。已构建并测试，但没有发布。"
+  exit 1
+fi
+
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
   echo "Updating Demox site $ID in project $PROJECT_ID"
@@ -74,14 +94,39 @@ if not url.endswith("/"):
 if not site_id or not url:
     raise SystemExit("could not parse Demox deploy output")
 origin_host = url.rstrip("/").split("//", 1)[-1]
-meta_path.write_text(json.dumps({
+payload = dict(existing)
+payload.update({
     "id": site_id,
     "name": "$NAME",
     "url": url if url.endswith("/") else url + "/",
     "origin_host": origin_host,
     "projectId": "$PROJECT_ID",
-    "projectSlug": "botcamp",
-    "projectName": "botcamp",
-}, indent=2) + "\n")
+    "projectSlug": existing.get("projectSlug") or "botcamp",
+    "projectName": existing.get("projectName") or "botcamp",
+})
+meta_path.write_text(json.dumps(payload, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
 PY
+
+ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id",""))' "$META")"
+BUNDLE="$tmpdir/bot"
+mkdir -p "$BUNDLE"
+"$ROOT/app/node_modules/.bin/esbuild" "$ROOT/functions/bot/entry.mjs" \
+  --bundle --platform=node --format=cjs --outfile="$BUNDLE/index.js"
+echo "推送云函数 ${FN_SLUG}（routes 仅创建时生效）: ${FN_ROUTES}"
+FN_LOG="$tmpdir/fn.log"
+"${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"
+VERSION="$(python3 - "$FN_LOG" <<'PY'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+match = re.search(r"版本:\s*(\d+)", text) or re.search(r"\bv(\d+)\b", text)
+if not match:
+    raise SystemExit("could not parse function version")
+print(match.group(1))
+PY
+)"
+echo "把 production 指到 v${VERSION}"
+# --version=N keeps the CLI from treating --version as its own version flag.
+"${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"
+echo "静态页面和云函数已发布。账号环境变量要用 demox env set 单独设置，不要写进仓库。"
