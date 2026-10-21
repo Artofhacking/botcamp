@@ -1,53 +1,38 @@
 # BotCamp
 
-页面用的是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 自己的窗口（`app/ui`，Apache-2.0），不是 DeepSeek Harness 那套壳，也不依赖 `window.__ModuleLoader__`。界面在这个仓库里构建，静态产物部署到 Demox 项目 **botcamp**。会话仍由腾讯云上的 dsh 内核执行，入口是 [https://camp.aigc.sx.cn](https://camp.aigc.sx.cn)。
+用户只打开 [https://botcamp.demox.site/](https://botcamp.demox.site/)。页面是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 自己的窗口（`app/ui`，Apache-2.0）。浏览器停在这个源站：页面里没有跳转到 camp 的脚本。未登录只看到登录页。
 
-内核拒绝跨站调用：从 `botcamp.demox.site` 直接请求 `camp.aigc.sx.cn/api` 会得到 403。浏览器必须和 `/api` 同源。本地开发由 Vite 把 `/api` 反代到内核；线上由 camp 的 nginx 提供这个页面，并把 `/api` 转到本机 `dsh web`。
+[https://camp.aigc.sx.cn](https://camp.aigc.sx.cn) 不是网站。`deploy/nginx/camp.conf` 让它不返回 HTML、不托管静态资源、不把浏览器送到 Demox，也不再把 `/` 交给内核（避免 303 到 `./` 的循环）。只有 `/api/` 可以到达 `127.0.0.1:3080`，而且请求必须带 `botcamp_session`。没有这个 cookie 时，nginx 在进 dsh 之前返回 401。这份配置写进仓库之后，还要在腾讯云那台机器上 `nginx -t && systemctl reload nginx` 才会生效。
 
-这个窗口只跟 ds-bot 插件说话：`POST /api/bot` 和 `GET /api/bot/feed`。插件还没装进内核时，页面能打开，状态请求会得到 404。在腾讯云那台机器上、内核所在的环境里执行：
+## 账号
 
-```bash
-npx @deepseek-ai/dsh@0.2.1-rc.2 plugin --profile web add ds-bot
-```
+dsh 内核和 ds-bot 插件都是单租户。隔离和配额做在网关里，发生在请求进入内核之前。
+
+- 邮箱加密码登录。没有公开注册，账号由管理员开通。密码用 scrypt 保存。会话是 `botcamp_session` httpOnly cookie。内核的 `dsh-auth` 只留在网关进程里，不回给浏览器，也不写进日志。
+- Demox 上已经存在的云函数只能接到 `/api/bot` 和 `/api/bot/feed`。登录和管理也走 `POST /api/bot`（`auth/login`、`auth/me`、`admin/create` 这些 endpoint），网关再改写成原来的账号接口。直接调用 `/api/auth/*` 和 `/api/admin/*` 在本地开发服务器上仍然可用。
+- 未登录的 `POST /api/bot` 和 `GET /api/bot/feed` 返回 401，不会请求内核。用户 A 读不到用户 B。配额为 0 时发送会被拒绝，同样不会进内核。
+- 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`，以及调用者自己的 `botcamp_session`，好让 camp 的 nginx 认出这是已登录调用。
+- 对话原文在 `data/namespaces/<kernelKey>.json`，账本在 `data/accounts.json`。`data/` 已 gitignore。
+
+`NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有 `BOTCAMP_ADMIN_EMAIL` 和 `BOTCAMP_ADMIN_PASSWORD` 就不会创建管理员。源码里的 `admin@localhost` / `botcamp-dev` 只给本机 `npm run dev`，Demox 函数会强制按生产环境处理，不会使用这对开发密码。
+
+新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。Demox 函数写在 `/tmp/botcamp-data`，实例回收后只保留环境变量里的引导管理员。
 
 ## 本地
 
 ```bash
 npm --prefix app ci
+npm --prefix app test
 npm --prefix app run dev
 ```
 
-打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot，侧栏牌子是 DS Bot。未登录只会看到登录页，请求到不了内核。开发服务器会自行完成内核登录，不需要把令牌写进仓库。
-
-## 账号
-
-dsh 内核和 ds-bot 插件都是单租户。多个用户的隔离做在这个仓库的网关里（`app/botcamp/`，由 `app/kernelProxy.mjs` 挂到 Vite），发生在请求进入共享内核之前。
-
-- 邮箱加密码登录。没有公开注册，账号由管理员开通。密码用 scrypt 保存，不明文落地。会话是本站的 `botcamp_session` httpOnly cookie，和内核的 `dsh-auth` 不是同一个。
-- 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`。机器人、会话、群和设置的归属记在本地账本里；`state` 和实时流只返回这个账号自己的部分。别人的 id 在进内核之前就被拒绝。
-- 主题等个人设置只写在这个账号上，不会改共享内核里的全局配置。模型供应商密钥、工作区文件和诊断日志也不能通过页面改到别人身上。
-- 对话原文另存在 `data/namespaces/<kernelKey>.json`。账本在 `data/accounts.json`。`data/` 已 gitignore，重启开发服务器后还在。不要把这个目录提交上去。
-- 配额按消息条数。发送一条（`send`），或向记忆提问一次（`memory-ask`），计 1 次。配额为 0 或已用尽时，发送会被拒绝，并提示联系管理员。管理员在侧栏「用户与配额」里修改。
+打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot。
 
 用户库为空时，用环境变量创建第一名管理员：
 
 ```bash
 BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' npm --prefix app run dev
 ```
-
-`NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有这两个变量就不会创建管理员，源码里也没有生产密码。本地 `npm run dev` 如果两个变量都没设，并且用户库是空的，会用文档里的开发账号：邮箱 `admin@localhost`，密码 `botcamp-dev`。这个默认值只给本机开发，不要拿到正式环境用。
-
-新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。
-
-```bash
-npm --prefix app test
-```
-
-```bash
-npm --prefix app run build
-```
-
-产物在 `app/ui/dist`。
 
 ## Demox
 
@@ -56,16 +41,23 @@ npm --prefix app run build
 | 项目 | `botcamp` / `PQBDTM6GLZ` |
 | 站点 | `botcamp-dsh-frontend` / `IVBLF9PE` |
 | 地址 | https://botcamp.demox.site/ |
+| 函数 | slug `bot`，routes `/api/bot`、`/api/bot/feed`（只在创建时生效） |
 
 ```bash
-# 需要 demox login 或 DEMOX_TOKEN
 ./scripts/deploy-demox.sh
 ```
 
-部署会替换该站点上的静态文件。camp 目前把 `/assets/` 指到这个站点上的 Harness 资源。换上 DeepSeek Bot 页面时，要同时套用 `deploy/nginx/camp.conf`：已登录且没有 `?token=` 的 `/` 返回新的 `index.html`，`/assets/` 改指向这份产物，`/api/` 继续走本机 3080。两边不要分开上。
+脚本会跑测试、构建页面、发布静态文件，把 `functions/bot/entry.mjs` 打成单个 `index.js` 上传，并把 `production` 别名指到新版本。云函数平台只保存入口文件的内容，所以登录、隔离和配额必须打进这一个文件。
+
+管理员密码不要写进 git。函数上传之后单独执行（把值换成现场生成的密码）：
 
 ```bash
-nginx -t && systemctl reload nginx
+npx --yes @demox-site/cli@1.1.6 env set --id IVBLF9PE --slug bot \
+  NODE_ENV=production BOTCAMP_PRODUCTION=1 \
+  BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' \
+  BOTCAMP_DATA_DIR=/tmp/botcamp-data
 ```
 
-内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。
+云函数不能把一条无限 SSE 留在连接上。`/api/bot/feed` 读到第一条事件或大约 2.5 秒就取消上游。页面如果发现流在几秒内自己结束，会等 5 秒再重连。
+
+内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。换成新的 `camp.conf` 并 reload 之后，`GET /` 不再帮网关换 `dsh-auth`。如果已登录调用因此从内核得到 401，需要另开一条不返回 HTML 的换票路径；不要把 Demox 页面或静态资源再代理回来。

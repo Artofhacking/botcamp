@@ -7,7 +7,9 @@ import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000
 
 export function defaultDataDir() {
-  return fileURLToPath(new URL('../../data', import.meta.url))
+  const url = import.meta.url
+  if (!url) return '/tmp/botcamp-data'
+  return fileURLToPath(new URL('../../data', url))
 }
 
 function emptyData() {

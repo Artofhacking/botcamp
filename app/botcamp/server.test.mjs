@@ -329,7 +329,59 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     assert.equal(stopped.json.ok, false)
     assert.match(stopped.json.error.message, /配额已用完/)
     assert.equal(botCalls(ctx.calls, 'send').length, 2)
-    assert.equal(ctx.calls.some(call => String(call.headers.cookie ?? '').includes('botcamp_session')), false)
+    const kernelCalls = ctx.calls.filter(call => call.href.includes('/api/bot'))
+    assert.ok(kernelCalls.length > 0)
+    for (const call of kernelCalls) {
+      assert.match(String(call.headers.cookie ?? ''), /botcamp_session=/)
+      assert.equal(String(call.headers.cookie).includes(ADMIN_PASSWORD), false)
+      assert.equal(String(call.body ?? '').includes(ADMIN_PASSWORD), false)
+    }
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('the demox bot route logs in, isolates, and blocks a zero quota before the kernel', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const bare = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'state', payload: {} } })
+    assert.equal(bare.status, 401)
+    assert.equal(ctx.calls.some(call => call.href.includes('/api/bot')), false)
+
+    const signup = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/signup', payload: { email: 'new@example.com', password: 'password-123' } } })
+    assert.equal(signup.status, 403)
+
+    const login = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } } })
+    assert.equal(login.status, 200)
+    assert.match(login.setCookie[0], /HttpOnly/i)
+    assert.match(cookieHeader(login.setCookie), /^botcamp_session=/)
+    const adminCookie = cookieHeader(login.setCookie)
+
+    const created = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: adminCookie,
+      body: { endpoint: 'admin/create', payload: { email: 'zero@example.com', password: 'password-zero', quota: 0 } },
+    })
+    assert.equal(created.status, 201)
+    const zeroLogin = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/login', payload: { email: 'zero@example.com', password: 'password-zero' } } })
+    const zeroCookie = cookieHeader(zeroLogin.setCookie)
+    const other = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: adminCookie,
+      body: { endpoint: 'admin/create', payload: { email: 'other@example.com', password: 'password-other', quota: 1 } },
+    })
+    assert.equal(other.status, 201)
+    const otherLogin = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/login', payload: { email: 'other@example.com', password: 'password-other' } } })
+    const otherCookie = cookieHeader(otherLogin.setCookie)
+
+    const botOther = await api(ctx.base, '/api/bot', { method: 'POST', cookie: otherCookie, body: { endpoint: 'create-bot', payload: { name: '乙' } } })
+    assert.equal(botOther.json.value.id, 'bot-a')
+    const denied = await api(ctx.base, '/api/bot', { method: 'POST', cookie: zeroCookie, body: { endpoint: 'chat', payload: { botId: 'bot-a' } } })
+    assert.equal(denied.json.ok, false)
+    assert.equal(botCalls(ctx.calls, 'chat').length, 0)
+
+    const stopped = await api(ctx.base, '/api/bot', { method: 'POST', cookie: zeroCookie, body: { endpoint: 'send', payload: { text: '不会进内核' } } })
+    assert.equal(stopped.json.ok, false)
+    assert.match(stopped.json.error.message, /配额已用完/)
+    assert.equal(botCalls(ctx.calls, 'send').length, 0)
   } finally {
     await ctx.close()
   }

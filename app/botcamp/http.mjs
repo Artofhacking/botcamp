@@ -115,10 +115,19 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  async function callKernel(pathname, { method, body, signal, namespace }) {
+  function withSessionCookie(headers, sessionToken) {
+    if (!sessionToken) return
+    const pair = `botcamp_session=${encodeURIComponent(sessionToken)}`
+    if (!headers.cookie) headers.cookie = pair
+    else if (!headers.cookie.includes('botcamp_session=')) headers.cookie = `${headers.cookie}; ${pair}`
+  }
+
+  async function callKernel(pathname, { method, body, signal, namespace, sessionToken }) {
     if (jar.size === 0) await refreshCookie()
     const headers = { origin: kernelOrigin, 'content-type': 'application/json' }
     if (cookieHeader()) headers.cookie = cookieHeader()
+    // camp 的 /api/ 要求同一条多用户会话。密码不在这里。dsh-auth 仍只留在这个进程里。
+    withSessionCookie(headers, sessionToken)
     if (typeof namespace === 'string' && /^u_[A-Za-z0-9_-]{8,}$/.test(namespace)) headers['x-botcamp-namespace'] = namespace
     const send = () => fetchImpl(new URL(pathname, `${kernelOrigin}/`), {
       method,
@@ -133,6 +142,7 @@ export async function createBotcamp(options = {}) {
       await refreshCookie()
       if (cookieHeader()) headers.cookie = cookieHeader()
       else delete headers.cookie
+      withSessionCookie(headers, sessionToken)
       upstream = await send()
     }
     storeCookies(upstream)
@@ -277,18 +287,12 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  async function handleBot(req, res, user) {
+  async function handleBot(req, res, user, body) {
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
     let charged = false
     try {
-      const raw = await readBody(req, BOT_LIMIT)
-      let body
-      try { body = JSON.parse(raw.length ? raw.toString('utf8') : '{}') } catch {
-        sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
-        return
-      }
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = await accessFor(user.id)
@@ -320,6 +324,7 @@ export async function createBotcamp(options = {}) {
         body: JSON.stringify({ endpoint, payload: outboundPayload }),
         signal: client.signal,
         namespace: user.kernelKey,
+        sessionToken: readCookie(req, COOKIE),
       })
       const text = await upstream.text()
       let parsed = null
@@ -381,6 +386,7 @@ export async function createBotcamp(options = {}) {
         method: 'GET',
         signal: client.signal,
         namespace: user.kernelKey,
+        sessionToken: readCookie(req, COOKIE),
       })
       if (!upstream.ok || upstream.body == null) {
         await upstream.body?.cancel().catch(() => {})
@@ -437,6 +443,40 @@ export async function createBotcamp(options = {}) {
     }
   }
 
+  const CONTROL = new Set(['auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'admin/list', 'admin/create', 'admin/update', 'admin/delete'])
+
+  function jsonRequest(req, method, url, json) {
+    const raw = Buffer.from(JSON.stringify(json ?? {}))
+    return {
+      method,
+      url,
+      headers: req.headers,
+      socket: req.socket,
+      async *[Symbol.asyncIterator]() { yield raw },
+    }
+  }
+
+  // Demox 已经建好的函数只能接到 /api/bot 和 /api/bot/feed。登录和管理走同一条 POST，
+  // 在这里改写成原来的接口，这样本地和线上用的是同一套校验。
+  async function handleControl(req, res, body) {
+    const payload = body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload) ? body.payload : {}
+    if (body.endpoint === 'auth/me') return handleAuth(jsonRequest(req, 'GET', '/api/auth/me'), res, '/api/auth/me')
+    if (body.endpoint === 'auth/login') return handleAuth(jsonRequest(req, 'POST', '/api/auth/login', payload), res, '/api/auth/login')
+    if (body.endpoint === 'auth/logout') return handleAuth(jsonRequest(req, 'POST', '/api/auth/logout', {}), res, '/api/auth/logout')
+    if (body.endpoint === 'auth/signup') return handleAuth(jsonRequest(req, 'POST', '/api/auth/signup', payload), res, '/api/auth/signup')
+    const user = await currentUser(req)
+    if (body.endpoint === 'admin/list') return handleAdmin(jsonRequest(req, 'GET', '/api/admin/users'), res, '/api/admin/users', user)
+    if (body.endpoint === 'admin/create') return handleAdmin(jsonRequest(req, 'POST', '/api/admin/users', payload), res, '/api/admin/users', user)
+    if (body.endpoint === 'admin/update') {
+      const id = encodeURIComponent(typeof payload.id === 'string' ? payload.id : '')
+      const patch = { ...payload }
+      delete patch.id
+      return handleAdmin(jsonRequest(req, 'PATCH', `/api/admin/users/${id}`, patch), res, `/api/admin/users/${id}`, user)
+    }
+    const id = encodeURIComponent(typeof payload.id === 'string' ? payload.id : '')
+    return handleAdmin(jsonRequest(req, 'DELETE', `/api/admin/users/${id}`), res, `/api/admin/users/${id}`, user)
+  }
+
   async function handle(req, res, next) {
     const path = routePath(req.url)
     if (!path.startsWith('/api/')) {
@@ -447,6 +487,32 @@ export async function createBotcamp(options = {}) {
       await handleAuth(req, res, path)
       return
     }
+    if (path === '/api/bot' && req.method === 'POST') {
+      let body
+      try {
+        const raw = await readBody(req, BOT_LIMIT)
+        body = JSON.parse(raw.length ? raw.toString('utf8') : '{}')
+      } catch (error) {
+        if (error?.code === 'LIMIT') {
+          sendJson(res, 413, { ok: false, error: { message: '请求太大。' } })
+          return
+        }
+        sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
+        return
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) body = {}
+      if (CONTROL.has(body.endpoint)) {
+        await handleControl(req, res, body)
+        return
+      }
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      await handleBot(req, res, user, body)
+      return
+    }
     const user = await currentUser(req)
     if (path.startsWith('/api/admin')) {
       await handleAdmin(req, res, path, user)
@@ -454,10 +520,6 @@ export async function createBotcamp(options = {}) {
     }
     if (!user) {
       sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
-      return
-    }
-    if (path === '/api/bot' && req.method === 'POST') {
-      await handleBot(req, res, user)
       return
     }
     if (path === '/api/bot/feed' && (req.method === 'GET' || req.method === 'HEAD')) {

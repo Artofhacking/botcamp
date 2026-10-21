@@ -1,10 +1,10 @@
-async function send(path, { method = 'GET', body } = {}) {
-  const response = await fetch(path, {
-    method,
+async function send(endpoint, payload) {
+  const response = await fetch('api/bot', {
+    method: 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ endpoint, payload: payload ?? null }),
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok || data.ok === false) {
@@ -14,8 +14,16 @@ async function send(path, { method = 'GET', body } = {}) {
   return data
 }
 
+// Demox 上已有的云函数只挂了 /api/bot 和 /api/bot/feed。登录和管理因此走这一条 POST，
+// 网关在进内核之前把它改写成原来的账号接口。
 export async function me() {
-  const response = await fetch('api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+  const response = await fetch('api/bot', {
+    method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ endpoint: 'auth/me', payload: null }),
+  })
   if (response.status === 401) return null
   const data = await response.json().catch(() => ({}))
   if (!response.ok || data.ok === false) throw new Error(data.error?.message ?? '无法确认登录状态')
@@ -23,25 +31,25 @@ export async function me() {
 }
 
 export function login(email, password) {
-  return send('api/auth/login', { method: 'POST', body: { email, password } })
+  return send('auth/login', { email, password })
 }
 
 export function logout() {
-  return send('api/auth/logout', { method: 'POST', body: {} }).catch(() => {})
+  return send('auth/logout', {}).catch(() => {})
 }
 
 export function listUsers() {
-  return send('api/admin/users')
+  return send('admin/list', null)
 }
 
 export function createUser(body) {
-  return send('api/admin/users', { method: 'POST', body })
+  return send('admin/create', body)
 }
 
 export function updateUser(id, body) {
-  return send(`api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+  return send('admin/update', { id, ...body })
 }
 
 export function deleteUser(id) {
-  return send(`api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return send('admin/delete', { id })
 }
