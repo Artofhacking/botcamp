@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -338,6 +338,43 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     }
   } finally {
     await ctx.close()
+  }
+})
+
+test('an older admin id is rewritten so another instance accepts the session', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-old-'))
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-old-other-'))
+  const env = { NODE_ENV: 'production', BOTCAMP_PRODUCTION: '1', BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }
+  try {
+    await writeFile(path.join(dir, 'accounts.json'), JSON.stringify({
+      users: [{
+        id: 'old-admin-id-0123456789',
+        email: ADMIN_EMAIL,
+        passwordHash: 'scrypt$unused$unused',
+        role: 'admin',
+        quota: 3,
+        used: 1,
+        kernelKey: 'u_oldkernelkey12',
+        prefs: {},
+        prefsVersion: 0,
+        mainBotIds: [],
+        createdAt: '2020-01-01T00:00:00.000Z',
+      }],
+      sessions: [],
+      resources: [],
+    }))
+    const camp = await createBotcamp({ dataDir: dir, env, kernelOrigin: 'http://kernel.test', fetchImpl: async () => new Response('ok') })
+    const users = await camp.store.listUsers()
+    assert.notEqual(users[0].id, 'old-admin-id-0123456789')
+    assert.equal(users[0].used, 1)
+    const session = await camp.store.createSession(users[0].id)
+    const other = await createBotcamp({ dataDir: otherDir, env, kernelOrigin: 'http://kernel.test', fetchImpl: async () => new Response('ok') })
+    const user = await other.store.userForToken(session.token)
+    assert.equal(user?.email, ADMIN_EMAIL)
+    assert.equal(user?.id, users[0].id)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+    await rm(otherDir, { recursive: true, force: true })
   }
 })
 

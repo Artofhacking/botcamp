@@ -112,22 +112,40 @@ export async function openStore(dataDir) {
     async bootstrap(env) {
       sessionKey = sessionSecret(env)
       return exclusive(async () => {
-        if (data.users.length > 0) return { created: false }
         const creds = bootstrapCredentials(env)
-        if (!creds || !validEmail(normalizeEmail(creds.email)) || typeof creds.password !== 'string' || creds.password.length < 8) {
-          return { created: false }
-        }
+        const emailOk = Boolean(creds) && validEmail(normalizeEmail(creds.email)) && typeof creds.password === 'string' && creds.password.length >= 8
+        if (!emailOk) return { created: false }
         const email = normalizeEmail(creds.email)
-        data.users.push(newUser({
-          email,
-          passwordHash: await hashPassword(creds.password),
-          role: 'admin',
-          quota: defaultQuota(env),
-          id: stableUserId(email),
-          kernelKey: stableKernelKey(email),
-        }))
-        await saveAccounts()
-        return { created: true }
+        const id = stableUserId(email)
+        const kernelKey = stableKernelKey(email)
+        const existing = data.users.find(user => user.email === email)
+        if (!existing) {
+          if (data.users.length > 0) return { created: false }
+          data.users.push(newUser({
+            email,
+            passwordHash: await hashPassword(creds.password),
+            role: 'admin',
+            quota: defaultQuota(env),
+            id,
+            kernelKey,
+          }))
+          await saveAccounts()
+          return { created: true }
+        }
+        let changed = false
+        if (existing.id !== id) {
+          const previous = existing.id
+          existing.id = id
+          for (const session of data.sessions) if (session.userId === previous) session.userId = id
+          for (const resource of data.resources) if (resource.userId === previous) resource.userId = id
+          changed = true
+        }
+        if (existing.kernelKey !== kernelKey) {
+          existing.kernelKey = kernelKey
+          changed = true
+        }
+        if (changed) await saveAccounts()
+        return { created: false }
       })
     },
     getUser(id) {
