@@ -1,0 +1,78 @@
+# 推送到 main 就发布到 Demox 站点 IVBLF9PE（https://botcamp.demox.site/）。
+# 仓库 Settings → Secrets and variables → Actions 里要有 DEMOX_TOKEN（Demox 个人访问令牌）。
+# 这个流程不改函数环境变量。管理员密码和项目库令牌继续只放在 Demox 函数环境里。
+
+name: Deploy to Demox
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: demox-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test
+        run: |
+          set -euo pipefail
+          if [[ ! -f app/package-lock.json ]]; then
+            echo "这个提交还没有 app/，跳过测试。"
+            exit 0
+          fi
+          npm --prefix app ci
+          npm --prefix app test
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Publish site and bot function
+        env:
+          DEMOX_TOKEN: ${{ secrets.DEMOX_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in app/package-lock.json scripts/deploy-demox.sh demox-site.json functions/bot/entry.mjs; do
+            if [[ ! -f "$f" ]]; then
+              echo "缺少 $f"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "main 上还没有完整的应用，不发布，避免盖掉正在使用的 Demox 站点。"
+            exit 0
+          fi
+          if [[ -z "${DEMOX_TOKEN}" ]]; then
+            echo "GitHub Actions 缺少 secret DEMOX_TOKEN。"
+            echo "到仓库 Settings → Secrets and variables → Actions 添加 Demox 个人访问令牌，名字必须是 DEMOX_TOKEN。"
+            exit 1
+          fi
+          chmod +x scripts/deploy-demox.sh
+          ./scripts/deploy-demox.sh
