@@ -1,4 +1,5 @@
 import { Component, createElement as h, Fragment, useEffect, useMemo } from 'react'
+import { me } from './account.js'
 import { ErrorToast } from '../../../ds-bot/src/client/feedback.js'
 import { HeaderPill } from '../../../ds-bot/src/client/header.js'
 import { t } from '../../../ds-bot/src/client/i18n.js'
@@ -41,9 +42,27 @@ class Contain extends Component {
   render() { return this.state.failed ? null : this.props.children }
 }
 
-export function App() {
+export function App({ user, onLogout, onAdmin, onUser }) {
   const team = useMemo(createTeam, [])
   useEffect(() => team.start(), [team])
+  useEffect(() => {
+    if (!onUser) return undefined
+    let stopped = false
+    const tick = () => {
+      me().then((next) => {
+        if (stopped) return
+        if (!next) { onLogout?.(); return }
+        if (next.used !== user?.used || next.quota !== user?.quota || next.email !== user?.email || next.role !== user?.role) onUser(next)
+      }).catch(() => {})
+    }
+    const timer = setInterval(tick, 20000)
+    window.addEventListener('focus', tick)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+      window.removeEventListener('focus', tick)
+    }
+  }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role])
   const { hooks, actions } = team
   const views = { ...hooks, actions }
   const wide = hooks.useLayout(state => state.wide)
@@ -66,6 +85,12 @@ export function App() {
         wide ? null : h('button', { type: 'button', className: 'dsb-expand', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: () => actions.toggleSidebar() }, h(BrandMark, { size: 22 })),
         h(TeamSidebar, { ...views, wide })),
       h('div', { className: 'dsb-side-foot' },
+        user ? h('div', { className: 'dsb-account' },
+          h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
+          h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
+          h('span', { className: 'dsb-account-actions' },
+            user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
+            h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
     // The details panel makes room by giving the shell's `_centerCol` column a right margin.
     h('main', { className: 'dsb-main dsb_centerCol' },

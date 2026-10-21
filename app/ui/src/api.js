@@ -22,7 +22,12 @@ export function openFeed(onEvent) {
     for (let failures = 0; !stopped;) {
       controller = new AbortController()
       try {
-        const response = await fetch('api/bot/feed', { signal: controller.signal, cache: 'no-store' })
+        const response = await fetch('api/bot/feed', { signal: controller.signal, cache: 'no-store', credentials: 'same-origin' })
+        if (response.status === 401) {
+          stopped = true
+          onEvent('lost', {})
+          return
+        }
         if (!response.ok || response.body === null) throw new Error(`HTTP ${response.status}`)
         failures = 0
         const reader = response.body.getReader()
