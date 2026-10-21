@@ -1,8 +1,8 @@
 # BotCamp
 
-页面用的是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 自己的窗口（`app/ui`，Apache-2.0），不是 DeepSeek Harness 那套壳，也不依赖 `window.__ModuleLoader__`。界面在这个仓库里构建，静态产物部署到 Demox 项目 **botcamp**。会话仍由腾讯云上的 dsh 内核执行，入口是 [https://camp.aigc.sx.cn](https://camp.aigc.sx.cn)。
+页面用的是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 自己的窗口（`app/ui`，Apache-2.0），不是 DeepSeek Harness 那套壳，也不依赖 `window.__ModuleLoader__`。用户只打开 [https://botcamp.demox.site/](https://botcamp.demox.site/)。界面在这个仓库里构建，整站部署在 Demox 项目 **botcamp**。
 
-内核拒绝跨站调用：从 `botcamp.demox.site` 直接请求 `camp.aigc.sx.cn/api` 会得到 403。浏览器必须和 `/api` 同源。本地开发由 Vite 把 `/api` 反代到内核；线上由 camp 的 nginx 提供这个页面，并把 `/api` 转到本机 `dsh web`。
+[https://camp.aigc.sx.cn](https://camp.aigc.sx.cn) 只提供内核 API，不提供页面。浏览器从 `botcamp.demox.site` 直接请求它会得到 403。线上由 Demox 云函数在服务端把 `POST /api/bot` 和 `GET /api/bot/feed` 转到该内核。本地开发由 Vite 把 `/api` 反代到内核。
 
 这个窗口只跟 ds-bot 插件说话：`POST /api/bot` 和 `GET /api/bot/feed`。插件还没装进内核时，页面能打开，状态请求会得到 404。在腾讯云那台机器上、内核所在的环境里执行：
 
@@ -23,7 +23,7 @@ npm --prefix app run dev
 npm --prefix app run build
 ```
 
-产物在 `app/ui/dist`。
+产物在 `app/ui/dist`。构建会清空该目录。
 
 ## Demox
 
@@ -36,12 +36,15 @@ npm --prefix app run build
 ```bash
 # 需要 demox login 或 DEMOX_TOKEN
 ./scripts/deploy-demox.sh
+npx --yes @demox-site/cli functions push ./functions/bot --id IVBLF9PE --slug bot --name bot --routes /api/bot,/api/bot/feed
 ```
 
-部署会替换该站点上的静态文件。camp 目前把 `/assets/` 指到这个站点上的 Harness 资源。换上 DeepSeek Bot 页面时，要同时套用 `deploy/nginx/camp.conf`：已登录且没有 `?token=` 的 `/` 返回新的 `index.html`，`/assets/` 改指向这份产物，`/api/` 继续走本机 3080。两边不要分开上。
+`--routes` 只在第一次创建函数时生效。之后再推版本不会改路径，需要的话把 production 别名指到新版本：
 
 ```bash
-nginx -t && systemctl reload nginx
+npx --yes @demox-site/cli functions alias set --id IVBLF9PE --slug bot production --version N
 ```
+
+部署会替换该站点上的静态文件。camp 的 nginx（`deploy/nginx/camp.conf`）只把 `/api/` 转到本机 `127.0.0.1:3080`，其它路径返回纯文本 404，不返回页面，也不代理 Demox 的首页。这份配置要在腾讯云那台机器上执行 `nginx -t && systemctl reload nginx` 之后才会生效。
 
 内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。
