@@ -21,12 +21,14 @@ npm --prefix app run dev
 
 ## 账号
 
-dsh 内核和 ds-bot 插件都是单租户。多个用户的隔离做在这个仓库的网关里（`app/botcamp/`，由 `app/kernelProxy.mjs` 挂到 Vite），发生在请求进入共享内核之前。
+dsh 内核和 ds-bot 插件都是单租户。多个用户不能共用一个工作区再靠页面过滤。隔离做在网关里，发生在请求进入内核之前。本地由 `app/kernelProxy.mjs` 挂上 `app/botcamp/`。Demox 上的 `functions/bot` 走同一套网关，未登录的 `/api/bot` 直接 401。
 
 - 邮箱加密码登录。没有公开注册，账号由管理员开通。密码用 scrypt 保存，不明文落地。会话是本站的 `botcamp_session` httpOnly cookie，和内核的 `dsh-auth` 不是同一个。
-- 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`。机器人、会话、群和设置的归属记在本地账本里；`state` 和实时流只返回这个账号自己的部分。别人的 id 在进内核之前就被拒绝。
-- 主题等个人设置只写在这个账号上，不会改共享内核里的全局配置。模型供应商密钥、工作区文件和诊断日志也不能通过页面改到别人身上。
-- 对话原文另存在 `data/namespaces/<kernelKey>.json`。账本在 `data/accounts.json`。`data/` 已 gitignore，重启开发服务器后还在。不要把这个目录提交上去。
+- 每个账号有一个稳定的 `kernelKey`，并对应自己的目录 `data/workspaces/<kernelKey>/`。文件、机器人文件夹、会话清单和设置都写在这个目录里。别人的目录不会出现在列表里，也不能被打开。
+- 路径、会话 id、机器人 id、工作区 id 只要不属于当前账号，就在转发给内核之前拒绝。`../`、绝对路径和指向别人目录的符号链接同样拒绝，不会读到工作区外面。
+- 发往内核的 Bot 请求会带上 `x-botcamp-namespace`。文件和文件夹接口不转发给共享内核，只读写这个账号自己的目录。`state` 和实时流只返回这个账号自己的部分。
+- 主题等个人设置写在这个账号的工作区里，不会改共享内核里的全局配置。模型供应商密钥和诊断日志也不能通过页面改到别人身上。
+- 对话原文另存在 `data/namespaces/<kernelKey>.json`。账本在 `data/accounts.json`。`data/` 已 gitignore，重启开发服务器后还在。不要把这个目录提交上去。云函数可以用 `BOTCAMP_DATA_DIR` 把同一份数据指到持久目录；没设置时落在该实例的临时目录，换实例后不会自动带上。
 - 配额按消息条数。发送一条（`send`），或向记忆提问一次（`memory-ask`），计 1 次。配额为 0 或已用尽时，发送会被拒绝，并提示联系管理员。管理员在侧栏「用户与配额」里修改。
 
 用户库为空时，用环境变量创建第一名管理员：

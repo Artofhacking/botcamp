@@ -1,13 +1,25 @@
 import { randomBytes, createHash } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword } from './passwords.mjs'
+import { ensureWorkspace, safeKernelKey, workspaceDir, writeManifest, writeSettings } from './workspace.mjs'
 
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000
 
 export function defaultDataDir() {
-  return fileURLToPath(new URL('../../data', import.meta.url))
+  const fromEnv = process.env.BOTCAMP_DATA_DIR
+  if (typeof fromEnv === 'string' && fromEnv.trim()) return fromEnv.trim()
+  let dir = path.dirname(fileURLToPath(import.meta.url))
+  for (let hop = 0; hop < 6; hop += 1) {
+    if (existsSync(path.join(dir, 'demox-site.json'))) return path.join(dir, 'data')
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return path.join(tmpdir(), 'botcamp-data')
 }
 
 function emptyData() {
@@ -101,6 +113,26 @@ export async function openStore(dataDir) {
   }
   const saveAccounts = () => writeAtomic(file, data)
 
+  function claimWorkspace(user) {
+    if (!safeKernelKey(user.kernelKey)) return false
+    if (data.resources.some(resource => resource.id === user.kernelKey)) return false
+    data.resources.push({ id: user.kernelKey, userId: user.id, kind: 'workspace', parentId: null })
+    return true
+  }
+
+  async function projectWorkspace(user) {
+    if (!safeKernelKey(user.kernelKey)) return
+    const root = await ensureWorkspace(dir, user.kernelKey)
+    const mine = data.resources.filter(resource => resource.userId === user.id && resource.kind !== 'workspace')
+    await writeManifest(root, {
+      workspaceId: user.kernelKey,
+      sessions: mine.filter(resource => resource.kind === 'session').map(resource => resource.id),
+      bots: mine.filter(resource => resource.kind === 'bot').map(resource => resource.id),
+      settings: { ...(user.prefs ?? {}) },
+    })
+    await writeSettings(root, { prefs: { ...(user.prefs ?? {}) } })
+  }
+
   const api = {
     idle: () => chain,
     publicUser,
@@ -113,13 +145,17 @@ export async function openStore(dataDir) {
           return { created: false }
         }
         const email = normalizeEmail(creds.email)
-        data.users.push(newUser({
+        const user = newUser({
           email,
           passwordHash: await hashPassword(creds.password),
           role: 'admin',
           quota: defaultQuota(env),
-        }))
+        })
+        data.users.push(user)
+        claimWorkspace(user)
         await saveAccounts()
+        await ensureWorkspace(dir, user.kernelKey)
+        await projectWorkspace(user)
         return { created: true }
       })
     },
@@ -151,7 +187,10 @@ export async function openStore(dataDir) {
         if (data.users.some(user => user.email === normalized)) return { error: '这个邮箱已经有账号。' }
         const user = newUser({ email: normalized, passwordHash: await hashPassword(password), role, quota })
         data.users.push(user)
+        claimWorkspace(user)
         await saveAccounts()
+        await ensureWorkspace(dir, user.kernelKey)
+        await projectWorkspace(user)
         return { user: publicUser(user) }
       })
     },
@@ -189,6 +228,7 @@ export async function openStore(dataDir) {
         data.sessions = data.sessions.filter(session => session.userId !== id)
         data.resources = data.resources.filter(resource => resource.userId !== id)
         await saveAccounts()
+        if (safeKernelKey(user.kernelKey)) await rm(workspaceDir(dir, user.kernelKey), { recursive: true, force: true })
         return { ok: true }
       })
     },
@@ -252,6 +292,7 @@ export async function openStore(dataDir) {
         user.prefs = prefs
         user.prefsVersion = (user.prefsVersion ?? 0) + 1
         await saveAccounts()
+        await projectWorkspace(user)
         return principal(user)
       })
     },
@@ -262,6 +303,7 @@ export async function openStore(dataDir) {
         user.mainBotIds = mainBotIds
         user.prefsVersion = (user.prefsVersion ?? 0) + 1
         await saveAccounts()
+        await projectWorkspace(user)
         return principal(user)
       })
     },
@@ -281,6 +323,8 @@ export async function openStore(dataDir) {
           changed = true
         }
         if (changed) await saveAccounts()
+        const user = data.users.find(entry => entry.id === userId)
+        if (user) await projectWorkspace(user)
       })
     },
     async rememberPage(userId, sessionId, items) {
@@ -312,16 +356,31 @@ export async function openStore(dataDir) {
     kernelKey(userId) {
       return exclusive(async () => data.users.find(user => user.id === userId)?.kernelKey ?? '')
     },
+    ensureUserWorkspace(userId) {
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return null
+        if (claimWorkspace(user)) await saveAccounts()
+        return ensureWorkspace(dir, user.kernelKey)
+      })
+    },
   }
+
+  let migrated = false
+  for (const user of data.users) {
+    if (!safeKernelKey(user.kernelKey)) continue
+    if (!data.resources.some(resource => resource.id === user.kernelKey && resource.userId === user.id)) {
+      claimWorkspace(user)
+      migrated = true
+    }
+    await ensureWorkspace(dir, user.kernelKey)
+  }
+  if (migrated) await saveAccounts()
   return api
 }
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
-}
-
-function safeKernelKey(kernelKey) {
-  return typeof kernelKey === 'string' && /^u_[A-Za-z0-9_-]{8,}$/.test(kernelKey)
 }
 
 async function readNamespace(file) {
