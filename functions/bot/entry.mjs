@@ -1,4 +1,8 @@
+import { mkdtemp } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { createBotcamp } from '../../app/botcamp/http.mjs'
+import { createHttpLedger } from '../../app/botcamp/projectLedger.mjs'
 
 const gates = new Map()
 const FEED_MS = 2500
@@ -78,17 +82,38 @@ export function runtimeEnv(functionEnv) {
   }
 }
 
+function explicitDataDir(env) {
+  return typeof env.BOTCAMP_DATA_DIR === 'string' ? env.BOTCAMP_DATA_DIR.trim() : ''
+}
+
 function gateFor(env, fetchImpl) {
-  const dataDir = typeof env.BOTCAMP_DATA_DIR === 'string' && env.BOTCAMP_DATA_DIR.trim()
-    ? env.BOTCAMP_DATA_DIR
-    : '/tmp/botcamp-data'
-  const existing = gates.get(dataDir)
+  const project = env.BOTCAMP_STORE === 'demox-project'
+  const configured = explicitDataDir(env)
+  const key = project ? `project:${env.BOTCAMP_PROJECT_ID || ''}` : (configured || 'dev')
+  const existing = gates.get(key)
   if (existing) return existing
-  const pending = createBotcamp({ env, dataDir, fetchImpl }).catch((error) => {
-    gates.delete(dataDir)
+  const pending = (async () => {
+    if (project) {
+      const dataDir = await mkdtemp(path.join(os.tmpdir(), 'botcamp-cache-'))
+      const ledger = createHttpLedger({
+        fetchImpl: fetchImpl ?? globalThis.fetch,
+        apiUrl: env.BOTCAMP_PROJECT_API || undefined,
+        token: env.BOTCAMP_STORE_TOKEN,
+        projectId: env.BOTCAMP_PROJECT_ID,
+      })
+      return createBotcamp({ env, dataDir, fetchImpl, ledger })
+    }
+    if (!configured || configured === '/tmp' || configured === '/tmp/botcamp-data') {
+      const error = new Error('生产函数不能把账本放在会清空的目录。请设置 BOTCAMP_STORE=demox-project。')
+      error.code = 'STORE'
+      throw error
+    }
+    return createBotcamp({ env, dataDir: configured, fetchImpl })
+  })().catch((error) => {
+    gates.delete(key)
     throw error
   })
-  gates.set(dataDir, pending)
+  gates.set(key, pending)
   return pending
 }
 

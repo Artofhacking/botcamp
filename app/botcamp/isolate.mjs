@@ -1,21 +1,26 @@
 // Isolation sits in front of the single-tenant kernel. Resource ids are claimed
 // only when this user creates them (or when they show up on a bot they already
 // own). Reads of the shared roster are filtered before they reach the browser.
+// Model configuration never reaches the kernel. Workspace files stay in this
+// account's directory.
 
+import { freezeProviders, isModelWrite, MODEL_MESSAGE, scopeConnectors, scopeUsage, stripModelSecrets } from './scope.mjs'
+import { publicCapabilities, publicSecrets, USER_LOCAL } from './userSettings.mjs'
+import { WORKSPACE_MESSAGE } from './workspace.mjs'
+
+export { MODEL_MESSAGE }
 export const CROSS_MESSAGE = '无权查看或操作其他用户的机器人、会话或设置。'
 export const QUOTA_MESSAGE = '配额已用完，无法发送。请联系管理员提高可发送的消息数。'
 export const SHARED_MESSAGE = '这项设置在共享内核上是全局的，不能按账号修改，以免影响其他用户。'
 export const FILE_MESSAGE = '共享内核的文件和诊断日志不向单个账号开放。'
 
 const METERED = new Set(['send', 'memory-ask'])
-const LOCAL = new Set(['set-prefs', 'set-main', 'diagnostics-log', 'diagnostics-clear'])
-const BLOCKED = new Set([
-  'provider-key', 'provider-add', 'provider-remove',
-  'team-workspace', 'folder-pick', 'folder-list', 'folders', 'file-text',
-  'connector-connect', 'connector-disconnect', 'connector-retry',
-  'update-install', 'dsh-update-install',
+const LOCAL = USER_LOCAL
+const FILE_WORKSPACE = new Set([
+  'workspace-list', 'workspaces', 'workspace-open',
+  'folder-pick', 'folder-list', 'file-text', 'file-write',
 ])
-const FILE_BLOCKED = new Set(['team-workspace', 'folder-pick', 'folder-list', 'folders', 'file-text'])
+const BLOCKED = new Set(['update-install', 'dsh-update-install'])
 const ID_KEYS = ['id', 'botId', 'sessionId', 'roomId', 'agentId']
 const MARK = '~botcamp~'
 const PREF_KEYS = new Set(['theme', 'accent', 'motion'])
@@ -56,8 +61,13 @@ export function createAccess(userId, resources) {
 function accessPlan(endpoint, payload) {
   const mustOwn = []
   const claimIfFree = []
-  let claimKind = 'secret'
-  if (payload && typeof payload === 'object') {
+  const claimKind = 'secret'
+  const skipResourceId = endpoint === 'usage'
+    || endpoint === 'connector-connect'
+    || endpoint === 'connector-disconnect'
+    || endpoint === 'connector-retry'
+    || endpoint === 'schedule-delete'
+  if (payload && typeof payload === 'object' && !skipResourceId) {
     for (const key of ID_KEYS) {
       if (typeof payload[key] === 'string' && payload[key]) mustOwn.push(payload[key])
     }
@@ -71,32 +81,28 @@ function accessPlan(endpoint, payload) {
         else if (member && typeof member.id === 'string') mustOwn.push(member.id)
       }
     }
-    if (endpoint === 'secret-delete' || endpoint === 'secret-update') {
-      if (typeof payload.name === 'string') mustOwn.push(payload.name)
-    }
-    if (endpoint === 'capability-delete' || endpoint === 'capability-approve' || endpoint === 'bot-capability') {
-      if (typeof payload.name === 'string') mustOwn.push(payload.name)
-    }
-    if (endpoint === 'secret-set' && typeof payload.name === 'string') claimIfFree.push(payload.name)
-    if (endpoint === 'capability-save') {
-      claimKind = 'capability'
-      const name = payload.name ?? payload.capability?.name
-      if (typeof name === 'string') claimIfFree.push(name)
+    if (endpoint === 'schedule-create' && typeof payload.target === 'string') mustOwn.push(payload.target)
+  }
+  if ((endpoint.startsWith('connector-') || endpoint === 'schedule-delete') && payload && typeof payload === 'object') {
+    for (const key of ['botId', 'sessionId', 'roomId', 'agentId']) {
+      if (typeof payload[key] === 'string' && payload[key]) mustOwn.push(payload[key])
     }
   }
   return { mustOwn, claimIfFree, claimKind }
 }
 
-export function decide(endpoint, payload, access) {
+export function decide(endpoint, payload, access, context = {}) {
+  const workspaceId = typeof context === 'string' ? context : context?.workspaceId
   if (typeof endpoint !== 'string' || endpoint.length === 0 || endpoint.length > 80) {
     return { action: 'refuse', message: '无效的请求。' }
   }
-  if (BLOCKED.has(endpoint)) {
-    return { action: 'refuse', message: FILE_BLOCKED.has(endpoint) ? FILE_MESSAGE : SHARED_MESSAGE }
+  if (isModelWrite(endpoint, payload)) return { action: 'refuse', message: MODEL_MESSAGE }
+  if (payload && typeof payload === 'object' && typeof payload.workspaceId === 'string' && payload.workspaceId) {
+    const requested = payload.workspaceId
+    const ownsWorkspace = requested === workspaceId || access.owns(requested)
+    if (!ownsWorkspace) return { action: 'refuse', message: WORKSPACE_MESSAGE }
   }
-  if (endpoint === 'provider-models' && typeof payload?.key === 'string' && payload.key !== '') {
-    return { action: 'refuse', message: '模型供应商密钥不能提交到共享内核，以免被其他账号共用。' }
-  }
+  if (BLOCKED.has(endpoint)) return { action: 'refuse', message: SHARED_MESSAGE }
   const plan = accessPlan(endpoint, payload)
   for (const id of plan.mustOwn) {
     if (!access.owns(id)) return { action: 'refuse', message: CROSS_MESSAGE }
@@ -106,6 +112,7 @@ export function decide(endpoint, payload, access) {
     if (owner && owner !== access.userId) return { action: 'refuse', message: CROSS_MESSAGE }
     if (!owner) access.claim(id, plan.claimKind)
   }
+  if (FILE_WORKSPACE.has(endpoint)) return { action: 'workspace', endpoint }
   if (LOCAL.has(endpoint)) return { action: 'local', endpoint }
   if (METERED.has(endpoint)) return { action: 'metered' }
   return { action: 'forward' }
@@ -193,7 +200,7 @@ function claimBot(access, bot) {
   return true
 }
 
-export function filterState(value, user, access) {
+export function filterState(value, user, access, settings = {}) {
   if (!value || typeof value !== 'object') return value
   if (value.unchanged) return value
   const bots = []
@@ -213,9 +220,11 @@ export function filterState(value, user, access) {
     }
   }
   const mainBotIds = (user.mainBotIds ?? []).filter(id => access.owns(id))
-  const secrets = (value.secrets ?? []).filter(secret => secret && access.owns(secret.name ?? secret.id))
-  const capabilities = (value.capabilities ?? []).filter(item => item && access.owns(item.name ?? item.id))
-  return {
+  const botCapabilities = settings.botCapabilities && typeof settings.botCapabilities === 'object' ? settings.botCapabilities : {}
+  for (const bot of bots) {
+    if (Array.isArray(botCapabilities[bot.id])) bot.capabilities = [...botCapabilities[bot.id]]
+  }
+  const result = {
     ...value,
     bots,
     rooms,
@@ -225,21 +234,23 @@ export function filterState(value, user, access) {
     prefs: { ...(user.prefs ?? {}) },
     questions: keepMap(value.questions, access.owns),
     exchangeTurns: keepMap(value.exchangeTurns, access.owns),
-    secrets,
-    capabilities,
+    secrets: publicSecrets(settings),
+    capabilities: publicCapabilities(settings),
     capabilityStatuses: keepMap(value.capabilityStatuses, access.owns),
     secretRequests: keepMap(value.secretRequests, access.owns),
     activity: keepMap(value.activity, access.owns),
     memoryNews: keepMap(value.memoryNews, access.owns),
     work: filterWork(value.work, access),
-    connectors: [],
+    connectors: scopeConnectors(value.connectors, settings.connectors),
+    models: Array.isArray(value.models) ? value.models.map(stripModelSecrets) : value.models,
     modelsKey: stampModelsKey(value.modelsKey, user.prefsVersion ?? 0),
   }
+  for (const key of ['usage', 'providers', 'providerKeys', 'diagnostics', 'files', 'workspace', 'teamWorkspace']) delete result[key]
+  return result
 }
 
 export function filterUsage(value, access) {
-  if (!value || typeof value !== 'object' || !Array.isArray(value.rows)) return value
-  return { ...value, rows: value.rows.filter(row => Array.isArray(row) && access.owns(row[1])) }
+  return scopeUsage(value, access)
 }
 
 export function filterSchedules(value, access) {
@@ -282,28 +293,23 @@ export function releaseDeleted(endpoint, payload, access) {
   if (typeof payload.name === 'string') access.release(payload.name)
 }
 
-export function rewriteValue(endpoint, value, user, access) {
-  if (endpoint === 'state') return filterState(value, user, access)
+export function rewriteValue(endpoint, value, user, access, settings) {
+  if (endpoint === 'state') return filterState(value, user, access, settings)
   if (endpoint === 'usage') return filterUsage(value, access)
   if (endpoint === 'schedules') return filterSchedules(value, access)
-  if (endpoint === 'providers') return stripSecrets(value)
+  if (endpoint === 'providers') return freezeProviders(value)
   return value
-}
-
-function stripSecrets(value) {
-  if (Array.isArray(value)) return value.map(stripSecrets)
-  if (!value || typeof value !== 'object') return value
-  const next = {}
-  for (const [key, child] of Object.entries(value)) {
-    if (typeof child === 'string' && /apiKey|token|password|secret|authorization/i.test(key)) continue
-    next[key] = stripSecrets(child)
-  }
-  return next
 }
 
 export function localValue(endpoint, user) {
   if (endpoint === 'diagnostics-log') return ''
   if (endpoint === 'diagnostics-clear') return true
+  if (endpoint === 'diagnostics') {
+    return {
+      markdown: `BotCamp\n账号 ${user?.email ?? ''}\n这里只有这个账号自己的记录。\n`,
+      issuesUrl: 'https://github.com/Fei2411/DeepSeek-Bot/issues/new',
+    }
+  }
   if (endpoint === 'set-prefs') return { ...(user.prefs ?? {}) }
   if (endpoint === 'set-main') return { mainBotIds: [...(user.mainBotIds ?? [])] }
   return null

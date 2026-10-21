@@ -1,8 +1,10 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword } from './passwords.mjs'
+import { emptySettings, normalizeSettings } from './userSettings.mjs'
+import { ensureWorkspace, writeManifest, writeSettings as writeWorkspaceFile } from './workspace.mjs'
 
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000
 
@@ -77,7 +79,8 @@ function newUser({ email, passwordHash, role, quota, id, kernelKey }) {
   }
 }
 
-export async function openStore(dataDir) {
+export async function openStore(dataDir, options = {}) {
+  const ledger = options.ledger ?? null
   const dir = dataDir
   const file = path.join(dir, 'accounts.json')
   const namespaceDir = path.join(dir, 'namespaces')
@@ -89,6 +92,17 @@ export async function openStore(dataDir) {
     if (!Array.isArray(data.revoked)) data.revoked = []
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
+  }
+  if (ledger) {
+    const remote = await ledger.loadAccounts()
+    if (remote && Array.isArray(remote.users)) {
+      data = {
+        users: remote.users,
+        sessions: Array.isArray(remote.sessions) ? remote.sessions : [],
+        resources: Array.isArray(remote.resources) ? remote.resources : [],
+        revoked: Array.isArray(remote.revoked) ? remote.revoked : [],
+      }
+    }
   }
 
   let dummyHash = null
@@ -103,7 +117,78 @@ export async function openStore(dataDir) {
     chain = run.then(() => {}, () => {})
     return run
   }
-  const saveAccounts = () => writeAtomic(file, data)
+  const saveAccounts = async () => {
+    await writeAtomic(file, data)
+    if (ledger) await ledger.saveAccounts(data)
+  }
+  const hydrated = new Set()
+
+  function claimWorkspace(user) {
+    if (!safeKernelKey(user.kernelKey)) return false
+    if (data.resources.some(resource => resource.id === user.kernelKey)) return false
+    data.resources.push({ id: user.kernelKey, userId: user.id, kind: 'workspace', parentId: null })
+    return true
+  }
+
+  async function collectFiles(root, rel = '') {
+    const out = {}
+    let entries = []
+    try { entries = await readdir(path.join(root, rel), { withFileTypes: true }) } catch (error) {
+      if (error?.code === 'ENOENT') return out
+      throw error
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name.length > 180) continue
+      const child = rel ? `${rel}/${entry.name}` : entry.name
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) {
+        out[child] = { dir: true }
+        Object.assign(out, await collectFiles(root, child))
+      } else if (entry.isFile()) {
+        out[child] = { text: await readFile(path.join(root, child), 'utf8') }
+      }
+    }
+    return out
+  }
+
+  async function hydrateFiles(kernelKey, root) {
+    if (!ledger || hydrated.has(kernelKey)) return
+    const tree = await ledger.loadFiles(kernelKey)
+    const entries = Object.entries(tree ?? {}).sort((a, b) => Number(Boolean(b[1]?.dir)) - Number(Boolean(a[1]?.dir)))
+    for (const [rel, info] of entries) {
+      if (typeof rel !== 'string' || rel.includes('..') || path.isAbsolute(rel)) continue
+      const abs = path.join(root, rel)
+      if (!abs.startsWith(`${root}${path.sep}`) && abs !== root) continue
+      if (info?.dir) await mkdir(abs, { recursive: true, mode: 0o700 })
+      else {
+        await mkdir(path.dirname(abs), { recursive: true })
+        await writeFile(abs, info?.text ?? '', { mode: 0o600 })
+      }
+    }
+    hydrated.add(kernelKey)
+  }
+
+  async function projectWorkspace(user) {
+    if (!safeKernelKey(user.kernelKey)) return null
+    const root = await ensureWorkspace(dir, user.kernelKey)
+    await hydrateFiles(user.kernelKey, root)
+    const mine = data.resources.filter(resource => resource.userId === user.id && resource.kind !== 'workspace')
+    await writeManifest(root, {
+      workspaceId: user.kernelKey,
+      sessions: mine.filter(resource => resource.kind === 'session').map(resource => resource.id),
+      bots: mine.filter(resource => resource.kind === 'bot').map(resource => resource.id),
+      settings: { ...(user.prefs ?? {}) },
+    })
+    await writeWorkspaceFile(root, { prefs: { ...(user.prefs ?? {}) } })
+    if (ledger) await ledger.saveFiles(user.kernelKey, await collectFiles(root))
+    return root
+  }
+
+  async function writeNamespace(kernelKey, saved) {
+    const transcriptFile = path.join(namespaceDir, `${kernelKey}.json`)
+    await writeAtomic(transcriptFile, saved)
+    if (ledger) await ledger.saveNamespace(kernelKey, saved)
+  }
 
   const api = {
     idle: () => chain,
@@ -121,14 +206,17 @@ export async function openStore(dataDir) {
         const existing = data.users.find(user => user.email === email)
         if (!existing) {
           if (data.users.length > 0) return { created: false }
-          data.users.push(newUser({
+          const createdUser = newUser({
             email,
             passwordHash: await hashPassword(creds.password),
             role: 'admin',
             quota: defaultQuota(env),
             id,
             kernelKey,
-          }))
+          })
+          data.users.push(createdUser)
+          claimWorkspace(createdUser)
+          await projectWorkspace(createdUser)
           await saveAccounts()
           return { created: true }
         }
@@ -144,6 +232,8 @@ export async function openStore(dataDir) {
           existing.kernelKey = kernelKey
           changed = true
         }
+        if (claimWorkspace(existing)) changed = true
+        await projectWorkspace(existing)
         if (changed) await saveAccounts()
         return { created: false }
       })
@@ -176,6 +266,8 @@ export async function openStore(dataDir) {
         if (data.users.some(user => user.email === normalized)) return { error: '这个邮箱已经有账号。' }
         const user = newUser({ email: normalized, passwordHash: await hashPassword(password), role, quota })
         data.users.push(user)
+        claimWorkspace(user)
+        await projectWorkspace(user)
         await saveAccounts()
         return { user: publicUser(user) }
       })
@@ -282,6 +374,8 @@ export async function openStore(dataDir) {
         if (!user) return null
         user.prefs = prefs
         user.prefsVersion = (user.prefsVersion ?? 0) + 1
+        claimWorkspace(user)
+        await projectWorkspace(user)
         await saveAccounts()
         return principal(user)
       })
@@ -292,6 +386,8 @@ export async function openStore(dataDir) {
         if (!user) return null
         user.mainBotIds = mainBotIds
         user.prefsVersion = (user.prefsVersion ?? 0) + 1
+        claimWorkspace(user)
+        await projectWorkspace(user)
         await saveAccounts()
         return principal(user)
       })
@@ -311,6 +407,12 @@ export async function openStore(dataDir) {
           data.resources.push({ id: claim.id, userId, kind: claim.kind, parentId: claim.parentId ?? null })
           changed = true
         }
+        const user = data.users.find(entry => entry.id === userId)
+        if (user) {
+          claimWorkspace(user)
+          await projectWorkspace(user)
+          changed = true
+        }
         if (changed) await saveAccounts()
       })
     },
@@ -319,10 +421,9 @@ export async function openStore(dataDir) {
       await exclusive(async () => {
         const user = data.users.find(entry => entry.id === userId)
         if (!user || !safeKernelKey(user.kernelKey)) return
-        const transcriptFile = path.join(namespaceDir, `${user.kernelKey}.json`)
-        const saved = await readNamespace(transcriptFile)
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
         saved.transcripts[sessionId] = { items: items.slice(-200) }
-        await writeAtomic(transcriptFile, saved)
+        await writeNamespace(user.kernelKey, saved)
       })
     },
     async appendItem(userId, sessionId, item) {
@@ -330,19 +431,71 @@ export async function openStore(dataDir) {
       await exclusive(async () => {
         const user = data.users.find(entry => entry.id === userId)
         if (!user || !safeKernelKey(user.kernelKey)) return
-        const transcriptFile = path.join(namespaceDir, `${user.kernelKey}.json`)
-        const saved = await readNamespace(transcriptFile)
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
         const page = saved.transcripts[sessionId] ?? { items: [] }
         const items = Array.isArray(page.items) ? page.items : []
         const same = items.some(entry => entry.kind === item.kind && entry.time === item.time && entry.text === item.text)
         if (!same) items.push(item)
         saved.transcripts[sessionId] = { items: items.slice(-200) }
-        await writeAtomic(transcriptFile, saved)
+        await writeNamespace(user.kernelKey, saved)
       })
     },
     kernelKey(userId) {
       return exclusive(async () => data.users.find(user => user.id === userId)?.kernelKey ?? '')
     },
+    readSettings(userId) {
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return emptySettings()
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+        return normalizeSettings(saved.settings)
+      })
+    },
+    async writeSettings(userId, settings) {
+      await exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+        saved.settings = normalizeSettings(settings)
+        await writeNamespace(user.kernelKey, saved)
+      })
+    },
+    async writeUsage(userId, usage) {
+      await exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+        saved.usage = usage
+        await writeNamespace(user.kernelKey, saved)
+      })
+    },
+    ensureUserWorkspace(userId) {
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return null
+        const claimed = claimWorkspace(user)
+        const root = await projectWorkspace(user)
+        if (claimed) await saveAccounts()
+        return root
+      })
+    },
+    syncWorkspace(userId) {
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey) || !ledger) return
+        const root = await ensureWorkspace(dir, user.kernelKey)
+        await ledger.saveFiles(user.kernelKey, await collectFiles(root))
+      })
+    },
+  }
+  if (ledger) {
+    await writeAtomic(file, data)
+    for (const user of data.users) {
+      if (!safeKernelKey(user.kernelKey)) continue
+      const remoteBody = await ledger.loadNamespace(user.kernelKey)
+      if (remoteBody) await writeAtomic(path.join(namespaceDir, `${user.kernelKey}.json`), remoteBody)
+      await hydrateFiles(user.kernelKey, await ensureWorkspace(dir, user.kernelKey))
+    }
   }
   return api
 }
@@ -392,14 +545,17 @@ function safeKernelKey(kernelKey) {
 }
 
 async function readNamespace(file) {
+  let saved
   try {
-    const saved = JSON.parse(await readFile(file, 'utf8'))
-    if (!saved.transcripts || typeof saved.transcripts !== 'object') saved.transcripts = {}
-    return saved
+    saved = JSON.parse(await readFile(file, 'utf8'))
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
-    return { transcripts: {} }
+    saved = {}
   }
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {}
+  if (!saved.transcripts || typeof saved.transcripts !== 'object' || Array.isArray(saved.transcripts)) saved.transcripts = {}
+  saved.settings = normalizeSettings(saved.settings ?? emptySettings())
+  return saved
 }
 
 async function writeAtomic(file, value) {
