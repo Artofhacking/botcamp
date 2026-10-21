@@ -49,9 +49,26 @@ export function kernelProxy() {
       next()
       return
     }
+    // The live feed stays open. A reload aborts it while bytes are still moving;
+    // writing the error page after that throws and takes the dev server down.
+    const client = new AbortController()
+    const onClose = () => { if (!res.writableEnded) client.abort() }
+    res.on('close', onClose)
+    const fail = (error) => {
+      if (res.writableEnded || res.destroyed) return
+      if (res.headersSent) {
+        res.destroy()
+        return
+      }
+      const message = error instanceof Error ? error.message : 'kernel proxy failed'
+      res.statusCode = 502
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ error: message }))
+    }
     try {
       if (jar.size === 0) await refreshCookie()
       const body = await readBody(req)
+      if (client.signal.aborted) return
       const send = () => fetch(new URL(url, `${KERNEL}/`), {
         method: req.method,
         headers: {
@@ -61,13 +78,18 @@ export function kernelProxy() {
         },
         body: req.method === 'GET' || req.method === 'HEAD' ? undefined : body,
         redirect: 'manual',
+        signal: client.signal,
       })
       let upstream = await send()
-      if (upstream.status === 401) {
+      if (upstream.status === 401 && !client.signal.aborted) {
         await refreshCookie()
         upstream = await send()
       }
       storeCookies(jar, upstream)
+      if (client.signal.aborted || res.writableEnded) {
+        await upstream.body?.cancel()
+        return
+      }
       res.statusCode = upstream.status
       const contentType = upstream.headers.get('content-type')
       if (contentType) res.setHeader('content-type', contentType)
@@ -77,17 +99,26 @@ export function kernelProxy() {
         return
       }
       const reader = upstream.body.getReader()
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        if (!res.write(value)) await new Promise(resolve => res.once('drain', resolve))
+      try {
+        for (;;) {
+          if (client.signal.aborted || res.writableEnded) break
+          const { done, value } = await reader.read()
+          if (done || res.writableEnded) break
+          if (!res.write(Buffer.from(value))) await new Promise(resolve => res.once('drain', resolve))
+        }
+      } finally {
+        reader.releaseLock()
+        await upstream.body.cancel().catch(() => {})
       }
-      res.end()
+      if (!res.writableEnded) res.end()
     } catch (error) {
-      res.statusCode = 502
-      res.setHeader('content-type', 'application/json')
-      const message = error instanceof Error ? error.message : 'kernel proxy failed'
-      res.end(JSON.stringify({ error: message }))
+      if (client.signal.aborted || error?.name === 'AbortError') {
+        if (!res.writableEnded) res.end()
+        return
+      }
+      fail(error)
+    } finally {
+      res.off('close', onClose)
     }
   }
 
