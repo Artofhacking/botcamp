@@ -1,6 +1,10 @@
 // The window talks only to ds-bot's own channel in the engine: POST api/bot for reads and
 // actions (the Bot views' own `call`), and the live feed api/bot/feed for what changes.
 const RETRY_MS = [500, 1000, 2000, 5000]
+// The Demox function closes the feed after the first event. Reconnecting at once
+// would hammer it, so a stream that ends on its own within a few seconds waits.
+const QUIET_MS = 5000
+const IMMEDIATE_MS = 3500
 
 function parseEvent(block) {
   let event = 'message'
@@ -21,6 +25,8 @@ export function openFeed(onEvent) {
   const run = async () => {
     for (let failures = 0; !stopped;) {
       controller = new AbortController()
+      const openedAt = Date.now()
+      let ended = false
       try {
         const response = await fetch('api/bot/feed', { signal: controller.signal, cache: 'no-store' })
         if (!response.ok || response.body === null) throw new Error(`HTTP ${response.status}`)
@@ -38,13 +44,16 @@ export function openFeed(onEvent) {
             if (parsed !== undefined) onEvent(parsed.event, parsed.data)
           }
         }
+        ended = true
       } catch {
         // The engine restarted or the window is going away; the loop decides.
       }
       if (stopped) return
       onEvent('lost', {})
-      await new Promise(resolve => setTimeout(resolve, RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]))
-      failures += 1
+      const immediate = ended && Date.now() - openedAt < IMMEDIATE_MS
+      const wait = immediate ? QUIET_MS : RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]
+      await new Promise(resolve => setTimeout(resolve, wait))
+      if (!immediate) failures += 1
     }
   }
   void run()
