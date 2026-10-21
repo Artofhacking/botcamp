@@ -70,6 +70,7 @@ function scrub(text) {
   return String(text ?? '')
     .replace(/([?&#])token=[^&#\s"'<>]*/gi, '$1token=')
     .replace(/dsh-auth-[^=;\s"']*=[^;\s"']*/gi, 'dsh-auth=')
+    .replace(/x-botcamp-exchange:\s*\S+/gi, 'x-botcamp-exchange')
 }
 
 export function runtimeEnv(functionEnv) {

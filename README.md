@@ -65,4 +65,4 @@ npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_
 
 云函数不能把一条无限 SSE 留在连接上。`/api/bot/feed` 读到第一条事件或大约 2.5 秒就取消上游。页面如果发现流在几秒内自己结束，会等 5 秒再重连。
 
-内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。换成新的 `camp.conf` 并 reload 之后，`GET /` 不再帮网关换 `dsh-auth`。如果已登录调用因此从内核得到 401，需要另开一条不返回 HTML 的换票路径；不要把 Demox 页面或静态资源再代理回来。
+内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。浏览器打开 `https://camp.aigc.sx.cn/` 仍是纯文本 404。网关换 `dsh-auth` 时请求 `GET /` 并带上 `x-botcamp-exchange`，值来自函数环境变量 `BOTCAMP_KERNEL_EXCHANGE`。服务器上的 `/etc/nginx/snippets/dsh-camp-exchange.conf` 对上这个值，才把这一次请求交给内核，并继续用原来的 `/etc/nginx/snippets/dsh-camp-token.conf` 带上启动令牌。这个值不要写进 git。装上 nginx 的命令是 `./scripts/apply-camp-exchange.sh`，它读取环境变量 `sshkey`。

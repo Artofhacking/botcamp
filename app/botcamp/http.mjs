@@ -102,14 +102,18 @@ export async function createBotcamp(options = {}) {
     }
   }
 
+  function exchangeHeader() {
+    const secret = typeof env.BOTCAMP_KERNEL_EXCHANGE === 'string' ? env.BOTCAMP_KERNEL_EXCHANGE.trim() : ''
+    return secret ? { 'x-botcamp-exchange': secret } : {}
+  }
+
   async function refreshCookie() {
     jar.clear()
     let url = `${kernelOrigin}/`
     for (let hop = 0; hop < 6; hop += 1) {
-      const response = await fetchImpl(url, {
-        redirect: 'manual',
-        headers: cookieHeader() ? { cookie: cookieHeader() } : {},
-      })
+      const headers = { ...exchangeHeader() }
+      if (cookieHeader()) headers.cookie = cookieHeader()
+      const response = await fetchImpl(url, { redirect: 'manual', headers })
       storeCookies(response)
       const location = response.headers.get('location')
       await response.body?.cancel().catch(() => {})

@@ -83,10 +83,10 @@ async function start(env = {}, extras = {}) {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'botcamp-'))
   const calls = []
   const kernel = kernelFactory()
-  const fetchImpl = async (url, init = {}) => {
+  const fetchImpl = extras.fetchImpl ?? (async (url, init = {}) => {
     calls.push({ href: String(url), method: init.method ?? 'GET', headers: { ...(init.headers ?? {}) }, body: init.body })
     return kernel(String(url), init)
-  }
+  })
   const options = {
     dataDir,
     kernelOrigin: 'http://kernel.test',
@@ -840,6 +840,57 @@ test('user A cannot list or open user B workspace, send into B session, or trave
     for (const endpoint of ['workspace-list', 'workspace-open', 'file-text', 'file-write', 'folder-list', 'team-workspace']) {
       assert.equal(botCalls(ctx.calls, endpoint).length, 0, endpoint)
     }
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('state gets a kernel cookie from the exchange header and does not show it', async () => {
+  const seen = []
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    const headers = init.headers ?? {}
+    seen.push({ href, exchange: headers['x-botcamp-exchange'] ?? '' })
+    if (!href.includes('/api/')) {
+      if (headers['x-botcamp-exchange'] !== 'exchange-secret') {
+        return new Response('API-only', { status: 404, headers: { 'content-type': 'text/plain' } })
+      }
+      if (String(headers.cookie ?? '').includes('dsh-auth-test=')) return new Response('ok', { status: 200 })
+      return new Response('', {
+        status: 303,
+        headers: { location: './', 'set-cookie': 'dsh-auth-test=kernel-cookie; HttpOnly; Path=/' },
+      })
+    }
+    if (headers['x-botcamp-exchange']) return new Response('exchange header leaked', { status: 500 })
+    if (!String(headers.cookie ?? '').includes('dsh-auth-test=kernel-cookie')) {
+      return new Response('unauthorized', { status: 401, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+    }
+    return Response.json({ ok: true, value: { revision: 1, bots: [], rooms: [] } })
+  }
+  const ctx = await start({
+    BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL,
+    BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    BOTCAMP_KERNEL_EXCHANGE: 'exchange-secret',
+  }, { fetchImpl })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', {
+      method: 'POST',
+      body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    })
+    assert.equal(login.status, 200)
+    const cookie = cookieHeader(login.setCookie)
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.equal(state.status, 200)
+    assert.equal(state.json.ok, true)
+    assert.equal(state.text.includes('kernel-cookie'), false)
+    assert.equal(state.text.includes('exchange-secret'), false)
+    assert.equal(login.text.includes('kernel-cookie'), false)
+    assert.equal(seen.some(call => call.href === 'http://kernel.test/' && call.exchange === 'exchange-secret'), true)
+    assert.equal(seen.some(call => call.href.endsWith('/api/bot') && call.exchange !== ''), false)
   } finally {
     await ctx.close()
   }
