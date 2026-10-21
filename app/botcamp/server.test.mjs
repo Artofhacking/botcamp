@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { createBotcamp } from './http.mjs'
+import { createMemoryLedger } from './projectLedger.mjs'
 
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
@@ -78,7 +79,7 @@ function kernelFactory() {
   }
 }
 
-async function start(env = {}) {
+async function start(env = {}, extras = {}) {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'botcamp-'))
   const calls = []
   const kernel = kernelFactory()
@@ -90,6 +91,7 @@ async function start(env = {}) {
     dataDir,
     kernelOrigin: 'http://kernel.test',
     fetchImpl,
+    ledger: extras.ledger ?? null,
     env: { NODE_ENV: 'production', BOTCAMP_PRODUCTION: '1', ...env },
   }
   const camp = await createBotcamp(options)
@@ -423,6 +425,91 @@ test('a signed admin session works on another instance and logout revokes it her
   } finally {
     await ctx.close()
     await rm(otherDir, { recursive: true, force: true })
+  }
+})
+
+test('a stale instance still logs in a zero-quota user, refuses send, and does not erase the other user', async () => {
+  const ledger = createMemoryLedger()
+  const env = { BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }
+  const first = await start(env, { ledger })
+  const second = await start(env, { ledger })
+  try {
+    const admin = await api(first.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'auth/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+    })
+    assert.equal(admin.status, 200)
+    const adminCookie = cookieHeader(admin.setCookie)
+    const created = await api(first.base, '/api/bot', {
+      method: 'POST',
+      cookie: adminCookie,
+      body: { endpoint: 'admin/create', payload: { email: 'zero@example.com', password: 'password-zero', quota: 0 } },
+    })
+    assert.equal(created.status, 201)
+    assert.equal(created.json.user.quota, 0)
+    assert.equal(created.json.user.used, 0)
+
+    const login = await api(second.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'auth/login', payload: { email: 'zero@example.com', password: 'password-zero' } },
+    })
+    assert.equal(login.status, 200)
+    assert.equal(login.json.user.quota, 0)
+    assert.equal(login.json.user.used, 0)
+    assert.equal(login.json.error, undefined)
+    const zeroCookie = cookieHeader(login.setCookie)
+
+    const sent = await api(second.base, '/api/bot', {
+      method: 'POST',
+      cookie: zeroCookie,
+      body: { endpoint: 'send', payload: { text: '不会进内核' } },
+    })
+    assert.equal(sent.json.ok, false)
+    assert.match(sent.json.error.message, /配额已用完/)
+    assert.equal(botCalls(first.calls, 'send').length, 0)
+    assert.equal(botCalls(second.calls, 'send').length, 0)
+
+    const adminAgain = await api(second.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'auth/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+    })
+    const adminCookie2 = cookieHeader(adminAgain.setCookie)
+    const other = await api(second.base, '/api/bot', {
+      method: 'POST',
+      cookie: adminCookie2,
+      body: { endpoint: 'admin/create', payload: { email: 'other@example.com', password: 'password-other', quota: 5 } },
+    })
+    assert.equal(other.status, 201)
+    const listed = await api(first.base, '/api/bot', {
+      method: 'POST',
+      cookie: adminCookie,
+      body: { endpoint: 'admin/list', payload: {} },
+    })
+    assert.equal(listed.status, 200)
+    assert.deepEqual(listed.json.users.map(user => user.email).sort(), [ADMIN_EMAIL, 'other@example.com', 'zero@example.com'])
+    const zeroId = listed.json.users.find(user => user.email === 'zero@example.com').id
+    const removed = await api(second.base, '/api/bot', {
+      method: 'POST',
+      cookie: adminCookie2,
+      body: { endpoint: 'admin/delete', payload: { id: zeroId } },
+    })
+    assert.equal(removed.status, 200)
+    const after = await api(first.base, '/api/bot', {
+      method: 'POST',
+      cookie: adminCookie,
+      body: { endpoint: 'admin/list', payload: {} },
+    })
+    assert.equal(after.json.users.some(user => user.email === 'zero@example.com'), false)
+    assert.equal(after.json.users.some(user => user.email === 'other@example.com'), true)
+    const gone = await api(second.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'auth/login', payload: { email: 'zero@example.com', password: 'password-zero' } },
+    })
+    assert.equal(gone.status, 401)
+    assert.equal(gone.json.error.code, 'auth/invalid')
+  } finally {
+    await first.close()
+    await second.close()
   }
 })
 

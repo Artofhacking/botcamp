@@ -112,14 +112,83 @@ export async function openStore(dataDir, options = {}) {
   }
   let chain = Promise.resolve()
   let sessionKey = null
+
+  // 每台函数实例都会把项目库抄进内存。整表覆盖会把别的实例刚写入的账号删掉，
+  // 登录若打到旧快照上，库里明明有的用户也会被说成密码错误。每次操作先重读，
+  // 再只提交这一次改过的行。配额为 0 只影响发送，不参与登录判断。
+  async function refresh() {
+    if (!ledger) return
+    const remote = await ledger.loadAccounts()
+    if (!remote || !Array.isArray(remote.users)) return
+    data = {
+      users: remote.users,
+      sessions: Array.isArray(remote.sessions) ? remote.sessions : [],
+      resources: Array.isArray(remote.resources) ? remote.resources : [],
+      revoked: Array.isArray(remote.revoked) ? remote.revoked : [],
+    }
+  }
+
+  function snapshotAccounts() {
+    return {
+      users: new Map(data.users.map(user => [user.id, JSON.stringify(user)])),
+      sessions: new Map(data.sessions.map(session => [session.tokenHash, JSON.stringify(session)])),
+      resources: new Map(data.resources.map(resource => [resource.id, JSON.stringify(resource)])),
+      revoked: new Set(data.revoked),
+    }
+  }
+
+  function accountsChanged(before) {
+    if (before.users.size !== data.users.length) return true
+    for (const user of data.users) if (before.users.get(user.id) !== JSON.stringify(user)) return true
+    if (before.sessions.size !== data.sessions.length) return true
+    for (const session of data.sessions) if (before.sessions.get(session.tokenHash) !== JSON.stringify(session)) return true
+    if (before.resources.size !== data.resources.length) return true
+    for (const resource of data.resources) if (before.resources.get(resource.id) !== JSON.stringify(resource)) return true
+    if (before.revoked.size !== data.revoked.length) return true
+    for (const hash of data.revoked) if (!before.revoked.has(hash)) return true
+    return false
+  }
+
+  async function commitDiff(before) {
+    if (!accountsChanged(before)) return
+    await writeAtomic(file, data)
+    if (!ledger) return
+    const seenUsers = new Set()
+    for (const user of data.users) {
+      seenUsers.add(user.id)
+      if (before.users.get(user.id) !== JSON.stringify(user)) await ledger.putUser(user)
+    }
+    for (const id of before.users.keys()) if (!seenUsers.has(id)) await ledger.removeUser(id)
+    const seenSessions = new Set()
+    for (const session of data.sessions) {
+      seenSessions.add(session.tokenHash)
+      if (before.sessions.get(session.tokenHash) !== JSON.stringify(session)) await ledger.putSession(session)
+    }
+    for (const tokenHash of before.sessions.keys()) if (!seenSessions.has(tokenHash)) await ledger.removeSession(tokenHash)
+    const seenResources = new Set()
+    for (const resource of data.resources) {
+      seenResources.add(resource.id)
+      if (before.resources.get(resource.id) !== JSON.stringify(resource)) await ledger.putResource(resource)
+    }
+    for (const id of before.resources.keys()) if (!seenResources.has(id)) await ledger.removeResource(id)
+    const seenRevoked = new Set(data.revoked)
+    for (const hash of data.revoked) if (!before.revoked.has(hash)) await ledger.putRevoked(hash)
+    for (const hash of before.revoked) if (!seenRevoked.has(hash)) await ledger.removeRevoked(hash)
+  }
+
   const exclusive = (fn) => {
-    const run = chain.then(fn)
+    const run = chain.then(async () => {
+      await refresh()
+      const before = snapshotAccounts()
+      const result = await fn()
+      await commitDiff(before)
+      return result
+    })
     chain = run.then(() => {}, () => {})
     return run
   }
   const saveAccounts = async () => {
     await writeAtomic(file, data)
-    if (ledger) await ledger.saveAccounts(data)
   }
   const hydrated = new Set()
 
