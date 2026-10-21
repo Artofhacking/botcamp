@@ -1,21 +1,22 @@
 // Isolation sits in front of the single-tenant kernel. Resource ids are claimed
 // only when this user creates them (or when they show up on a bot they already
 // own). Reads of the shared roster are filtered before they reach the browser.
+// Workspace files are not filtered out of a shared tree: each account has its
+// own directory, and foreign ids are refused before anything is forwarded.
+
+import { WORKSPACE_ENDPOINTS, WORKSPACE_MESSAGE } from './workspace.mjs'
 
 export const CROSS_MESSAGE = '无权查看或操作其他用户的机器人、会话或设置。'
 export const QUOTA_MESSAGE = '配额已用完，无法发送。请联系管理员提高可发送的消息数。'
 export const SHARED_MESSAGE = '这项设置在共享内核上是全局的，不能按账号修改，以免影响其他用户。'
-export const FILE_MESSAGE = '共享内核的文件和诊断日志不向单个账号开放。'
 
 const METERED = new Set(['send', 'memory-ask'])
 const LOCAL = new Set(['set-prefs', 'set-main', 'diagnostics-log', 'diagnostics-clear'])
 const BLOCKED = new Set([
   'provider-key', 'provider-add', 'provider-remove',
-  'team-workspace', 'folder-pick', 'folder-list', 'folders', 'file-text',
   'connector-connect', 'connector-disconnect', 'connector-retry',
   'update-install', 'dsh-update-install',
 ])
-const FILE_BLOCKED = new Set(['team-workspace', 'folder-pick', 'folder-list', 'folders', 'file-text'])
 const ID_KEYS = ['id', 'botId', 'sessionId', 'roomId', 'agentId']
 const MARK = '~botcamp~'
 const PREF_KEYS = new Set(['theme', 'accent', 'motion'])
@@ -87,15 +88,20 @@ function accessPlan(endpoint, payload) {
   return { mustOwn, claimIfFree, claimKind }
 }
 
-export function decide(endpoint, payload, access) {
+export function decide(endpoint, payload, access, workspaceId) {
   if (typeof endpoint !== 'string' || endpoint.length === 0 || endpoint.length > 80) {
     return { action: 'refuse', message: '无效的请求。' }
   }
   if (BLOCKED.has(endpoint)) {
-    return { action: 'refuse', message: FILE_BLOCKED.has(endpoint) ? FILE_MESSAGE : SHARED_MESSAGE }
+    return { action: 'refuse', message: SHARED_MESSAGE }
   }
   if (endpoint === 'provider-models' && typeof payload?.key === 'string' && payload.key !== '') {
     return { action: 'refuse', message: '模型供应商密钥不能提交到共享内核，以免被其他账号共用。' }
+  }
+  if (payload && typeof payload === 'object' && typeof payload.workspaceId === 'string' && payload.workspaceId) {
+    const requested = payload.workspaceId
+    const ownsWorkspace = requested === workspaceId || access.owns(requested)
+    if (!ownsWorkspace) return { action: 'refuse', message: WORKSPACE_MESSAGE }
   }
   const plan = accessPlan(endpoint, payload)
   for (const id of plan.mustOwn) {
@@ -106,6 +112,7 @@ export function decide(endpoint, payload, access) {
     if (owner && owner !== access.userId) return { action: 'refuse', message: CROSS_MESSAGE }
     if (!owner) access.claim(id, plan.claimKind)
   }
+  if (WORKSPACE_ENDPOINTS.has(endpoint)) return { action: 'workspace', endpoint }
   if (LOCAL.has(endpoint)) return { action: 'local', endpoint }
   if (METERED.has(endpoint)) return { action: 'metered' }
   return { action: 'forward' }

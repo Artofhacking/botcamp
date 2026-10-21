@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test botcamp/server.test.mjs"
+    "test": "node --test botcamp/server.test.mjs ../functions/bot/handler.test.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.2",

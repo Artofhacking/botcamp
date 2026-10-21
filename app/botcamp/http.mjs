@@ -1,5 +1,7 @@
+import { Readable } from 'node:stream'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
+import { PATH_MESSAGE, materializeFolder, pathsStayInside, runWorkspace, stripPathFields } from './workspace.mjs'
 
 const COOKIE = 'botcamp_session'
 const SESSION_MAX_AGE = 14 * 24 * 60 * 60
@@ -103,9 +105,11 @@ export async function createBotcamp(options = {}) {
     jar.clear()
     let url = `${kernelOrigin}/`
     for (let hop = 0; hop < 6; hop += 1) {
+      const headers = { origin: kernelOrigin }
+      if (cookieHeader()) headers.cookie = cookieHeader()
       const response = await fetchImpl(url, {
         redirect: 'manual',
-        headers: cookieHeader() ? { cookie: cookieHeader() } : {},
+        headers,
       })
       storeCookies(response)
       const location = response.headers.get('location')
@@ -292,9 +296,23 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = await accessFor(user.id)
-      const decision = decide(endpoint, payload, access)
+      const decision = decide(endpoint, payload, access, user.kernelKey)
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
+        return
+      }
+      const root = await store.ensureUserWorkspace(user.id)
+      if (!root || !(await pathsStayInside(root, payload))) {
+        sendJson(res, 200, refused(PATH_MESSAGE))
+        return
+      }
+      if (decision.action === 'workspace') {
+        const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
+        sendJson(res, 200, result)
+        return
+      }
+      if (typeof payload?.folder === 'string' && payload.folder && !(await materializeFolder(root, payload.folder))) {
+        sendJson(res, 200, refused(PATH_MESSAGE))
         return
       }
       if (access.pending().length > 0) await store.commitAccess(user.id, access)
@@ -314,7 +332,8 @@ export async function createBotcamp(options = {}) {
         charged = true
       }
 
-      const outboundPayload = endpoint === 'state' ? stateRequestPayload(payload, await store.getUser(user.id) ?? user) : payload
+      const shaped = endpoint === 'state' ? stateRequestPayload(payload, await store.getUser(user.id) ?? user) : payload
+      const outboundPayload = stripPathFields(shaped)
       const upstream = await callKernel('/api/bot', {
         method: 'POST',
         body: JSON.stringify({ endpoint, payload: outboundPayload }),
@@ -377,6 +396,10 @@ export async function createBotcamp(options = {}) {
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
     try {
+      const started = Date.now()
+      const feed = options.feed ?? null
+      let events = 0
+      let bytes = 0
       const upstream = await callKernel('/api/bot/feed', {
         method: 'GET',
         signal: client.signal,
@@ -405,11 +428,22 @@ export async function createBotcamp(options = {}) {
         const message = feedMessageItem(block)
         if (message) await store.appendItem(user.id, message.sessionId, message.item)
         if (!res.writableEnded) res.write(`${block}\n\n`)
+        events += 1
+        bytes += block.length
       }
       try {
         for (;;) {
           if (client.signal.aborted || res.writableEnded) break
-          const { done, value } = await reader.read()
+          if (feed?.stopAfterEvent && events >= 1) break
+          if (feed?.maxBytes && bytes >= feed.maxBytes) break
+          if (feed?.maxMs && Date.now() - started >= feed.maxMs) break
+          const remaining = feed?.maxMs ? feed.maxMs - (Date.now() - started) : null
+          const { done, value } = remaining == null
+            ? await reader.read()
+            : await Promise.race([
+              reader.read(),
+              new Promise(resolve => setTimeout(() => resolve({ done: true, value: undefined }), Math.max(0, remaining))),
+            ])
           if (done) break
           buffer += decoder.decode(value, { stream: true })
           let split = buffer.indexOf('\n\n')
@@ -468,4 +502,59 @@ export async function createBotcamp(options = {}) {
   }
 
   return { store, handle, idle: () => store.idle() }
+}
+
+export async function invokeBotcamp(camp, request) {
+  const method = String(request?.method || 'GET').toUpperCase()
+  const url = request?.path || '/'
+  const headers = {}
+  const rawHeaders = request?.headers && typeof request.headers === 'object' ? request.headers : {}
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (value == null) continue
+    headers[String(key).toLowerCase()] = Array.isArray(value) ? value.join(', ') : String(value)
+  }
+  let body = ''
+  if (method !== 'GET' && method !== 'HEAD') {
+    const raw = request?.body
+    if (typeof raw === 'string') body = request?.isBase64Encoded ? Buffer.from(raw, 'base64').toString('utf8') : raw
+    else if (raw && typeof raw === 'object') body = JSON.stringify(raw)
+    else if (raw != null && raw !== '') body = String(raw)
+  }
+  const req = Readable.from(body ? [Buffer.from(body)] : [])
+  req.method = method
+  req.url = url
+  req.headers = headers
+  const chunks = []
+  const res = {
+    statusCode: 200,
+    headersSent: false,
+    writableEnded: false,
+    destroyed: false,
+    headers: {},
+    setHeader(name, value) {
+      this.headers[String(name).toLowerCase()] = value
+    },
+    write(chunk) {
+      this.headersSent = true
+      chunks.push(Buffer.from(chunk))
+      return true
+    },
+    end(chunk) {
+      if (chunk) chunks.push(Buffer.from(chunk))
+      this.writableEnded = true
+      this.headersSent = true
+    },
+    on() { return this },
+    off() { return this },
+    once() { return this },
+  }
+  await camp.handle(req, res, () => {
+    res.statusCode = 404
+    res.end(JSON.stringify({ ok: false, error: { message: '未知接口。' } }))
+  })
+  return {
+    statusCode: res.statusCode,
+    headers: res.headers,
+    body: Buffer.concat(chunks).toString('utf8'),
+  }
 }
