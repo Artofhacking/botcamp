@@ -57,6 +57,12 @@ function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value))
 }
 
+function upsert(list, key, value, id) {
+  const index = list.findIndex(item => item[key] === id)
+  if (index >= 0) list[index] = value
+  else list.push(value)
+}
+
 function text(value) {
   return typeof value === 'string' ? value : ''
 }
@@ -115,6 +121,38 @@ export function createMemoryLedger() {
       accounts.revoked = clone(data.revoked ?? [])
       ready = true
     },
+    async putUser(user) {
+      ready = true
+      upsert(accounts.users, 'id', clone(user), user.id)
+    },
+    async removeUser(id) {
+      ready = true
+      accounts.users = accounts.users.filter(user => user.id !== id)
+    },
+    async putSession(session) {
+      ready = true
+      upsert(accounts.sessions, 'tokenHash', clone(session), session.tokenHash)
+    },
+    async removeSession(tokenHash) {
+      ready = true
+      accounts.sessions = accounts.sessions.filter(session => session.tokenHash !== tokenHash)
+    },
+    async putResource(resource) {
+      ready = true
+      upsert(accounts.resources, 'id', clone(resource), resource.id)
+    },
+    async removeResource(id) {
+      ready = true
+      accounts.resources = accounts.resources.filter(resource => resource.id !== id)
+    },
+    async putRevoked(hash) {
+      ready = true
+      if (!accounts.revoked.includes(hash)) accounts.revoked.push(hash)
+    },
+    async removeRevoked(hash) {
+      ready = true
+      accounts.revoked = accounts.revoked.filter(item => item !== hash)
+    },
     async loadNamespace(kernelKey) {
       return namespaces.has(kernelKey) ? clone(namespaces.get(kernelKey)) : null
     },
@@ -143,6 +181,24 @@ function userToRow(user) {
     prefs_version: user.prefsVersion ?? 0,
     main_bot_ids: JSON.stringify(user.mainBotIds ?? []),
     created_at: user.createdAt ?? '',
+  }
+}
+
+function sessionToRow(session) {
+  return {
+    id: session.tokenHash,
+    user_id: session.userId,
+    expires_at: session.expiresAt,
+    session_id: session.id,
+  }
+}
+
+function resourceToRow(resource) {
+  return {
+    id: resource.id,
+    user_id: resource.userId,
+    kind: resource.kind ?? '',
+    parent_id: resource.parentId ?? '',
   }
 }
 
@@ -266,20 +322,18 @@ export function createHttpLedger({ fetchImpl, apiUrl = API_URL, token, projectId
     },
     async saveAccounts(data) {
       await syncRows(client, USERS, (data.users ?? []).map(userToRow))
-      await syncRows(client, SESSIONS, (data.sessions ?? []).map(session => ({
-        id: session.tokenHash,
-        user_id: session.userId,
-        expires_at: session.expiresAt,
-        session_id: session.id,
-      })))
-      await syncRows(client, RESOURCES, (data.resources ?? []).map(resource => ({
-        id: resource.id,
-        user_id: resource.userId,
-        kind: resource.kind ?? '',
-        parent_id: resource.parentId ?? '',
-      })))
+      await syncRows(client, SESSIONS, (data.sessions ?? []).map(sessionToRow))
+      await syncRows(client, RESOURCES, (data.resources ?? []).map(resourceToRow))
       await syncRows(client, REVOKED, (data.revoked ?? []).map(hash => ({ id: hash })))
     },
+    async putUser(user) { await put(USERS, userToRow(user)) },
+    async removeUser(id) { await remove(USERS, id) },
+    async putSession(session) { await put(SESSIONS, sessionToRow(session)) },
+    async removeSession(tokenHash) { await remove(SESSIONS, tokenHash) },
+    async putResource(resource) { await put(RESOURCES, resourceToRow(resource)) },
+    async removeResource(id) { await remove(RESOURCES, id) },
+    async putRevoked(hash) { await put(REVOKED, { id: hash }) },
+    async removeRevoked(hash) { await remove(REVOKED, hash) },
     async loadNamespace(kernelKey) {
       const rows = await list(NAMESPACES)
       const found = rows.find(row => row.pk === kernelKey)

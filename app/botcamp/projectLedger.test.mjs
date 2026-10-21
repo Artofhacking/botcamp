@@ -122,6 +122,49 @@ test('accounts and workspace files survive a second store on the project ledger'
   }
 })
 
+test('an earlier http ledger store still authenticates a zero-quota user and cannot erase them', async () => {
+  const api = memoryApi()
+  const server = await listen(api)
+  const ledger = createHttpLedger({
+    fetchImpl: globalThis.fetch,
+    apiUrl: server.url,
+    token: 'test-token-value-not-a-secret',
+    projectId: 'PQBDTM6GLZ',
+  })
+  const firstDir = await mkdtemp(path.join(tmpdir(), 'botcamp-zero-a-'))
+  const secondDir = await mkdtemp(path.join(tmpdir(), 'botcamp-zero-b-'))
+  const thirdDir = await mkdtemp(path.join(tmpdir(), 'botcamp-zero-c-'))
+  try {
+    const first = await openStore(firstDir, { ledger })
+    await first.bootstrap(ENV)
+    const second = await openStore(secondDir, { ledger })
+    await second.bootstrap(ENV)
+    const created = await first.createUser({ email: 'zero@example.com', password: 'password-zero', role: 'user', quota: 0 })
+    assert.equal(created.user.quota, 0)
+    assert.equal(created.user.used, 0)
+    const logged = await second.authenticate('zero@example.com', 'password-zero')
+    assert.equal(logged?.email, 'zero@example.com')
+    assert.equal(logged?.quota, 0)
+    assert.equal((await second.tryConsume(logged.id)).ok, false)
+    assert.equal((await second.listUsers()).some(user => user.email === 'zero@example.com'), true)
+    const other = await second.createUser({ email: 'five@example.com', password: 'password-five', role: 'user', quota: 5 })
+    assert.equal(other.user.quota, 5)
+    const third = await openStore(thirdDir, { ledger })
+    const emails = (await third.listUsers()).map(user => user.email).sort()
+    assert.deepEqual(emails, ['admin@example.com', 'five@example.com', 'zero@example.com'])
+    const admin = (await third.listUsers()).find(user => user.role === 'admin')
+    const removed = await second.deleteUser(created.user.id, admin.id)
+    assert.equal(removed.ok, true)
+    assert.equal(await third.authenticate('zero@example.com', 'password-zero'), null)
+    assert.equal((await third.authenticate('five@example.com', 'password-five'))?.quota, 5)
+  } finally {
+    await server.close()
+    await rm(firstDir, { recursive: true, force: true })
+    await rm(secondDir, { recursive: true, force: true })
+    await rm(thirdDir, { recursive: true, force: true })
+  }
+})
+
 test('http project ledger round-trips rows without keeping the disk', async () => {
   const api = memoryApi()
   const server = await listen(api)
