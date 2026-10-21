@@ -112,9 +112,10 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-admin-card{width:min(760px,100%)}
 .dsb-admin-head,.dsb-admin-create,.dsb-admin-row{display:flex;gap:12px;align-items:center;justify-content:space-between}
 .dsb-admin-head{align-items:flex-start}
-.dsb-admin-head button,.dsb-admin-actions button{background:transparent;color:var(--bt-accent,#4d6bfe)}
+.dsb-admin-head button,.dsb-admin-actions button,.dsb-admin-create button{flex:none;white-space:nowrap;background:transparent;color:var(--bt-accent,#4d6bfe)}
 .dsb-admin-create{align-items:flex-end;margin-bottom:8px}
-.dsb-admin-create label{flex:1 1 140px}
+.dsb-admin-create label{flex:1 1 140px;min-width:0}
+.dsb-admin-create button{background:var(--bt-accent,#4d6bfe);color:#fff}
 .dsb-admin-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
 .dsb-admin-row{flex-wrap:wrap;padding:12px 0;border-top:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent)}
 .dsb-admin-row strong{display:block}
