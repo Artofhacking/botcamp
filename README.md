@@ -25,13 +25,23 @@ nginx 把 `/assets/` 等静态路径反代到 Demox，实现前端资源与后�
 | `scripts/deploy-demox.sh` | 部署 `dist/` 到 Demox |
 | `deploy/nginx/camp-assets-demox.conf.snippet` | nginx 静态反代片段 |
 
+## Demox 项目
+
+| 字段 | 值 |
+| --- | --- |
+| 项目 | `botcamp` |
+| 项目 ID | `PQBDTM6GLZ` |
+| 站点 | `botcamp-dsh-frontend` / `IVBLF9PE` |
+| URL | https://botcamp.demox.site/ |
+| 默认域名 | https://ivblf9pe.demox.site/ |
+
 ## 常用命令
 
 ```bash
 # 从腾讯云拉取最新前端（需 DSH_SSH_*）
 ./scripts/sync-frontend-from-server.sh
 
-# 部署到 Demox（需已 demox login 或 DEMOX_TOKEN）
+# 部署到 Demox 的 botcamp 项目（需已 demox login 或 DEMOX_TOKEN）
 ./scripts/deploy-demox.sh
 ```
 

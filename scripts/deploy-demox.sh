@@ -5,11 +5,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
+PROJECT_ID="${DEMOX_PROJECT_ID:-}"
 
 if [[ ! -d "$DIST" ]]; then
   echo "missing $DIST — run scripts/sync-frontend-from-server.sh first" >&2
   exit 1
 fi
+
+if [[ -z "$PROJECT_ID" && -f "$META" ]]; then
+  PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("projectId",""))' "$META")"
+fi
+PROJECT_ID="${PROJECT_ID:-PQBDTM6GLZ}"
 
 # Optional: materialize DEMOX_TOKEN into ~/.demox/token.json
 if [[ -n "${DEMOX_TOKEN:-}" && ! -f "${HOME}/.demox/token.json" ]]; then
@@ -50,13 +56,14 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 LOG="$tmpdir/deploy.log"
 
+DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID ..."
-  "${DEMOX[@]}" deploy "$DIST" --name "$NAME" --id "$ID" | tee "$LOG"
+  echo "Updating Demox site $ID in project $PROJECT_ID ..."
+  DEPLOY_ARGS+=(--id "$ID")
 else
-  echo "Creating new Demox site ..."
-  "${DEMOX[@]}" deploy "$DIST" --name "$NAME" | tee "$LOG"
+  echo "Creating new Demox site in project $PROJECT_ID ..."
 fi
+"${DEMOX[@]}" "${DEPLOY_ARGS[@]}" | tee "$LOG"
 
 python3 - <<PY
 import json, re
@@ -76,6 +83,9 @@ meta_path.write_text(json.dumps({
     "name": "$NAME",
     "url": url,
     "origin_host": origin_host,
+    "projectId": "$PROJECT_ID",
+    "projectSlug": "botcamp",
+    "projectName": "botcamp",
 }, indent=2) + "\n")
-print(f"Wrote {meta_path}: {site_id} -> {url}")
+print(f"Wrote {meta_path}: {site_id} -> {url} (project $PROJECT_ID)")
 PY

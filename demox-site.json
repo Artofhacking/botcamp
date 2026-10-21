@@ -1,6 +1,10 @@
 {
   "id": "IVBLF9PE",
   "name": "botcamp-dsh-frontend",
-  "url": "https://ivblf9pe.demox.site/",
-  "origin_host": "ivblf9pe.demox.site"
+  "url": "https://botcamp.demox.site/",
+  "defaultUrl": "https://ivblf9pe.demox.site/",
+  "origin_host": "botcamp.demox.site",
+  "projectId": "PQBDTM6GLZ",
+  "projectSlug": "botcamp",
+  "projectName": "botcamp"
 }

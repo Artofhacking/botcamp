@@ -1,6 +1,7 @@
 # Paste inside the HTTPS server { ... } for camp.aigc.sx.cn,
 # BEFORE the catch-all `location /` that proxies to dsh.
-# Replace DEMOX_ORIGIN_HOST with demox-site.json → origin_host.
+# Replace DEMOX_ORIGIN_HOST with demox-site.json → origin_host
+# (currently botcamp.demox.site).
 
 # Static shell assets hosted on Demox (same URL path, browser still talks to camp).
 location ^~ /assets/ {
