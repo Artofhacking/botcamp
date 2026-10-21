@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword } from './passwords.mjs'
+import { emptySettings, normalizeSettings } from './userSettings.mjs'
 
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000
 
@@ -312,6 +313,28 @@ export async function openStore(dataDir) {
     kernelKey(userId) {
       return exclusive(async () => data.users.find(user => user.id === userId)?.kernelKey ?? '')
     },
+    readSettings(userId) {
+      return exclusive(async () => {
+        const saved = await namespaceOf(data, namespaceDir, userId)
+        return normalizeSettings(saved?.body?.settings)
+      })
+    },
+    async writeSettings(userId, settings) {
+      await exclusive(async () => {
+        const saved = await namespaceOf(data, namespaceDir, userId)
+        if (!saved) return
+        saved.body.settings = normalizeSettings(settings)
+        await writeAtomic(saved.file, saved.body)
+      })
+    },
+    async writeUsage(userId, usage) {
+      await exclusive(async () => {
+        const saved = await namespaceOf(data, namespaceDir, userId)
+        if (!saved) return
+        saved.body.usage = usage
+        await writeAtomic(saved.file, saved.body)
+      })
+    },
   }
   return api
 }
@@ -324,15 +347,26 @@ function safeKernelKey(kernelKey) {
   return typeof kernelKey === 'string' && /^u_[A-Za-z0-9_-]{8,}$/.test(kernelKey)
 }
 
+async function namespaceOf(data, namespaceDir, userId) {
+  const user = data.users.find(entry => entry.id === userId)
+  if (!user || !safeKernelKey(user.kernelKey)) return null
+  const file = path.join(namespaceDir, `${user.kernelKey}.json`)
+  const body = await readNamespace(file)
+  return { file, body, settings: body.settings }
+}
+
 async function readNamespace(file) {
+  let saved
   try {
-    const saved = JSON.parse(await readFile(file, 'utf8'))
-    if (!saved.transcripts || typeof saved.transcripts !== 'object') saved.transcripts = {}
-    return saved
+    saved = JSON.parse(await readFile(file, 'utf8'))
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
-    return { transcripts: {} }
+    saved = {}
   }
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {}
+  if (!saved.transcripts || typeof saved.transcripts !== 'object' || Array.isArray(saved.transcripts)) saved.transcripts = {}
+  saved.settings = normalizeSettings(saved.settings ?? emptySettings())
+  return saved
 }
 
 async function writeAtomic(file, value) {

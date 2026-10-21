@@ -1,7 +1,8 @@
 import { createBotcamp } from './botcamp/http.mjs'
 
-// Auth, per-user isolation, and quotas run here, before anything reaches the
-// single-tenant dsh kernel. The browser still only calls /api/bot and /api/bot/feed.
+// Auth, per-user settings, usage, and quotas run here, before anything reaches the
+// single-tenant dsh kernel. Model catalog writes are refused for every role.
+// The browser still only calls /api/bot and /api/bot/feed.
 export function kernelProxy() {
   let ready
   const camp = () => {

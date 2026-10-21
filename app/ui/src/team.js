@@ -170,14 +170,8 @@ export function createTeam() {
     },
     // The window has no DSH status bar, so the Bot's details show its figures.
     runStats: botId => call('run-stats', { botId }),
-    // Nor DSH's settings: model providers and their keys have a Models page here, and a
-    // first model choice takes a missing API key itself.
-    providers: () => call('providers'),
-    setProviderKey: (provider, value) => after(call('provider-key', { provider, value })),
-    addProvider: body => after(call('provider-add', body)),
-    providerModels: body => call('provider-models', body),
-    removeProvider: provider => after(call('provider-remove', { provider })),
-    openModels: () => actions.openSettings('models'),
+    // Model providers, keys, and the shared catalog are not a user setting. A Bot can
+    // still be pointed at a model that is already served; that write stays on updateBot.
     // Nothing else draws in the window: no shell panels, right sidebar, "@" menu or voice plugin.
     hasRightSidebar: () => false,
     canReferenceChat: () => false,

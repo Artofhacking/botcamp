@@ -1,5 +1,7 @@
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
+import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
+import { applyUserSetting } from './userSettings.mjs'
 
 const COOKIE = 'botcamp_session'
 const SESSION_MAX_AGE = 14 * 24 * 60 * 60
@@ -76,7 +78,8 @@ export async function createBotcamp(options = {}) {
   const env = options.env ?? process.env
   const kernelOrigin = (options.kernelOrigin ?? env.DSH_KERNEL_ORIGIN ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
-  const store = await openStore(options.dataDir ?? defaultDataDir())
+  const dataDir = options.dataDir ?? (typeof env.BOTCAMP_DATA_DIR === 'string' && env.BOTCAMP_DATA_DIR.trim() ? env.BOTCAMP_DATA_DIR.trim() : defaultDataDir())
+  const store = await openStore(dataDir)
   const boot = await store.bootstrap(env)
   if (boot.created) console.info('[botcamp] 已创建引导管理员。')
   else if ((await store.listUsers()).length === 0) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
@@ -148,15 +151,26 @@ export async function createBotcamp(options = {}) {
   }
 
   async function applyLocal(user, endpoint, payload) {
-    if (endpoint === 'set-prefs') return store.setPrefs(user.id, mergePrefs(user.prefs, payload))
+    if (endpoint === 'set-prefs') {
+      const updated = await store.setPrefs(user.id, mergePrefs(user.prefs, payload))
+      return { user: updated ?? user, value: localValue(endpoint, updated ?? user) }
+    }
     if (endpoint === 'set-main') {
       const id = payload?.id
       let ids = [...(user.mainBotIds ?? [])]
       if (payload?.main === false) ids = ids.filter(item => item !== id)
       else ids = [id, ...ids.filter(item => item !== id)]
-      return store.setMain(user.id, ids)
+      const updated = await store.setMain(user.id, ids)
+      return { user: updated ?? user, value: localValue(endpoint, updated ?? user) }
     }
-    return user
+    if (endpoint === 'diagnostics' || endpoint === 'diagnostics-log' || endpoint === 'diagnostics-clear') {
+      return { user, value: localValue(endpoint, user) }
+    }
+    const settings = await store.readSettings(user.id)
+    const applied = applyUserSetting(settings, endpoint, payload)
+    if (applied.error) return { error: applied.error }
+    if (applied.settings !== settings) await store.writeSettings(user.id, applied.settings)
+    return { user, value: applied.value }
   }
 
   async function handleAuth(req, res, path) {
@@ -289,10 +303,10 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
         return
       }
-      const endpoint = body.endpoint
+      const endpoint = typeof body.endpoint === 'string' ? body.endpoint.trim() : body.endpoint
       const payload = body.payload ?? null
       const access = await accessFor(user.id)
-      const decision = decide(endpoint, payload, access)
+      const decision = decide(endpoint, payload, access, { role: user.role })
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
         return
@@ -301,8 +315,12 @@ export async function createBotcamp(options = {}) {
       const reserved = access.pending().map(claim => claim.id)
 
       if (decision.action === 'local') {
-        const updated = await applyLocal(user, endpoint, payload)
-        sendJson(res, 200, { ok: true, value: localValue(endpoint, updated ?? user) })
+        const applied = await applyLocal(user, endpoint, payload)
+        if (applied?.error) {
+          sendJson(res, 200, refused(applied.error))
+          return
+        }
+        sendJson(res, 200, { ok: true, value: applied?.value ?? null })
         return
       }
       if (decision.action === 'metered') {
@@ -314,7 +332,9 @@ export async function createBotcamp(options = {}) {
         charged = true
       }
 
-      const outboundPayload = endpoint === 'state' ? stateRequestPayload(payload, await store.getUser(user.id) ?? user) : payload
+      let outboundPayload = payload
+      if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, await store.getUser(user.id) ?? user)
+      else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       const upstream = await callKernel('/api/bot', {
         method: 'POST',
         body: JSON.stringify({ endpoint, payload: outboundPayload }),
@@ -344,7 +364,9 @@ export async function createBotcamp(options = {}) {
             await store.rememberPage(user.id, sessionId, parsed.value.items)
           }
         }
-        parsed.value = rewriteValue(endpoint, parsed.value, fresh, after)
+        const settings = await store.readSettings(user.id)
+        parsed.value = rewriteValue(endpoint, parsed.value, fresh, after, settings)
+        if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)
         sendJson(res, upstream.status, parsed)
         return
