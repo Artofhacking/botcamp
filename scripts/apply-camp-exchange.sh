@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 让 camp 的 GET / 只对网关换 dsh-auth。浏览器打开 / 仍然是纯文本 404。
-# 需要环境变量 sshkey（私钥内容）以及已经登录的 Demox CLI。
+# 需要环境变量 sshkey（私钥内容）。
+# 交换口令优先用 BOTCAMP_KERNEL_EXCHANGE；没有时再从已登录的 Demox CLI 读取。
 # 不打印私钥、交换口令、管理员密码或 cookie。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,15 +22,38 @@ if ! grep -q 'BEGIN ' "$KEY_FILE"; then
   echo "sshkey 不是私钥文本。"
   exit 1
 fi
+# 运行时注入的私钥有时被折成一行。还原成 PEM，不把内容打出来。
+if ! ssh-keygen -y -f "$KEY_FILE" >/dev/null 2>&1; then
+  python3 - "$KEY_FILE" <<'PY'
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+parts = path.read_text().split()
+if len(parts) >= 9 and parts[0] == "-----BEGIN" and parts[-4] == "-----END":
+    body = parts[4:-4]
+    path.write_text(
+        "-----BEGIN OPENSSH PRIVATE KEY-----\n"
+        + "\n".join(body)
+        + "\n-----END OPENSSH PRIVATE KEY-----\n"
+    )
+PY
+fi
+if ! ssh-keygen -y -f "$KEY_FILE" >/dev/null 2>&1; then
+  echo "sshkey 无法作为私钥使用。"
+  exit 1
+fi
 
-SECRET="$(
-  npx --yes @demox-site/cli@1.1.6 env list --id "$SITE_ID" --slug bot \
-    | python3 -c 'import sys
+SECRET="${BOTCAMP_KERNEL_EXCHANGE:-}"
+if [[ -z "$SECRET" ]]; then
+  SECRET="$(
+    npx --yes @demox-site/cli@1.1.6 env list --id "$SITE_ID" --slug bot \
+      | python3 -c 'import sys
 for line in sys.stdin:
     if line.startswith("BOTCAMP_KERNEL_EXCHANGE="):
         print(line.split("=", 1)[1].strip())
         break'
-)"
+  )"
+fi
 if [[ -z "$SECRET" ]]; then
   echo "函数环境里还没有 BOTCAMP_KERNEL_EXCHANGE。先设置它，再运行这个脚本。"
   exit 1
@@ -62,16 +86,22 @@ from pathlib import Path
 payload = Path("/tmp/botcamp-exchange.payload").read_text()
 snippet, conf = payload.split("\n-----BOTCAMP-CONF-----\n", 1)
 Path("/etc/nginx/snippets/dsh-camp-exchange.conf").write_text(snippet)
-live = Path("/etc/nginx/sites-available/camp.conf")
-if not live.exists():
+preferred = [
+    Path("/etc/nginx/sites-available/camp.conf"),
+    Path("/etc/nginx/sites-enabled/camp.conf"),
+    Path("/etc/nginx/conf.d/camp.conf"),
+]
+live = next((path for path in preferred if path.is_file()), None)
+if live is None:
     candidates = list(Path("/etc/nginx/sites-enabled").glob("*")) + list(Path("/etc/nginx/conf.d").glob("*camp*"))
-    text = ""
     for path in candidates:
+        if ".bak" in path.name or path.name == "camp-http.conf":
+            continue
         try:
             text = path.read_text()
         except OSError:
             continue
-        if "camp.aigc.sx.cn" in text:
+        if "camp.aigc.sx.cn" in text and "listen 443" in text:
             live = path
             break
     else:
