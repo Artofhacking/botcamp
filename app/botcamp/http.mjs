@@ -1,5 +1,8 @@
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
+import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
+import { applyUserSetting } from './userSettings.mjs'
+import { PATH_MESSAGE, materializeFolder, pathsStayInside, runWorkspace, stripPathFields } from './workspace.mjs'
 
 const COOKIE = 'botcamp_session'
 const SESSION_MAX_AGE = 14 * 24 * 60 * 60
@@ -76,7 +79,7 @@ export async function createBotcamp(options = {}) {
   const env = options.env ?? process.env
   const kernelOrigin = (options.kernelOrigin ?? env.DSH_KERNEL_ORIGIN ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
-  const store = await openStore(options.dataDir ?? defaultDataDir())
+  const store = await openStore(options.dataDir ?? defaultDataDir(), { ledger: options.ledger ?? null })
   const boot = await store.bootstrap(env)
   if (boot.created) console.info('[botcamp] 已创建引导管理员。')
   else if ((await store.listUsers()).length === 0) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
@@ -158,15 +161,34 @@ export async function createBotcamp(options = {}) {
   }
 
   async function applyLocal(user, endpoint, payload) {
-    if (endpoint === 'set-prefs') return store.setPrefs(user.id, mergePrefs(user.prefs, payload))
+    if (endpoint === 'set-prefs') {
+      const updated = await store.setPrefs(user.id, mergePrefs(user.prefs, payload))
+      return { user: updated ?? user, value: localValue(endpoint, updated ?? user) }
+    }
     if (endpoint === 'set-main') {
       const id = payload?.id
       let ids = [...(user.mainBotIds ?? [])]
       if (payload?.main === false) ids = ids.filter(item => item !== id)
       else ids = [id, ...ids.filter(item => item !== id)]
-      return store.setMain(user.id, ids)
+      const updated = await store.setMain(user.id, ids)
+      return { user: updated ?? user, value: localValue(endpoint, updated ?? user) }
     }
-    return user
+    if (endpoint === 'diagnostics' || endpoint === 'diagnostics-log' || endpoint === 'diagnostics-clear') {
+      return { user, value: localValue(endpoint, user) }
+    }
+    const settings = await store.readSettings(user.id)
+    const applied = applyUserSetting(settings, endpoint, payload)
+    if (applied.error) return { error: applied.error }
+    if (applied.settings !== settings) await store.writeSettings(user.id, applied.settings)
+    if (endpoint === 'team-workspace' && typeof payload?.path === 'string' && payload.path && !payload.path.startsWith('/') && !payload.path.includes('..')) {
+      const root = await store.ensureUserWorkspace(user.id)
+      if (root) {
+        const made = await materializeFolder(root, payload.path)
+        if (!made) return { error: PATH_MESSAGE }
+        await store.syncWorkspace(user.id)
+      }
+    }
+    return { user, value: applied.value }
   }
 
   async function handleAuth(req, res, path) {
@@ -296,17 +318,40 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = await accessFor(user.id)
-      const decision = decide(endpoint, payload, access)
+      const decision = decide(endpoint, payload, access, { role: user.role, workspaceId: user.kernelKey })
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
         return
+      }
+      if (decision.action === 'workspace') {
+        const root = await store.ensureUserWorkspace(user.id)
+        if (!root || !(await pathsStayInside(root, payload))) {
+          sendJson(res, 200, refused(PATH_MESSAGE))
+          return
+        }
+        const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
+        await store.syncWorkspace(user.id)
+        sendJson(res, 200, result)
+        return
+      }
+      const root = await store.ensureUserWorkspace(user.id)
+      if (root && typeof payload?.folder === 'string' && payload.folder) {
+        if (!(await pathsStayInside(root, { folder: payload.folder })) || !(await materializeFolder(root, payload.folder))) {
+          sendJson(res, 200, refused(PATH_MESSAGE))
+          return
+        }
+        await store.syncWorkspace(user.id)
       }
       if (access.pending().length > 0) await store.commitAccess(user.id, access)
       const reserved = access.pending().map(claim => claim.id)
 
       if (decision.action === 'local') {
-        const updated = await applyLocal(user, endpoint, payload)
-        sendJson(res, 200, { ok: true, value: localValue(endpoint, updated ?? user) })
+        const applied = await applyLocal(user, endpoint, payload)
+        if (applied?.error) {
+          sendJson(res, 200, refused(applied.error))
+          return
+        }
+        sendJson(res, 200, { ok: true, value: applied?.value ?? null })
         return
       }
       if (decision.action === 'metered') {
@@ -318,7 +363,10 @@ export async function createBotcamp(options = {}) {
         charged = true
       }
 
-      const outboundPayload = endpoint === 'state' ? stateRequestPayload(payload, await store.getUser(user.id) ?? user) : payload
+      let outboundPayload = payload
+      if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, await store.getUser(user.id) ?? user)
+      else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
+      outboundPayload = stripPathFields(outboundPayload)
       const upstream = await callKernel('/api/bot', {
         method: 'POST',
         body: JSON.stringify({ endpoint, payload: outboundPayload }),
@@ -349,7 +397,9 @@ export async function createBotcamp(options = {}) {
             await store.rememberPage(user.id, sessionId, parsed.value.items)
           }
         }
-        parsed.value = rewriteValue(endpoint, parsed.value, fresh, after)
+        const settings = await store.readSettings(user.id)
+        parsed.value = rewriteValue(endpoint, parsed.value, fresh, after, settings)
+        if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)
         sendJson(res, upstream.status, parsed)
         return

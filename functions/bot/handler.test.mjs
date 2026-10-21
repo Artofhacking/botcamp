@@ -156,6 +156,16 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
     assert.equal(JSON.parse(blocked.body).ok, false)
     assert.equal(calls.some(call => call.href.endsWith('/api/bot') && String(call.body).includes('"chat"')), false)
 
+    const model = await handler({
+      method: 'POST',
+      path: '/api/bot',
+      headers: { cookie: otherCookie },
+      body: JSON.stringify({ endpoint: 'provider-add', payload: { provider: 'deepseek', key: 'sk-should-not-forward' } }),
+    }, env, { fetchImpl })
+    assert.equal(JSON.parse(model.body).ok, false)
+    assert.match(model.body, /不能配置模型/)
+    assert.equal(calls.some(call => String(call.body ?? '').includes('sk-should-not-forward')), false)
+
     const stopped = await handler({
       method: 'POST',
       path: '/api/bot',
@@ -178,6 +188,16 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
   } finally {
     await rm(dataDir, { recursive: true, force: true })
   }
+})
+
+test('production entry refuses the wiped default directory', async () => {
+  const response = await handler(
+    { method: 'GET', path: '/api/bot/feed' },
+    { BOTCAMP_DATA_DIR: '/tmp/botcamp-data' },
+    { fetchImpl: async () => new Response('no') },
+  )
+  assert.equal(response.statusCode, 502)
+  assert.equal(response.body.includes('/tmp/botcamp-data'), false)
 })
 
 test('the single file Demox uploads rejects an anonymous bot call', async () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -37,9 +37,31 @@ function kernelFactory() {
           bots,
           rooms: [{ id: 'room-b', name: '乙的群' }],
           prefs: { theme: 'shared' },
-          secrets: [{ name: 'kernel-secret' }],
+          secrets: [{ name: 'kernel-secret', value: 'foreign-secret-value' }],
+          connectors: [{ id: 'github', name: 'GitHub', state: 'ready', account: 'foreign-account', token: 'ghp-foreign-token' }],
           questions: { 'sess-b': { q: 'hidden-question' } },
           work: { bots: { 'bot-b': { tool: 'foreign' } }, approvals: [] },
+          usage: { rows: [['2026-10-21 11', 1, 0, 0, 999, 0, 0, 888, 7]], totalTokens: 1902 },
+          models: [{ key: 'deepseek', name: 'DeepSeek', tokens: 1902, apiKey: 'sk-hidden' }],
+        },
+      })
+    }
+    if (body.endpoint === 'usage') {
+      return Response.json({
+        ok: true,
+        value: {
+          now: '2026-10-21 12',
+          scanning: false,
+          totalTokens: 1902,
+          owners: [
+            { key: 'bot-a', id: 'bot-a', kind: 'bot', name: '甲', tokens: 18 },
+            { key: 'bot-b', id: 'bot-b', kind: 'bot', name: '乙', tokens: 1887 },
+          ],
+          models: [{ key: 'deepseek', name: 'DeepSeek', provider: 'deepseek', tokens: 1902 }],
+          rows: [
+            ['2026-10-21 10', 0, 0, 0, 10, 1, 2, 5, 1],
+            ['2026-10-21 11', 1, 0, 0, 999, 3, 4, 888, 7],
+          ],
         },
       })
     }
@@ -244,7 +266,7 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
 
     const blockedKey = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'provider-key', payload: { provider: 'deepseek', value: 'sk-test' } } })
     assert.equal(blockedKey.json.ok, false)
-    assert.match(blockedKey.json.error.message, /不能按账号修改/)
+    assert.match(blockedKey.json.error.message, /不能配置模型/)
     assert.equal(botCalls(ctx.calls, 'provider-key').length, 0)
 
     const readB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'chat', payload: { botId: 'bot-b' } } })
@@ -445,6 +467,292 @@ test('the demox bot route logs in, isolates, and blocks a zero quota before the 
     assert.equal(stopped.json.ok, false)
     assert.match(stopped.json.error.message, /配额已用完/)
     assert.equal(botCalls(ctx.calls, 'send').length, 0)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('model catalog writes are rejected and settings and usage stay with the caller', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const adminCookie = cookieHeader(adminLogin.setCookie)
+    await api(ctx.base, '/api/admin/users', {
+      method: 'POST', cookie: adminCookie,
+      body: { email: 'a@example.com', password: 'password-user-a', quota: 5 },
+    })
+    await api(ctx.base, '/api/admin/users', {
+      method: 'POST', cookie: adminCookie,
+      body: { email: 'b@example.com', password: 'password-user-b', quota: 5 },
+    })
+    const cookieA = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })).setCookie)
+    const cookieB = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'b@example.com', password: 'password-user-b' } })).setCookie)
+    await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'create-bot', payload: { name: '甲' } } })
+    await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'create-bot', payload: { name: '乙' } } })
+
+    const modelWrites = [
+      ['provider-key', { provider: 'deepseek', value: 'sk-from-a' }],
+      ['provider-add', { provider: 'custom', key: 'sk-from-a', baseURL: 'https://example.invalid' }],
+      ['provider-remove', { provider: 'deepseek' }],
+      ['provider-models', { baseURL: 'https://example.invalid', key: 'sk-from-a' }],
+      ['model-config', { models: [{ id: 'injected' }] }],
+      ['update-bot', { id: 'bot-a', apiKey: 'sk-from-a', provider: 'deepseek' }],
+    ]
+    for (const [endpoint, payload] of modelWrites) {
+      const refused = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint, payload } })
+      assert.equal(refused.json.ok, false, endpoint)
+      assert.match(refused.json.error.message, /不能配置模型/)
+      assert.equal(botCalls(ctx.calls, endpoint).length, 0, endpoint)
+    }
+    const adminWrite = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: adminCookie,
+      body: { endpoint: 'provider-add', payload: { provider: 'deepseek', key: 'sk-admin' } },
+    })
+    assert.equal(adminWrite.json.ok, false)
+    assert.equal(ctx.calls.some(call => String(call.body ?? '').includes('sk-from-a') || String(call.body ?? '').includes('sk-admin')), false)
+
+    const picked = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'update-bot', payload: { id: 'bot-a', model: 'deepseek/deepseek-chat' } },
+    })
+    assert.equal(picked.json.ok, true)
+    const pickedForeign = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'update-bot', payload: { id: 'bot-b', model: 'deepseek/deepseek-chat' } },
+    })
+    assert.equal(pickedForeign.json.ok, false)
+    assert.equal(botCalls(ctx.calls, 'update-bot').length, 1)
+
+    const workspace = '/only/user-a/workspace'
+    const secretValue = 'secret-value-only-a'
+    const savedWorkspace = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'team-workspace', payload: { path: workspace } },
+    })
+    assert.equal(savedWorkspace.json.value.team, workspace)
+    const savedSecret = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'secret-set', payload: { name: 'shared-name', value: secretValue, scope: 'all' } },
+    })
+    assert.equal(savedSecret.json.ok, true)
+    assert.equal(savedSecret.text.includes(secretValue), false)
+    const savedConnector = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'connector-connect', payload: { id: 'github', token: 'ghp-only-user-a' } },
+    })
+    assert.equal(savedConnector.json.value.state, 'ready')
+    assert.equal(savedConnector.text.includes('ghp-only-user-a'), false)
+    await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieB,
+      body: { endpoint: 'secret-set', payload: { name: 'shared-name', value: 'secret-value-only-b', scope: 'all' } },
+    })
+    const workspaceB = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieB,
+      body: { endpoint: 'team-workspace', payload: { path: '/only/user-b/workspace' } },
+    })
+    assert.equal(workspaceB.json.value.team, '/only/user-b/workspace')
+    for (const endpoint of ['team-workspace', 'secret-set', 'connector-connect', 'folders', 'diagnostics', 'memory-view']) {
+      assert.equal(botCalls(ctx.calls, endpoint).length, 0, endpoint)
+    }
+    const files = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-text', payload: { file: '/etc/passwd' } },
+    })
+    assert.equal(files.json.ok, false)
+    assert.equal(botCalls(ctx.calls, 'file-text').length, 0)
+
+    const foldersA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'folders', payload: {} } })
+    const foldersB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'folders', payload: {} } })
+    assert.equal(foldersA.json.value.team, workspace)
+    assert.equal(foldersB.json.value.team, '/only/user-b/workspace')
+    assert.equal(foldersB.text.includes(workspace), false)
+
+    const stateA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
+    const stateB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
+    assert.equal(stateA.json.value.secrets.some(secret => secret.name === 'shared-name'), true)
+    assert.equal(stateA.text.includes(secretValue), false)
+    assert.equal(stateA.text.includes('ghp-only-user-a'), false)
+    assert.equal(stateA.text.includes('ghp-foreign-token'), false)
+    assert.equal(stateA.text.includes('foreign-account'), false)
+    assert.equal(stateA.json.value.connectors.find(item => item.id === 'github')?.account, '已保存')
+    assert.equal(stateB.text.includes(secretValue), false)
+    assert.equal(stateB.text.includes(workspace), false)
+    assert.equal(stateB.json.value.secrets.some(secret => secret.name === 'shared-name'), true)
+    assert.equal(JSON.stringify(stateB.json).includes('foreign-secret-value'), false)
+
+    const memoryForeign = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'memory-view', payload: { botId: 'bot-b' } },
+    })
+    assert.equal(memoryForeign.json.ok, false)
+    const memoryA = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'memory-view', payload: { botId: 'bot-a' } },
+    })
+    assert.deepEqual(memoryA.json.value.entries, [])
+    assert.equal(botCalls(ctx.calls, 'memory-view').length, 0)
+
+    const usageA = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'usage', payload: { timeZone: 'UTC', userId: 'b@example.com', botId: 'bot-b' } },
+    })
+    const usageB = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieB,
+      body: { endpoint: 'usage', payload: { timeZone: 'UTC', userId: 'a@example.com', botId: 'bot-a' } },
+    })
+    assert.equal(usageA.json.ok, true)
+    assert.deepEqual(usageA.json.value.rows, [['2026-10-21 10', 0, 0, 0, 10, 1, 2, 5, 1]])
+    assert.deepEqual(usageA.json.value.owners.map(owner => owner.id), ['bot-a'])
+    assert.equal(usageA.json.value.totalTokens, undefined)
+    assert.equal(usageA.json.value.models[0].tokens, undefined)
+    assert.equal(usageA.text.includes('999'), false)
+    assert.equal(usageA.text.includes('乙'), false)
+    assert.equal(usageB.json.value.rows[0][4], 999)
+    assert.equal(usageB.json.value.rows[0][7], 888)
+    assert.equal(usageB.text.includes('甲'), false)
+    const usageBody = JSON.parse(botCalls(ctx.calls, 'usage')[0].body)
+    assert.equal(usageBody.payload.userId, undefined)
+    assert.equal(usageBody.payload.botId, undefined)
+
+    const accounts = JSON.parse(await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8'))
+    const userA = accounts.users.find(user => user.email === 'a@example.com')
+    const userB = accounts.users.find(user => user.email === 'b@example.com')
+    const fileA = await readFile(path.join(ctx.dataDir, 'namespaces', `${userA.kernelKey}.json`), 'utf8')
+    const fileB = await readFile(path.join(ctx.dataDir, 'namespaces', `${userB.kernelKey}.json`), 'utf8')
+    assert.match(fileA, /secret-value-only-a/)
+    assert.match(fileA, /ghp-only-user-a/)
+    assert.equal(fileA.includes('secret-value-only-b'), false)
+    assert.equal(fileB.includes('secret-value-only-a'), false)
+    assert.equal(fileA.includes('999'), false)
+    assert.match(fileB, /secret-value-only-b/)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('user A cannot list or open user B workspace, send into B session, or traverse out', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const adminCookie = cookieHeader(adminLogin.setCookie)
+    await api(ctx.base, '/api/admin/users', {
+      method: 'POST', cookie: adminCookie,
+      body: { email: 'a@example.com', password: 'password-user-a', quota: 5 },
+    })
+    await api(ctx.base, '/api/admin/users', {
+      method: 'POST', cookie: adminCookie,
+      body: { email: 'b@example.com', password: 'password-user-b', quota: 5 },
+    })
+    const cookieA = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })).setCookie)
+    const cookieB = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'b@example.com', password: 'password-user-b' } })).setCookie)
+    const botA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'create-bot', payload: { name: '甲' } } })
+    const botB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'create-bot', payload: { name: '乙' } } })
+    assert.equal(botA.json.value.sessionId, 'sess-a')
+    assert.equal(botB.json.value.sessionId, 'sess-b')
+
+    const accounts = JSON.parse(await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8'))
+    const userA = accounts.users.find(user => user.email === 'a@example.com')
+    const userB = accounts.users.find(user => user.email === 'b@example.com')
+    const rootA = path.join(ctx.dataDir, 'workspaces', userA.kernelKey)
+    const rootB = path.join(ctx.dataDir, 'workspaces', userB.kernelKey)
+    assert.notEqual(rootA, rootB)
+    const dirs = await readdir(path.join(ctx.dataDir, 'workspaces'))
+    assert.deepEqual(new Set(dirs), new Set(accounts.users.map(user => user.kernelKey)))
+
+    const secret = 'beta-workspace-secret'
+    const writtenB = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieB,
+      body: { endpoint: 'file-write', payload: { file: 'secret.txt', text: secret } },
+    })
+    assert.equal(writtenB.json.ok, true)
+    const writtenA = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-write', payload: { file: 'secret.txt', text: 'alpha-workspace-secret' } },
+    })
+    assert.equal(writtenA.json.ok, true)
+    await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieB,
+      body: { endpoint: 'team-workspace', payload: { path: 'notes' } },
+    })
+    await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'set-prefs', payload: { theme: 'paper' } },
+    })
+
+    const listA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'workspace-list', payload: {} } })
+    const listB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'workspace-list', payload: {} } })
+    assert.equal(listA.json.ok, true)
+    assert.deepEqual(listA.json.value.workspaces.map(item => item.id), [userA.kernelKey])
+    assert.equal(JSON.stringify(listA.json).includes(userB.kernelKey), false)
+    assert.equal(JSON.stringify(listA.json).includes(secret), false)
+    assert.equal(JSON.stringify(listA.json).includes('notes'), false)
+    assert.deepEqual(listB.json.value.workspaces.map(item => item.id), [userB.kernelKey])
+
+    const openB = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'workspace-open', payload: { workspaceId: userB.kernelKey } },
+    })
+    assert.equal(openB.json.ok, false)
+    assert.match(openB.json.error.message, /无权/)
+    assert.equal(openB.text.includes(secret), false)
+
+    const ownFile = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-text', payload: { file: 'secret.txt' } },
+    })
+    assert.equal(ownFile.json.value.text, 'alpha-workspace-secret')
+
+    const sendOwn = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'send', payload: { sessionId: 'sess-a', text: '自己的会话' } },
+    })
+    assert.equal(sendOwn.json.ok, true)
+    const sendOther = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'send', payload: { sessionId: 'sess-b', text: '写进乙的会话' } },
+    })
+    assert.equal(sendOther.json.ok, false)
+    assert.match(sendOther.json.error.message, /无权/)
+
+    const relative = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-text', payload: { file: `../${userB.kernelKey}/secret.txt` } },
+    })
+    const doubled = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'folder-list', payload: { path: `../../workspaces/${userB.kernelKey}` } },
+    })
+    const absolute = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-text', payload: { file: path.join(rootB, 'secret.txt') } },
+    })
+    assert.equal(relative.json.ok, false)
+    assert.match(relative.json.error.message, /工作区/)
+    assert.equal(doubled.json.ok, false)
+    assert.equal(absolute.json.ok, false)
+    assert.equal(relative.text.includes(secret), false)
+    assert.equal(absolute.text.includes(secret), false)
+
+    await symlink(path.join(rootB, 'secret.txt'), path.join(rootA, 'alias.txt'))
+    const linked = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieA,
+      body: { endpoint: 'file-text', payload: { file: 'alias.txt' } },
+    })
+    assert.equal(linked.json.ok, false)
+    assert.equal(linked.text.includes(secret), false)
+
+    assert.equal(await readFile(path.join(rootB, 'secret.txt'), 'utf8'), secret)
+    const settingsA = JSON.parse(await readFile(path.join(rootA, 'settings.json'), 'utf8'))
+    const settingsB = JSON.parse(await readFile(path.join(rootB, 'settings.json'), 'utf8'))
+    assert.equal(settingsA.prefs.theme, 'paper')
+    assert.equal(settingsB.prefs?.theme, undefined)
+    const ownedA = JSON.parse(await readFile(path.join(rootA, 'owned.json'), 'utf8'))
+    const ownedB = JSON.parse(await readFile(path.join(rootB, 'owned.json'), 'utf8'))
+    assert.deepEqual(ownedA.sessions, ['sess-a'])
+    assert.deepEqual(ownedB.sessions, ['sess-b'])
+    for (const endpoint of ['workspace-list', 'workspace-open', 'file-text', 'file-write', 'folder-list', 'team-workspace']) {
+      assert.equal(botCalls(ctx.calls, endpoint).length, 0, endpoint)
+    }
   } finally {
     await ctx.close()
   }

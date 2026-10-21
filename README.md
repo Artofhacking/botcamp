@@ -12,11 +12,14 @@ dsh 内核和 ds-bot 插件都是单租户。隔离和配额做在网关里，�
 - Demox 上已经存在的云函数只能接到 `/api/bot` 和 `/api/bot/feed`。登录和管理也走 `POST /api/bot`（`auth/login`、`auth/me`、`admin/create` 这些 endpoint），网关再改写成原来的账号接口。直接调用 `/api/auth/*` 和 `/api/admin/*` 在本地开发服务器上仍然可用。
 - 未登录的 `POST /api/bot` 和 `GET /api/bot/feed` 返回 401，不会请求内核。用户 A 读不到用户 B。配额为 0 时发送会被拒绝，同样不会进内核。
 - 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`，以及调用者自己的 `botcamp_session`，好让 camp 的 nginx 认出这是已登录调用。
-- 对话原文在 `data/namespaces/<kernelKey>.json`，账本在 `data/accounts.json`。`data/` 已 gitignore。
+- 对话原文、个人设置和工作区文件跟账本走同一处存储。本地开发写在 `data/`（已 gitignore）。线上不写 `/tmp`。
+- 每个账号有自己的工作区目录。文件、目录和工作区列表只来自这个目录；路径一旦越出目录，在进内核之前就拒绝。模型目录和服务商密钥任何账号（包括管理员）都不能通过页面改。用量只返回调用者自己的记录。
 
 `NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有 `BOTCAMP_ADMIN_EMAIL` 和 `BOTCAMP_ADMIN_PASSWORD` 就不会创建管理员。源码里的 `admin@localhost` / `botcamp-dev` 只给本机 `npm run dev`，Demox 函数会强制按生产环境处理，不会使用这对开发密码。
 
-新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。Demox 函数写在 `/tmp/botcamp-data`，各实例不共享这块磁盘。引导管理员的 id 由邮箱决定，会话用环境变量能重建的密钥签名，所以换一个实例仍然认这条登录。管理员后来开通的账号还在本实例的文件里。
+新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。
+
+Demox 用户函数的磁盘会在冷启动时清空，函数环境变量也不是数据库。平台留得住的业务数据在项目库里：网站 API `https://api.demox.site/website` 的 `project_rows`（MySQL），项目 `PQBDTM6GLZ`。函数设置 `BOTCAMP_STORE=demox-project` 后，账号、会话、配额、个人设置和每个账号的工作区文件都写进这个库。进程里的目录只是当次实例的缓存，打开时从项目库灌进来，写完再写回。不要设置 `BOTCAMP_DATA_DIR=/tmp/botcamp-data`。项目库一行大约 32KB，更长的正文会拆开存放。访问项目库的令牌放在函数环境变量 `BOTCAMP_STORE_TOKEN`，不要写进仓库。Demox 的个人访问令牌目前没有更细的权限，这块令牌也能管理站点，所以只放在函数环境里。
 
 ## 本地
 
@@ -55,7 +58,9 @@ BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' npm --
 npx --yes @demox-site/cli@1.1.6 env set --id IVBLF9PE --slug bot \
   NODE_ENV=production BOTCAMP_PRODUCTION=1 \
   BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' \
-  BOTCAMP_DATA_DIR=/tmp/botcamp-data
+  BOTCAMP_STORE=demox-project BOTCAMP_PROJECT_ID=PQBDTM6GLZ \
+  BOTCAMP_STORE_TOKEN='项目库令牌'
+npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_DIR
 ```
 
 云函数不能把一条无限 SSE 留在连接上。`/api/bot/feed` 读到第一条事件或大约 2.5 秒就取消上游。页面如果发现流在几秒内自己结束，会等 5 秒再重连。
