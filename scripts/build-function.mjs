@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
+process.chdir(root)
 const require = createRequire(path.join(root, 'app/package.json'))
 const esbuild = require('esbuild')
 

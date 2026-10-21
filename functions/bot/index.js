@@ -27,7 +27,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// ../functions/bot/entry.mjs
+// functions/bot/entry.mjs
 var entry_exports = {};
 __export(entry_exports, {
   handleDemoxRequest: () => handleDemoxRequest,
@@ -36,7 +36,7 @@ __export(entry_exports, {
 });
 module.exports = __toCommonJS(entry_exports);
 
-// botcamp/isolate.mjs
+// app/botcamp/isolate.mjs
 var CROSS_MESSAGE = "\u65E0\u6743\u67E5\u770B\u6216\u64CD\u4F5C\u5176\u4ED6\u7528\u6237\u7684\u673A\u5668\u4EBA\u3001\u4F1A\u8BDD\u6216\u8BBE\u7F6E\u3002";
 var QUOTA_MESSAGE = "\u914D\u989D\u5DF2\u7528\u5B8C\uFF0C\u65E0\u6CD5\u53D1\u9001\u3002\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u63D0\u9AD8\u53EF\u53D1\u9001\u7684\u6D88\u606F\u6570\u3002";
 var SHARED_MESSAGE = "\u8FD9\u9879\u8BBE\u7F6E\u5728\u5171\u4EAB\u5185\u6838\u4E0A\u662F\u5168\u5C40\u7684\uFF0C\u4E0D\u80FD\u6309\u8D26\u53F7\u4FEE\u6539\uFF0C\u4EE5\u514D\u5F71\u54CD\u5176\u4ED6\u7528\u6237\u3002";
@@ -378,13 +378,13 @@ function feedMessageItem(block) {
   }
 }
 
-// botcamp/store.mjs
+// app/botcamp/store.mjs
 var import_node_crypto2 = require("node:crypto");
 var import_promises = require("node:fs/promises");
 var import_node_path = __toESM(require("node:path"), 1);
 var import_node_url = require("node:url");
 
-// botcamp/passwords.mjs
+// app/botcamp/passwords.mjs
 var import_node_crypto = require("node:crypto");
 var import_node_util = require("node:util");
 var scryptAsync = (0, import_node_util.promisify)(import_node_crypto.scrypt);
@@ -419,7 +419,7 @@ function validPassword(password) {
   return typeof password === "string" && password.length >= 8 && password.length <= 200;
 }
 
-// botcamp/store.mjs
+// app/botcamp/store.mjs
 var import_meta = {};
 var SESSION_MS = 14 * 24 * 60 * 60 * 1e3;
 function defaultDataDir() {
@@ -745,7 +745,7 @@ async function writeAtomic(file, value) {
   await (0, import_promises.rename)(tmp, file);
 }
 
-// botcamp/http.mjs
+// app/botcamp/http.mjs
 var COOKIE = "botcamp_session";
 var SESSION_MAX_AGE = 14 * 24 * 60 * 60;
 var JSON_LIMIT = 1024 * 1024;
@@ -1296,7 +1296,7 @@ async function createBotcamp(options = {}) {
   return { store, handle, idle: () => store.idle() };
 }
 
-// ../functions/bot/entry.mjs
+// functions/bot/entry.mjs
 var DATA_DIR = "/tmp/botcamp-data";
 var campPromise = null;
 function runtimeEnv(extra) {
