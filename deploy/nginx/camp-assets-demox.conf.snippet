@@ -1,0 +1,53 @@
+# Paste inside the HTTPS server { ... } for camp.aigc.sx.cn,
+# BEFORE the catch-all `location /` that proxies to dsh.
+# Replace DEMOX_ORIGIN_HOST with demox-site.json → origin_host.
+
+# Static shell assets hosted on Demox (same URL path, browser still talks to camp).
+location ^~ /assets/ {
+    resolver 119.29.29.29 223.5.5.5 ipv6=off valid=30s;
+    resolver_timeout 2s;
+    set $demox_origin DEMOX_ORIGIN_HOST;
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_ssl_name DEMOX_ORIGIN_HOST;
+    proxy_set_header Host DEMOX_ORIGIN_HOST;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_connect_timeout 5s;
+    proxy_hide_header Set-Cookie;
+    expires 7d;
+    add_header Cache-Control "public, max-age=604800, immutable";
+    proxy_pass https://$demox_origin;
+}
+
+location = /favicon.svg {
+    resolver 119.29.29.29 223.5.5.5 ipv6=off valid=30s;
+    set $demox_origin DEMOX_ORIGIN_HOST;
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_ssl_name DEMOX_ORIGIN_HOST;
+    proxy_set_header Host DEMOX_ORIGIN_HOST;
+    proxy_pass https://$demox_origin;
+}
+
+location = /favicon-dark.svg {
+    resolver 119.29.29.29 223.5.5.5 ipv6=off valid=30s;
+    set $demox_origin DEMOX_ORIGIN_HOST;
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_ssl_name DEMOX_ORIGIN_HOST;
+    proxy_set_header Host DEMOX_ORIGIN_HOST;
+    proxy_pass https://$demox_origin;
+}
+
+location = /manifest.webmanifest {
+    resolver 119.29.29.29 223.5.5.5 ipv6=off valid=30s;
+    set $demox_origin DEMOX_ORIGIN_HOST;
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_ssl_name DEMOX_ORIGIN_HOST;
+    proxy_set_header Host DEMOX_ORIGIN_HOST;
+    proxy_pass https://$demox_origin;
+}
