@@ -38,9 +38,11 @@ async function refreshCookie() {
     const timer = setTimeout(() => controller.abort(), HOP_MS)
     let response
     try {
+      const headers = { origin: KERNEL }
+      if (cookieHeader()) headers.cookie = cookieHeader()
       response = await fetch(url, {
         redirect: 'manual',
-        headers: cookieHeader() ? { cookie: cookieHeader() } : {},
+        headers,
         signal: controller.signal,
       })
     } finally {
@@ -57,7 +59,7 @@ async function refreshCookie() {
 }
 
 function pathOf(request) {
-  const raw = request?.path || request?.url || '/'
+  const raw = request?.path || request?.rawPath || request?.route || request?.url || '/'
   try {
     if (String(raw).includes('://')) return new URL(String(raw)).pathname || '/'
   } catch {
@@ -100,12 +102,26 @@ function upstreamTarget(request, path) {
   return url
 }
 
-function upstreamBody(method, request) {
+async function upstreamBody(method, request) {
   if (method === 'GET' || method === 'HEAD') return undefined
   const body = request?.body
-  if (body == null || body === '') return undefined
-  if (typeof body === 'string') return body
-  return JSON.stringify(body)
+  if (typeof body === 'string') {
+    if (request?.isBase64Encoded) return Buffer.from(body, 'base64').toString('utf8')
+    return body
+  }
+  if (body == null || body === '') {
+    if (typeof request?.text === 'function') {
+      const text = await request.text()
+      return text || undefined
+    }
+    return undefined
+  }
+  if (typeof body === 'object' && typeof body.getReader === 'function' && typeof request.text === 'function') {
+    const text = await request.text()
+    return text || undefined
+  }
+  if (typeof body === 'object') return JSON.stringify(body)
+  return String(body)
 }
 
 async function send(request, path) {
@@ -116,7 +132,7 @@ async function send(request, path) {
   }
   const cookie = cookieHeader()
   if (cookie) headers.cookie = cookie
-  const body = upstreamBody(method, request)
+  const body = await upstreamBody(method, request)
   if (body !== undefined) headers['content-type'] = 'application/json'
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), UPSTREAM_MS)
@@ -205,9 +221,9 @@ async function proxy(request) {
   return { statusCode: upstream.status, headers: publicHeaders(upstream, false), body }
 }
 
-exports.handler = async (request) => {
+exports.handler = async (request, env) => {
   try {
-    return await proxy(request || {})
+    return await proxy(request || {}, env)
   } catch {
     return json(502, { error: 'kernel proxy failed' })
   }

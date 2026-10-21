@@ -6,6 +6,11 @@ const RETRY_MS = [500, 1000, 2000, 5000]
 const QUIET_MS = 5000
 const IMMEDIATE_MS = 3500
 
+export function feedRetryDelay(elapsedMs, ended, failures) {
+  if (ended && elapsedMs < IMMEDIATE_MS) return QUIET_MS
+  return RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]
+}
+
 function parseEvent(block) {
   let event = 'message'
   const data = []
@@ -50,8 +55,9 @@ export function openFeed(onEvent) {
       }
       if (stopped) return
       onEvent('lost', {})
-      const immediate = ended && Date.now() - openedAt < IMMEDIATE_MS
-      const wait = immediate ? QUIET_MS : RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]
+      const elapsed = Date.now() - openedAt
+      const immediate = ended && elapsed < IMMEDIATE_MS
+      const wait = feedRetryDelay(elapsed, ended, failures)
       await new Promise(resolve => setTimeout(resolve, wait))
       if (!immediate) failures += 1
     }

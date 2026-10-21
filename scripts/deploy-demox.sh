@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build the DeepSeek Bot page and publish app/ui/dist to the Demox botcamp project.
-# Requires `demox login` or DEMOX_TOKEN. Does not install plugins on the kernel.
+# Build the DeepSeek Bot page and, when Demox is logged in, publish app/ui/dist
+# and push the bot cloud function. A failed function push does not fail the static deploy.
+# Does not install plugins on the kernel.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/app/ui/dist"
@@ -39,13 +40,42 @@ fi
 npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" run build
 
+python3 - "$DIST/index.html" <<'PY'
+import sys
+from pathlib import Path
+html = Path(sys.argv[1]).read_text()
+if "location.replace" in html or "camp.aigc.sx.cn" in html:
+    raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
+print("dist/index.html stays on the Demox origin")
+PY
+
 ID=""
 if [[ -f "$META" ]]; then
   ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id",""))' "$META")"
   PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("projectId") or "PQBDTM6GLZ")' "$META")"
 fi
 
-DEMOX=(npx --yes @demox-site/cli)
+DEMOX=(npx --yes @demox-site/cli@1.1.6)
+FN_DIR="$ROOT/functions/bot"
+FN_SLUG="bot"
+FN_ROUTES="/api/bot,/api/bot/feed"
+alias_hint() {
+  echo "别名：第一次 functions push 创建 v1，production 和 develop 都指向 v1。"
+  echo "再上传只增加版本，不会移动别名。要让线上用新版本："
+  echo "  ${DEMOX[*]} functions alias set --id ${ID:-IVBLF9PE} --slug ${FN_SLUG} production --version=N"
+  echo "routes 只能在创建函数时设置，必须包含 ${FN_ROUTES}。"
+}
+
+if [[ -z "${DEMOX_TOKEN:-}" && ! -f "${HOME}/.demox/token.json" ]]; then
+  echo "未登录 Demox（没有 DEMOX_TOKEN，也没有 ~/.demox/token.json）。已构建，但没有发布静态站点，也没有推送云函数。"
+  echo "登录后重新执行 ./scripts/deploy-demox.sh"
+  echo "或手动："
+  echo "  npx --yes @demox-site/cli@1.1.6 deploy $DIST --name $NAME --project $PROJECT_ID --id ${ID:-IVBLF9PE}"
+  echo "  npx --yes @demox-site/cli@1.1.6 functions push $FN_DIR --id ${ID:-IVBLF9PE} --slug $FN_SLUG --name bot --routes $FN_ROUTES"
+  alias_hint
+  exit 1
+fi
+
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
   echo "Updating Demox site $ID in project $PROJECT_ID"
@@ -85,3 +115,17 @@ meta_path.write_text(json.dumps({
 }, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
 PY
+
+ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id",""))' "$META")"
+echo "推送云函数 ${FN_SLUG}（routes 仅创建时生效）: ${FN_ROUTES}"
+set +e
+"${DEMOX[@]}" functions push "$FN_DIR" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES"
+push_status=$?
+set -e
+if [[ "$push_status" -ne 0 ]]; then
+  echo "静态站点已发布。云函数推送失败，请执行："
+  echo "  ${DEMOX[*]} functions push \"$FN_DIR\" --id $ID --slug $FN_SLUG --name bot --routes $FN_ROUTES"
+  alias_hint
+else
+  alias_hint
+fi
