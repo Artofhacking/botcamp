@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build the pure frontend and publish web/dist to the Demox botcamp project.
-# Requires `demox login` or DEMOX_TOKEN. Does not touch the Tencent Cloud kernel.
+# Build the DeepSeek Bot page and publish app/ui/dist to the Demox botcamp project.
+# Requires `demox login` or DEMOX_TOKEN. Does not install plugins on the kernel.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIST="$ROOT/web/dist"
+DIST="$ROOT/app/ui/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
 PROJECT_ID="${DEMOX_PROJECT_ID:-PQBDTM6GLZ}"
@@ -36,8 +36,8 @@ PY
   chmod 600 "${HOME}/.demox/token.json"
 fi
 
-npm --prefix "$ROOT/web" ci
-npm --prefix "$ROOT/web" run build
+npm --prefix "$ROOT/app" ci
+npm --prefix "$ROOT/app" run build
 
 ID=""
 if [[ -f "$META" ]]; then

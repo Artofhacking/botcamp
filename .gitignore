@@ -1,5 +1,5 @@
 node_modules/
 dist/
-web/dist/
+app/ui/dist/
 .DS_Store
 *.log
