@@ -125,5 +125,6 @@ print(match.group(1))
 PY
 )"
 echo "把 production 指到 v${VERSION}"
-"${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version "$VERSION"
+# --version=N keeps the CLI from treating --version as its own version flag.
+"${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"
 echo "静态页面和云函数已发布。账号环境变量要用 demox env set 单独设置，不要写进仓库。"

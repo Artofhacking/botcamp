@@ -16,7 +16,7 @@ dsh 内核和 ds-bot 插件都是单租户。隔离和配额做在网关里，�
 
 `NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有 `BOTCAMP_ADMIN_EMAIL` 和 `BOTCAMP_ADMIN_PASSWORD` 就不会创建管理员。源码里的 `admin@localhost` / `botcamp-dev` 只给本机 `npm run dev`，Demox 函数会强制按生产环境处理，不会使用这对开发密码。
 
-新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。Demox 函数写在 `/tmp/botcamp-data`，实例回收后只保留环境变量里的引导管理员。
+新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。Demox 函数写在 `/tmp/botcamp-data`，各实例不共享这块磁盘。引导管理员的 id 由邮箱决定，会话用环境变量能重建的密钥签名，所以换一个实例仍然认这条登录。管理员后来开通的账号还在本实例的文件里。
 
 ## 本地
 

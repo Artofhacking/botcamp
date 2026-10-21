@@ -341,6 +341,32 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
   }
 })
 
+test('a signed admin session works on another instance and logout revokes it here', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-other-'))
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const pair = cookieHeader(login.setCookie)
+    const token = decodeURIComponent(pair.slice(pair.indexOf('=') + 1))
+    const other = await createBotcamp({ ...ctx.options, dataDir: otherDir })
+    const user = await other.store.userForToken(token)
+    assert.equal(user?.email, ADMIN_EMAIL)
+    assert.equal(user?.role, 'admin')
+    const home = await other.store.listUsers()
+    const there = await other.store.getUser(home[0].id)
+    const here = JSON.parse(await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8'))
+    assert.equal(here.users[0].id, there.id)
+    assert.equal(here.users[0].kernelKey, there.kernelKey)
+    const bye = await api(ctx.base, '/api/auth/logout', { method: 'POST', cookie: pair, body: {} })
+    assert.equal(bye.status, 200)
+    const me = await api(ctx.base, '/api/auth/me', { cookie: pair })
+    assert.equal(me.status, 401)
+  } finally {
+    await ctx.close()
+    await rm(otherDir, { recursive: true, force: true })
+  }
+})
+
 test('the demox bot route logs in, isolates, and blocks a zero quota before the kernel', async () => {
   const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
   try {

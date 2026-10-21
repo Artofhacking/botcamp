@@ -1,4 +1,4 @@
-import { randomBytes, createHash } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,7 +13,7 @@ export function defaultDataDir() {
 }
 
 function emptyData() {
-  return { users: [], sessions: [], resources: [] }
+  return { users: [], sessions: [], resources: [], revoked: [] }
 }
 
 function publicUser(user) {
@@ -61,15 +61,15 @@ export function bootstrapCredentials(env) {
   return { email: 'admin@localhost', password: 'botcamp-dev' }
 }
 
-function newUser({ email, passwordHash, role, quota }) {
+function newUser({ email, passwordHash, role, quota, id, kernelKey }) {
   return {
-    id: randomBytes(16).toString('base64url'),
+    id: id ?? randomBytes(16).toString('base64url'),
     email,
     passwordHash,
     role,
     quota,
     used: 0,
-    kernelKey: `u_${randomBytes(12).toString('base64url')}`,
+    kernelKey: kernelKey ?? `u_${randomBytes(12).toString('base64url')}`,
     prefs: {},
     prefsVersion: 0,
     mainBotIds: [],
@@ -86,6 +86,7 @@ export async function openStore(dataDir) {
   try {
     data = JSON.parse(await readFile(file, 'utf8'))
     if (!Array.isArray(data.users) || !Array.isArray(data.sessions) || !Array.isArray(data.resources)) data = emptyData()
+    if (!Array.isArray(data.revoked)) data.revoked = []
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
   }
@@ -96,6 +97,7 @@ export async function openStore(dataDir) {
     return dummyHash
   }
   let chain = Promise.resolve()
+  let sessionKey = null
   const exclusive = (fn) => {
     const run = chain.then(fn)
     chain = run.then(() => {}, () => {})
@@ -108,6 +110,7 @@ export async function openStore(dataDir) {
     publicUser,
     exclusive,
     async bootstrap(env) {
+      sessionKey = sessionSecret(env)
       return exclusive(async () => {
         if (data.users.length > 0) return { created: false }
         const creds = bootstrapCredentials(env)
@@ -120,6 +123,8 @@ export async function openStore(dataDir) {
           passwordHash: await hashPassword(creds.password),
           role: 'admin',
           quota: defaultQuota(env),
+          id: stableUserId(email),
+          kernelKey: stableKernelKey(email),
         }))
         await saveAccounts()
         return { created: true }
@@ -195,9 +200,9 @@ export async function openStore(dataDir) {
       })
     },
     async createSession(userId) {
-      const token = randomBytes(32).toString('base64url')
-      const tokenHash = hashToken(token)
       const expiresAt = Date.now() + SESSION_MS
+      const token = sessionKey ? signSession(userId, expiresAt, sessionKey) : randomBytes(32).toString('base64url')
+      const tokenHash = hashToken(token)
       await exclusive(async () => {
         data.sessions.push({ id: randomBytes(12).toString('base64url'), userId, tokenHash, expiresAt })
         await saveAccounts()
@@ -208,24 +213,30 @@ export async function openStore(dataDir) {
       if (typeof token !== 'string' || token.length < 20) return null
       const tokenHash = hashToken(token)
       return exclusive(async () => {
+        if (data.revoked.includes(tokenHash)) return null
         const now = Date.now()
         const session = data.sessions.find(entry => entry.tokenHash === tokenHash)
-        if (!session) return null
-        if (session.expiresAt <= now) {
-          data.sessions = data.sessions.filter(entry => entry !== session)
-          await saveAccounts()
-          return null
+        if (session) {
+          if (session.expiresAt <= now) {
+            data.sessions = data.sessions.filter(entry => entry !== session)
+            await saveAccounts()
+            return null
+          }
+          return principal(data.users.find(user => user.id === session.userId))
         }
-        return principal(data.users.find(user => user.id === session.userId))
+        if (!sessionKey || !token.startsWith('v1.')) return null
+        const userId = verifySession(token, sessionKey)
+        if (!userId) return null
+        return principal(data.users.find(user => user.id === userId))
       })
     },
     async deleteSession(token) {
-      if (typeof token !== 'string') return
+      if (typeof token !== 'string' || token.length < 20) return
       const tokenHash = hashToken(token)
       await exclusive(async () => {
-        const next = data.sessions.filter(entry => entry.tokenHash !== tokenHash)
-        if (next.length === data.sessions.length) return
-        data.sessions = next
+        data.sessions = data.sessions.filter(entry => entry.tokenHash !== tokenHash)
+        if (!data.revoked.includes(tokenHash)) data.revoked.push(tokenHash)
+        if (data.revoked.length > 200) data.revoked.splice(0, data.revoked.length - 200)
         await saveAccounts()
       })
     },
@@ -320,6 +331,42 @@ export async function openStore(dataDir) {
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
+}
+
+function stableUserId(email) {
+  return createHash('sha256').update(`botcamp-user:${email}`).digest('base64url').slice(0, 22)
+}
+
+function stableKernelKey(email) {
+  return `u_${createHash('sha256').update(`botcamp-kernel:${email}`).digest('base64url').slice(0, 16)}`
+}
+
+// Instances do not share a disk. The bootstrap admin id is derived from the email,
+// and the session is signed with a key every instance can rebuild from the env.
+function sessionSecret(env) {
+  if (typeof env?.BOTCAMP_SESSION_SECRET === 'string' && env.BOTCAMP_SESSION_SECRET.length >= 16) return env.BOTCAMP_SESSION_SECRET
+  const password = typeof env?.BOTCAMP_ADMIN_PASSWORD === 'string' ? env.BOTCAMP_ADMIN_PASSWORD : ''
+  if (password.length < 8) return null
+  return createHash('sha256').update(`botcamp-session:${password}`).digest('base64url')
+}
+
+function signSession(userId, expiresAt, secret) {
+  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: expiresAt })).toString('base64url')
+  const sig = createHmac('sha256', secret).update(payload).digest('base64url')
+  return `v1.${payload}.${sig}`
+}
+
+function verifySession(token, secret) {
+  const parts = token.split('.')
+  if (parts.length !== 3 || parts[0] !== 'v1') return null
+  const expected = createHmac('sha256', secret).update(parts[1]).digest('base64url')
+  const actual = Buffer.from(parts[2])
+  const wanted = Buffer.from(expected)
+  if (actual.length !== wanted.length || !timingSafeEqual(actual, wanted)) return null
+  let body
+  try { body = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) } catch { return null }
+  if (!body || typeof body.uid !== 'string' || typeof body.exp !== 'number' || body.exp <= Date.now()) return null
+  return body.uid
 }
 
 function safeKernelKey(kernelKey) {
