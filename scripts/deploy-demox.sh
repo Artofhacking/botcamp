@@ -105,15 +105,17 @@ if not url.endswith("/"):
 if not site_id or not url:
     raise SystemExit("could not parse Demox deploy output")
 origin_host = url.rstrip("/").split("//", 1)[-1]
-meta_path.write_text(json.dumps({
+merged = dict(existing)
+merged.update({
     "id": site_id,
     "name": "$NAME",
     "url": url if url.endswith("/") else url + "/",
     "origin_host": origin_host,
     "projectId": "$PROJECT_ID",
-    "projectSlug": "botcamp",
-    "projectName": "botcamp",
-}, indent=2) + "\n")
+    "projectSlug": existing.get("projectSlug") or "botcamp",
+    "projectName": existing.get("projectName") or "botcamp",
+})
+meta_path.write_text(json.dumps(merged, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
 PY
 
@@ -132,8 +134,10 @@ else
 import re, sys
 from pathlib import Path
 text = Path(sys.argv[1]).read_text()
-found = re.findall(r"\bv(\d+)\b", text)
-print(found[-1] if found else "")
+uploaded = re.search(r"已上传 v(\d+)", text)
+version_line = re.search(r"版本:\s*(\d+)", text)
+match = uploaded or version_line
+print(match.group(1) if match else "")
 PY
 )"
   if [[ -n "$version" ]]; then
