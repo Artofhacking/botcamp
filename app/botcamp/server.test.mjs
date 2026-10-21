@@ -334,3 +334,31 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     await ctx.close()
   }
 })
+
+test('the page login endpoint uses the same session and skips the kernel', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const before = ctx.calls.length
+    const login = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'botcamp/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+    })
+    assert.equal(login.status, 200)
+    assert.equal(login.json.user.email, ADMIN_EMAIL)
+    assert.match(cookieHeader(login.setCookie), /^botcamp_session=/)
+    assert.equal(login.setCookie.some(item => /dsh-auth/i.test(item)), false)
+    assert.equal(ctx.calls.length, before)
+    const cookie = cookieHeader(login.setCookie)
+    const me = await api(ctx.base, '/api/bot', { method: 'POST', cookie, body: { endpoint: 'botcamp/me', payload: null } })
+    assert.equal(me.status, 200)
+    assert.equal(me.json.user.role, 'admin')
+    const missing = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'state', payload: {} } })
+    assert.equal(missing.status, 401)
+    assert.equal(botCalls(ctx.calls, 'state').length, 0)
+    const state = await api(ctx.base, '/api/bot', { method: 'POST', cookie, body: { endpoint: 'state', payload: {} } })
+    assert.equal(state.json.ok, true)
+    assert.equal(state.setCookie.some(item => /dsh-auth/i.test(item)), false)
+  } finally {
+    await ctx.close()
+  }
+})

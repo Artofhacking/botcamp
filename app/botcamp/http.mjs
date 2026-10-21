@@ -72,6 +72,13 @@ function refused(message) {
   return { ok: false, error: { code: 'bot/refused', message } }
 }
 
+function logFailure(error, fallback) {
+  const message = error instanceof Error ? error.message : fallback
+  console.error('[botcamp]', String(message)
+    .replace(/([?&#])token=[^&#\s]*/gi, '$1token=')
+    .replace(/dsh-auth-[^\s;,]*/gi, 'dsh-auth'))
+}
+
 export async function createBotcamp(options = {}) {
   const env = options.env ?? process.env
   const kernelOrigin = (options.kernelOrigin ?? env.DSH_KERNEL_ORIGIN ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
@@ -202,7 +209,7 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 400, { ok: false, error: { message: '请求格式不正确。' } })
         return
       }
-      console.error('[botcamp]', error instanceof Error ? error.message : 'auth failed')
+      logFailure(error, 'auth failed')
       sendJson(res, 500, { ok: false, error: { message: '登录服务暂时不可用。' } })
     }
   }
@@ -272,20 +279,26 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 400, { ok: false, error: { message: '请求格式不正确。' } })
         return
       }
-      console.error('[botcamp]', error instanceof Error ? error.message : 'admin failed')
+      logFailure(error, 'admin failed')
       sendJson(res, 500, { ok: false, error: { message: '管理服务暂时不可用。' } })
     }
   }
 
-  async function handleBot(req, res, user) {
+  async function handleBot(req, res, user, given) {
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
     let charged = false
     try {
-      const raw = await readBody(req, BOT_LIMIT)
-      let body
-      try { body = JSON.parse(raw.length ? raw.toString('utf8') : '{}') } catch {
+      let body = given
+      if (body === undefined) {
+        const raw = await readBody(req, BOT_LIMIT)
+        try { body = JSON.parse(raw.length ? raw.toString('utf8') : '{}') } catch {
+          sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
+          return
+        }
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
         sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
         return
       }
@@ -365,7 +378,7 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 413, { ok: false, error: { message: '请求太大。' } })
         return
       }
-      console.error('[botcamp]', error instanceof Error ? error.message : 'bot proxy failed')
+      logFailure(error, 'bot proxy failed')
       sendJson(res, 502, { ok: false, error: { code: 'bot/error', message: '暂时连不上内核。' } })
     } finally {
       res.off('close', onClose)
@@ -430,11 +443,70 @@ export async function createBotcamp(options = {}) {
         if (!res.writableEnded) res.end()
         return
       }
-      console.error('[botcamp]', error instanceof Error ? error.message : 'feed failed')
+      logFailure(error, 'feed failed')
       sendJson(res, 502, { ok: false, error: { message: '暂时连不上内核。' } })
     } finally {
       res.off('close', onClose)
     }
+  }
+
+  function replay(req, method, payload) {
+    const raw = Buffer.from(JSON.stringify(payload ?? {}))
+    let sent = false
+    return {
+      method,
+      url: req.url,
+      headers: req.headers,
+      socket: req.socket,
+      async *[Symbol.asyncIterator]() {
+        if (sent) return
+        sent = true
+        if (raw.length > 0) yield raw
+      },
+    }
+  }
+
+  // Demox only routes /api/bot and /api/bot/feed. Login and admin use those
+  // paths with a botcamp/ endpoint so the cloud function and Vite share one session.
+  async function handleLocalEndpoint(req, res, endpoint, payload) {
+    const user = await currentUser(req)
+    if (endpoint === 'botcamp/login') {
+      await handleAuth(replay(req, 'POST', payload), res, '/api/auth/login')
+      return
+    }
+    if (endpoint === 'botcamp/logout') {
+      await handleAuth(replay(req, 'POST', {}), res, '/api/auth/logout')
+      return
+    }
+    if (endpoint === 'botcamp/me') {
+      await handleAuth(replay(req, 'GET', {}), res, '/api/auth/me')
+      return
+    }
+    if (endpoint === 'botcamp/signup') {
+      await handleAuth(replay(req, 'POST', payload), res, '/api/auth/signup')
+      return
+    }
+    if (endpoint === 'botcamp/admin-list') {
+      await handleAdmin(replay(req, 'GET', {}), res, '/api/admin/users', user)
+      return
+    }
+    if (endpoint === 'botcamp/admin-create') {
+      await handleAdmin(replay(req, 'POST', payload), res, '/api/admin/users', user)
+      return
+    }
+    if (endpoint === 'botcamp/admin-update') {
+      const id = typeof payload?.id === 'string' ? payload.id : ''
+      const patch = { ...(payload ?? {}) }
+      delete patch.id
+      await handleAdmin(replay(req, 'PATCH', patch), res, `/api/admin/users/${encodeURIComponent(id)}`, user)
+      return
+    }
+    if (endpoint === 'botcamp/admin-delete') {
+      const id = typeof payload?.id === 'string' ? payload.id : ''
+      await handleAdmin(replay(req, 'DELETE', {}), res, `/api/admin/users/${encodeURIComponent(id)}`, user)
+      return
+    }
+    sendJson(res, 404, { ok: false, error: { message: '未知接口。' } })
   }
 
   async function handle(req, res, next) {
@@ -447,6 +519,31 @@ export async function createBotcamp(options = {}) {
       await handleAuth(req, res, path)
       return
     }
+    if (path === '/api/bot' && req.method === 'POST') {
+      let body
+      try {
+        const raw = await readBody(req, BOT_LIMIT)
+        body = JSON.parse(raw.length ? raw.toString('utf8') : '{}')
+      } catch (error) {
+        if (error?.code === 'LIMIT') {
+          sendJson(res, 413, { ok: false, error: { message: '请求太大。' } })
+          return
+        }
+        sendJson(res, 400, { ok: false, error: { code: 'bot/invalid', message: '请求格式不正确。' } })
+        return
+      }
+      if (body && typeof body === 'object' && !Array.isArray(body) && typeof body.endpoint === 'string' && body.endpoint.startsWith('botcamp/')) {
+        await handleLocalEndpoint(req, res, body.endpoint, body.payload ?? null)
+        return
+      }
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      await handleBot(req, res, user, body)
+      return
+    }
     const user = await currentUser(req)
     if (path.startsWith('/api/admin')) {
       await handleAdmin(req, res, path, user)
@@ -454,10 +551,6 @@ export async function createBotcamp(options = {}) {
     }
     if (!user) {
       sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
-      return
-    }
-    if (path === '/api/bot' && req.method === 'POST') {
-      await handleBot(req, res, user)
       return
     }
     if (path === '/api/bot/feed' && (req.method === 'GET' || req.method === 'HEAD')) {

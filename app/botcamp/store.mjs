@@ -7,6 +7,9 @@ import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000
 
 export function defaultDataDir() {
+  // The Demox bundle is CJS, where import.meta.url is empty. The function always
+  // passes BOTCAMP_DATA_DIR; this fallback is only for a local process.
+  if (!import.meta.url) return path.join(process.cwd(), 'data')
   return fileURLToPath(new URL('../../data', import.meta.url))
 }
 
