@@ -17,7 +17,31 @@ npm --prefix app ci
 npm --prefix app run dev
 ```
 
-打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot，侧栏牌子是 DS Bot。开发服务器会自行完成内核登录，不需要把令牌写进仓库。
+打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot，侧栏牌子是 DS Bot。未登录只会看到登录页，请求到不了内核。开发服务器会自行完成内核登录，不需要把令牌写进仓库。
+
+## 账号
+
+dsh 内核和 ds-bot 插件都是单租户。多个用户的隔离做在这个仓库的网关里（`app/botcamp/`，由 `app/kernelProxy.mjs` 挂到 Vite），发生在请求进入共享内核之前。
+
+- 邮箱加密码登录。没有公开注册，账号由管理员开通。密码用 scrypt 保存，不明文落地。会话是本站的 `botcamp_session` httpOnly cookie，和内核的 `dsh-auth` 不是同一个。
+- 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`。机器人、会话、群和设置的归属记在本地账本里；`state` 和实时流只返回这个账号自己的部分。别人的 id 在进内核之前就被拒绝。
+- 主题等个人设置只写在这个账号上，不会改共享内核里的全局配置。模型供应商密钥、工作区文件和诊断日志也不能通过页面改到别人身上。
+- 对话原文另存在 `data/namespaces/<kernelKey>.json`。账本在 `data/accounts.json`。`data/` 已 gitignore，重启开发服务器后还在。不要把这个目录提交上去。
+- 配额按消息条数。发送一条（`send`），或向记忆提问一次（`memory-ask`），计 1 次。配额为 0 或已用尽时，发送会被拒绝，并提示联系管理员。管理员在侧栏「用户与配额」里修改。
+
+用户库为空时，用环境变量创建第一名管理员：
+
+```bash
+BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' npm --prefix app run dev
+```
+
+`NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有这两个变量就不会创建管理员，源码里也没有生产密码。本地 `npm run dev` 如果两个变量都没设，并且用户库是空的，会用文档里的开发账号：邮箱 `admin@localhost`，密码 `botcamp-dev`。这个默认值只给本机开发，不要拿到正式环境用。
+
+新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。数据目录可以用 `BOTCAMP_DATA_DIR` 指到别处。
+
+```bash
+npm --prefix app test
+```
 
 ```bash
 npm --prefix app run build
