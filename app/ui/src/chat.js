@@ -1,6 +1,7 @@
 import { createElement as h, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { call } from '../../../ds-bot/src/client/api.js'
 import { Bubbles, ChatRows, Shimmer } from '../../../ds-bot/src/client/cells.js'
+import { earlierBanner, visiblePending } from './chatSync.js'
 import { ComposerPlus, ComposerVoice } from '../../../ds-bot/src/client/composer.js'
 import { t } from '../../../ds-bot/src/client/i18n.js'
 import { ArrowUpIcon } from '../../../ds-bot/src/client/icons.js'
@@ -14,7 +15,7 @@ const sameItem = (a, b) => a.kind === b.kind && a.time === b.time && a.text === 
 // A Bot's own chat: pages from the `chat` endpoint, new entries and the reply being
 // written from the feed. Entries that arrive while the first page loads wait for it.
 function useChat(botId, part, feed) {
-  const [view, setView] = useState({ sessionId: null, items: [], cursor: null, loading: botId !== undefined, failed: false })
+  const [view, setView] = useState({ sessionId: null, items: [], cursor: null, loading: botId !== undefined, loadingEarlier: false, failed: false })
   const [stream, setStream] = useState(null)
   const [pending, setPending] = useState([])
   const ready = useRef(false)
@@ -25,23 +26,27 @@ function useChat(botId, part, feed) {
   const load = useCallback(async (cursor, scroller) => {
     if (busy.current || botId === undefined) return
     busy.current = true
-    if (cursor === undefined) ready.current = false
-    setView(current => ({ ...current, loading: true, failed: false }))
+    const older = cursor !== undefined
+    if (!older) ready.current = false
+    // Refreshing the latest page stays quiet. Only scrolling up shows the earlier-message line.
+    if (older) setView(current => ({ ...current, loading: true, loadingEarlier: true, failed: false }))
     try {
       const page = await call('chat', { botId, ...(cursor ? { cursor } : {}) })
-      if (cursor === undefined) {
+      if (!older) {
         const later = early.current.filter(entry => entry.sessionId === page.sessionId && !page.items.some(item => sameItem(item, entry.item)))
         early.current = []
         ready.current = true
-        setView({ sessionId: page.sessionId, items: [...page.items, ...later.map(entry => entry.item)], cursor: page.cursor, loading: false, failed: false })
+        const items = [...page.items, ...later.map(entry => entry.item)]
+        setView({ sessionId: page.sessionId, items, cursor: page.cursor, loading: false, loadingEarlier: false, failed: false })
+        setPending(list => visiblePending(list, items))
       } else {
         // Content added above the viewport would push the view down; keep its distance from the end.
         if (scroller) keep.current = scroller.scrollHeight - scroller.scrollTop
-        setView(current => ({ ...current, items: [...page.items, ...current.items], cursor: page.cursor, loading: false }))
+        setView(current => ({ ...current, items: [...page.items, ...current.items], cursor: page.cursor, loading: false, loadingEarlier: false }))
       }
     } catch {
-      ready.current = cursor !== undefined || ready.current
-      setView(current => ({ ...current, loading: false, failed: true }))
+      ready.current = older || ready.current
+      setView(current => ({ ...current, loading: false, loadingEarlier: false, failed: older ? true : current.failed }))
     } finally {
       busy.current = false
     }
@@ -55,14 +60,10 @@ function useChat(botId, part, feed) {
     if (event === 'hello') { if (ready.current) void load(undefined); return }
     if (botId === undefined || data?.botId !== botId) return
     if (event === 'message') {
+      if (!data?.item) return
+      if (data.item.kind === 'user') setPending(list => visiblePending(list, [data.item]))
       if (!ready.current) { early.current.push(data); return }
       setView(current => (data.sessionId !== current.sessionId || current.items.some(item => sameItem(item, data.item)) ? current : { ...current, items: [...current.items, data.item] }))
-      if (data.item.kind === 'user') {
-        setPending((list) => {
-          const at = list.findIndex(entry => entry.text === data.item.text)
-          return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
-        })
-      }
       if (data.item.kind === 'bot') setStream(null)
     } else if (event === 'stream') {
       if (data.phase === 'start') setStream({ attemptId: data.attemptId, text: '' })
@@ -171,9 +172,11 @@ export function Chat({ sessionId, team }) {
     const node = scroller.current
     follow.current = node.scrollHeight - node.scrollTop - node.clientHeight < FOLLOW_PX
   }
-  const earlier = view.loading && view.sessionId !== null ? h(Shimmer, null, t('Loading earlier messages…'))
-    : view.failed ? h('button', { type: 'button', className: 'bt-soft', onClick: () => load(view.cursor ?? undefined, scroller.current) }, t('Couldn’t load earlier messages · Retry'))
-      : view.cursor ? h('button', { type: 'button', className: 'bt-soft', onClick: () => load(view.cursor, scroller.current) }, t('Load earlier')) : null
+  const banner = earlierBanner(view)
+  const outgoing = visiblePending(pending, view.items)
+  const earlier = banner === 'loading' ? h(Shimmer, null, t('Loading earlier messages…'))
+    : banner === 'failed' ? h('button', { type: 'button', className: 'bt-soft', onClick: () => load(view.cursor ?? undefined, scroller.current) }, t('Couldn’t load earlier messages · Retry'))
+      : banner === 'more' ? h('button', { type: 'button', className: 'bt-soft', onClick: () => load(view.cursor, scroller.current) }, t('Load earlier')) : null
   const waiting = bot?.waiting === true
 
   return h('div', { className: 'dsb-chat' },
@@ -182,7 +185,7 @@ export function Chat({ sessionId, team }) {
         earlier ? h('div', { className: 'bt-earlier-top' }, earlier) : null,
         h('div', { className: 'dsb-flow', 'data-chat-flow': '', role: 'feed', 'aria-label': name, 'aria-busy': view.loading },
           h(ChatRows, { items: view.items, sessionId, roster, actions, useUi: hooks.useUi, clock: true }),
-          pending.length ? h('div', { className: 'dsb-pending' }, h(ChatRows, { items: pending, sessionId, roster, actions })) : null,
+          outgoing.length ? h('div', { className: 'dsb-pending' }, h(ChatRows, { items: outgoing, sessionId, roster, actions })) : null,
           stream?.text ? h(Bubbles, { texts: [stream.text], roster, selfId: bot?.id, actions, streaming: true, sessionId }) : null,
           // The Bot views' activity row (from the header pill) draws itself in here.
           h('div', { 'data-chat-running': '' }),
