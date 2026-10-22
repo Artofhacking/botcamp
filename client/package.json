@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:mac": "tauri build --bundles app,dmg",
     "build:windows": "tauri build --bundles nsis",
     "dev:ui": "npm --prefix ../app run dev:client",
     "build:ui": "npm --prefix ../app run build:client"

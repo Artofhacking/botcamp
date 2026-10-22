@@ -1,14 +1,27 @@
 # BotCamp
 
-用户安装客户端使用。现在先做 Windows。窗口里仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的界面（`app/ui`，Apache-2.0），壳是 Tauri，以后 macOS、Android 和 iOS 沿用这一个壳，不另起一套界面。网站不再作为产品入口。
+用户安装客户端使用。壳是 Tauri，窗口里仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的界面（`app/ui`，Apache-2.0）。Mac 和 Windows 用同一套代码。Android 和 iOS 以后也沿用这个壳。网站不再作为产品入口。
 
 客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上要先发布带 Bearer 和 CORS 的网关，安装包才能连上。
 
+Mac 上先测开发窗口。需要 Node.js 22、Rust stable，以及 Xcode 命令行工具（`xcode-select --install`）。不要运行 `build:windows`，那个安装包只能在 Windows 上打。
+
 ```bash
+git checkout cursor/windows-client-3944
 npm --prefix app ci
 npm --prefix client ci
 npm --prefix client run dev
 ```
+
+空的本地库会有一个开发管理员：`admin@localhost` / `botcamp-dev`。这只在本机开发窗口里有效，不是线上账号。窗口标题是 BotCamp。登录后左下角能看到邮箱和配额。三个 bot 要能连上 camp 的内核才会出现；本机没有内核交换密钥时，名单是空的。不要把密钥发出来。
+
+在 Mac 上打出应用：
+
+```bash
+npm --prefix client run build:mac
+```
+
+产物在 `client/src-tauri/target/release/bundle/`。这个包装好后默认请求线上。线上网关还没有 Bearer，所以现在用上面的 `dev` 测，不要用打出来的包装线上。
 
 在 Windows 上打出 NSIS 安装包：
 
@@ -16,7 +29,7 @@ npm --prefix client run dev
 npm --prefix client run build:windows
 ```
 
-macOS、Android、iOS 还没开始打包。
+Android、iOS 还没开始打包。
 
 [https://botcamp.demox.site/](https://botcamp.demox.site/) 仍可打开现有页面。页面里没有跳转到 camp 的脚本。未登录只看到登录页。
 
