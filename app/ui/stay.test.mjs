@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
+import { earlierBanner, visiblePending } from './src/chatSync.js'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -43,6 +44,22 @@ test('nginx serves camp as API-only and requires the same session', () => {
   assert.match(conf, /return 401/)
   assert.match(conf, /API-only/)
   assert.equal(conf.includes('浏览器入口仍是这个域名'), false)
+})
+
+test('a sent message already on the page is not drawn again', () => {
+  const sent = { kind: 'user', text: '你好', time: 10 }
+  const pending = [{ kind: 'user', text: '你好', time: 99 }, { kind: 'user', text: '还在路上', time: 100 }]
+  assert.deepEqual(visiblePending(pending, [sent]).map(entry => entry.text), ['还在路上'])
+  assert.deepEqual(visiblePending(pending, []).map(entry => entry.text), ['你好', '还在路上'])
+  const twice = [{ kind: 'user', text: '好', time: 1 }, { kind: 'user', text: '好', time: 2 }]
+  assert.equal(visiblePending(twice, [{ kind: 'user', text: '好', time: 3 }]).length, 1)
+})
+
+test('refreshing the latest page does not say it is loading earlier messages', () => {
+  assert.equal(earlierBanner({ loadingEarlier: false, failed: false, cursor: 'p1' }), 'more')
+  assert.equal(earlierBanner({ loadingEarlier: true, failed: false, cursor: 'p1' }), 'loading')
+  assert.equal(earlierBanner({ loadingEarlier: false, failed: true, cursor: 'p1' }), 'failed')
+  assert.equal(earlierBanner({ loadingEarlier: false, failed: false, cursor: null }), 'none')
 })
 
 test('a feed that ends immediately waits several seconds', () => {
