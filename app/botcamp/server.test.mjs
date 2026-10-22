@@ -6,12 +6,14 @@ import path from 'node:path'
 import test from 'node:test'
 import { createBotcamp } from './http.mjs'
 import { createMemoryLedger } from './projectLedger.mjs'
+import { DEFAULT_TEAM } from './team.mjs'
 
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
 
 function kernelFactory() {
   const bots = []
+  let teamSlot = 0
   return async function kernel(href, init = {}) {
     if (href === 'http://kernel.test/' || href === 'http://kernel.test') return new Response('ok', { status: 200 })
     if (href.endsWith('/api/bot/feed')) {
@@ -24,8 +26,9 @@ function kernelFactory() {
     }
     const body = JSON.parse(init.body ?? '{}')
     if (body.endpoint === 'create-bot') {
-      const slot = bots.length === 0 ? 'a' : 'b'
-      const bot = { id: `bot-${slot}`, name: body.payload?.name ?? slot, sessionId: `sess-${slot}`, parts: [] }
+      const name = body.payload?.name ?? ''
+      const named = name === '甲' ? 'a' : name === '乙' ? 'b' : `t${teamSlot++}`
+      const bot = { id: `bot-${named}`, name: name || named, sessionId: `sess-${named}`, parts: [] }
       bots.push(bot)
       return Response.json({ ok: true, value: bot })
     }
@@ -241,15 +244,19 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     assert.equal(botA.json.ok, true)
     assert.equal(botA.json.value.id, 'bot-a')
     assert.equal(botB.json.value.id, 'bot-b')
-    const namespaces = botCalls(ctx.calls, 'create-bot').map(call => call.headers['x-botcamp-namespace'])
-    assert.equal(namespaces.length, 2)
-    assert.notEqual(namespaces[0], namespaces[1])
-    assert.match(namespaces[0], /^u_/)
+    const creates = botCalls(ctx.calls, 'create-bot')
+    const explicit = creates.filter(call => ['甲', '乙'].includes(JSON.parse(call.body).payload.name))
+    assert.equal(explicit.length, 2)
+    assert.notEqual(explicit[0].headers['x-botcamp-namespace'], explicit[1].headers['x-botcamp-namespace'])
+    assert.match(explicit[0].headers['x-botcamp-namespace'], /^u_/)
+    assert.equal(creates.filter(call => ['主编', '写手', '运营'].includes(JSON.parse(call.body).payload.name)).length, 6)
 
     const stateA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
     const stateB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
-    assert.deepEqual(stateA.json.value.bots.map(bot => bot.id), ['bot-a'])
-    assert.deepEqual(stateB.json.value.bots.map(bot => bot.id), ['bot-b'])
+    assert.deepEqual(stateA.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营', '甲'])
+    assert.deepEqual(stateB.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营', '乙'])
+    const idsB = new Set(stateB.json.value.bots.map(bot => bot.id))
+    for (const id of stateA.json.value.bots.map(bot => bot.id)) assert.equal(idsB.has(id), false)
     assert.equal(JSON.stringify(stateA.json).includes('bot-b'), false)
     assert.equal(JSON.stringify(stateA.json).includes('乙的群'), false)
     assert.equal(JSON.stringify(stateA.json).includes('hidden-question'), false)
@@ -545,8 +552,8 @@ test('the demox bot route logs in, isolates, and blocks a zero quota before the 
     const otherCookie = cookieHeader(otherLogin.setCookie)
 
     const botOther = await api(ctx.base, '/api/bot', { method: 'POST', cookie: otherCookie, body: { endpoint: 'create-bot', payload: { name: '乙' } } })
-    assert.equal(botOther.json.value.id, 'bot-a')
-    const denied = await api(ctx.base, '/api/bot', { method: 'POST', cookie: zeroCookie, body: { endpoint: 'chat', payload: { botId: 'bot-a' } } })
+    assert.equal(botOther.json.value.id, 'bot-b')
+    const denied = await api(ctx.base, '/api/bot', { method: 'POST', cookie: zeroCookie, body: { endpoint: 'chat', payload: { botId: 'bot-b' } } })
     assert.equal(denied.json.ok, false)
     assert.equal(botCalls(ctx.calls, 'chat').length, 0)
 
@@ -835,11 +842,103 @@ test('user A cannot list or open user B workspace, send into B session, or trave
     assert.equal(settingsB.prefs?.theme, undefined)
     const ownedA = JSON.parse(await readFile(path.join(rootA, 'owned.json'), 'utf8'))
     const ownedB = JSON.parse(await readFile(path.join(rootB, 'owned.json'), 'utf8'))
-    assert.deepEqual(ownedA.sessions, ['sess-a'])
-    assert.deepEqual(ownedB.sessions, ['sess-b'])
+    assert.deepEqual(ownedA.sessions.filter(id => id === 'sess-a' || id === 'sess-b'), ['sess-a'])
+    assert.deepEqual(ownedB.sessions.filter(id => id === 'sess-a' || id === 'sess-b'), ['sess-b'])
+    assert.equal(ownedA.sessions.length, 4)
+    assert.equal(ownedB.sessions.length, 4)
     for (const endpoint of ['workspace-list', 'workspace-open', 'file-text', 'file-write', 'folder-list', 'team-workspace']) {
       assert.equal(botCalls(ctx.calls, endpoint).length, 0, endpoint)
     }
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('opening an account creates the three duty bots without a room, a main bot, or a quota charge', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const adminCookie = cookieHeader(adminLogin.setCookie)
+    const created = await api(ctx.base, '/api/admin/users', {
+      method: 'POST',
+      cookie: adminCookie,
+      body: { email: 'a@example.com', password: 'password-user-a', quota: 0 },
+    })
+    assert.equal(created.status, 201)
+    assert.deepEqual(created.json.team.created, ['主编', '写手', '运营'])
+    assert.deepEqual(created.json.team.failed, [])
+    assert.equal(created.json.user.used, 0)
+    assert.equal(JSON.stringify(created.json).includes('password-user-a'), false)
+
+    const accounts = JSON.parse(await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8'))
+    const user = accounts.users.find(entry => entry.email === 'a@example.com')
+    const admin = accounts.users.find(entry => entry.email === ADMIN_EMAIL)
+    const creates = botCalls(ctx.calls, 'create-bot')
+    assert.equal(creates.length, 3)
+    assert.deepEqual(creates.map(call => JSON.parse(call.body).payload.name), DEFAULT_TEAM.map(member => member.name))
+    for (const call of creates) {
+      const payload = JSON.parse(call.body).payload
+      const member = DEFAULT_TEAM.find(item => item.name === payload.name)
+      assert.equal(call.headers['x-botcamp-namespace'], user.kernelKey)
+      assert.notEqual(user.kernelKey, admin.kernelKey)
+      assert.match(String(call.headers.cookie ?? ''), /botcamp_session=/)
+      assert.equal(Object.hasOwn(payload, 'model'), false)
+      assert.equal(payload.hidden, undefined)
+      assert.equal(payload.brief, member.brief)
+      assert.equal(/群|只能|只和|不要关注/.test(payload.brief), false)
+    }
+    assert.equal(botCalls(ctx.calls, 'create-room').length, 0)
+    assert.equal(botCalls(ctx.calls, 'send').length, 0)
+    assert.equal(botCalls(ctx.calls, 'set-main').length, 0)
+    assert.equal(ctx.calls.some(call => call.href.includes('/api/bot') && String(call.headers['x-botcamp-exchange'] ?? '') !== ''), false)
+
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })
+    assert.equal(login.status, 200)
+    assert.equal(login.json.user.used, 0)
+    assert.equal(login.json.user.remaining, 0)
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(login.setCookie),
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营'])
+    assert.deepEqual(state.json.value.rooms, [])
+    assert.equal(state.json.value.mainBotId, null)
+    assert.deepEqual(state.json.value.mainBotIds, [])
+    assert.equal(state.json.value.bots.some(bot => bot.hidden === true), false)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('a missed default bot still leaves the account and does not charge quota', async () => {
+  let creates = 0
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint !== 'create-bot') return Response.json({ ok: true, value: { revision: 1, bots: [], rooms: [] } })
+    creates += 1
+    if (body.payload?.name === '写手') return Response.json({ ok: false, error: { message: 'kernel down' } }, { status: 500 })
+    return Response.json({ ok: true, value: { id: `bot-${creates}`, name: body.payload.name, sessionId: `sess-${creates}` } })
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
+  try {
+    const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const created = await api(ctx.base, '/api/admin/users', {
+      method: 'POST',
+      cookie: cookieHeader(adminLogin.setCookie),
+      body: { email: 'a@example.com', password: 'password-user-a', quota: 0 },
+    })
+    assert.equal(created.status, 201)
+    assert.equal(creates, 3)
+    assert.deepEqual(created.json.team.created, ['主编', '运营'])
+    assert.deepEqual(created.json.team.failed, ['写手'])
+    assert.equal(JSON.stringify(created.json).includes('kernel down'), false)
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })
+    assert.equal(login.status, 200)
+    assert.equal(login.json.user.used, 0)
+    assert.equal(login.json.user.remaining, 0)
   } finally {
     await ctx.close()
   }

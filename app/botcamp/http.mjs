@@ -2,6 +2,7 @@ import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedB
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
 import { applyUserSetting } from './userSettings.mjs'
+import { DEFAULT_TEAM, provisionDefaultTeam } from './team.mjs'
 import { PATH_MESSAGE, materializeFolder, pathsStayInside, runWorkspace, stripPathFields } from './workspace.mjs'
 
 const COOKIE = 'botcamp_session'
@@ -243,6 +244,31 @@ export async function createBotcamp(options = {}) {
     }
   }
 
+  async function provisionTeam(userId, sessionToken) {
+    const failedAll = DEFAULT_TEAM.map(member => member.name)
+    try {
+      const kernelKey = await store.kernelKey(userId)
+      const provisioned = await provisionDefaultTeam(callKernel, { kernelKey, sessionToken })
+      const created = []
+      const failed = [...provisioned.failed]
+      for (const item of provisioned.created) {
+        const access = await accessFor(userId)
+        claimCreated('create-bot', item.value, access)
+        const id = typeof item.value?.id === 'string' ? item.value.id : item.value?.bot?.id
+        if (typeof id === 'string' && access.owns(id)) {
+          await store.commitAccess(userId, access)
+          created.push(item.name)
+        } else {
+          failed.push(item.name)
+        }
+      }
+      return { created, failed }
+    } catch (error) {
+      console.error('[botcamp]', error instanceof Error ? error.message : 'team provision failed')
+      return { created: [], failed: failedAll }
+    }
+  }
+
   async function handleAdmin(req, res, path, user) {
     if (!user) {
       sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
@@ -269,7 +295,10 @@ export async function createBotcamp(options = {}) {
           sendJson(res, 400, { ok: false, error: { message: created.error } })
           return
         }
-        sendJson(res, 201, { ok: true, user: created.user })
+        // 账号先落库。三个 bot 用新用户自己的命名空间认领，失败也不撤回账号。
+        // 这里不建群、不设主 bot、不发消息，所以不扣配额。
+        const team = await provisionTeam(created.user.id, readCookie(req, COOKIE))
+        sendJson(res, 201, { ok: true, user: created.user, team })
         return
       }
       const match = path.match(/^\/api\/admin\/users\/([^/]+)$/)
