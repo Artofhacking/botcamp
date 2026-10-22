@@ -37,9 +37,11 @@ export async function provisionDefaultTeam(callKernel, { kernelKey, sessionToken
     return { created, failed: DEFAULT_TEAM.map(member => member.name) }
   }
   for (const member of DEFAULT_TEAM) {
+    // 内核把人设存在 instructions 里。brief 会被丢掉，页面上的说明是空的。
     const payload = {
       name: member.name,
       brief: member.brief,
+      instructions: member.brief,
       color: member.color,
       avatar: member.avatar,
     }

@@ -916,7 +916,9 @@ test('opening an account creates the three duty bots without a room, a main bot,
       assert.equal(Object.hasOwn(payload, 'model'), false)
       assert.equal(payload.hidden, undefined)
       assert.equal(payload.brief, member.brief)
+      assert.equal(payload.instructions, member.brief)
       assert.equal(/群|只能|只和|不要关注/.test(payload.brief), false)
+      assert.equal(/群|只能|只和|不要关注/.test(payload.instructions), false)
     }
     assert.equal(botCalls(ctx.calls, 'create-room').length, 0)
     assert.equal(botCalls(ctx.calls, 'send').length, 0)
