@@ -15,11 +15,20 @@ import { SIDEBAR_CSS } from '../../../ds-bot/src/client/sidebar.js'
 import { CONVERSATION_CSS, SHELL_CSS, installStyles } from '../../../ds-bot/src/client/styles.js'
 import { USAGE_CSS } from '../../../ds-bot/src/client/usage-page.js'
 import { createLocale } from './locale.js'
+import { clientMode, detectPlatform, installClientFetch } from './session.js'
 import { Gate } from './gate.js'
 import './app.css'
 
 installLocale(createLocale(navigator.language))
 document.documentElement.lang = navigator.language
+if (clientMode()) {
+  installClientFetch()
+  const platform = detectPlatform()
+  document.documentElement.dataset.client = ''
+  document.documentElement.dataset.platform = platform
+  if (platform === 'macos') document.documentElement.dataset.mac = ''
+  document.title = 'BotCamp'
+}
 // macOS puts the window buttons at the band's left end, over the sidebar (app.css).
 if (/mac/iu.test(navigator.userAgentData?.platform ?? navigator.platform)) document.documentElement.dataset.mac = ''
 

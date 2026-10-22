@@ -1,3 +1,5 @@
+import { clearToken, clientMode, readToken, saveToken } from './session.js'
+
 async function send(endpoint, payload) {
   const response = await fetch('api/bot', {
     method: 'POST',
@@ -17,6 +19,7 @@ async function send(endpoint, payload) {
 // Demox 上已有的云函数只挂了 /api/bot 和 /api/bot/feed。登录和管理因此走这一条 POST，
 // 网关在进内核之前把它改写成原来的账号接口。
 export async function me() {
+  if (clientMode() && !readToken()) return null
   const response = await fetch('api/bot', {
     method: 'POST',
     credentials: 'same-origin',
@@ -30,16 +33,22 @@ export async function me() {
   return data.user ?? null
 }
 
-export function login(email, password) {
-  return send('auth/login', { email, password })
+export async function login(email, password) {
+  const data = await send('auth/login', { email, password })
+  if (clientMode()) {
+    if (typeof data.token !== 'string' || data.token.length < 20) throw new Error('登录没有返回客户端会话')
+    saveToken(data.token)
+  }
+  return data
 }
 
 export function changePassword(current, next) {
   return send('auth/password', { current, next })
 }
 
-export function logout() {
-  return send('auth/logout', {}).catch(() => {})
+export async function logout() {
+  try { await send('auth/logout', {}) } catch { /* leave the window either way */ }
+  clearToken()
 }
 
 export function listUsers() {

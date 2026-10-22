@@ -30,6 +30,7 @@ body[data-ds-dark-theme]{color-scheme:dark}
 .dsb-frame[data-rail] .dsb-side-list{margin:0;padding:0;align-items:center}
 .dsb-expand{flex:none;width:36px;height:36px;margin:6px 0 12px;padding:0;border:0;border-radius:50%;background:none;display:inline-grid;place-items:center;cursor:pointer;transition:background-color .12s ease}
 html[data-mac] .dsb-frame .dsb-side{padding-top:var(--dsb-band)}
+html[data-client] .dsb-band{pointer-events:auto}
 .dsb-expand:hover{background:color-mix(in srgb,var(--bt-ink) 6%,transparent)}
 .dsb-side-foot{display:flex;align-items:center;gap:9px;padding:8px 6px 6px}
 .dsb-frame[data-rail] .dsb-side-foot{margin:0 -5px;padding:8px 0 6px}

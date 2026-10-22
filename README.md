@@ -1,6 +1,37 @@
 # BotCamp
 
-用户只打开 [https://botcamp.demox.site/](https://botcamp.demox.site/)。页面是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 自己的窗口（`app/ui`，Apache-2.0）。浏览器停在这个源站：页面里没有跳转到 camp 的脚本。未登录只看到登录页。
+用户安装客户端使用。壳是 Tauri，窗口里仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的界面（`app/ui`，Apache-2.0）。Mac 和 Windows 用同一套代码。Android 和 iOS 以后也沿用这个壳。网站不再作为产品入口。
+
+客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上要先发布带 Bearer 和 CORS 的网关，安装包才能连上。
+
+Mac 上先测开发窗口。需要 Node.js 22、Rust stable，以及 Xcode 命令行工具（`xcode-select --install`）。不要运行 `build:windows`，那个安装包只能在 Windows 上打。
+
+```bash
+git checkout cursor/windows-client-3944
+npm --prefix app ci
+npm --prefix client ci
+npm --prefix client run dev
+```
+
+空的本地库会有一个开发管理员：`admin@localhost` / `botcamp-dev`。这只在本机开发窗口里有效，不是线上账号。窗口标题是 BotCamp。登录后左下角能看到邮箱和配额。三个 bot 要能连上 camp 的内核才会出现；本机没有内核交换密钥时，名单是空的。不要把密钥发出来。
+
+在 Mac 上打出应用：
+
+```bash
+npm --prefix client run build:mac
+```
+
+产物在 `client/src-tauri/target/release/bundle/`。这个包装好后默认请求线上。线上网关还没有 Bearer，所以现在用上面的 `dev` 测，不要用打出来的包装线上。
+
+在 Windows 上打出 NSIS 安装包：
+
+```bash
+npm --prefix client run build:windows
+```
+
+Android、iOS 还没开始打包。
+
+[https://botcamp.demox.site/](https://botcamp.demox.site/) 仍可打开现有页面。页面里没有跳转到 camp 的脚本。未登录只看到登录页。
 
 [https://camp.aigc.sx.cn](https://camp.aigc.sx.cn) 不是网站。`deploy/nginx/camp.conf` 让它不返回 HTML、不托管静态资源、不把浏览器送到 Demox，也不再把 `/` 交给内核（避免 303 到 `./` 的循环）。只有 `/api/` 可以到达 `127.0.0.1:3080`，而且请求必须带 `botcamp_session`。没有这个 cookie 时，nginx 在进 dsh 之前返回 401。这份配置写进仓库之后，还要在腾讯云那台机器上 `nginx -t && systemctl reload nginx` 才会生效。
 
@@ -21,7 +52,9 @@ dsh 内核和 ds-bot 插件都是单租户。隔离和配额做在网关里，�
 
 Demox 用户函数的磁盘会在冷启动时清空，函数环境变量也不是数据库。平台留得住的业务数据在项目库里：网站 API `https://api.demox.site/website` 的 `project_rows`（MySQL），项目 `PQBDTM6GLZ`。函数设置 `BOTCAMP_STORE=demox-project` 后，账号、会话、配额、个人设置和每个账号的工作区文件都写进这个库。进程里的目录只是当次实例的缓存，打开时从项目库灌进来，写完再写回。不要设置 `BOTCAMP_DATA_DIR=/tmp/botcamp-data`。项目库一行大约 32KB，更长的正文会拆开存放。访问项目库的令牌放在函数环境变量 `BOTCAMP_STORE_TOKEN`，不要写进仓库。Demox 的个人访问令牌目前没有更细的权限，这块令牌也能管理站点，所以只放在函数环境里。
 
-## 本地
+## 本地网页
+
+客户端开发时界面由 `npm run dev:client` 开在 http://127.0.0.1:5195 。单独看网页仍是：
 
 ```bash
 npm --prefix app ci
@@ -29,7 +62,7 @@ npm --prefix app test
 npm --prefix app run dev
 ```
 
-打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot。
+打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot。客户端窗口的标题是 BotCamp。
 
 用户库为空时，用环境变量创建第一名管理员：
 
