@@ -15,7 +15,7 @@ import { SIDEBAR_CSS } from '../../../ds-bot/src/client/sidebar.js'
 import { CONVERSATION_CSS, SHELL_CSS, installStyles } from '../../../ds-bot/src/client/styles.js'
 import { USAGE_CSS } from '../../../ds-bot/src/client/usage-page.js'
 import { createLocale } from './locale.js'
-import { App } from './app.js'
+import { Gate } from './gate.js'
 import './app.css'
 
 installLocale(createLocale(navigator.language))
@@ -37,4 +37,4 @@ const paint = () => { document.body.toggleAttribute('data-ds-dark-theme', dark.m
 paint()
 dark.addEventListener('change', paint)
 
-createRoot(document.getElementById('root')).render(h(App))
+createRoot(document.getElementById('root')).render(h(Gate))

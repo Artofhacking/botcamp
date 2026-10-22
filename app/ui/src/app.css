@@ -90,3 +90,37 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .md-code pre{margin:0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);overflow-x:auto;font-size:13px;line-height:20px}
 .md-copy{position:absolute;top:6px;right:6px;padding:2px 8px;border:0;border-radius:6px;background:var(--bt-main);color:var(--bt-ink-2);font:inherit;font-size:12px;line-height:18px;cursor:pointer;opacity:0;transition:opacity .12s ease}
 .md-code:hover .md-copy,.md-copy:focus-visible{opacity:1}
+
+.dsb-account{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto;font-size:12px;line-height:16px;color:var(--bt-ink-2)}
+.dsb-account-mail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsb-account-quota{color:var(--bt-ink-3)}
+.dsb-account-actions{display:flex;gap:10px}
+.dsb-account-actions button{padding:0;border:0;background:none;color:var(--bt-accent);font:inherit;cursor:pointer}
+.dsb-frame[data-rail] .dsb-account{display:none}
+
+.dsb-auth{min-height:100%;display:grid;place-items:center;padding:32px 16px;background:var(--bt-main,#fcfcfc);color:var(--bt-ink,#141414)}
+.dsb-auth-card,.dsb-admin-card{width:min(420px,100%);padding:28px 24px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 12%,transparent);border-radius:16px;background:var(--bt-card,#fff);box-sizing:border-box}
+.dsb-auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.dsb-auth h1,.dsb-admin h1{margin:0 0 8px;font-size:22px;font-weight:600}
+.dsb-auth p,.dsb-admin p{margin:0 0 18px;color:var(--bt-ink-2);font-size:14px;line-height:22px}
+.dsb-auth-card label,.dsb-admin label{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:13px}
+.dsb-auth input,.dsb-admin input{height:40px;padding:0 12px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 16%,transparent);border-radius:10px;background:var(--bt-main,#fcfcfc);color:inherit;font:inherit}
+.dsb-auth-card button,.dsb-admin button{height:40px;padding:0 14px;border:0;border-radius:10px;background:var(--bt-accent,#4d6bfe);color:#fff;font:inherit;cursor:pointer}
+.dsb-auth-card button:disabled,.dsb-admin button:disabled{opacity:.6;cursor:default}
+.dsb-auth-error{margin:0 0 12px;color:var(--bt-danger,#d14343);font-size:13px;line-height:18px}
+.dsb-admin{align-items:start}
+.dsb-admin-card{width:min(760px,100%)}
+.dsb-admin-head,.dsb-admin-create,.dsb-admin-row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.dsb-admin-head{align-items:flex-start}
+.dsb-admin-head button,.dsb-admin-actions button,.dsb-admin-create button{flex:none;white-space:nowrap;background:transparent;color:var(--bt-accent,#4d6bfe)}
+.dsb-admin-create{align-items:flex-end;margin-bottom:8px}
+.dsb-admin-create label{flex:1 1 140px;min-width:0}
+.dsb-admin-create button{background:var(--bt-accent,#4d6bfe);color:#fff}
+.dsb-admin-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.dsb-admin-row{flex-wrap:wrap;padding:12px 0;border-top:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent)}
+.dsb-admin-row strong{display:block}
+.dsb-admin-row span{display:block;color:var(--bt-ink-2);font-size:12px}
+.dsb-admin-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:720px){
+  .dsb-admin-create,.dsb-admin-head{flex-direction:column;align-items:stretch}
+}
