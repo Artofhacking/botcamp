@@ -60,8 +60,15 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
   const dataDir = await mkdtemp(path.join(tmpdir(), 'botcamp-fn-'))
   const calls = []
   const bots = []
+  let createdBots = 0
   const fetchImpl = async (url, init = {}) => {
-    calls.push({ href: String(url), body: init.body, origin: init.headers?.origin, cookie: init.headers?.cookie })
+    calls.push({
+      href: String(url),
+      body: init.body,
+      origin: init.headers?.origin,
+      cookie: init.headers?.cookie,
+      namespace: init.headers?.['x-botcamp-namespace'],
+    })
     const href = String(url)
     if (!href.includes('/api/bot')) {
       return new Response('', { status: 303, headers: { location: `./?token=${TOKEN}`, 'set-cookie': `dsh-auth-test=${SECRET}; HttpOnly` } })
@@ -77,7 +84,8 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
     }
     const body = JSON.parse(init.body ?? '{}')
     if (body.endpoint === 'create-bot') {
-      const bot = { id: 'bot-a', name: body.payload?.name ?? 'a', sessionId: 'sess-a' }
+      createdBots += 1
+      const bot = { id: `bot-${createdBots}`, name: body.payload?.name ?? 'a', sessionId: `sess-${createdBots}` }
       bots.push(bot)
       return Response.json({ ok: true, value: bot })
     }
@@ -109,6 +117,8 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       body: JSON.stringify({ endpoint: 'admin/create', payload: { email: 'zero@example.com', password: 'password-zero', quota: 0 } }),
     }, env, { fetchImpl })
     assert.equal(created.statusCode, 201)
+    assert.deepEqual(JSON.parse(created.body).team.created, ['主编', '写手', '运营'])
+    assert.deepEqual(JSON.parse(created.body).team.failed, [])
     const other = await handler({
       method: 'POST',
       path: '/api/bot',
@@ -116,6 +126,17 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       body: JSON.stringify({ endpoint: 'admin/create', payload: { email: 'other@example.com', password: 'password-other', quota: 2 } }),
     }, env, { fetchImpl })
     assert.equal(other.statusCode, 201)
+    const accounts = JSON.parse(await readFile(path.join(dataDir, 'accounts.json'), 'utf8'))
+    const zeroUser = accounts.users.find(user => user.email === 'zero@example.com')
+    const otherUser = accounts.users.find(user => user.email === 'other@example.com')
+    const adminUser = accounts.users.find(user => user.email === ADMIN_EMAIL)
+    const teamCalls = calls.filter(call => {
+      try { return JSON.parse(call.body ?? '{}').endpoint === 'create-bot' } catch { return false }
+    })
+    assert.deepEqual(teamCalls.slice(0, 3).map(call => call.namespace), [zeroUser.kernelKey, zeroUser.kernelKey, zeroUser.kernelKey])
+    assert.deepEqual(teamCalls.slice(3).map(call => call.namespace), [otherUser.kernelKey, otherUser.kernelKey, otherUser.kernelKey])
+    assert.equal(teamCalls.some(call => call.namespace === adminUser.kernelKey), false)
+    assert.equal(calls.some(call => String(call.body ?? '').includes('"create-room"') || String(call.body ?? '').includes('"set-main"') || String(call.body ?? '').includes('"send"')), false)
 
     const loginOther = await handler({
       method: 'POST',
@@ -129,6 +150,7 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       body: JSON.stringify({ endpoint: 'auth/login', payload: { email: 'zero@example.com', password: 'password-zero' } }),
     }, env, { fetchImpl })
     const zeroCookie = loginZero.headers['set-cookie'].split(';', 1)[0]
+    assert.equal(JSON.parse(loginZero.body).user.used, 0)
 
     const made = await handler({
       method: 'POST',
@@ -136,7 +158,8 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       headers: { cookie: otherCookie },
       body: JSON.stringify({ endpoint: 'create-bot', payload: { name: '乙' } }),
     }, env, { fetchImpl })
-    assert.equal(JSON.parse(made.body).value.id, 'bot-a')
+    const madeBot = JSON.parse(made.body).value
+    assert.equal(madeBot.name, '乙')
     assert.equal(made.body.includes(SECRET), false)
     assert.equal(made.body.includes(TOKEN), false)
 
@@ -146,12 +169,13 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       headers: { cookie: zeroCookie },
       body: JSON.stringify({ endpoint: 'state', payload: {} }),
     }, env, { fetchImpl })
-    assert.equal(JSON.parse(seen.body).value.bots.length, 0)
+    assert.deepEqual(JSON.parse(seen.body).value.bots.map(bot => bot.name), ['主编', '写手', '运营'])
+    assert.equal(JSON.parse(seen.body).value.bots.some(bot => bot.id === madeBot.id), false)
     const blocked = await handler({
       method: 'POST',
       path: '/api/bot',
       headers: { cookie: zeroCookie },
-      body: JSON.stringify({ endpoint: 'chat', payload: { botId: 'bot-a' } }),
+      body: JSON.stringify({ endpoint: 'chat', payload: { botId: madeBot.id } }),
     }, env, { fetchImpl })
     assert.equal(JSON.parse(blocked.body).ok, false)
     assert.equal(calls.some(call => call.href.endsWith('/api/bot') && String(call.body).includes('"chat"')), false)
