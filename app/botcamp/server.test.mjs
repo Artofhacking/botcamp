@@ -143,6 +143,20 @@ function cookieHeader(setCookie) {
   return setCookie[0]?.split(';', 1)[0] ?? ''
 }
 
+async function settlePassword(base, email, created, next) {
+  const initial = created.json.password
+  const login = await api(base, '/api/auth/login', { method: 'POST', body: { email, password: initial } })
+  assert.equal(login.status, 200, email)
+  assert.equal(login.json.user.mustChangePassword, true)
+  const changed = await api(base, '/api/bot', {
+    method: 'POST',
+    cookie: cookieHeader(login.setCookie),
+    body: { endpoint: 'auth/password', payload: { current: initial, next } },
+  })
+  assert.equal(changed.status, 200, email)
+  assert.equal(changed.json.user.mustChangePassword, false)
+}
+
 function botCalls(calls, endpoint) {
   return calls.filter((call) => {
     if (!call.href.endsWith('/api/bot')) return false
@@ -180,6 +194,7 @@ test('signup and login fail closed, and a session is required', async () => {
     assert.equal(login.json.user.role, 'admin')
     assert.equal(login.json.user.kernelKey, undefined)
     assert.equal(login.json.user.passwordHash, undefined)
+    assert.equal(login.json.user.mustChangePassword, false)
     assert.match(login.setCookie[0], /HttpOnly/i)
     assert.match(login.setCookie[0], /SameSite=Lax/i)
     assert.match(cookieHeader(login.setCookie), /^botcamp_session=/)
@@ -230,6 +245,8 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     assert.equal(createdA.status, 201)
     assert.equal(createdB.status, 201)
     assert.equal(JSON.stringify(createdA.json).includes('passwordHash'), false)
+    await settlePassword(ctx.base, 'a@example.com', createdA, 'password-user-a')
+    await settlePassword(ctx.base, 'b@example.com', createdB, 'password-user-b')
 
     const loginA = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })
     const loginB = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'b@example.com', password: 'password-user-b' } })
@@ -455,6 +472,7 @@ test('a stale instance still logs in a zero-quota user, refuses send, and does n
     assert.equal(created.status, 201)
     assert.equal(created.json.user.quota, 0)
     assert.equal(created.json.user.used, 0)
+    await settlePassword(first.base, 'zero@example.com', created, 'password-zero')
 
     const login = await api(second.base, '/api/bot', {
       method: 'POST',
@@ -541,6 +559,7 @@ test('the demox bot route logs in, isolates, and blocks a zero quota before the 
       body: { endpoint: 'admin/create', payload: { email: 'zero@example.com', password: 'password-zero', quota: 0 } },
     })
     assert.equal(created.status, 201)
+    await settlePassword(ctx.base, 'zero@example.com', created, 'password-zero')
     const zeroLogin = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/login', payload: { email: 'zero@example.com', password: 'password-zero' } } })
     const zeroCookie = cookieHeader(zeroLogin.setCookie)
     const other = await api(ctx.base, '/api/bot', {
@@ -548,6 +567,7 @@ test('the demox bot route logs in, isolates, and blocks a zero quota before the 
       body: { endpoint: 'admin/create', payload: { email: 'other@example.com', password: 'password-other', quota: 1 } },
     })
     assert.equal(other.status, 201)
+    await settlePassword(ctx.base, 'other@example.com', other, 'password-other')
     const otherLogin = await api(ctx.base, '/api/bot', { method: 'POST', body: { endpoint: 'auth/login', payload: { email: 'other@example.com', password: 'password-other' } } })
     const otherCookie = cookieHeader(otherLogin.setCookie)
 
@@ -571,14 +591,16 @@ test('model catalog writes are rejected and settings and usage stay with the cal
   try {
     const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
     const adminCookie = cookieHeader(adminLogin.setCookie)
-    await api(ctx.base, '/api/admin/users', {
+    const createdA = await api(ctx.base, '/api/admin/users', {
       method: 'POST', cookie: adminCookie,
       body: { email: 'a@example.com', password: 'password-user-a', quota: 5 },
     })
-    await api(ctx.base, '/api/admin/users', {
+    const createdB = await api(ctx.base, '/api/admin/users', {
       method: 'POST', cookie: adminCookie,
       body: { email: 'b@example.com', password: 'password-user-b', quota: 5 },
     })
+    await settlePassword(ctx.base, 'a@example.com', createdA, 'password-user-a')
+    await settlePassword(ctx.base, 'b@example.com', createdB, 'password-user-b')
     const cookieA = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })).setCookie)
     const cookieB = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'b@example.com', password: 'password-user-b' } })).setCookie)
     await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'create-bot', payload: { name: '甲' } } })
@@ -729,14 +751,16 @@ test('user A cannot list or open user B workspace, send into B session, or trave
   try {
     const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
     const adminCookie = cookieHeader(adminLogin.setCookie)
-    await api(ctx.base, '/api/admin/users', {
+    const createdA = await api(ctx.base, '/api/admin/users', {
       method: 'POST', cookie: adminCookie,
       body: { email: 'a@example.com', password: 'password-user-a', quota: 5 },
     })
-    await api(ctx.base, '/api/admin/users', {
+    const createdB = await api(ctx.base, '/api/admin/users', {
       method: 'POST', cookie: adminCookie,
       body: { email: 'b@example.com', password: 'password-user-b', quota: 5 },
     })
+    await settlePassword(ctx.base, 'a@example.com', createdA, 'password-user-a')
+    await settlePassword(ctx.base, 'b@example.com', createdB, 'password-user-b')
     const cookieA = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })).setCookie)
     const cookieB = cookieHeader((await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'b@example.com', password: 'password-user-b' } })).setCookie)
     const botA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'create-bot', payload: { name: '甲' } } })
@@ -892,6 +916,7 @@ test('opening an account creates the three duty bots without a room, a main bot,
     assert.equal(botCalls(ctx.calls, 'set-main').length, 0)
     assert.equal(ctx.calls.some(call => call.href.includes('/api/bot') && String(call.headers['x-botcamp-exchange'] ?? '') !== ''), false)
 
+    await settlePassword(ctx.base, 'a@example.com', created, 'password-user-a')
     const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })
     assert.equal(login.status, 200)
     assert.equal(login.json.user.used, 0)
@@ -935,14 +960,113 @@ test('a missed default bot still leaves the account and does not charge quota', 
     assert.deepEqual(created.json.team.created, ['主编', '运营'])
     assert.deepEqual(created.json.team.failed, ['写手'])
     assert.equal(JSON.stringify(created.json).includes('kernel down'), false)
-    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'password-user-a' } })
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: created.json.password } })
     assert.equal(login.status, 200)
+    assert.equal(login.json.user.mustChangePassword, true)
     assert.equal(login.json.user.used, 0)
     assert.equal(login.json.user.remaining, 0)
   } finally {
     await ctx.close()
   }
 })
+
+test('the first login must replace the generated password before the kernel, and a later change keeps the session', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const adminLogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const adminCookie = cookieHeader(adminLogin.setCookie)
+    const created = await api(ctx.base, '/api/admin/users', {
+      method: 'POST',
+      cookie: adminCookie,
+      body: { email: 'fresh@example.com', role: 'admin', quota: 1, password: 'client-should-not-choose' },
+    })
+    assert.equal(created.status, 201)
+    assert.equal(created.json.user.mustChangePassword, true)
+    assert.equal(validInitial(created.json.password), true)
+    assert.equal(created.json.password === 'client-should-not-choose', false)
+    assert.equal(JSON.stringify(created.json.user).includes(created.json.password), false)
+    const stored = await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8')
+    assert.equal(stored.includes(created.json.password), false)
+    assert.equal(stored.includes('client-should-not-choose'), false)
+
+    const first = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'fresh@example.com', password: created.json.password } })
+    const firstCookie = cookieHeader(first.setCookie)
+    const blocked = await api(ctx.base, '/api/bot', { method: 'POST', cookie: firstCookie, body: { endpoint: 'state', payload: {} } })
+    assert.equal(blocked.status, 403)
+    assert.equal(blocked.json.error.code, 'auth/password')
+    assert.equal(botCalls(ctx.calls, 'state').length, 0)
+    const feed = await api(ctx.base, '/api/bot/feed', { cookie: firstCookie })
+    assert.equal(feed.status, 403)
+    assert.equal(ctx.calls.some(call => call.href.endsWith('/api/bot/feed')), false)
+    const listing = await api(ctx.base, '/api/admin/users', { cookie: firstCookie })
+    assert.equal(listing.status, 403)
+
+    const wrong = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: firstCookie,
+      body: { endpoint: 'auth/password', payload: { current: 'not-the-password', next: 'password-next-1' } },
+    })
+    assert.equal(wrong.status, 400)
+    const same = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: firstCookie,
+      body: { endpoint: 'auth/password', payload: { current: created.json.password, next: created.json.password } },
+    })
+    assert.equal(same.status, 400)
+    const changed = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: firstCookie,
+      body: { endpoint: 'auth/password', payload: { current: created.json.password, next: 'password-next-1' } },
+    })
+    assert.equal(changed.status, 200)
+    assert.equal(changed.json.user.mustChangePassword, false)
+    assert.equal(changed.json.user.used, 0)
+    const old = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'fresh@example.com', password: created.json.password } })
+    assert.equal(old.status, 401)
+    const state = await api(ctx.base, '/api/bot', { method: 'POST', cookie: firstCookie, body: { endpoint: 'state', payload: {} } })
+    assert.equal(state.status, 200)
+
+    const otherSession = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'fresh@example.com', password: 'password-next-1' } })
+    const otherCookie = cookieHeader(otherSession.setCookie)
+    const again = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: firstCookie,
+      body: { endpoint: 'auth/password', payload: { current: 'password-next-1', next: 'password-next-2' } },
+    })
+    assert.equal(again.status, 200)
+    const kept = await api(ctx.base, '/api/auth/me', { cookie: firstCookie })
+    assert.equal(kept.status, 200)
+    assert.equal(kept.json.user.mustChangePassword, false)
+    const dropped = await api(ctx.base, '/api/auth/me', { cookie: otherCookie })
+    assert.equal(dropped.status, 401)
+
+    const reset = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: adminCookie,
+      body: { endpoint: 'admin/update', payload: { id: created.json.user.id, resetPassword: true } },
+    })
+    assert.equal(reset.status, 200)
+    assert.equal(validInitial(reset.json.password), true)
+    assert.equal(reset.json.password === 'password-next-2', false)
+    assert.equal(reset.json.user.mustChangePassword, true)
+    const afterReset = await readFile(path.join(ctx.dataDir, 'accounts.json'), 'utf8')
+    assert.equal(afterReset.includes(reset.json.password), false)
+    const stale = await api(ctx.base, '/api/auth/me', { cookie: firstCookie })
+    assert.equal(stale.status, 401)
+    const relogin = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'fresh@example.com', password: reset.json.password } })
+    assert.equal(relogin.json.user.mustChangePassword, true)
+    const stillBlocked = await api(ctx.base, '/api/bot', {
+      method: 'POST', cookie: cookieHeader(relogin.setCookie),
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.equal(stillBlocked.status, 403)
+    const listed = await api(ctx.base, '/api/admin/users', { cookie: adminCookie })
+    assert.equal(listed.json.users.every(user => user.password === undefined), true)
+    assert.equal(JSON.stringify(listed.json).includes(reset.json.password), false)
+    assert.equal(listed.json.users.find(user => user.email === 'fresh@example.com').mustChangePassword, true)
+  } finally {
+    await ctx.close()
+  }
+})
+
+function validInitial(password) {
+  return typeof password === 'string' && password.length >= 8 && password.length <= 200 && !/[^A-Za-z0-9]/.test(password)
+}
 
 test('state gets a kernel cookie from the exchange header and does not show it', async () => {
   const seen = []

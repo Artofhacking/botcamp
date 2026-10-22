@@ -76,6 +76,12 @@ function refused(message) {
   return { ok: false, error: { code: 'bot/refused', message } }
 }
 
+function passwordWall(res, user) {
+  if (user?.mustChangePassword !== true) return false
+  sendJson(res, 403, { ok: false, error: { code: 'auth/password', message: '请先修改初始密码。' } })
+  return true
+}
+
 export async function createBotcamp(options = {}) {
   const env = options.env ?? process.env
   const kernelOrigin = (options.kernelOrigin ?? env.DSH_KERNEL_ORIGIN ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
@@ -229,6 +235,21 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 200, { ok: true }, { 'set-cookie': sessionCookie('', req, 0) })
         return
       }
+      if (req.method === 'POST' && path === '/api/auth/password') {
+        const user = await currentUser(req)
+        if (!user) {
+          sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+          return
+        }
+        const body = await readJson(req, JSON_LIMIT)
+        const result = await store.changePassword(user.id, body?.current, body?.next, readCookie(req, COOKIE))
+        if (result.error) {
+          sendJson(res, result.status ?? 400, { ok: false, error: { message: result.error } })
+          return
+        }
+        sendJson(res, 200, { ok: true, user: result.user })
+        return
+      }
       sendJson(res, 404, { ok: false, error: { code: 'auth/unknown', message: '未知的登录接口。' } })
     } catch (error) {
       if (error?.code === 'LIMIT') {
@@ -274,6 +295,7 @@ export async function createBotcamp(options = {}) {
       sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
       return
     }
+    if (passwordWall(res, user)) return
     if (user.role !== 'admin') {
       sendJson(res, 403, { ok: false, error: { code: 'auth/forbidden', message: '只有管理员可以管理用户和配额。' } })
       return
@@ -287,7 +309,6 @@ export async function createBotcamp(options = {}) {
         const body = await readJson(req, JSON_LIMIT)
         const created = await store.createUser({
           email: body?.email,
-          password: body?.password,
           role: body?.role === undefined ? 'user' : body.role,
           quota: body?.quota === undefined ? defaultQuota(env) : body.quota,
         })
@@ -298,7 +319,7 @@ export async function createBotcamp(options = {}) {
         // 账号先落库。三个 bot 用新用户自己的命名空间认领，失败也不撤回账号。
         // 这里不建群、不设主 bot、不发消息，所以不扣配额。
         const team = await provisionTeam(created.user.id, readCookie(req, COOKIE))
-        sendJson(res, 201, { ok: true, user: created.user, team })
+        sendJson(res, 201, { ok: true, user: created.user, password: created.password, team })
         return
       }
       const match = path.match(/^\/api\/admin\/users\/([^/]+)$/)
@@ -314,11 +335,19 @@ export async function createBotcamp(options = {}) {
           return
         }
         const body = await readJson(req, JSON_LIMIT)
+        if (body?.resetPassword === true) {
+          const reset = await store.resetPassword(id)
+          if (reset.error) {
+            sendJson(res, reset.status ?? 400, { ok: false, error: { message: reset.error } })
+            return
+          }
+          sendJson(res, 200, { ok: true, user: reset.user, password: reset.password })
+          return
+        }
         const patch = {}
         if (Object.hasOwn(body ?? {}, 'quota')) patch.quota = body.quota
         if (Object.hasOwn(body ?? {}, 'used')) patch.used = body.used
         if (Object.hasOwn(body ?? {}, 'role')) patch.role = body.role
-        if (Object.hasOwn(body ?? {}, 'password')) patch.password = body.password
         const result = await store.updateUser(id, patch)
         if (result.error) {
           sendJson(res, result.status ?? 400, { ok: false, error: { message: result.error } })
@@ -343,6 +372,7 @@ export async function createBotcamp(options = {}) {
   }
 
   async function handleBot(req, res, user, body) {
+    if (passwordWall(res, user)) return
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
@@ -461,6 +491,7 @@ export async function createBotcamp(options = {}) {
   }
 
   async function handleFeed(req, res, user) {
+    if (passwordWall(res, user)) return
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
@@ -526,7 +557,7 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  const CONTROL = new Set(['auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'admin/list', 'admin/create', 'admin/update', 'admin/delete'])
+  const CONTROL = new Set(['auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password', 'admin/list', 'admin/create', 'admin/update', 'admin/delete'])
 
   function jsonRequest(req, method, url, json) {
     const raw = Buffer.from(JSON.stringify(json ?? {}))
@@ -547,7 +578,9 @@ export async function createBotcamp(options = {}) {
     if (body.endpoint === 'auth/login') return handleAuth(jsonRequest(req, 'POST', '/api/auth/login', payload), res, '/api/auth/login')
     if (body.endpoint === 'auth/logout') return handleAuth(jsonRequest(req, 'POST', '/api/auth/logout', {}), res, '/api/auth/logout')
     if (body.endpoint === 'auth/signup') return handleAuth(jsonRequest(req, 'POST', '/api/auth/signup', payload), res, '/api/auth/signup')
+    if (body.endpoint === 'auth/password') return handleAuth(jsonRequest(req, 'POST', '/api/auth/password', payload), res, '/api/auth/password')
     const user = await currentUser(req)
+    if (passwordWall(res, user)) return
     if (body.endpoint === 'admin/list') return handleAdmin(jsonRequest(req, 'GET', '/api/admin/users'), res, '/api/admin/users', user)
     if (body.endpoint === 'admin/create') return handleAdmin(jsonRequest(req, 'POST', '/api/admin/users', payload), res, '/api/admin/users', user)
     if (body.endpoint === 'admin/update') {

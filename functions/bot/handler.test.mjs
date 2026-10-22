@@ -16,6 +16,25 @@ const TOKEN = 'launch-token-secret'
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
 
+async function settleHandler(env, fetchImpl, email, body, next) {
+  const initial = JSON.parse(body).password
+  const login = await handler({
+    method: 'POST',
+    path: '/api/bot',
+    body: JSON.stringify({ endpoint: 'auth/login', payload: { email, password: initial } }),
+  }, env, { fetchImpl })
+  assert.equal(login.statusCode, 200, email)
+  const cookie = login.headers['set-cookie'].split(';', 1)[0]
+  const changed = await handler({
+    method: 'POST',
+    path: '/api/bot',
+    headers: { cookie },
+    body: JSON.stringify({ endpoint: 'auth/password', payload: { current: initial, next } }),
+  }, env, { fetchImpl })
+  assert.equal(changed.statusCode, 200, email)
+  assert.equal(JSON.parse(changed.body).user.mustChangePassword, false)
+}
+
 function envFor(dataDir, extra = {}) {
   return {
     BOTCAMP_DATA_DIR: dataDir,
@@ -137,6 +156,8 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
     assert.deepEqual(teamCalls.slice(3).map(call => call.namespace), [otherUser.kernelKey, otherUser.kernelKey, otherUser.kernelKey])
     assert.equal(teamCalls.some(call => call.namespace === adminUser.kernelKey), false)
     assert.equal(calls.some(call => String(call.body ?? '').includes('"create-room"') || String(call.body ?? '').includes('"set-main"') || String(call.body ?? '').includes('"send"')), false)
+    await settleHandler(env, fetchImpl, 'zero@example.com', created.body, 'password-zero')
+    await settleHandler(env, fetchImpl, 'other@example.com', other.body, 'password-other')
 
     const loginOther = await handler({
       method: 'POST',

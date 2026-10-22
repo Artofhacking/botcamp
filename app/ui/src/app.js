@@ -42,7 +42,7 @@ class Contain extends Component {
   render() { return this.state.failed ? null : this.props.children }
 }
 
-export function App({ user, onLogout, onAdmin, onUser }) {
+export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const team = useMemo(createTeam, [])
   useEffect(() => team.start(), [team])
   useEffect(() => {
@@ -52,7 +52,7 @@ export function App({ user, onLogout, onAdmin, onUser }) {
       me().then((next) => {
         if (stopped) return
         if (!next) { onLogout?.(); return }
-        if (next.used !== user?.used || next.quota !== user?.quota || next.email !== user?.email || next.role !== user?.role) onUser(next)
+        if (next.mustChangePassword || next.used !== user?.used || next.quota !== user?.quota || next.email !== user?.email || next.role !== user?.role) onUser(next)
       }).catch(() => {})
     }
     const timer = setInterval(tick, 20000)
@@ -62,7 +62,7 @@ export function App({ user, onLogout, onAdmin, onUser }) {
       clearInterval(timer)
       window.removeEventListener('focus', tick)
     }
-  }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role])
+  }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role, user?.mustChangePassword])
   const { hooks, actions } = team
   const views = { ...hooks, actions }
   const wide = hooks.useLayout(state => state.wide)
@@ -90,6 +90,7 @@ export function App({ user, onLogout, onAdmin, onUser }) {
           h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
           h('span', { className: 'dsb-account-actions' },
             user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
+            h('button', { type: 'button', onClick: onPassword }, '修改密码'),
             h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
     // The details panel makes room by giving the shell's `_centerCol` column a right margin.

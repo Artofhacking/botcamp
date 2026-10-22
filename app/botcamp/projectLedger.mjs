@@ -169,6 +169,10 @@ export function createMemoryLedger() {
 }
 
 function userToRow(user) {
+  // 已有的项目表不能加列。是否必须改初始密码放在 prefs 里往返，读出来再拆走。
+  const prefs = { ...(user.prefs ?? {}) }
+  delete prefs.mustChangePassword
+  if (user.mustChangePassword === true) prefs.mustChangePassword = true
   return {
     id: user.id,
     email: user.email,
@@ -177,7 +181,7 @@ function userToRow(user) {
     quota: user.quota ?? 0,
     used: user.used ?? 0,
     kernel_key: user.kernelKey,
-    prefs: JSON.stringify(user.prefs ?? {}),
+    prefs: JSON.stringify(prefs),
     prefs_version: user.prefsVersion ?? 0,
     main_bot_ids: JSON.stringify(user.mainBotIds ?? []),
     created_at: user.createdAt ?? '',
@@ -207,6 +211,9 @@ function userFromRow(values) {
   let mainBotIds = []
   try { prefs = JSON.parse(values.prefs || '{}') } catch { prefs = {} }
   try { mainBotIds = JSON.parse(values.main_bot_ids || '[]') } catch { mainBotIds = [] }
+  if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) prefs = {}
+  const mustChangePassword = prefs.mustChangePassword === true
+  delete prefs.mustChangePassword
   return {
     id: values.id,
     email: values.email,
@@ -215,9 +222,10 @@ function userFromRow(values) {
     quota: Number(values.quota ?? 0),
     used: Number(values.used ?? 0),
     kernelKey: values.kernel_key,
-    prefs: prefs && typeof prefs === 'object' ? prefs : {},
+    prefs,
     prefsVersion: Number(values.prefs_version ?? 0),
     mainBotIds: Array.isArray(mainBotIds) ? mainBotIds : [],
+    mustChangePassword,
     createdAt: values.created_at || new Date().toISOString(),
   }
 }
