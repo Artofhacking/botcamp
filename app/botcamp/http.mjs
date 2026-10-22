@@ -38,6 +38,28 @@ function readCookie(req, name) {
   return ''
 }
 
+function readBearer(req) {
+  const header = req.headers.authorization
+  if (typeof header !== 'string') return ''
+  const match = /^Bearer\s+(\S+)$/i.exec(header.trim())
+  return match ? match[1] : ''
+}
+
+function readSessionToken(req) {
+  return readBearer(req) || readCookie(req, COOKIE)
+}
+
+function clientRequest(req) {
+  return req.headers['x-botcamp-client'] === '1'
+}
+
+function applyCors(res) {
+  res.setHeader('access-control-allow-origin', '*')
+  res.setHeader('access-control-allow-headers', 'authorization, content-type, x-botcamp-client')
+  res.setHeader('access-control-allow-methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+  res.setHeader('access-control-max-age', '86400')
+}
+
 function secureRequest(req) {
   if (req.socket?.encrypted) return true
   const proto = req.headers['x-forwarded-proto']
@@ -168,7 +190,7 @@ export async function createBotcamp(options = {}) {
   }
 
   async function currentUser(req) {
-    return store.userForToken(readCookie(req, COOKIE))
+    return store.userForToken(readSessionToken(req))
   }
 
   async function applyLocal(user, endpoint, payload) {
@@ -225,13 +247,15 @@ export async function createBotcamp(options = {}) {
           return
         }
         const session = await store.createSession(user.id)
-        sendJson(res, 200, { ok: true, user: store.publicUser(user) }, {
+        const payload = { ok: true, user: store.publicUser(user) }
+        if (clientRequest(req)) payload.token = session.token
+        sendJson(res, 200, payload, {
           'set-cookie': sessionCookie(session.token, req, SESSION_MAX_AGE),
         })
         return
       }
       if (req.method === 'POST' && path === '/api/auth/logout') {
-        await store.deleteSession(readCookie(req, COOKIE))
+        await store.deleteSession(readSessionToken(req))
         sendJson(res, 200, { ok: true }, { 'set-cookie': sessionCookie('', req, 0) })
         return
       }
@@ -242,7 +266,7 @@ export async function createBotcamp(options = {}) {
           return
         }
         const body = await readJson(req, JSON_LIMIT)
-        const result = await store.changePassword(user.id, body?.current, body?.next, readCookie(req, COOKIE))
+        const result = await store.changePassword(user.id, body?.current, body?.next, readSessionToken(req))
         if (result.error) {
           sendJson(res, result.status ?? 400, { ok: false, error: { message: result.error } })
           return
@@ -318,7 +342,7 @@ export async function createBotcamp(options = {}) {
         }
         // 账号先落库。三个 bot 用新用户自己的命名空间认领，失败也不撤回账号。
         // 这里不建群、不设主 bot、不发消息，所以不扣配额。
-        const team = await provisionTeam(created.user.id, readCookie(req, COOKIE))
+        const team = await provisionTeam(created.user.id, readSessionToken(req))
         sendJson(res, 201, { ok: true, user: created.user, password: created.password, team })
         return
       }
@@ -435,7 +459,7 @@ export async function createBotcamp(options = {}) {
         body: JSON.stringify({ endpoint, payload: outboundPayload }),
         signal: client.signal,
         namespace: user.kernelKey,
-        sessionToken: readCookie(req, COOKIE),
+        sessionToken: readSessionToken(req),
       })
       const text = await upstream.text()
       let parsed = null
@@ -500,7 +524,7 @@ export async function createBotcamp(options = {}) {
         method: 'GET',
         signal: client.signal,
         namespace: user.kernelKey,
-        sessionToken: readCookie(req, COOKIE),
+        sessionToken: readSessionToken(req),
       })
       if (!upstream.ok || upstream.body == null) {
         await upstream.body?.cancel().catch(() => {})
@@ -597,6 +621,12 @@ export async function createBotcamp(options = {}) {
     const path = routePath(req.url)
     if (!path.startsWith('/api/')) {
       next()
+      return
+    }
+    applyCors(res)
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204
+      res.end()
       return
     }
     if (path.startsWith('/api/auth')) {

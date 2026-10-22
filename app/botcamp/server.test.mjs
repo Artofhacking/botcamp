@@ -123,8 +123,8 @@ async function start(env = {}, extras = {}) {
   }
 }
 
-async function api(base, pathname, { method = 'GET', body, cookie } = {}) {
-  const headers = {}
+async function api(base, pathname, { method = 'GET', body, cookie, headers: extra } = {}) {
+  const headers = { ...(extra ?? {}) }
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (cookie) headers.cookie = cookie
   const response = await fetch(`${base}${pathname}`, {
@@ -136,7 +136,14 @@ async function api(base, pathname, { method = 'GET', body, cookie } = {}) {
   let json = null
   try { json = text ? JSON.parse(text) : null } catch { json = null }
   const setCookie = typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie() : []
-  return { status: response.status, json, text, setCookie }
+  return {
+    status: response.status,
+    json,
+    text,
+    setCookie,
+    allowOrigin: response.headers.get('access-control-allow-origin'),
+    allowHeaders: response.headers.get('access-control-allow-headers'),
+  }
 }
 
 function cookieHeader(setCookie) {
@@ -1114,6 +1121,94 @@ test('state gets a kernel cookie from the exchange header and does not show it',
     assert.equal(login.text.includes('kernel-cookie'), false)
     assert.equal(seen.some(call => call.href === 'http://kernel.test/' && call.exchange === 'exchange-secret'), true)
     assert.equal(seen.some(call => call.href.endsWith('/api/bot') && call.exchange !== ''), false)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('a client keeps a bearer session across the first password change', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  const clientHeaders = { 'x-botcamp-client': '1' }
+  try {
+    const website = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'auth/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+    })
+    assert.equal(website.status, 200)
+    assert.equal(Object.hasOwn(website.json, 'token'), false)
+    assert.equal(website.allowOrigin, '*')
+
+    const created = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(website.setCookie),
+      body: { endpoint: 'admin/create', payload: { email: 'client@example.com', quota: 0 } },
+    })
+    assert.equal(created.status, 201)
+    const initial = created.json.password
+    const login = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: clientHeaders,
+      body: { endpoint: 'auth/login', payload: { email: 'client@example.com', password: initial } },
+    })
+    assert.equal(login.status, 200)
+    assert.equal(typeof login.json.token, 'string')
+    assert.equal(login.json.token.length >= 20, true)
+    assert.equal(login.json.user.mustChangePassword, true)
+    const bearer = { authorization: `Bearer ${login.json.token}` }
+
+    const blocked = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.equal(blocked.status, 403)
+    assert.equal(blocked.json.error.code, 'auth/password')
+    assert.equal(ctx.calls.some(call => String(call.body ?? '').includes('"state"')), false)
+
+    const changed = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'auth/password', payload: { current: initial, next: 'client-password-1' } },
+    })
+    assert.equal(changed.status, 200)
+    assert.equal(changed.json.user.mustChangePassword, false)
+
+    const me = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'auth/me' },
+    })
+    assert.equal(me.status, 200)
+    assert.equal(me.json.user.email, 'client@example.com')
+    assert.equal(me.json.user.mustChangePassword, false)
+
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.equal(state.status, 200)
+    const forwarded = ctx.calls.find(call => String(call.body ?? '').includes('"state"'))
+    assert.equal(String(forwarded?.headers.cookie ?? '').includes('botcamp_session='), true)
+    assert.equal(String(forwarded?.headers.cookie ?? '').includes(login.json.token), true)
+
+    const preflight = await api(ctx.base, '/api/bot', { method: 'OPTIONS' })
+    assert.equal(preflight.status, 204)
+    assert.equal(preflight.allowOrigin, '*')
+    assert.match(preflight.allowHeaders, /authorization/)
+    assert.match(preflight.allowHeaders, /x-botcamp-client/)
+
+    await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'auth/logout' },
+    })
+    const after = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: bearer,
+      body: { endpoint: 'auth/me' },
+    })
+    assert.equal(after.status, 401)
   } finally {
     await ctx.close()
   }

@@ -231,6 +231,9 @@ export async function handler(request, functionEnv, deps = {}) {
       response.headers['set-cookie'] = result.headers['set-cookie']
       response.multiValueHeaders = { 'set-cookie': [result.headers['set-cookie']] }
     }
+    for (const name of ['access-control-allow-origin', 'access-control-allow-headers', 'access-control-allow-methods', 'access-control-max-age']) {
+      if (result.headers[name]) response.headers[name] = result.headers[name]
+    }
     return response
   } catch {
     return {

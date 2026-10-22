@@ -1,6 +1,7 @@
 import { createElement as h, useState } from 'react'
 import { BrandMark, BrandName } from '../../../ds-bot/src/client/sidebar.js'
 import { changePassword, login } from './account.js'
+import { clientMode } from './session.js'
 
 export function Login({ onSuccess }) {
   const [email, setEmail] = useState('')
@@ -23,7 +24,7 @@ export function Login({ onSuccess }) {
   return h('div', { className: 'dsb-auth' },
     h('form', { className: 'dsb-auth-card', onSubmit: submit },
       h('div', { className: 'dsb-auth-brand' }, h(BrandMark, { size: 36 }), h(BrandName)),
-      h('h1', null, 'DeepSeek Bot'),
+      h('h1', null, clientMode() ? 'BotCamp' : 'DeepSeek Bot'),
       h('p', null, '使用邮箱登录。账号由管理员开通，不能自行注册。'),
       h('label', null, '邮箱',
         h('input', {

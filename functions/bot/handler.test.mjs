@@ -296,3 +296,35 @@ test('the single file Demox uploads rejects an anonymous bot call', async () => 
     await rm(dataDir, { recursive: true, force: true })
   }
 })
+
+test('deployed handler gives a client a bearer token and CORS headers', async () => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), 'botcamp-fn-client-'))
+  const env = envFor(dataDir, { BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const login = await handler({
+      method: 'POST',
+      path: '/api/bot',
+      headers: { 'content-type': 'application/json', 'x-botcamp-client': '1' },
+      body: JSON.stringify({ endpoint: 'auth/login', payload: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } }),
+    }, env)
+    assert.equal(login.statusCode, 200)
+    assert.equal(login.headers['access-control-allow-origin'], '*')
+    const token = JSON.parse(login.body).token
+    assert.equal(typeof token, 'string')
+    assert.equal(token.length >= 20, true)
+    assert.equal(login.body.includes(ADMIN_PASSWORD), false)
+    const me = await handler({
+      method: 'POST',
+      path: '/api/bot',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ endpoint: 'auth/me' }),
+    }, env)
+    assert.equal(me.statusCode, 200)
+    assert.equal(JSON.parse(me.body).user.email, ADMIN_EMAIL)
+    const preflight = await handler({ method: 'OPTIONS', path: '/api/bot' }, env)
+    assert.equal(preflight.statusCode, 204)
+    assert.match(preflight.headers['access-control-allow-headers'], /authorization/)
+  } finally {
+    await rm(dataDir, { recursive: true, force: true })
+  }
+})
