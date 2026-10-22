@@ -34,6 +34,10 @@ export function login(email, password) {
   return send('auth/login', { email, password })
 }
 
+export function changePassword(current, next) {
+  return send('auth/password', { current, next })
+}
+
 export function logout() {
   return send('auth/logout', {}).catch(() => {})
 }

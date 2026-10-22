@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword } from './passwords.mjs'
+import { generatePassword, hashPassword, normalizeEmail, validEmail, validPassword, verifyPassword } from './passwords.mjs'
 import { emptySettings, normalizeSettings } from './userSettings.mjs'
 import { ensureWorkspace, writeManifest, writeSettings as writeWorkspaceFile } from './workspace.mjs'
 
@@ -29,6 +29,7 @@ function publicUser(user) {
     used,
     remaining: Math.max(0, quota - used),
     createdAt: user.createdAt,
+    mustChangePassword: user.mustChangePassword === true,
   }
 }
 
@@ -45,6 +46,7 @@ function principal(user) {
     prefs: { ...(user.prefs ?? {}) },
     prefsVersion: user.prefsVersion ?? 0,
     mainBotIds: [...(user.mainBotIds ?? [])],
+    mustChangePassword: user.mustChangePassword === true,
   }
 }
 
@@ -75,6 +77,7 @@ function newUser({ email, passwordHash, role, quota, id, kernelKey }) {
     prefs: {},
     prefsVersion: 0,
     mainBotIds: [],
+    mustChangePassword: false,
     createdAt: new Date().toISOString(),
   }
 }
@@ -259,6 +262,19 @@ export async function openStore(dataDir, options = {}) {
     if (ledger) await ledger.saveNamespace(kernelKey, saved)
   }
 
+  function revokeSessions(userId, keepHash) {
+    const kept = []
+    for (const session of data.sessions) {
+      if (session.userId !== userId || session.tokenHash === keepHash) {
+        kept.push(session)
+        continue
+      }
+      if (!data.revoked.includes(session.tokenHash)) data.revoked.push(session.tokenHash)
+    }
+    data.sessions = kept
+    if (data.revoked.length > 200) data.revoked.splice(0, data.revoked.length - 200)
+  }
+
   const api = {
     idle: () => chain,
     publicUser,
@@ -327,18 +343,22 @@ export async function openStore(dataDir, options = {}) {
     },
     async createUser({ email, password, role, quota }) {
       const normalized = normalizeEmail(email)
+      const generated = password === undefined || password === null || password === ''
+      const secret = generated ? generatePassword() : password
       if (!validEmail(normalized)) return { error: '请填写有效的邮箱。' }
-      if (!validPassword(password)) return { error: '密码至少 8 位。' }
+      if (!validPassword(secret)) return { error: '密码至少 8 位。' }
       if (role !== 'admin' && role !== 'user') return { error: '角色无效。' }
       if (!Number.isInteger(quota) || quota < 0) return { error: '配额必须是非负整数。' }
+      const passwordHash = await hashPassword(secret)
       return exclusive(async () => {
         if (data.users.some(user => user.email === normalized)) return { error: '这个邮箱已经有账号。' }
-        const user = newUser({ email: normalized, passwordHash: await hashPassword(password), role, quota })
+        const user = newUser({ email: normalized, passwordHash, role, quota })
+        user.mustChangePassword = true
         data.users.push(user)
         claimWorkspace(user)
         await projectWorkspace(user)
         await saveAccounts()
-        return { user: publicUser(user) }
+        return { user: publicUser(user), password: secret }
       })
     },
     async updateUser(id, patch) {
@@ -358,9 +378,46 @@ export async function openStore(dataDir, options = {}) {
         }
         if (patch.quota !== undefined) user.quota = patch.quota
         if (patch.used !== undefined) user.used = patch.used
-        if (passwordHash) user.passwordHash = passwordHash
+        if (passwordHash) {
+          user.passwordHash = passwordHash
+          user.mustChangePassword = true
+          revokeSessions(user.id, null)
+        }
         await saveAccounts()
         return { user: publicUser(user) }
+      })
+    },
+    async changePassword(userId, current, next, keepToken) {
+      if (!validPassword(next)) return { error: '新密码至少 8 位。' }
+      const candidate = typeof current === 'string' && current.length <= 200 ? current : ''
+      if (candidate !== '' && candidate === next) return { error: '新密码不能和当前密码相同。' }
+      const dummy = await ensureDummy()
+      const hash = await exclusive(async () => data.users.find(user => user.id === userId)?.passwordHash ?? null)
+      const ok = await verifyPassword(candidate, hash ?? dummy)
+      if (!ok || !hash || candidate === '') return { error: '当前密码不正确。' }
+      const passwordHash = await hashPassword(next)
+      const keepHash = typeof keepToken === 'string' && keepToken.length >= 20 ? hashToken(keepToken) : null
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user) return { error: '没有这个用户。', status: 404 }
+        user.passwordHash = passwordHash
+        user.mustChangePassword = false
+        revokeSessions(userId, keepHash)
+        await saveAccounts()
+        return { user: publicUser(user) }
+      })
+    },
+    async resetPassword(id) {
+      const password = generatePassword()
+      const passwordHash = await hashPassword(password)
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === id)
+        if (!user) return { error: '没有这个用户。', status: 404 }
+        user.passwordHash = passwordHash
+        user.mustChangePassword = true
+        revokeSessions(id, null)
+        await saveAccounts()
+        return { user: publicUser(user), password }
       })
     },
     async deleteUser(id, actorId) {

@@ -33,3 +33,12 @@ export function validEmail(email) {
 export function validPassword(password) {
   return typeof password === 'string' && password.length >= 8 && password.length <= 200
 }
+
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+
+export function generatePassword() {
+  const bytes = randomBytes(20)
+  let password = ''
+  for (const byte of bytes) password += PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]
+  return password
+}

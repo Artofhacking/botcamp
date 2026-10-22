@@ -107,6 +107,13 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-auth input,.dsb-admin input{height:40px;padding:0 12px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 16%,transparent);border-radius:10px;background:var(--bt-main,#fcfcfc);color:inherit;font:inherit}
 .dsb-auth-card button,.dsb-admin button{height:40px;padding:0 14px;border:0;border-radius:10px;background:var(--bt-accent,#4d6bfe);color:#fff;font:inherit;cursor:pointer}
 .dsb-auth-card button:disabled,.dsb-admin button:disabled{opacity:.6;cursor:default}
+.dsb-auth-actions{display:flex;gap:8px}
+.dsb-auth-actions button{flex:1}
+.dsb-auth-quiet{background:transparent !important;color:var(--bt-accent,#4d6bfe) !important}
+.dsb-issued{margin:0 0 16px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 8%,transparent)}
+.dsb-issued p{margin:0 0 8px}
+.dsb-issued input{width:100%;font-family:ui-monospace,monospace}
+.dsb-issued-actions{display:flex;gap:8px;margin-top:8px}
 .dsb-auth-error{margin:0 0 12px;color:var(--bt-danger,#d14343);font-size:13px;line-height:18px}
 .dsb-admin{align-items:start}
 .dsb-admin-card{width:min(760px,100%)}
