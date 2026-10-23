@@ -30,7 +30,7 @@ import {
   PHOSA_OWNER_ID,
   seed,
 } from '../../scripts/seed.mjs'
-import packedFixture from '../../fixtures/xiaogao/fixture.generated.json' with { type: 'json' }
+import packedFixture from '../../fixtures/xiaogao/fixture.generated.mjs'
 
 const FIXTURE_META = packedFixture?.meta || null
 

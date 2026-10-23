@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { seed, PHOSA_MAC_ID } from "./seed.mjs";
 import { kvGet, configureDataRoot, ensureStoreDirs } from "../server/kv.mjs";
-import packed from "../fixtures/xiaogao/fixture.generated.json" with { type: "json" };
+import packed from "../fixtures/xiaogao/fixture.generated.mjs";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "botcamp-prove-"));
 configureDataRoot(path.join(tmp, "media-store"));

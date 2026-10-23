@@ -18,7 +18,7 @@ import {
   PHOSA_MAC_ID,
   OTHER_OWNER_ID,
 } from "./seed-ids.mjs";
-import packedFixture from "../fixtures/xiaogao/fixture.generated.json" with { type: "json" };
+import packedFixture from "../fixtures/xiaogao/fixture.generated.mjs";
 
 function moduleDir() {
   const url = typeof import.meta !== "undefined" ? import.meta.url : "";
