@@ -4,7 +4,6 @@ import { logout, me } from './account.js'
 import { Admin } from './admin.js'
 import { App } from './app.js'
 import { Login, PasswordForm } from './login.js'
-import { MediaWorkbench } from './media.js'
 
 function useShellTheme() {
   useEffect(() => {
@@ -18,7 +17,6 @@ function useShellTheme() {
 export function Gate() {
   const [user, setUser] = useState(undefined)
   const [admin, setAdmin] = useState(false)
-  const [media, setMedia] = useState(false)
   const [changing, setChanging] = useState(false)
   useShellTheme()
   useEffect(() => {
@@ -29,7 +27,6 @@ export function Gate() {
   const signOut = async () => {
     await logout()
     setAdmin(false)
-    setMedia(false)
     setChanging(false)
     setUser(null)
   }
@@ -44,12 +41,11 @@ export function Gate() {
     })
   }
   if (admin) return h(Admin, { user, onClose: () => setAdmin(false) })
-  if (media) return h(MediaWorkbench, { user, onClose: () => setMedia(false) })
+  // 工作台嵌在 App 侧栏；不再全屏替换对话。
   return h(App, {
     user,
     onUser: setUser,
     onAdmin: () => setAdmin(true),
-    onMedia: () => setMedia(true),
     onPassword: () => setChanging(true),
     onLogout: signOut,
   })

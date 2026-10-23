@@ -7,9 +7,9 @@ import { Overlays } from '../../../ds-bot/src/client/overlays.js'
 import { BrandMark, TeamSidebar, YouAvatar } from '../../../ds-bot/src/client/sidebar.js'
 import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
+import { MediaSidePanel } from './mediaSide.js'
 import { createTeam } from './team.js'
 
-// The team's theme and accent, as the plugin paints them.
 function useTheme(prefs) {
   useEffect(() => {
     const theme = allThemes()[prefs?.theme] ?? allThemes().deepseek
@@ -22,8 +22,6 @@ function useTheme(prefs) {
   }, [prefs?.theme, prefs?.accent, prefs?.motion])
 }
 
-// A dialog or panel that fails closes, and the failure shows as a toast; the window stays.
-// One that fails again at once stays closed.
 class Contain extends Component {
   constructor(props) {
     super(props)
@@ -42,7 +40,7 @@ class Contain extends Component {
   render() { return this.state.failed ? null : this.props.children }
 }
 
-export function App({ user, onLogout, onAdmin, onMedia, onPassword, onUser }) {
+export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const team = useMemo(createTeam, [])
   useEffect(() => team.start(), [team])
   useEffect(() => {
@@ -78,31 +76,24 @@ export function App({ user, onLogout, onAdmin, onMedia, onPassword, onUser }) {
     actions.closeOverlay()
     actions.reportError(error, 'overlay')
   }
-  return h('div', { className: 'dsb-frame', 'data-rail': wide ? undefined : '' },
+  return h('div', { className: 'dsb-frame dsb-frame-media', 'data-rail': wide ? undefined : '' },
     h('aside', { className: 'dsb-side' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
-      h('div', { className: 'dsb-side-list' },
+      // 工作台 SoT：侧栏顶 Tab；对话在右侧主区，同屏绑定。
+      h(MediaSidePanel, { wide }),
+      h('div', { className: 'dsb-side-sessions' },
         wide ? null : h('button', { type: 'button', className: 'dsb-expand', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: () => actions.toggleSidebar() }, h(BrandMark, { size: 22 })),
+        h('div', { className: 'dsb-side-sessions-label' }, wide ? '会话' : null),
         h(TeamSidebar, { ...views, wide })),
       h('div', { className: 'dsb-side-foot' },
         user ? h('div', { className: 'dsb-account' },
           h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
           h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
           h('span', { className: 'dsb-account-actions' },
-            h('button', { type: 'button', onClick: onMedia }, '自媒体账号'),
             user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
             h('button', { type: 'button', onClick: onPassword }, '修改密码'),
             h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
-        // Rail 模式会藏掉账号区，保留独立入口，避免「找不到自媒体账号」。
-        h('button', {
-          type: 'button',
-          className: 'dsb-media-rail',
-          title: '自媒体账号',
-          'aria-label': '自媒体账号',
-          onClick: onMedia,
-        }, '自媒体'),
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
-    // The details panel makes room by giving the shell's `_centerCol` column a right margin.
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
       shown ? h(Fragment, { key: shown },
