@@ -162,6 +162,6 @@ while [[ $attempt -le 5 ]]; do
   delay=$((delay * 2))
   attempt=$((attempt + 1))
 done
-echo "BotCamp 壳静态页 + media CONTROL 云函数已发布。自媒体入口在登录后左下角「自媒体账号」。"
+echo "BotCamp 壳静态页 + media CONTROL 云函数已发布。侧栏顶 Tab 为工作台，右侧为对话。"
 echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"
 echo "生产账本用 BOTCAMP_STORE=demox-project 和 BOTCAMP_PROJECT_ID，不要把 BOTCAMP_DATA_DIR 指到 /tmp。"
