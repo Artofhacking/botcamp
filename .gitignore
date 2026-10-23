@@ -5,8 +5,10 @@ dist/
 app/ui/dist/
 client/src-tauri/target/
 client/src-tauri/gen/
-data/
-/data/
+# Ignore local data except SoT import dumps
+/data/*
+!/data/import/
+!/data/import/**
 .DS_Store
 *.log
 .env
