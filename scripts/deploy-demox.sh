@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build the DeepSeek Bot / BotCamp shell (app/ui) and publish static + authenticated bot function.
-# MediaAccount workbench is an in-app Gate view (「自媒体账号」) after email/password login,
-# served via POST /api/bot media/* CONTROL. Optional static copy also lands at /media/.
+# Build MediaAccount workbench (web/) as Demox site root + authenticated bot function.
+# Site root MUST be BotCamp workbench (title contains BotCamp), NOT DeepSeek Bot shell.
+# Optional: nest DS Bot shell under /shell/.
 # Requires demox login or DEMOX_TOKEN. Does not print function env values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIST="$ROOT/app/ui/dist"
+DIST="$ROOT/web/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
 PROJECT_ID="${DEMOX_PROJECT_ID:-PQBDTM6GLZ}"
@@ -45,13 +45,14 @@ npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" test
 npm --prefix "$ROOT/app" run build
 
-# Optional: nest MediaAccount SPA under /media/ (shell at site root stays primary).
-if [[ -d "$ROOT/web" ]]; then
-  npm install --prefix "$ROOT/web"
-  npm run build --prefix "$ROOT/web"
-  rm -rf "$DIST/media"
-  mkdir -p "$DIST/media"
-  cp -a "$ROOT/web/dist/." "$DIST/media/"
+npm install --prefix "$ROOT/web"
+npm run build --prefix "$ROOT/web"
+
+# Optional: keep DS Bot shell under /shell/ for debugging — never as site root.
+if [[ -d "$ROOT/app/ui/dist" ]]; then
+  rm -rf "$DIST/shell"
+  mkdir -p "$DIST/shell"
+  cp -a "$ROOT/app/ui/dist/." "$DIST/shell/"
 fi
 
 python3 - "$DIST/index.html" <<'PY'
@@ -60,7 +61,11 @@ from pathlib import Path
 html = Path(sys.argv[1]).read_text()
 if "location.replace" in html or "camp.aigc.sx.cn" in html:
     raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
-print("dist/index.html stays on the Demox origin (BotCamp / DeepSeek Bot shell)")
+if "DeepSeek Bot" in html:
+    raise SystemExit("refusing to deploy: site root is still DeepSeek Bot shell — expected web/ workbench")
+if "BotCamp" not in html:
+    raise SystemExit("refusing to deploy: site root title/brand missing BotCamp")
+print("dist/index.html is BotCamp workbench (not DeepSeek Bot)")
 PY
 
 ID=""
@@ -80,7 +85,7 @@ fi
 
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID in project $PROJECT_ID (BotCamp shell + /media workbench)"
+  echo "Updating Demox site $ID in project $PROJECT_ID (BotCamp workbench root + /shell optional)"
   DEPLOY_ARGS+=(--id "$ID")
 else
   echo "Creating a Demox site in project $PROJECT_ID"
@@ -115,6 +120,7 @@ payload.update({
     "projectId": "$PROJECT_ID",
     "projectSlug": existing.get("projectSlug") or "botcamp",
     "projectName": existing.get("projectName") or "botcamp",
+    "root": "web/dist",
 })
 meta_path.write_text(json.dumps(payload, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
@@ -162,6 +168,24 @@ while [[ $attempt -le 5 ]]; do
   delay=$((delay * 2))
   attempt=$((attempt + 1))
 done
-echo "BotCamp 壳静态页 + media CONTROL 云函数已发布。侧栏顶 Tab 为工作台，右侧为对话。"
+
+# Live title proof (fail if CDN still serves DeepSeek Bot)
+echo "Verifying live HTML title…"
+sleep 3
+curl -fsS "https://botcamp.demox.site/" -o "$tmpdir/live.html"
+python3 - "$tmpdir/live.html" <<'PY'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+m = re.search(r"<title>([^<]*)</title>", text, re.I)
+title = m.group(1).strip() if m else ""
+print(f"live <title>={title!r}")
+if "DeepSeek Bot" in text:
+    raise SystemExit("LIVE site still serves DeepSeek Bot — deploy verification failed")
+if "BotCamp" not in title and "BotCamp" not in text[:1200]:
+    raise SystemExit("LIVE site missing BotCamp brand in head — deploy verification failed")
+print("LIVE title proof OK")
+PY
+
+echo "BotCamp 工作台（web/dist）已发布为站点根；可选 /shell/ 为 DS Bot。云函数 production → v${VERSION}。"
 echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"
-echo "生产账本用 BOTCAMP_STORE=demox-project 和 BOTCAMP_PROJECT_ID，不要把 BOTCAMP_DATA_DIR 指到 /tmp。"

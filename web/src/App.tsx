@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createMediaAccount,
   fetchDemoUsers,
   fetchManuscript,
-  fetchMe,
+  fetchMediaAccounts,
   fetchWorkspace,
-  login,
+  focusMediaAccount,
+  loginEmail,
+  loginMedia,
   logout,
+  noteMediaEntity,
+  restoreSession,
   type AuthUser,
   type DemoUser,
+  type MediaAccountRow,
 } from "./api";
 import {
   applyTheme,
@@ -19,123 +25,417 @@ import {
 import type { TabId, WorkspaceBundle } from "./types";
 import "./index.css";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "board", label: "运营看板" },
-  { id: "posts", label: "帖子 / 选题发布" },
+const SECTIONS: { id: TabId; label: string }[] = [
+  { id: "board", label: "看板" },
+  { id: "posts", label: "帖子·选题" },
   { id: "manuscripts", label: "历史稿件" },
   { id: "published", label: "已发作品" },
-  { id: "engagement", label: "互动快照（趋势）" },
+  { id: "engagement", label: "互动快照" },
   { id: "followers", label: "粉丝" },
   { id: "revenue", label: "收益" },
-  { id: "events", label: "平台事件" },
+  { id: "events", label: "事件" },
 ];
+
+type MainMode = "chat" | TabId;
+type Anchor = { kind: string; id: string; title: string; tab?: TabId };
+type ChatMsg = { role: "editor" | "you" | "system"; text: string };
 
 function fmt(n: number | null | undefined) {
   if (n == null) return "—";
   return n.toLocaleString("zh-CN");
 }
 
-function statusClass(status: string) {
-  if (status === "已发布") return "badge pub";
-  if (status === "写稿中" || status === "待确认") return "badge draft";
-  return "badge";
-}
-
-function ThemeToggle({
-  mode,
-  onCycle,
-}: {
-  mode: ThemeMode;
-  onCycle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="pill theme-toggle"
-      onClick={onCycle}
-      title="切换浅色 / 深色 / 跟随系统"
-    >
-      主题 · {themeLabel(mode)}
-    </button>
-  );
+function platformLabel(p: string) {
+  return p === "xiaoheihe" ? "小黑盒" : p;
 }
 
 function LoginScreen({
-  users,
-  onLogin,
+  demos,
+  onEmail,
+  onDemo,
   error,
   themeMode,
   onCycleTheme,
 }: {
-  users: DemoUser[];
-  onLogin: (username: string) => Promise<void>;
+  demos: DemoUser[];
+  onEmail: (email: string, password: string) => Promise<void>;
+  onDemo: (username: string) => Promise<void>;
   error: string | null;
   themeMode: ThemeMode;
   onCycleTheme: () => void;
 }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="app">
-      <header className="hero">
-        <div className="brand">BotCamp · 自媒体账号</div>
+    <div className="auth">
+      <div className="auth-card">
+        <div className="auth-brand">BotCamp</div>
         <h1>登录</h1>
-        <div className="meta">
-          <ThemeToggle mode={themeMode} onCycle={onCycleTheme} />
-        </div>
-        <p className="note">
-          数据按 owner 隔离：登录后只能看到自己的自媒体账号。演示用户可切换验证
-          A≠B。
-        </p>
-      </header>
-      <main className="panel">
-        <div className="list">
-          {users.map((u) => (
+        <p>邮箱密码进入工作台。主编对话读写当前自媒体账号。</p>
+        {error ? <p className="auth-error">{error}</p> : null}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              await onEmail(email.trim(), password);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label>
+            邮箱
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            密码
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          <button className="primary" type="submit" disabled={busy}>
+            {busy ? "登录中…" : "登录"}
+          </button>
+        </form>
+        <div className="auth-demos">
+          <div className="hint">演示账号（隔离验证）</div>
+          {demos.map((u) => (
             <button
               key={u.username}
               type="button"
-              className="list-item login-btn"
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await onLogin(u.username);
+                  await onDemo(u.username);
                 } finally {
                   setBusy(false);
                 }
               }}
             >
-              <h3>{u.display_name}</h3>
-              <p className="note">@{u.username}</p>
+              {u.display_name} · @{u.username}
             </button>
           ))}
         </div>
-        {error && <p className="error">{error}</p>}
-      </main>
+        <p style={{ marginTop: 16 }}>
+          <button type="button" className="rail-quiet" onClick={onCycleTheme}>
+            主题 · {themeLabel(themeMode)}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function EntityRow({
+  title,
+  meta,
+  active,
+  onClick,
+}: {
+  title: string;
+  meta: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`entity${active ? " active" : ""}`}
+      onClick={onClick}
+    >
+      <div className="entity-title">{title}</div>
+      <div className="entity-meta">{meta}</div>
+    </button>
+  );
+}
+
+function SoTView({
+  section,
+  data,
+  anchor,
+  onAnchor,
+  onOpenManuscript,
+  preview,
+}: {
+  section: TabId;
+  data: WorkspaceBundle;
+  anchor: Anchor | null;
+  onAnchor: (a: Anchor) => void;
+  onOpenManuscript: (id: string) => void;
+  preview: { id: string; title: string; body: string | null } | null;
+}) {
+  const { account, board } = data;
+
+  if (section === "board") {
+    return (
+      <div className="sot">
+        <div className="sot-meta">
+          {account.display_name} · {platformLabel(account.platform)} ·{" "}
+          {account.status}
+        </div>
+        <div className="sot-meta">
+          漏斗：
+          {Object.entries(board.post_funnel || {})
+            .map(([k, v]) => `${k} ${v}`)
+            .join(" · ") || "—"}
+        </div>
+        <div className="sot-meta">
+          {board.positioning?.what_it_is} · 粉丝{" "}
+          {fmt(board.followers_latest?.followers)} · KPI ¥{board.revenue_kpi_cny}
+        </div>
+        {(board.writing || []).length > 0 ? (
+          <>
+            <div className="sot-label">此刻焦点 · 写稿中</div>
+            {board.writing.slice(0, 5).map((p) => (
+              <EntityRow
+                key={p.id}
+                title={p.title}
+                meta={`${p.status}`}
+                active={anchor?.id === p.id}
+                onClick={() =>
+                  onAnchor({
+                    kind: "帖子",
+                    id: p.id,
+                    title: p.title,
+                    tab: "posts",
+                  })
+                }
+              />
+            ))}
+          </>
+        ) : null}
+        {(board.pending_final_review || []).length > 0 ? (
+          <>
+            <div className="sot-label">待确认</div>
+            {board.pending_final_review.slice(0, 5).map((p) => (
+              <EntityRow
+                key={p.id}
+                title={p.title}
+                meta="待确认"
+                active={anchor?.id === p.id}
+                onClick={() =>
+                  onAnchor({
+                    kind: "帖子",
+                    id: p.id,
+                    title: p.title,
+                    tab: "posts",
+                  })
+                }
+              />
+            ))}
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (section === "posts") {
+    return (
+      <div className="sot">
+        <div className="sot-label">帖子 / 选题</div>
+        {data.posts.map((p) => (
+          <EntityRow
+            key={p.id}
+            title={p.title}
+            meta={`${p.status} · ${p.content_type || ""} · 浏览 ${fmt(p.metrics_views)}${
+              p.remark ? ` · ${p.remark.split("\n").slice(-1)[0]}` : ""
+            }`}
+            active={anchor?.id === p.id}
+            onClick={() =>
+              onAnchor({ kind: "帖子", id: p.id, title: p.title, tab: "posts" })
+            }
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (section === "manuscripts") {
+    return (
+      <div className="sot">
+        <div className="sot-label">历史稿件 · 写作稿 ≠ 发布版</div>
+        {data.manuscripts.map((m) => (
+          <div key={m.id}>
+            <EntityRow
+              title={m.title}
+              meta={`${m.status} · 终审 ${m.final_review_passed ? "通过" : "未过"}`}
+              active={anchor?.id === m.id}
+              onClick={() =>
+                onAnchor({
+                  kind: "稿件",
+                  id: m.id,
+                  title: m.title,
+                  tab: "manuscripts",
+                })
+              }
+            />
+            <button
+              type="button"
+              className="rail-quiet"
+              style={{ margin: "0 0 8px 4px" }}
+              onClick={() => onOpenManuscript(m.id)}
+            >
+              看正文
+            </button>
+          </div>
+        ))}
+        {preview ? (
+          <pre className="preview">{preview.body || "（无写作稿）"}</pre>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (section === "published") {
+    return (
+      <div className="sot">
+        <div className="sot-label">已发作品 · 当前镜像</div>
+        {data.published_works.map((p) => (
+          <EntityRow
+            key={p.id}
+            title={p.title}
+            meta={`浏览 ${fmt(p.metrics_views)} · 赞 ${fmt(p.metrics_likes)}`}
+            active={anchor?.id === p.id}
+            onClick={() =>
+              onAnchor({
+                kind: "帖子",
+                id: p.id,
+                title: p.title,
+                tab: "published",
+              })
+            }
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (section === "engagement") {
+    const rows = [...data.engagement_snapshots].sort((a, b) =>
+      `${b.snapshot_date}`.localeCompare(`${a.snapshot_date}`),
+    );
+    return (
+      <div className="sot">
+        <div className="sot-label">互动快照（趋势 SoT）</div>
+        {rows.map((e) => (
+          <EntityRow
+            key={e.id}
+            title={e.title}
+            meta={`${e.snapshot_date} · 浏览 ${fmt(e.views)} · 赞 ${fmt(e.likes)}`}
+            active={anchor?.id === e.id}
+            onClick={() =>
+              onAnchor({
+                kind: "快照",
+                id: e.id,
+                title: e.title,
+                tab: "engagement",
+              })
+            }
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (section === "followers") {
+    const rows = [...data.follower_snapshots].sort((a, b) =>
+      b.record_date.localeCompare(a.record_date),
+    );
+    return (
+      <div className="sot">
+        <div className="sot-label">粉丝</div>
+        {rows.map((f) => (
+          <div key={f.id} className="entity" style={{ cursor: "default" }}>
+            <div className="entity-title">{f.record_date}</div>
+            <div className="entity-meta">
+              粉丝 {fmt(f.followers)}
+              {f.post_count != null ? ` · 帖 ${fmt(f.post_count)}` : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (section === "revenue") {
+    return (
+      <div className="sot">
+        <div className="sot-label">收益 · KPI ¥{data.board.revenue_kpi_cny}</div>
+        {data.revenue.map((r) => (
+          <div key={r.id} className="entity" style={{ cursor: "default" }}>
+            <div className="entity-title">{r.record_title}</div>
+            <div className="entity-meta">
+              {r.amount} {r.currency} · {r.revenue_type}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="sot">
+      <div className="sot-label">平台事件</div>
+      {data.platform_events.map((e) => (
+        <EntityRow
+          key={e.id}
+          title={e.name}
+          meta={`${e.event_type} · ${e.occurred_at}`}
+          active={anchor?.id === e.id}
+          onClick={() =>
+            onAnchor({ kind: "事件", id: e.id, title: e.name, tab: "events" })
+          }
+        />
+      ))}
     </div>
   );
 }
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
+  const [demos, setDemos] = useState<DemoUser[]>([]);
   const [data, setData] = useState<WorkspaceBundle | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<MediaAccountRow[]>([]);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [booting, setBooting] = useState(true);
-  const [tab, setTab] = useState<TabId>("board");
+  const [boot, setBoot] = useState(true);
+  const [mode, setMode] = useState<MainMode>("chat");
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawer, setDrawer] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
-  const [msPreview, setMsPreview] = useState<{
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [preview, setPreview] = useState<{
     id: string;
     title: string;
     body: string | null;
-    published_edition: string | null;
   } | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     const ws = await fetchWorkspace();
     setData(ws);
-    setError(null);
+    try {
+      const acc = await fetchMediaAccounts();
+      setAccounts(acc.accounts || []);
+    } catch {
+      setAccounts([]);
+    }
+    return ws;
   }, []);
 
   useEffect(() => {
@@ -148,494 +448,386 @@ export default function App() {
     return () => mq.removeEventListener("change", onChange);
   }, [themeMode]);
 
-  function onCycleTheme() {
-    const next = cycleTheme(themeMode);
-    setThemeMode(next);
-    applyTheme(next);
-  }
-
   useEffect(() => {
     (async () => {
       try {
-        const users = await fetchDemoUsers();
-        setDemoUsers(users);
-        const me = await fetchMe();
-        setUser(me);
-        await loadWorkspace();
-      } catch (e) {
-        const err = e as Error & { status?: number };
-        if (err.status === 401) {
-          setUser(null);
-          setData(null);
-        } else if (localStorage.getItem("botcamp_token")) {
-          setAuthError(err.message);
+        setDemos(await fetchDemoUsers());
+      } catch {
+        setDemos([]);
+      }
+      try {
+        const me = await restoreSession();
+        if (me) {
+          setUser(me);
+          const ws = await loadWorkspace();
+          setMessages([
+            {
+              role: "editor",
+              text: openerFor(ws, null),
+            },
+          ]);
         }
+      } catch (e) {
+        setAuthError((e as Error).message);
       } finally {
-        setBooting(false);
+        setBoot(false);
       }
     })();
   }, [loadWorkspace]);
 
-  const sortedEngagement = useMemo(() => {
-    if (!data) return [];
-    return [...data.engagement_snapshots].sort((a, b) =>
-      `${b.snapshot_date}${b.title}`.localeCompare(`${a.snapshot_date}${a.title}`),
-    );
-  }, [data]);
-
-  async function handleLogin(username: string) {
-    setAuthError(null);
-    try {
-      const u = await login(username);
-      setUser(u);
-      setMsPreview(null);
-      setTab("board");
-      await loadWorkspace();
-    } catch (e) {
-      setAuthError((e as Error).message);
+  function openerFor(ws: WorkspaceBundle | null, a: Anchor | null) {
+    if (a?.id === "pst_d2r_mobile" || a?.title.includes("D2R")) {
+      return "这篇《D2R Mobile》还在写稿中、终审未过。按规矩：正文不放外链、配图 16:9、晚上 20–21 点发。要先过终审清单，还是先改标题口吻？";
     }
+    if (a) {
+      return `已锚定「${a.title}」。改状态、补备注，还是对照互动快照复盘？`;
+    }
+    const writing = ws?.board.writing?.[0];
+    if (writing) {
+      return `看板里写稿中还有《${writing.title}》。要先推进哪一条？也可以从侧栏打开帖子·选题核对。`;
+    }
+    return `当前号「${ws?.account.display_name || "—"}」。从侧栏打开工作台分区，或直接告诉我下一步。`;
   }
 
-  async function handleLogout() {
-    await logout();
-    setUser(null);
-    setData(null);
-    setMsPreview(null);
+  async function afterLogin(next: AuthUser) {
+    setUser(next);
+    setAuthError(null);
+    setAnchor(null);
+    setMode("chat");
+    setDrawer(false);
+    const ws = await loadWorkspace();
+    setMessages([{ role: "editor", text: openerFor(ws, null) }]);
   }
 
-  async function handleSwitch(username: string) {
-    await logout();
-    await handleLogin(username);
-  }
+  const onCycleTheme = () => {
+    const next = cycleTheme(themeMode);
+    setThemeMode(next);
+    applyTheme(next);
+  };
 
-  async function openManuscript(id: string) {
+  const onAnchor = (a: Anchor) => {
+    setAnchor(a);
+    setMode("chat");
+    setDrawer(false);
+    setMessages((prev) => [
+      ...prev,
+      { role: "editor", text: openerFor(data, a) },
+    ]);
+  };
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || !data || sending) return;
+    setSending(true);
+    setDraft("");
+    setMessages((m) => [...m, { role: "you", text }]);
+    try {
+      await noteMediaEntity({
+        accountId: data.account.id,
+        kind: anchor?.kind === "帖子" ? "post" : "event",
+        entityId: anchor?.kind === "帖子" ? anchor.id : undefined,
+        title: anchor?.title || null,
+        text,
+      });
+      await loadWorkspace();
+      setMessages((m) => [
+        ...m,
+        {
+          role: "system",
+          text: "已写入工作台（帖备注 / 事件）并刷新 SoT。",
+        },
+        {
+          role: "editor",
+          text: "记下了。还要改这条的状态，还是切到下一题？",
+        },
+      ]);
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
+        { role: "system", text: `写回失败：${(e as Error).message}` },
+      ]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const openManuscript = async (id: string) => {
     if (!data) return;
     const res = await fetchManuscript(data.account.id, id);
-    setMsPreview({
-      id,
-      title: res.manuscript.title,
-      body: res.body,
-      published_edition: res.published_edition,
-    });
-  }
+    setPreview({ id, title: res.manuscript.title, body: res.body });
+    setMode("manuscripts");
+  };
 
-  if (booting) return <div className="loading">启动中…</div>;
+  const accountLabel = useMemo(() => {
+    if (!data) return "加载账号…";
+    return `${data.account.display_name} · ${platformLabel(data.account.platform)}`;
+  }, [data]);
+
+  if (boot) return <div className="boot">启动中…</div>;
 
   if (!user) {
     return (
       <LoginScreen
-        users={demoUsers}
-        onLogin={handleLogin}
+        demos={demos}
         error={authError}
         themeMode={themeMode}
         onCycleTheme={onCycleTheme}
+        onEmail={async (email, password) => {
+          setAuthError(null);
+          try {
+            await afterLogin(await loginEmail(email, password));
+          } catch (e) {
+            setAuthError((e as Error).message);
+          }
+        }}
+        onDemo={async (username) => {
+          setAuthError(null);
+          try {
+            await afterLogin(await loginMedia(username));
+          } catch (e) {
+            setAuthError((e as Error).message);
+          }
+        }}
       />
     );
   }
 
-  if (error) return <div className="error">{error}</div>;
-  if (!data) return <div className="loading">加载自媒体账号工作台…</div>;
+  if (!data) return <div className="loading">加载工作台…</div>;
 
-  const { account, board } = data;
-
-  return (
-    <div className="app">
-      <header className="hero">
-        <div className="brand">BotCamp · 自媒体账号</div>
-        <h1>{account.display_name}</h1>
-        <div className="meta">
-          <span className="pill ok">
-            {account.platform === "xiaoheihe" ? "小黑盒" : account.platform} ·{" "}
-            {account.platform}
-          </span>
-          <span className="pill">{account.status}</span>
-          <span className="pill">业务线 {account.biz_line_tag}</span>
-          <span className="pill">
-            登录 {user.display_name || user.username} · {user.owner_user_id.slice(0, 12)}…
-          </span>
-        </div>
-        <div className="meta user-bar">
-          <ThemeToggle mode={themeMode} onCycle={onCycleTheme} />
-          <span className="note">切换演示用户（验证隔离）：</span>
-          {demoUsers.map((u) => (
+  const rail = (
+    <div className="rail-wrap">
+      <aside className="rail">
+        <div className="rail-brand">BotCamp</div>
+        <button
+          type="button"
+          className="rail-account"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <span className="rail-account-label">{accountLabel}</span>
+          <span className="rail-account-chevron">▾</span>
+        </button>
+        {menuOpen ? (
+          <div className="rail-menu" role="menu">
+            {accounts.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                role="menuitem"
+                className={a.id === data.account.id ? "active" : undefined}
+                onClick={async () => {
+                  setMenuOpen(false);
+                  const res = await focusMediaAccount(a.id);
+                  setData(res.workspace);
+                  setAnchor(null);
+                  setMode("chat");
+                  setMessages([
+                    { role: "editor", text: openerFor(res.workspace, null) },
+                  ]);
+                }}
+              >
+                {a.display_name} · {platformLabel(a.platform)}
+              </button>
+            ))}
             <button
-              key={u.username}
               type="button"
-              className={`pill switch${u.username === user.username ? " ok" : ""}`}
-              onClick={() => handleSwitch(u.username)}
+              role="menuitem"
+              onClick={async () => {
+                setMenuOpen(false);
+                const res = await createMediaAccount();
+                setData(res.workspace);
+                setAnchor(null);
+                setMode("chat");
+                await loadWorkspace();
+                setMessages([
+                  {
+                    role: "editor",
+                    text: "新号已创建。我们一次一问完成起号：这个号主要发什么？",
+                  },
+                ]);
+              }}
             >
-              {u.display_name}
+              起新号
             </button>
-          ))}
-          <button type="button" className="pill" onClick={handleLogout}>
-            退出
-          </button>
-        </div>
-        <p className="note">
-          趋势权威：互动快照 append-only。帖子行指标仅为当前镜像。稿页 ≠ 发布版。API
-          按 session owner 隔离。
-        </p>
-      </header>
+          </div>
+        ) : null}
 
-      <nav className="tabs" aria-label="工作台分区">
-        {TABS.map((t) => (
+        <div className="rail-section">工作台</div>
+        <button
+          type="button"
+          className={`rail-item${mode === "chat" ? " active" : ""}`}
+          onClick={() => {
+            setMode("chat");
+            setDrawer(false);
+          }}
+        >
+          对话
+        </button>
+        {SECTIONS.map((s) => (
           <button
-            key={t.id}
+            key={s.id}
             type="button"
-            className={`tab${tab === t.id ? " active" : ""}`}
-            onClick={() => setTab(t.id)}
+            className={`rail-item${mode === s.id ? " active" : ""}`}
+            onClick={() => {
+              setMode(s.id);
+              setDrawer(false);
+            }}
           >
-            {t.label}
+            {s.label}
           </button>
         ))}
-      </nav>
 
-      <main className="panel">
-        {tab === "board" && (
-          <div>
-            <div className="grid stats">
-              <div className="stat">
-                <div className="label">收益 KPI（¥）</div>
-                <div className="value">{board.revenue_kpi_cny}</div>
-              </div>
-              <div className="stat">
-                <div className="label">粉丝（最新）</div>
-                <div className="value">
-                  {fmt(board.followers_latest?.followers)}
-                </div>
-              </div>
-              <div className="stat">
-                <div className="label">互动快照条数</div>
-                <div className="value">{board.trend_hint.snapshot_count}</div>
-              </div>
-              <div className="stat">
-                <div className="label">帖子总数</div>
-                <div className="value">{data.posts.length}</div>
-              </div>
-            </div>
+        <div className="rail-section">会话</div>
+        <button type="button" className="rail-item muted">
+          主编 · 小稿本周
+        </button>
 
-            <h2 className="section-title">定位</h2>
-            {board.positioning && (
-              <div className="list">
-                <div className="list-item">
-                  <h3>{board.positioning.what_it_is}</h3>
-                  <p className="note">{board.positioning.goal}</p>
-                  <p className="note">红线：{board.positioning.redlines_summary}</p>
-                </div>
-              </div>
-            )}
+        <div className="rail-foot">
+          <button type="button" className="rail-quiet" onClick={onCycleTheme}>
+            主题 · {themeLabel(themeMode)}
+          </button>
+          <button
+            type="button"
+            className="rail-quiet"
+            onClick={async () => {
+              await logout();
+              setUser(null);
+              setData(null);
+              setMessages([]);
+            }}
+          >
+            {user.display_name || user.email || "退出"}
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
 
-            <h2 className="section-title">
-              规矩启用
-              {board.publish_window ? ` · 发帖窗口 ${board.publish_window}` : ""}
-            </h2>
-            <div className="rules">
-              {board.rules_enabled.map((r) => (
-                <span key={r.rule_id} className="pill">
-                  {r.label}
+  return (
+    <div className={`shell${drawer ? " drawer-open" : ""}`}>
+      <div className="mobile-top">
+        <button type="button" onClick={() => setDrawer((v) => !v)}>
+          工作台
+        </button>
+        <span style={{ color: "var(--ink-2)" }}>BotCamp</span>
+        <span style={{ marginLeft: "auto", color: "var(--ink-3)" }}>
+          {data.account.display_name}
+        </span>
+      </div>
+
+      {rail}
+
+      <main className="main">
+        {mode === "chat" ? (
+          <>
+            {anchor ? (
+              <div className="main-bar">
+                <span>
+                  锚定 · {anchor.kind} · {anchor.title}
                 </span>
-              ))}
-            </div>
-
-            <h2 className="section-title">帖子漏斗</h2>
-            <div className="grid stats">
-              {Object.entries(board.post_funnel).map(([k, v]) => (
-                <div className="stat" key={k}>
-                  <div className="label">{k}</div>
-                  <div className="value">{v}</div>
-                </div>
-              ))}
-            </div>
-
-            <h2 className="section-title">近作当前镜像（非趋势）</h2>
-            <div className="list">
-              {board.recent_published_mirror.map((p) => (
-                <div className="list-item" key={p.id}>
-                  <h3>
-                    {p.url ? (
-                      <a href={p.url} target="_blank" rel="noreferrer">
-                        {p.title}
-                      </a>
-                    ) : (
-                      p.title
-                    )}
-                  </h3>
-                  <p className="note">
-                    浏览 {fmt(p.metrics_views)} · 赞 {fmt(p.metrics_likes)} ·{" "}
-                    {p.note}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <h2 className="section-title">最近平台事件</h2>
-            <div className="list">
-              {board.recent_events.map((e) => (
-                <div className="list-item" key={e.id}>
-                  <h3>
-                    <span className="badge">{e.event_type}</span> {e.name}
-                  </h3>
-                  <p className="note">
-                    {e.occurred_at}
-                    {e.related_title ? ` · ${e.related_title}` : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="note" style={{ marginTop: "1rem" }}>
-              {board.revenue_kpi_note}
-            </p>
-          </div>
-        )}
-
-        {tab === "posts" && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>标题</th>
-                  <th>状态</th>
-                  <th>类型</th>
-                  <th>形式</th>
-                  <th>浏览</th>
-                  <th>赞</th>
-                  <th>更新于</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.posts.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <div>{p.title}</div>
-                      {p.url && (
-                        <a href={p.url} target="_blank" rel="noreferrer">
-                          链接
-                        </a>
-                      )}
-                      {p.remark && <div className="note">{p.remark}</div>}
-                    </td>
-                    <td>
-                      <span className={statusClass(p.status)}>{p.status}</span>
-                    </td>
-                    <td>{p.content_type}</td>
-                    <td>{p.form}</td>
-                    <td>{fmt(p.metrics_views)}</td>
-                    <td>{fmt(p.metrics_likes)}</td>
-                    <td>{p.metrics_updated_at || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === "manuscripts" && (
-          <div>
-            <p className="note">写作稿 ≠ 发布版。空正文页合法（非正式帖 / 未留稿）。</p>
-            <div className="list" style={{ marginTop: "0.75rem" }}>
-              {data.manuscripts.map((m) => (
-                <div className="list-item" key={m.id}>
-                  <h3>{m.title}</h3>
-                  <p className="note">
-                    <span className={statusClass(m.status)}>{m.status}</span> ·{" "}
-                    {m.archive_bucket} · 终审{" "}
-                    {m.final_review_passed ? "通过" : "未过"}
-                  </p>
-                  <button
-                    type="button"
-                    className="pill"
-                    onClick={() => openManuscript(m.id)}
-                  >
-                    查看稿正文
-                  </button>
-                </div>
-              ))}
-            </div>
-            {msPreview && (
-              <div>
-                <h2 className="section-title">预览：{msPreview.title}</h2>
-                <div className="ms-preview">{msPreview.body || "（无写作稿）"}</div>
-                {msPreview.published_edition && (
-                  <>
-                    <h2 className="section-title">发布版节</h2>
-                    <div className="ms-preview">{msPreview.published_edition}</div>
-                  </>
-                )}
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => setAnchor(null)}
+                >
+                  取消
+                </button>
               </div>
-            )}
-          </div>
-        )}
-
-        {tab === "published" && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>标题</th>
-                  <th>发布时间</th>
-                  <th>浏览</th>
-                  <th>赞</th>
-                  <th>评</th>
-                  <th>藏</th>
-                  <th>分享</th>
-                  <th>稿</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.published_works.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      {p.url ? (
-                        <a href={p.url} target="_blank" rel="noreferrer">
-                          {p.title}
-                        </a>
-                      ) : (
-                        p.title
-                      )}
-                    </td>
-                    <td>{p.published_at || "—"}</td>
-                    <td>{fmt(p.metrics_views)}</td>
-                    <td>{fmt(p.metrics_likes)}</td>
-                    <td>{fmt(p.metrics_comments)}</td>
-                    <td>{fmt(p.metrics_favorites)}</td>
-                    <td>{fmt(p.metrics_shares)}</td>
-                    <td>{p.manuscript_id ? "有" : "空（合法）"}</td>
-                  </tr>
+            ) : null}
+            <div className="main-scroll chat">
+              <div className="chat-col">
+                {messages.map((m, i) => (
+                  <div key={`${i}-${m.role}`}>
+                    <div className="bubble-meta">
+                      {m.role === "editor"
+                        ? "主编"
+                        : m.role === "you"
+                          ? "你"
+                          : "系统"}
+                    </div>
+                    <div
+                      className={
+                        m.role === "system" ? "writeback" : "bubble-text"
+                      }
+                    >
+                      {m.text}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === "engagement" && (
-          <div>
-            <p className="note">
-              趋势 SoT：每日追加、不覆盖。日期{" "}
-              {board.trend_hint.latest_dates.join("、") || "—"}
-            </p>
-            <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>日期</th>
-                    <th>标题</th>
-                    <th>形式</th>
-                    <th>浏览</th>
-                    <th>赞</th>
-                    <th>评</th>
-                    <th>藏</th>
-                    <th>分享</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedEngagement.map((e) => (
-                    <tr key={e.id}>
-                      <td>{e.snapshot_date}</td>
-                      <td>
-                        {e.post_url ? (
-                          <a href={e.post_url} target="_blank" rel="noreferrer">
-                            {e.title}
-                          </a>
-                        ) : (
-                          e.title
-                        )}
-                      </td>
-                      <td>{e.form}</td>
-                      <td>{fmt(e.views)}</td>
-                      <td>{fmt(e.likes)}</td>
-                      <td>{fmt(e.comments)}</td>
-                      <td>{fmt(e.favorites)}</td>
-                      <td>{fmt(e.shares)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {tab === "followers" && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>日期</th>
-                  <th>粉丝</th>
-                  <th>帖子数</th>
-                  <th>获赞与收藏</th>
-                  <th>来源</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...data.follower_snapshots]
-                  .sort((a, b) => b.record_date.localeCompare(a.record_date))
-                  .map((f) => (
-                    <tr key={f.id}>
-                      <td>{f.record_date}</td>
-                      <td>{fmt(f.followers)}</td>
-                      <td>{fmt(f.post_count)}</td>
-                      <td>{fmt(f.likes_and_favorites)}</td>
-                      <td>{f.source || "—"}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === "revenue" && (
-          <div>
-            <p className="note">
-              KPI ≈ ¥{board.revenue_kpi_cny}（{board.revenue_kpi_note}）
-            </p>
-            <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>记录</th>
-                    <th>金额</th>
-                    <th>类型</th>
-                    <th>时间</th>
-                    <th>来源标题</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.revenue.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.record_title}</td>
-                      <td>
-                        {r.amount} {r.currency}
-                      </td>
-                      <td>
-                        <span className="badge">{r.revenue_type}</span>
-                      </td>
-                      <td>{r.occurred_at}</td>
-                      <td>{r.source_title || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {tab === "events" && (
-          <div className="list">
-            {data.platform_events.map((e) => (
-              <div className="list-item" key={e.id}>
-                <h3>
-                  <span className="badge">{e.event_type}</span> {e.name}
-                </h3>
-                <p className="note">
-                  {e.occurred_at}
-                  {e.related_title ? ` · ${e.related_title}` : ""}
-                </p>
-                {e.remark && <p className="note">{e.remark}</p>}
               </div>
-            ))}
-          </div>
+            </div>
+            <div className="composer-wrap">
+              <div className="composer">
+                <textarea
+                  rows={1}
+                  placeholder="发给主编"
+                  value={draft}
+                  disabled={sending}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void send();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={sending || draft.trim() === ""}
+                  onClick={() => void send()}
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="main-bar">
+              <strong>
+                {SECTIONS.find((s) => s.id === mode)?.label || mode}
+              </strong>
+              <button
+                type="button"
+                className="link"
+                onClick={() => setMode("chat")}
+              >
+                回对话
+              </button>
+            </div>
+            <div className="main-scroll">
+              <SoTView
+                section={mode}
+                data={data}
+                anchor={anchor}
+                onAnchor={onAnchor}
+                onOpenManuscript={openManuscript}
+                preview={preview}
+              />
+            </div>
+          </>
         )}
       </main>
+
+      <nav className="mobile-bar" aria-label="主区">
+        <button
+          type="button"
+          className={mode === "chat" && !drawer ? "active" : undefined}
+          onClick={() => {
+            setMode("chat");
+            setDrawer(false);
+          }}
+        >
+          对话
+        </button>
+        <button
+          type="button"
+          className={drawer || mode !== "chat" ? "active" : undefined}
+          onClick={() => setDrawer(true)}
+        >
+          工作台
+        </button>
+      </nav>
     </div>
   );
 }
