@@ -96,6 +96,7 @@ export async function openStore(dataDir, options = {}) {
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
   }
+  let reuseLoad = false
   if (ledger) {
     const remote = await ledger.loadAccounts()
     if (remote && Array.isArray(remote.users)) {
@@ -105,6 +106,7 @@ export async function openStore(dataDir, options = {}) {
         resources: Array.isArray(remote.resources) ? remote.resources : [],
         revoked: Array.isArray(remote.revoked) ? remote.revoked : [],
       }
+      reuseLoad = true
     }
   }
 
@@ -121,6 +123,11 @@ export async function openStore(dataDir, options = {}) {
   // 再只提交这一次改过的行。配额为 0 只影响发送，不参与登录判断。
   async function refresh() {
     if (!ledger) return
+    // 打开仓库时刚读过。引导管理员紧接着再读一遍，冷启动会多等一整轮。
+    if (reuseLoad) {
+      reuseLoad = false
+      return
+    }
     const remote = await ledger.loadAccounts()
     if (!remote || !Array.isArray(remote.users)) return
     data = {
@@ -223,9 +230,9 @@ export async function openStore(dataDir, options = {}) {
     return out
   }
 
-  async function hydrateFiles(kernelKey, root) {
+  async function hydrateFiles(kernelKey, root, prepared) {
     if (!ledger || hydrated.has(kernelKey)) return
-    const tree = await ledger.loadFiles(kernelKey)
+    const tree = prepared ?? await ledger.loadFiles(kernelKey)
     const entries = Object.entries(tree ?? {}).sort((a, b) => Number(Boolean(b[1]?.dir)) - Number(Boolean(a[1]?.dir)))
     for (const [rel, info] of entries) {
       if (typeof rel !== 'string' || rel.includes('..') || path.isAbsolute(rel)) continue
@@ -284,13 +291,13 @@ export async function openStore(dataDir, options = {}) {
       return exclusive(async () => {
         const creds = bootstrapCredentials(env)
         const emailOk = Boolean(creds) && validEmail(normalizeEmail(creds.email)) && typeof creds.password === 'string' && creds.password.length >= 8
-        if (!emailOk) return { created: false }
+        if (!emailOk) return { created: false, empty: data.users.length === 0 }
         const email = normalizeEmail(creds.email)
         const id = stableUserId(email)
         const kernelKey = stableKernelKey(email)
         const existing = data.users.find(user => user.email === email)
         if (!existing) {
-          if (data.users.length > 0) return { created: false }
+          if (data.users.length > 0) return { created: false, empty: false }
           const createdUser = newUser({
             email,
             passwordHash: await hashPassword(creds.password),
@@ -303,7 +310,7 @@ export async function openStore(dataDir, options = {}) {
           claimWorkspace(createdUser)
           await projectWorkspace(createdUser)
           await saveAccounts()
-          return { created: true }
+          return { created: true, empty: false }
         }
         let changed = false
         if (existing.id !== id) {
@@ -318,9 +325,12 @@ export async function openStore(dataDir, options = {}) {
           changed = true
         }
         if (claimWorkspace(existing)) changed = true
-        await projectWorkspace(existing)
-        if (changed) await saveAccounts()
-        return { created: false }
+        // 工作区没变就别整表上传。冷启动每次都重写，会让第一次打开列表多等一轮。
+        if (changed) {
+          await projectWorkspace(existing)
+          await saveAccounts()
+        }
+        return { created: false, empty: false }
       })
     },
     getUser(id) {
@@ -466,6 +476,40 @@ export async function openStore(dataDir, options = {}) {
         return principal(data.users.find(user => user.id === userId))
       })
     },
+    // 打开页面只读一次账本。会话、资源和设置在同一次重读里拿齐。
+    async accountContext(token) {
+      if (typeof token !== 'string' || token.length < 20) return null
+      const tokenHash = hashToken(token)
+      return exclusive(async () => {
+        if (data.revoked.includes(tokenHash)) return null
+        const now = Date.now()
+        const session = data.sessions.find(entry => entry.tokenHash === tokenHash)
+        let userId = null
+        if (session) {
+          if (session.expiresAt <= now) {
+            data.sessions = data.sessions.filter(entry => entry !== session)
+            await saveAccounts()
+            return null
+          }
+          userId = session.userId
+        } else if (sessionKey && token.startsWith('v1.')) {
+          userId = verifySession(token, sessionKey)
+        }
+        if (!userId) return null
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user) return null
+        let settings = emptySettings()
+        if (safeKernelKey(user.kernelKey)) {
+          const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+          settings = saved.settings
+        }
+        return {
+          user: principal(user),
+          resources: data.resources.map(resource => ({ ...resource })),
+          settings,
+        }
+      })
+    },
     async deleteSession(token) {
       if (typeof token !== 'string' || token.length < 20) return
       const tokenHash = hashToken(token)
@@ -519,6 +563,8 @@ export async function openStore(dataDir, options = {}) {
       })
     },
     async commitAccess(userId, access) {
+      // 列表每次都会过一遍归属。没有新认领时重写工作区，会把全部文件再上传一次。
+      if (access.pending().length === 0 && access.released().length === 0) return
       await exclusive(async () => {
         let changed = false
         for (const id of access.released()) {
@@ -534,12 +580,10 @@ export async function openStore(dataDir, options = {}) {
           changed = true
         }
         const user = data.users.find(entry => entry.id === userId)
-        if (user) {
-          claimWorkspace(user)
-          await projectWorkspace(user)
-          changed = true
-        }
-        if (changed) await saveAccounts()
+        if (user && claimWorkspace(user)) changed = true
+        if (!changed || !user) return
+        await projectWorkspace(user)
+        await saveAccounts()
       })
     },
     async rememberPage(userId, sessionId, items) {
@@ -616,11 +660,17 @@ export async function openStore(dataDir, options = {}) {
   }
   if (ledger) {
     await writeAtomic(file, data)
+    const namespaces = typeof ledger.loadNamespaceMap === 'function' ? await ledger.loadNamespaceMap() : null
+    const fileTrees = typeof ledger.loadAllFileTrees === 'function' ? await ledger.loadAllFileTrees() : null
     for (const user of data.users) {
       if (!safeKernelKey(user.kernelKey)) continue
-      const remoteBody = await ledger.loadNamespace(user.kernelKey)
+      const remoteBody = namespaces
+        ? namespaces.get(user.kernelKey) ?? null
+        : await ledger.loadNamespace(user.kernelKey)
       if (remoteBody) await writeAtomic(path.join(namespaceDir, `${user.kernelKey}.json`), remoteBody)
-      await hydrateFiles(user.kernelKey, await ensureWorkspace(dir, user.kernelKey))
+      const root = await ensureWorkspace(dir, user.kernelKey)
+      if (fileTrees) await hydrateFiles(user.kernelKey, root, fileTrees.get(user.kernelKey) ?? {})
+      else await hydrateFiles(user.kernelKey, root)
     }
   }
   return api

@@ -111,7 +111,7 @@ export async function createBotcamp(options = {}) {
   const store = await openStore(options.dataDir ?? defaultDataDir(), { ledger: options.ledger ?? null })
   const boot = await store.bootstrap(env)
   if (boot.created) console.info('[botcamp] 已创建引导管理员。')
-  else if ((await store.listUsers()).length === 0) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
+  else if (boot.empty) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
 
   const jar = new Map()
 
@@ -395,7 +395,8 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  async function handleBot(req, res, user, body) {
+  async function handleBot(req, res, context, body) {
+    const user = context.user
     if (passwordWall(res, user)) return
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
@@ -404,7 +405,7 @@ export async function createBotcamp(options = {}) {
     try {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
-      const access = await accessFor(user.id)
+      const access = createAccess(user.id, context.resources)
       const decision = decide(endpoint, payload, access, { role: user.role, workspaceId: user.kernelKey })
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
@@ -421,13 +422,15 @@ export async function createBotcamp(options = {}) {
         sendJson(res, 200, result)
         return
       }
-      const root = await store.ensureUserWorkspace(user.id)
-      if (root && typeof payload?.folder === 'string' && payload.folder) {
-        if (!(await pathsStayInside(root, { folder: payload.folder })) || !(await materializeFolder(root, payload.folder))) {
-          sendJson(res, 200, refused(PATH_MESSAGE))
-          return
+      if (typeof payload?.folder === 'string' && payload.folder) {
+        const root = await store.ensureUserWorkspace(user.id)
+        if (root) {
+          if (!(await pathsStayInside(root, { folder: payload.folder })) || !(await materializeFolder(root, payload.folder))) {
+            sendJson(res, 200, refused(PATH_MESSAGE))
+            return
+          }
+          await store.syncWorkspace(user.id)
         }
-        await store.syncWorkspace(user.id)
       }
       if (access.pending().length > 0) await store.commitAccess(user.id, access)
       const reserved = access.pending().map(claim => claim.id)
@@ -451,7 +454,7 @@ export async function createBotcamp(options = {}) {
       }
 
       let outboundPayload = payload
-      if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, await store.getUser(user.id) ?? user)
+      if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, user)
       else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       outboundPayload = stripPathFields(outboundPayload)
       const upstream = await callKernel('/api/bot', {
@@ -474,8 +477,7 @@ export async function createBotcamp(options = {}) {
         await store.commitAccess(user.id, rollback)
       }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'value')) {
-        const after = await accessFor(user.id)
-        const fresh = await store.getUser(user.id) ?? user
+        const after = createAccess(user.id, context.resources)
         if (parsed.ok !== false) {
           claimCreated(endpoint, parsed.value, after)
           releaseDeleted(endpoint, payload, after)
@@ -484,8 +486,7 @@ export async function createBotcamp(options = {}) {
             await store.rememberPage(user.id, sessionId, parsed.value.items)
           }
         }
-        const settings = await store.readSettings(user.id)
-        parsed.value = rewriteValue(endpoint, parsed.value, fresh, after, settings)
+        parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
         if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)
         sendJson(res, upstream.status, parsed)
@@ -514,8 +515,10 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  async function handleFeed(req, res, user) {
+  async function handleFeed(req, res, context) {
+    const user = context.user
     if (passwordWall(res, user)) return
+    const access = createAccess(user.id, context.resources)
     const client = new AbortController()
     const onClose = () => { if (!res.writableEnded) client.abort() }
     res.on('close', onClose)
@@ -543,9 +546,7 @@ export async function createBotcamp(options = {}) {
       const decoder = new TextDecoder()
       let buffer = ''
       const writeBlock = async (block) => {
-        const access = await accessFor(user.id)
         if (!feedBlockAllowed(block, access)) return
-        await store.commitAccess(user.id, access)
         const message = feedMessageItem(block)
         if (message) await store.appendItem(user.id, message.sessionId, message.item)
         if (!res.writableEnded) res.write(`${block}\n\n`)
@@ -567,6 +568,7 @@ export async function createBotcamp(options = {}) {
       } finally {
         reader.releaseLock()
         await upstream.body.cancel().catch(() => {})
+        if (access.pending().length > 0 || access.released().length > 0) await store.commitAccess(user.id, access)
       }
       if (!res.writableEnded) res.end()
     } catch (error) {
@@ -651,12 +653,21 @@ export async function createBotcamp(options = {}) {
         await handleControl(req, res, body)
         return
       }
-      const user = await currentUser(req)
-      if (!user) {
+      const context = await store.accountContext(readSessionToken(req))
+      if (!context?.user) {
         sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
         return
       }
-      await handleBot(req, res, user, body)
+      await handleBot(req, res, context, body)
+      return
+    }
+    if (path === '/api/bot/feed' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const context = await store.accountContext(readSessionToken(req))
+      if (!context?.user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      await handleFeed(req, res, context)
       return
     }
     const user = await currentUser(req)
@@ -666,10 +677,6 @@ export async function createBotcamp(options = {}) {
     }
     if (!user) {
       sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
-      return
-    }
-    if (path === '/api/bot/feed' && (req.method === 'GET' || req.method === 'HEAD')) {
-      await handleFeed(req, res, user)
       return
     }
     sendJson(res, 404, { ok: false, error: { message: '未知接口。' } })

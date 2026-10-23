@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { createHttpLedger, createMemoryLedger } from './projectLedger.mjs'
+import { createBotcamp } from './http.mjs'
 import { openStore } from './store.mjs'
 
 const ENV = {
@@ -198,3 +199,91 @@ test('http project ledger round-trips rows without keeping the disk', async () =
     await server.close()
   }
 })
+
+test('opening the bot list reloads each account table once and does not rewrite files', async () => {
+  const api = memoryApi()
+  const seen = []
+  const inner = api.call
+  api.call = async (action, body) => {
+    seen.push(`${action}:${body.table || body.name || ''}`)
+    return inner(action, body)
+  }
+  const server = await listen(api)
+  const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-state-once-'))
+  const fetchImpl = async (url, init) => {
+    const target = typeof url === 'string' ? url : url.toString()
+    if (target.startsWith(server.url)) return fetch(url, init)
+    if (new URL(target).pathname === '/api/bot') {
+      return Response.json({ ok: true, value: { bots: [], rooms: [], revision: 1, modelsKey: 'm' } })
+    }
+    return new Response(null, { status: 204, headers: { 'set-cookie': 'dsh-auth=probe' } })
+  }
+  try {
+    const gate = await createBotcamp({
+      env: { ...ENV, DSH_KERNEL_ORIGIN: 'https://kernel.test' },
+      dataDir: dir,
+      fetchImpl,
+      ledger: createHttpLedger({
+        fetchImpl,
+        apiUrl: server.url,
+        token: 'test-token-value-not-a-secret',
+        projectId: 'PQBDTM6GLZ',
+      }),
+    })
+    const login = fakeRes()
+    await gate.handle(fakeReq('POST', '/api/bot', {
+      body: JSON.stringify({ endpoint: 'auth/login', payload: { email: ENV.BOTCAMP_ADMIN_EMAIL, password: ENV.BOTCAMP_ADMIN_PASSWORD } }),
+      headers: { 'content-type': 'application/json', 'x-botcamp-client': '1' },
+    }), login, () => {})
+    const token = JSON.parse(login.body()).token
+    assert.equal(typeof token, 'string')
+    const before = seen.length
+    for (let i = 0; i < 2; i += 1) {
+      const res = fakeRes()
+      await gate.handle(fakeReq('POST', '/api/bot', {
+        body: JSON.stringify({ endpoint: 'state', payload: { since: null, models: '', locale: 'zh-CN' } }),
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      }), res, () => {})
+      assert.equal(res.statusCode, 200)
+      assert.equal(JSON.parse(res.body()).ok, true)
+    }
+    const during = seen.slice(before)
+    for (const table of ['botcamp_users', 'botcamp_sessions', 'botcamp_resources', 'botcamp_revoked']) {
+      assert.equal(during.filter(item => item === `list_project_rows:${table}`).length, 2, table)
+    }
+    assert.equal(during.some(item => item.startsWith('put_project_row:')), false)
+  } finally {
+    await server.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+function fakeRes() {
+  const chunks = []
+  return {
+    statusCode: 200,
+    writableEnded: false,
+    destroyed: false,
+    setHeader() {},
+    on() { return this },
+    off() { return this },
+    end(chunk) {
+      if (chunk) chunks.push(Buffer.from(chunk))
+      this.writableEnded = true
+    },
+    body: () => Buffer.concat(chunks).toString('utf8'),
+  }
+}
+
+function fakeReq(method, url, { body = '', headers = {} } = {}) {
+  const payload = Buffer.from(body)
+  return {
+    method,
+    url,
+    headers,
+    socket: {},
+    async *[Symbol.asyncIterator]() {
+      if (payload.length) yield payload
+    },
+  }
+}

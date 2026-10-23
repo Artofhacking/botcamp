@@ -156,11 +156,17 @@ export function createMemoryLedger() {
     async loadNamespace(kernelKey) {
       return namespaces.has(kernelKey) ? clone(namespaces.get(kernelKey)) : null
     },
+    async loadNamespaceMap() {
+      return new Map([...namespaces.entries()].map(([key, body]) => [key, clone(body)]))
+    },
     async saveNamespace(kernelKey, body) {
       namespaces.set(kernelKey, JSON.parse(fitNamespace(body)))
     },
     async loadFiles(kernelKey) {
       return clone(files.get(kernelKey) ?? {})
+    },
+    async loadAllFileTrees() {
+      return new Map([...files.entries()].map(([key, tree]) => [key, clone(tree)]))
     },
     async saveFiles(kernelKey, tree) {
       files.set(kernelKey, clone(tree ?? {}))
@@ -268,36 +274,42 @@ export function createHttpLedger({ fetchImpl, apiUrl = API_URL, token, projectId
     }
     return payload
   }
-  let prepared = null
-  const ensure = () => {
-    prepared ??= (async () => {
-      for (const [name, columns] of Object.entries(SCHEMAS)) {
-        try {
-          await call('create_project_table', { name, columns })
-        } catch (error) {
-          if (error.code !== 'exists') throw error
-        }
-      }
-    })()
-    return prepared
+  const ready = new Set()
+  const createTable = async (table) => {
+    try {
+      await call('create_project_table', { name: table, columns: SCHEMAS[table] })
+    } catch (error) {
+      if (error.code !== 'exists') throw error
+    }
+    ready.add(table)
   }
+  // 表已经在时直接读。缺表才创建。不再为了确认六张表先各读一遍。
   const list = async (table) => {
-    await ensure()
     const rows = []
     let after = ''
+    let triedCreate = false
     for (;;) {
-      const page = await call('list_project_rows', { table, limit: 100, ...(after ? { after } : {}) })
+      let page
+      try {
+        page = await call('list_project_rows', { table, limit: 100, ...(after ? { after } : {}) })
+      } catch (error) {
+        if (triedCreate) throw error
+        triedCreate = true
+        await createTable(table)
+        continue
+      }
+      ready.add(table)
       rows.push(...(page.rows ?? []))
       if (!page.next) return rows
       after = page.next
     }
   }
   const put = async (table, values) => {
-    await ensure()
+    if (!ready.has(table)) await createTable(table)
     await call('put_project_row', { table, values })
   }
   const remove = async (table, pk) => {
-    await ensure()
+    if (!ready.has(table)) await createTable(table)
     try {
       await call('delete_project_row', { table, pk })
     } catch (error) {
@@ -343,34 +355,57 @@ export function createHttpLedger({ fetchImpl, apiUrl = API_URL, token, projectId
     async putRevoked(hash) { await put(REVOKED, { id: hash }) },
     async removeRevoked(hash) { await remove(REVOKED, hash) },
     async loadNamespace(kernelKey) {
+      const found = (await this.loadNamespaceMap()).get(kernelKey)
+      return found ?? null
+    },
+    async loadNamespaceMap() {
       const rows = await list(NAMESPACES)
-      const found = rows.find(row => row.pk === kernelKey)
-      if (!found?.values?.body) return null
-      try { return JSON.parse(found.values.body) } catch { return null }
+      const map = new Map()
+      for (const row of rows) {
+        if (!row?.values?.body) continue
+        try { map.set(row.pk, JSON.parse(row.values.body)) } catch { /* 坏行留在库里，启动时跳过 */ }
+      }
+      return map
     },
     async saveNamespace(kernelKey, body) {
       await put(NAMESPACES, { id: kernelKey, body: fitNamespace(body) })
     },
     async loadFiles(kernelKey) {
+      const trees = await this.loadAllFileTrees()
+      return trees.get(kernelKey) ?? {}
+    },
+    async loadAllFileTrees() {
       const rows = await list(FILES)
-      const prefix = `${kernelKey}:`
       const grouped = new Map()
       for (const row of rows) {
-        if (!row.pk.startsWith(prefix)) continue
-        const rest = row.pk.slice(prefix.length)
-        const match = rest.match(/^(.*)\#(\d+)$/)
-        const rel = match ? match[1] : rest
-        const index = match ? Number(match[2]) : 0
-        const bucket = grouped.get(rel) ?? []
-        bucket[index] = text(row.values.body)
-        grouped.set(rel, bucket)
+        const colon = row.pk.indexOf(':')
+        if (colon <= 0) continue
+        const kernelKey = row.pk.slice(0, colon)
+        const bucket = grouped.get(kernelKey) ?? []
+        bucket.push(row)
+        grouped.set(kernelKey, bucket)
       }
-      const tree = {}
-      for (const [rel, parts] of grouped) {
-        if (rel.endsWith('/')) tree[rel.slice(0, -1)] = { dir: true }
-        else tree[rel] = { text: parts.filter(part => part != null).join('') }
+      const trees = new Map()
+      for (const [kernelKey, keyRows] of grouped) {
+        const prefix = `${kernelKey}:`
+        const partsByPath = new Map()
+        for (const row of keyRows) {
+          const rest = row.pk.slice(prefix.length)
+          const match = rest.match(/^(.*)#(\d+)$/)
+          const rel = match ? match[1] : rest
+          const index = match ? Number(match[2]) : 0
+          const parts = partsByPath.get(rel) ?? []
+          parts[index] = text(row.values.body)
+          partsByPath.set(rel, parts)
+        }
+        const tree = {}
+        for (const [rel, parts] of partsByPath) {
+          if (rel.endsWith('/')) tree[rel.slice(0, -1)] = { dir: true }
+          else tree[rel] = { text: parts.filter(part => part != null).join('') }
+        }
+        trees.set(kernelKey, tree)
       }
-      return tree
+      return trees
     },
     async saveFiles(kernelKey, tree) {
       const rows = await list(FILES)
