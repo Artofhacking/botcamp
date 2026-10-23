@@ -241,6 +241,29 @@ tr:hover td {
   font-size: 0.95rem;
 }
 
+.login-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.login-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+button.pill.switch {
+  border: 0;
+  cursor: pointer;
+}
+
+.user-bar {
+  align-items: center;
+}
+
 .rules {
   display: flex;
   flex-wrap: wrap;

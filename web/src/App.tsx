@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { fetchManuscript, fetchWorkspace } from "./api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  fetchDemoUsers,
+  fetchManuscript,
+  fetchMe,
+  fetchWorkspace,
+  login,
+  logout,
+  type AuthUser,
+  type DemoUser,
+} from "./api";
 import type { TabId, WorkspaceBundle } from "./types";
 import "./index.css";
 
@@ -25,9 +34,62 @@ function statusClass(status: string) {
   return "badge";
 }
 
+function LoginScreen({
+  users,
+  onLogin,
+  error,
+}: {
+  users: DemoUser[];
+  onLogin: (username: string) => Promise<void>;
+  error: string | null;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="app">
+      <header className="hero">
+        <div className="brand">BotCamp · 自媒体账号</div>
+        <h1>登录</h1>
+        <p className="note">
+          数据按 owner 隔离：登录后只能看到自己的自媒体账号。演示用户可切换验证
+          A≠B。
+        </p>
+      </header>
+      <main className="panel">
+        <div className="list">
+          {users.map((u) => (
+            <button
+              key={u.username}
+              type="button"
+              className="list-item login-btn"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await onLogin(u.username);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <h3>{u.display_name}</h3>
+              <p className="note">@{u.username}</p>
+            </button>
+          ))}
+        </div>
+        {error && <p className="error">{error}</p>}
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
   const [data, setData] = useState<WorkspaceBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabId>("board");
   const [msPreview, setMsPreview] = useState<{
     id: string;
@@ -36,11 +98,33 @@ export default function App() {
     published_edition: string | null;
   } | null>(null);
 
-  useEffect(() => {
-    fetchWorkspace()
-      .then(setData)
-      .catch((e: Error) => setError(e.message));
+  const loadWorkspace = useCallback(async () => {
+    const ws = await fetchWorkspace();
+    setData(ws);
+    setError(null);
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const users = await fetchDemoUsers();
+        setDemoUsers(users);
+        const me = await fetchMe();
+        setUser(me);
+        await loadWorkspace();
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        if (err.status === 401) {
+          setUser(null);
+          setData(null);
+        } else if (localStorage.getItem("botcamp_token")) {
+          setAuthError(err.message);
+        }
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, [loadWorkspace]);
 
   const sortedEngagement = useMemo(() => {
     if (!data) return [];
@@ -48,6 +132,31 @@ export default function App() {
       `${b.snapshot_date}${b.title}`.localeCompare(`${a.snapshot_date}${a.title}`),
     );
   }, [data]);
+
+  async function handleLogin(username: string) {
+    setAuthError(null);
+    try {
+      const u = await login(username);
+      setUser(u);
+      setMsPreview(null);
+      setTab("board");
+      await loadWorkspace();
+    } catch (e) {
+      setAuthError((e as Error).message);
+    }
+  }
+
+  async function handleLogout() {
+    await logout();
+    setUser(null);
+    setData(null);
+    setMsPreview(null);
+  }
+
+  async function handleSwitch(username: string) {
+    await logout();
+    await handleLogin(username);
+  }
 
   async function openManuscript(id: string) {
     if (!data) return;
@@ -58,6 +167,14 @@ export default function App() {
       body: res.body,
       published_edition: res.published_edition,
     });
+  }
+
+  if (booting) return <div className="loading">启动中…</div>;
+
+  if (!user) {
+    return (
+      <LoginScreen users={demoUsers} onLogin={handleLogin} error={authError} />
+    );
   }
 
   if (error) return <div className="error">{error}</div>;
@@ -71,13 +188,35 @@ export default function App() {
         <div className="brand">BotCamp · 自媒体账号</div>
         <h1>{account.display_name}</h1>
         <div className="meta">
-          <span className="pill ok">小黑盒 · {account.platform}</span>
+          <span className="pill ok">
+            {account.platform === "xiaoheihe" ? "小黑盒" : account.platform} ·{" "}
+            {account.platform}
+          </span>
           <span className="pill">{account.status}</span>
           <span className="pill">业务线 {account.biz_line_tag}</span>
-          <span className="pill">{account.content_timezone}</span>
+          <span className="pill">
+            登录 {user.display_name || user.username} · {user.owner_user_id.slice(0, 12)}…
+          </span>
+        </div>
+        <div className="meta user-bar">
+          <span className="note">切换演示用户（验证隔离）：</span>
+          {demoUsers.map((u) => (
+            <button
+              key={u.username}
+              type="button"
+              className={`pill switch${u.username === user.username ? " ok" : ""}`}
+              onClick={() => handleSwitch(u.username)}
+            >
+              {u.display_name}
+            </button>
+          ))}
+          <button type="button" className="pill" onClick={handleLogout}>
+            退出
+          </button>
         </div>
         <p className="note">
-          趋势权威：互动快照 append-only。帖子行指标仅为当前镜像。稿页 ≠ 发布版。
+          趋势权威：互动快照 append-only。帖子行指标仅为当前镜像。稿页 ≠ 发布版。API
+          按 session owner 隔离。
         </p>
       </header>
 
@@ -245,7 +384,11 @@ export default function App() {
                     {m.archive_bucket} · 终审{" "}
                     {m.final_review_passed ? "通过" : "未过"}
                   </p>
-                  <button type="button" className="pill" onClick={() => openManuscript(m.id)}>
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => openManuscript(m.id)}
+                  >
                     查看稿正文
                   </button>
                 </div>
@@ -310,7 +453,8 @@ export default function App() {
         {tab === "engagement" && (
           <div>
             <p className="note">
-              趋势 SoT：每日追加、不覆盖。日期 {board.trend_hint.latest_dates.join("、") || "—"}
+              趋势 SoT：每日追加、不覆盖。日期{" "}
+              {board.trend_hint.latest_dates.join("、") || "—"}
             </p>
             <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
               <table>

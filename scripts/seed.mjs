@@ -1,7 +1,10 @@
 /**
  * Seed MediaAccount「小稿的AI日记 @ 小黑盒」from design + Notion evidence/examples.
  * Never stores secrets — credential_ref is a pointer only.
+ * 小稿归 phosa；另种 other_creator 账号用于隔离验证。
  */
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ensureStoreDirs,
   kvSet,
@@ -10,8 +13,14 @@ import {
 } from "../server/kv.mjs";
 import { RULE_CATALOG } from "../server/ruleCatalog.mjs";
 
-const OWNER = "usr_01JXIAOGUAO00000000000";
-const MAC = "mac_01JHEYBOXXIAOGUAO0001";
+/** phosa owns 小稿的AI日记; other_creator is isolation counterparty. */
+export const PHOSA_OWNER_ID = "usr_01JPHOSA000000000000000";
+export const OTHER_OWNER_ID = "usr_01JOTHERDEMO0000000001";
+export const PHOSA_MAC_ID = "mac_01JHEYBOXXIAOGUAO0001";
+export const OTHER_MAC_ID = "mac_01JOTHERDOUYIN000000001";
+
+const OWNER = PHOSA_OWNER_ID;
+const MAC = PHOSA_MAC_ID;
 const NOW = "2026-10-23T03:00:00.000Z";
 const SCHEMA = "1.0.0";
 
@@ -28,14 +37,144 @@ function meta(extra = {}) {
   };
 }
 
+function seedOtherOwner() {
+  const otherMac = OTHER_MAC_ID;
+  const otherOwner = OTHER_OWNER_ID;
+
+  kvSet(`owner:${otherOwner}:prefs`, {
+    owner_user_id: otherOwner,
+    display_name: "别家创作者",
+    preferred_timezone: "Asia/Singapore",
+    locale: "zh-CN",
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: NOW,
+    updated_at: NOW,
+  });
+
+  kvSet(`owner:${otherOwner}:focus`, {
+    id: otherOwner,
+    owner_user_id: otherOwner,
+    current_media_account_id: otherMac,
+    last_session_id: null,
+    schema_version: SCHEMA,
+    version: 1,
+    updated_at: NOW,
+  });
+
+  kvSet(`owner:${otherOwner}:media_accounts`, [otherMac]);
+
+  kvSet(`media_account:${otherMac}`, {
+    id: otherMac,
+    owner_user_id: otherOwner,
+    platform: "douyin",
+    display_name: "别家效率号",
+    handle: "other_eff",
+    profile_url: null,
+    avatar_ref: null,
+    biz_line_tag: "other",
+    status: "active",
+    onboarding_path: "new_account",
+    stage: "operating",
+    content_timezone: "Asia/Singapore",
+    credential_ref: null,
+    platform_fetch_template: null,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: NOW,
+    updated_at: NOW,
+    deleted_at: null,
+  });
+
+  kvSet(`media_account:${otherMac}:profile`, {
+    id: "prf_01JOTHER000000000000001",
+    owner_user_id: otherOwner,
+    media_account_id: otherMac,
+    what_it_is: "演示用隔离账号（不应被 phosa 看见）",
+    goal: "证明跨 owner 403",
+    redlines_summary: "仅 demo",
+    audience: null,
+    tone_notes: null,
+    prefer_hands_on_tutorials: false,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: NOW,
+    updated_at: NOW,
+    deleted_at: null,
+  });
+
+  const secretPost = {
+    id: "pst_other_secret",
+    title: "【机密】别家选题：只有 other_creator 能看",
+    status: "选题",
+    content_type: "干货",
+    form: "文章",
+    planned_publish_at: null,
+    published_at: null,
+    url: null,
+    platform_post_id: null,
+    manuscript_id: null,
+    metrics_views: null,
+    metrics_likes: null,
+    metrics_comments: null,
+    metrics_favorites: null,
+    metrics_shares: null,
+    metrics_updated_at: null,
+    remark: "isolation probe",
+    source: "other",
+    owner_user_id: otherOwner,
+    media_account_id: otherMac,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: NOW,
+    updated_at: NOW,
+    deleted_at: null,
+  };
+  kvSet(`media_account:${otherMac}:posts`, [secretPost.id]);
+  kvSet(`media_account:${otherMac}:post:${secretPost.id}`, secretPost);
+  kvSet(`media_account:${otherMac}:posts_by_status:选题`, [secretPost.id]);
+  kvSet(`media_account:${otherMac}:manuscripts`, []);
+  kvSet(`media_account:${otherMac}:engagement_snapshots`, []);
+  kvSet(`media_account:${otherMac}:follower_snapshots`, []);
+  kvSet(`media_account:${otherMac}:revenue`, []);
+  kvSet(`media_account:${otherMac}:platform_events`, []);
+  kvSet(`media_account:${otherMac}:rules`, {
+    id: "rul_01JOTHER000000000000001",
+    owner_user_id: otherOwner,
+    media_account_id: otherMac,
+    enabled_rule_ids: ["final_review_before_publish"],
+    publish_window_start: null,
+    publish_window_end: null,
+    notes: null,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: NOW,
+    updated_at: NOW,
+    deleted_at: null,
+  });
+}
+
 function seed() {
   ensureStoreDirs();
 
   kvSet("system:rule_catalog", RULE_CATALOG);
 
+  kvSet("system:demo_users", [
+    {
+      username: "phosa",
+      owner_user_id: PHOSA_OWNER_ID,
+      display_name: "phosa",
+    },
+    {
+      username: "other_creator",
+      owner_user_id: OTHER_OWNER_ID,
+      display_name: "别家创作者",
+    },
+  ]);
+
   kvSet(`owner:${OWNER}:prefs`, {
     owner_user_id: OWNER,
-    display_name: "小稿",
+    display_name: "phosa",
     preferred_timezone: "Asia/Singapore",
     locale: "zh-CN",
     schema_version: SCHEMA,
@@ -641,8 +780,18 @@ function seed() {
     error_message: null,
   });
 
-  console.log(`Seeded MediaAccount ${MAC} → ${DATA_ROOT}`);
+  seedOtherOwner();
+
+  console.log(`Seeded MediaAccount ${MAC} (owner phosa=${OWNER}) → ${DATA_ROOT}`);
+  console.log(`Also seeded ${OTHER_MAC_ID} (owner=${OTHER_OWNER_ID}) for isolation`);
   console.log(`Posts=${posts.length} manuscripts=${manuscripts.length} engagement=${engagement.length}`);
 }
 
-seed();
+export { seed };
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  seed();
+}

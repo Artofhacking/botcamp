@@ -10,10 +10,11 @@
 npm install
 npm install --prefix web
 npm run seed          # 写入 data/kv + data/blobs（host.kv 形状）
+npm run test:isolation  # 证明 phosa 看不到 other_creator 的号
 npm run dev           # API :8787 + Vite :5173（已代理 /api）
 ```
 
-浏览器打开 http://127.0.0.1:5173
+浏览器打开 http://127.0.0.1:5173 → 登录 `phosa` 或 `other_creator`（演示切换）。
 
 生产：
 
@@ -21,6 +22,15 @@ npm run dev           # API :8787 + Vite :5173（已代理 /api）
 npm run build
 npm start             # 种子 + Express 托管 web/dist，端口 8787
 ```
+
+## 多用户隔离
+
+- 每个请求经 session（httpOnly cookie `botcamp_session` 或 `Authorization: Bearer`）解析 `owner_user_id`。
+- 无硬编码全局 OWNER；未登录访问数据 API → **401**。
+- `GET /api/accounts/:id` / manuscripts / workspace：资源 `owner_user_id` 不匹配 → **403**。
+- 列表只返回 `owner:{uid}:media_accounts` 下且归属校验通过的号。
+- `/api/debug/kv-keys` 已删除，不向客户端暴露全局 KV。
+- 种子：`phosa` → 小稿的AI日记；`other_creator` → 别家效率号（含机密选题探针）。
 
 ## 存储键 → UI Tab
 
