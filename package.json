@@ -4,12 +4,15 @@
   "type": "module",
   "scripts": {
     "seed": "node scripts/seed.mjs",
+    "pack:fixture": "node scripts/pack-fixture.mjs",
+    "import:notion": "node scripts/pack-fixture.mjs && node scripts/import-notion.mjs",
     "dev:server": "node --watch server/index.mjs",
     "dev:web": "npm run dev --prefix web",
     "dev": "npm run seed && concurrently -k \"npm run dev:server\" \"npm run dev:web\"",
     "build": "npm run build --prefix web",
     "start": "npm run seed && NODE_ENV=production node server/index.mjs",
-    "test:isolation": "node scripts/isolation-check.mjs"
+    "test:isolation": "node scripts/isolation-check.mjs",
+    "prove:import": "node scripts/prove-import.mjs"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

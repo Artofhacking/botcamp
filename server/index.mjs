@@ -38,6 +38,7 @@ const MEDIA_CONTROL = new Set([
   "media/focus",
   "media/create-account",
   "media/note",
+  "media/update",
 ]);
 
 export function createApp() {

@@ -599,10 +599,22 @@ a {
   color: var(--ink-2);
 }
 
-.funnel-empty {
-  font-size: 12px;
+.funnel-empty,
+.empty-state {
+  font-size: 13px;
   color: var(--ink-3);
-  padding: 8px 0;
+  padding: 16px 2px;
+  line-height: 1.5;
+}
+
+.needs-row {
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.needs-row .gate {
+  margin: 4px 0 8px;
 }
 
 .entity-row {

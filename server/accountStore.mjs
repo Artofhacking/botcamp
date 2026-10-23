@@ -159,14 +159,14 @@ export function deriveBoard(ctx) {
       title: p.title,
       manuscript_id: p.manuscript_id,
     })),
-    writing: manuscripts
-      .filter((m) => m.status === "写稿中" || m.status === "待确认")
-      .map((m) => ({
-        id: m.id,
-        title: m.title,
-        status: m.status,
-        final_review_passed: m.final_review_passed,
-        note: "稿页≠发布版",
+    writing: posts
+      .filter((p) => p.status === "写稿中" || p.status === "待确认")
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        status: p.status,
+        manuscript_id: p.manuscript_id,
+        note: "帖状态机派生",
       })),
     recent_published_mirror: recentPublished,
     trend_hint: {

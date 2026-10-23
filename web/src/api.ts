@@ -194,3 +194,19 @@ export async function noteMediaEntity(body: {
 }): Promise<{ workspace: WorkspaceBundle }> {
   return bot("media/note", body);
 }
+
+export async function updateMediaEntity(body: {
+  accountId: string;
+  kind?: "post" | "manuscript";
+  entityId: string;
+  action:
+    | "confirm_topic"
+    | "pass_review"
+    | "confirm_publish"
+    | "hold"
+    | "set_status";
+  status?: string;
+  note?: string;
+}): Promise<{ workspace: WorkspaceBundle }> {
+  return bot("media/update", body);
+}

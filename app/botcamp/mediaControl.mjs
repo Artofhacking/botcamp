@@ -30,6 +30,9 @@ import {
   PHOSA_OWNER_ID,
   seed,
 } from '../../scripts/seed.mjs'
+import packedFixture from '../../fixtures/xiaogao/fixture.generated.json' with { type: 'json' }
+
+const FIXTURE_META = packedFixture?.meta || null
 
 const SCHEMA = '1.0.0'
 /** Separate from botcamp_session so workbench login does not clobber DS Bot sessions. */
@@ -89,8 +92,14 @@ export function bindMediaDataDir(dataDir) {
 function ensureSeeded() {
   ensureStoreDirs()
   const root = getDataRoot()
-  if (readyForRoot === root) return
-  if (!kvGet(`media_account:${PHOSA_MAC_ID}`)) seed()
+  const fixtureTs = FIXTURE_META?.import_timestamp || null
+  const applied = kvGet(`media_account:${PHOSA_MAC_ID}:import_meta`)
+  const needsImport =
+    !kvGet(`media_account:${PHOSA_MAC_ID}`) ||
+    (fixtureTs && applied?.import_timestamp !== fixtureTs) ||
+    !applied?.counts?.posts
+  if (readyForRoot === root && !needsImport) return
+  if (needsImport) seed()
   readyForRoot = root
 }
 
@@ -332,6 +341,150 @@ function createAccount(ownerId, payload) {
   return workspaceForOwner(ownerId)
 }
 
+const POST_STATUSES = new Set(['选题', '写稿中', '待确认', '已发布', '被隐藏', '搁置'])
+
+function reindexPostStatus(accountId, postId, prevStatus, nextStatus) {
+  if (prevStatus === nextStatus) return
+  if (prevStatus) {
+    const prev = (kvGet(`media_account:${accountId}:posts_by_status:${prevStatus}`) || []).filter((id) => id !== postId)
+    kvSet(`media_account:${accountId}:posts_by_status:${prevStatus}`, prev)
+  }
+  if (nextStatus) {
+    const next = kvGet(`media_account:${accountId}:posts_by_status:${nextStatus}`) || []
+    if (!next.includes(postId)) kvSet(`media_account:${accountId}:posts_by_status:${nextStatus}`, [...next, postId])
+  }
+}
+
+/** Real status / gate mutations — Confirm / Review / hold / set_status. */
+function updateEntity(ownerId, payload) {
+  const accountId = typeof payload?.accountId === 'string' ? payload.accountId : getFocusedAccountId(ownerId)
+  const account = kvGet(`media_account:${accountId}`)
+  if (!account || account.deleted_at || account.owner_user_id !== ownerId) {
+    return { status: 403, body: { ok: false, error: { code: 'media/forbidden', message: '无权写入该自媒体账号。' } } }
+  }
+  const kind = payload?.kind === 'manuscript' ? 'manuscript' : 'post'
+  const entityId = typeof payload?.entityId === 'string' ? payload.entityId : ''
+  const action = typeof payload?.action === 'string' ? payload.action : ''
+  const stamp = nowIso()
+  if (!entityId || !action) {
+    return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: '缺少 entityId 或 action。' } } }
+  }
+
+  if (kind === 'post') {
+    const post = kvGet(`media_account:${accountId}:post:${entityId}`)
+    if (!post || post.owner_user_id !== ownerId) {
+      return { status: 404, body: { ok: false, error: { code: 'media/not_found', message: '帖子不存在。' } } }
+    }
+    const prev = post.status
+    let next = prev
+    let noteLine = ''
+
+    if (action === 'confirm_topic') {
+      if (prev !== '选题' && prev !== '待确认') {
+        return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: `当前状态「${prev}」不能确认选题。` } } }
+      }
+      next = prev === '选题' ? '写稿中' : '写稿中'
+      noteLine = '闸门 Confirm：选题确认 → 写稿中'
+    } else if (action === 'pass_review') {
+      if (post.manuscript_id) {
+        const m = kvGet(`media_account:${accountId}:manuscript:${post.manuscript_id}`)
+        if (m && m.owner_user_id === ownerId) {
+          kvSet(`media_account:${accountId}:manuscript:${post.manuscript_id}`, {
+            ...m,
+            final_review_passed: true,
+            final_reviewed_at: stamp,
+            status: m.status === '写稿中' ? '待确认' : m.status,
+            version: (m.version || 1) + 1,
+            updated_at: stamp,
+          })
+        }
+      }
+      if (prev === '写稿中') next = '待确认'
+      noteLine = '闸门 Review：终审通过'
+    } else if (action === 'confirm_publish') {
+      if (prev !== '待确认' && prev !== '写稿中') {
+        return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: `当前状态「${prev}」不能确认发布。` } } }
+      }
+      if (post.manuscript_id) {
+        const m = kvGet(`media_account:${accountId}:manuscript:${post.manuscript_id}`)
+        if (m && !m.final_review_passed) {
+          return { status: 400, body: { ok: false, error: { code: 'media/review_required', message: '关联稿件终审未过，不能确认发布。' } } }
+        }
+      }
+      next = '已发布'
+      noteLine = '闸门 Confirm：确认发布 → 已发布'
+    } else if (action === 'hold') {
+      next = '搁置'
+      noteLine = '闸门：搁置'
+    } else if (action === 'set_status') {
+      if (!POST_STATUSES.has(payload?.status)) {
+        return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: '非法状态。' } } }
+      }
+      next = payload.status
+      noteLine = `状态设为 ${next}`
+    } else {
+      return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: `未知 action：${action}` } } }
+    }
+
+    const remarkExtra = typeof payload?.note === 'string' && payload.note.trim()
+      ? payload.note.trim()
+      : noteLine
+    const line = `[主编 ${stamp}] ${remarkExtra}`
+    kvSet(`media_account:${accountId}:post:${entityId}`, {
+      ...post,
+      status: next,
+      published_at: next === '已发布' && !post.published_at ? stamp.slice(0, 10) : post.published_at,
+      remark: post.remark ? `${post.remark}\n${line}` : line,
+      version: (post.version || 1) + 1,
+      updated_at: stamp,
+    })
+    reindexPostStatus(accountId, entityId, prev, next)
+    return workspaceForOwner(ownerId)
+  }
+
+  // manuscript
+  const m = kvGet(`media_account:${accountId}:manuscript:${entityId}`)
+  if (!m || m.owner_user_id !== ownerId) {
+    return { status: 404, body: { ok: false, error: { code: 'media/not_found', message: '稿件不存在。' } } }
+  }
+  if (action === 'pass_review') {
+    kvSet(`media_account:${accountId}:manuscript:${entityId}`, {
+      ...m,
+      final_review_passed: true,
+      final_reviewed_at: stamp,
+      status: m.status === '写稿中' ? '待确认' : m.status,
+      version: (m.version || 1) + 1,
+      updated_at: stamp,
+    })
+    if (m.post_id) {
+      const post = kvGet(`media_account:${accountId}:post:${m.post_id}`)
+      if (post && post.status === '写稿中') {
+        kvSet(`media_account:${accountId}:post:${m.post_id}`, {
+          ...post,
+          status: '待确认',
+          remark: post.remark
+            ? `${post.remark}\n[主编 ${stamp}] 关联稿终审通过 → 待确认`
+            : `[主编 ${stamp}] 关联稿终审通过 → 待确认`,
+          version: (post.version || 1) + 1,
+          updated_at: stamp,
+        })
+        reindexPostStatus(accountId, m.post_id, '写稿中', '待确认')
+      }
+    }
+    return workspaceForOwner(ownerId)
+  }
+  if (action === 'hold') {
+    kvSet(`media_account:${accountId}:manuscript:${entityId}`, {
+      ...m,
+      status: '搁置',
+      version: (m.version || 1) + 1,
+      updated_at: stamp,
+    })
+    return workspaceForOwner(ownerId)
+  }
+  return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: `稿件不支持 action：${action}` } } }
+}
+
 /** Persist a chat write-back onto a post remark and/or a platform event, then return workspace. */
 function noteOnEntity(ownerId, payload) {
   const accountId = typeof payload?.accountId === 'string' ? payload.accountId : getFocusedAccountId(ownerId)
@@ -491,6 +644,7 @@ export function handleMediaControl(req, endpoint, payload, botcampUser) {
   if (endpoint === 'media/focus') return focusAccount(resolved.ownerId, payload)
   if (endpoint === 'media/create-account') return createAccount(resolved.ownerId, payload)
   if (endpoint === 'media/note') return noteOnEntity(resolved.ownerId, payload)
+  if (endpoint === 'media/update') return updateEntity(resolved.ownerId, payload)
 
   return { status: 404, body: { ok: false, error: { message: '未知的自媒体接口。' } } }
 }

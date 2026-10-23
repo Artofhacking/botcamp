@@ -10,6 +10,7 @@ import {
   loginMedia,
   logout,
   noteMediaEntity,
+  updateMediaEntity,
   restoreSession,
   type AuthUser,
   type DemoUser,
@@ -501,29 +502,74 @@ function FunnelBoard({
 function NeedsInbox({
   items,
   onOpen,
+  onAct,
+  busy,
 }: {
   items: NeedsItem[];
   onOpen: (item: NeedsItem) => void;
+  onAct: (item: NeedsItem, action: "pass_review" | "confirm_topic" | "hold") => void;
+  busy: boolean;
 }) {
   if (items.length === 0) {
     return (
       <div className="sot">
         <div className="sot-label">Needs you</div>
-        <div className="funnel-empty">此刻没有等你拍板的项。</div>
+        <div className="empty-state">此刻没有等你拍板的项。</div>
       </div>
     );
   }
   return (
     <div className="sot">
       <div className="sot-label">Needs you · {items.length}</div>
-      <div className="sot-meta">聚合：待确认帖 · 终审未过 · 审核事件</div>
+      <div className="sot-meta">聚合：待确认帖 · 终审未过 · 失败审核事件</div>
       {items.map((it) => (
-        <EntityRow
-          key={it.id}
-          title={it.title}
-          meta={it.meta}
-          onClick={() => onOpen(it)}
-        />
+        <div key={it.id} className="needs-row">
+          <EntityRow
+            title={it.title}
+            meta={it.meta}
+            onClick={() => onOpen(it)}
+          />
+          <div className="gate">
+            {it.kind === "pending" ? (
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() => onAct(it, "confirm_topic")}
+              >
+                确认选题
+              </button>
+            ) : null}
+            {it.kind === "review" ? (
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() => onAct(it, "pass_review")}
+              >
+                终审通过
+              </button>
+            ) : null}
+            {it.kind !== "event" ? (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => onAct(it, "hold")}
+              >
+                搁置
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => onOpen(it)}
+            >
+              打开对话
+            </button>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -558,9 +604,17 @@ function SoTView({
   }
 
   if (section === "posts") {
+    if (data.posts.length === 0) {
+      return (
+        <div className="sot">
+          <div className="sot-label">帖子 / 选题</div>
+          <div className="empty-state">还没有帖子行。在对话里让主编起选题。</div>
+        </div>
+      );
+    }
     return (
       <div className="sot">
-        <div className="sot-label">帖子 / 选题</div>
+        <div className="sot-label">帖子 / 选题 · {data.posts.length}</div>
         {data.posts.map((p) => {
           const a: Anchor = {
             kind: "帖子",
@@ -588,7 +642,12 @@ function SoTView({
   if (section === "manuscripts") {
     return (
       <div className="sot">
-        <div className="sot-label">历史稿件 · 写作稿 ≠ 发布版</div>
+        <div className="sot-label">
+          历史稿件 · {data.manuscripts.length} · 写作稿 ≠ 发布版
+        </div>
+        {data.manuscripts.length === 0 ? (
+          <div className="empty-state">尚无稿页。</div>
+        ) : null}
         {data.manuscripts.map((m: Manuscript) => {
           const a: Anchor = {
             kind: "稿件",
@@ -655,7 +714,12 @@ function SoTView({
     );
     return (
       <div className="sot">
-        <div className="sot-label">互动快照（趋势 SoT）</div>
+        <div className="sot-label">
+          互动快照（趋势 SoT）· {rows.length}
+        </div>
+        {rows.length === 0 ? (
+          <div className="empty-state">尚无快照行。</div>
+        ) : null}
         {rows.map((e) => {
           const a: Anchor = {
             kind: "快照",
@@ -716,7 +780,10 @@ function SoTView({
 
   return (
     <div className="sot">
-      <div className="sot-label">平台事件</div>
+      <div className="sot-label">平台事件 · {data.platform_events.length}</div>
+      {data.platform_events.length === 0 ? (
+        <div className="empty-state">尚无平台事件。</div>
+      ) : null}
       {data.platform_events.map((e: PlatformEvent) => {
         const a: Anchor = {
           kind: "事件",
@@ -881,7 +948,10 @@ export default function App() {
       setMode("needs");
       setMessages((m) => [
         ...m,
-        { role: "editor", text: `Needs you 里有 ${needs.length} 项。点开一条即可锚定并走闸门。` },
+        {
+          role: "editor",
+          text: `Needs you 里有 ${needs.length} 项。点开一条即可锚定并走闸门。`,
+        },
       ]);
       setSending(false);
       return;
@@ -893,23 +963,57 @@ export default function App() {
     }
 
     try {
-      await noteMediaEntity({
-        accountId: data.account.id,
-        kind: anchor?.kind === "帖子" ? "post" : "event",
-        entityId: anchor?.kind === "帖子" ? anchor.id : undefined,
-        title: anchor?.title || null,
-        text: `[选项] ${option}`,
-      });
-      await loadWorkspace();
+      // Meaningful options → real status mutations when anchored
+      if (anchor && /终审|过审|过红线/.test(option)) {
+        const kind = anchor.kind === "稿件" ? "manuscript" : "post";
+        const res = await updateMediaEntity({
+          accountId: data.account.id,
+          kind,
+          entityId: anchor.id,
+          action: "pass_review",
+          note: option,
+        });
+        setData(res.workspace);
+      } else if (anchor?.kind === "帖子" && /确认选题|立项/.test(option)) {
+        const res = await updateMediaEntity({
+          accountId: data.account.id,
+          kind: "post",
+          entityId: anchor.id,
+          action: "confirm_topic",
+          note: option,
+        });
+        setData(res.workspace);
+      } else if (anchor && /搁置/.test(option)) {
+        const kind = anchor.kind === "稿件" ? "manuscript" : "post";
+        const res = await updateMediaEntity({
+          accountId: data.account.id,
+          kind,
+          entityId: anchor.id,
+          action: "hold",
+          note: option,
+        });
+        setData(res.workspace);
+      } else {
+        const res = await noteMediaEntity({
+          accountId: data.account.id,
+          kind: anchor?.kind === "帖子" ? "post" : "event",
+          entityId: anchor?.kind === "帖子" ? anchor.id : undefined,
+          title: anchor?.title || null,
+          text: `[选项] ${option}`,
+        });
+        if (res.workspace) setData(res.workspace);
+        else await loadWorkspace();
+      }
       const milestones = milestonesForGoal(option);
+      const ws = data;
       setMessages((m) => [
         ...m,
-        { role: "system", text: "已写入工作台并刷新 SoT。" },
+        { role: "system", text: "已写入 SoT 并刷新工作台。" },
         {
           role: "editor",
           text: milestones
             ? "收到目标。先按这四步拆开推进："
-            : "记下了。还要改状态，还是继续下一问？",
+            : "已落库。还要改状态，还是继续下一问？",
           milestones: milestones || undefined,
           question: milestones
             ? {
@@ -917,7 +1021,8 @@ export default function App() {
                 title: "先做哪一步？",
                 options: milestones.slice(0, 3),
               }
-            : defaultQuestionFor(anchor, data) || undefined,
+            : defaultQuestionFor(anchor, ws) || undefined,
+          gate: gateForAnchor(anchor, ws) || undefined,
         },
       ]);
     } catch (e) {
@@ -932,8 +1037,14 @@ export default function App() {
 
   const resolveGate = async (msgIndex: number, action: "pass" | "hold") => {
     if (!data || sending) return;
+    const gate = messages[msgIndex]?.gate;
     setSending(true);
-    const label = action === "pass" ? "确认通过闸门" : "先搁置闸门";
+    const label =
+      action === "hold"
+        ? "先搁置闸门"
+        : gate?.kind === "review"
+          ? "终审通过"
+          : "确认选题";
     setMessages((prev) => {
       const next = [...prev];
       const m = next[msgIndex];
@@ -943,22 +1054,40 @@ export default function App() {
       return [...next, { role: "you", text: label }];
     });
     try {
-      await noteMediaEntity({
+      const kind =
+        anchor?.kind === "稿件" ? "manuscript" : ("post" as const);
+      const entityId = anchor?.id;
+      if (!entityId) throw new Error("没有锚定实体，无法改状态。");
+      let apiAction: "confirm_topic" | "pass_review" | "hold" = "hold";
+      if (action === "hold") apiAction = "hold";
+      else if (gate?.kind === "review") apiAction = "pass_review";
+      else apiAction = "confirm_topic";
+      const res = await updateMediaEntity({
         accountId: data.account.id,
-        kind: anchor?.kind === "帖子" ? "post" : "event",
-        entityId: anchor?.kind === "帖子" ? anchor.id : undefined,
-        title: anchor?.title || null,
-        text: `[闸门] ${label}`,
+        kind,
+        entityId,
+        action: apiAction,
+        note: label,
       });
-      await loadWorkspace();
+      setData(res.workspace);
+      try {
+        const acc = await fetchMediaAccounts();
+        setAccounts(acc.accounts || []);
+      } catch {
+        /* ignore */
+      }
+      const post = res.workspace.posts.find((p) => p.id === entityId);
+      const statusLine = post
+        ? `帖状态现为「${post.status}」。`
+        : "SoT 已刷新。";
       setMessages((m) => [
         ...m,
-        { role: "system", text: "闸门决定已写入备注并刷新 SoT。" },
+        { role: "system", text: `闸门已写入状态机。${statusLine}` },
         {
           role: "editor",
           text:
             action === "pass"
-              ? "闸门已记。下一步继续排发布窗，还是对照互动快照？"
+              ? "闸门已落地。下一步排发布窗，还是对照互动快照？"
               : "已搁置。需要时从 Needs you 再打开。",
           question: {
             id: `q-after-gate-${Date.now()}`,
@@ -970,7 +1099,7 @@ export default function App() {
     } catch (e) {
       setMessages((m) => [
         ...m,
-        { role: "system", text: `写回失败：${(e as Error).message}` },
+        { role: "system", text: `闸门失败：${(e as Error).message}` },
       ]);
     } finally {
       setSending(false);
@@ -984,15 +1113,17 @@ export default function App() {
     setDraft("");
     setMessages((m) => [...m, { role: "you", text }]);
     try {
-      await noteMediaEntity({
+      const res = await noteMediaEntity({
         accountId: data.account.id,
         kind: anchor?.kind === "帖子" ? "post" : "event",
         entityId: anchor?.kind === "帖子" ? anchor.id : undefined,
         title: anchor?.title || null,
         text,
       });
-      await loadWorkspace();
+      if (res.workspace) setData(res.workspace);
+      else await loadWorkspace();
       const milestones = milestonesForGoal(text);
+      const ws = res.workspace || data;
       setMessages((m) => [
         ...m,
         {
@@ -1011,8 +1142,8 @@ export default function App() {
                 title: "先推进哪一步？",
                 options: milestones.slice(0, 3),
               }
-            : defaultQuestionFor(anchor, data) || undefined,
-          gate: gateForAnchor(anchor, data) || undefined,
+            : defaultQuestionFor(anchor, ws) || undefined,
+          gate: gateForAnchor(anchor, ws) || undefined,
         },
       ]);
     } catch (e) {
@@ -1367,7 +1498,44 @@ export default function App() {
               {mode === "needs" ? (
                 <NeedsInbox
                   items={needs}
+                  busy={sending}
                   onOpen={(item) => onAnchor(item.anchor)}
+                  onAct={async (item, action) => {
+                    if (!data || sending) return;
+                    setSending(true);
+                    try {
+                      const kind =
+                        item.anchor.kind === "稿件" ? "manuscript" : "post";
+                      const res = await updateMediaEntity({
+                        accountId: data.account.id,
+                        kind,
+                        entityId: item.anchor.id,
+                        action,
+                      });
+                      setData(res.workspace);
+                      setMode("chat");
+                      setAnchor(item.anchor);
+                      setMessages((prev) => [
+                        ...prev,
+                        {
+                          role: "system",
+                          text: `Needs you 已处理：${action} · ${item.title}`,
+                        },
+                        openerMessage(res.workspace, item.anchor),
+                      ]);
+                    } catch (e) {
+                      setMessages((prev) => [
+                        ...prev,
+                        {
+                          role: "system",
+                          text: `操作失败：${(e as Error).message}`,
+                        },
+                      ]);
+                      setMode("chat");
+                    } finally {
+                      setSending(false);
+                    }
+                  }}
                 />
               ) : (
                 <SoTView
