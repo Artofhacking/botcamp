@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Build the DeepSeek Bot page and publish app/ui/dist plus the authenticated bot function.
-# Requires demox login or DEMOX_TOKEN. Does not install plugins on the kernel.
-# Does not print function env values. Set BOTCAMP_ADMIN_EMAIL and BOTCAMP_ADMIN_PASSWORD
-# with `demox env set` after this script; do not put those values in git.
+# Build the MediaAccount workbench (web/) and publish static + authenticated bot function.
+# Workbench API rides POST /api/bot media/* CONTROL (Demox only routes /api/bot[+feed]).
+# Requires demox login or DEMOX_TOKEN. Does not print function env values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIST="$ROOT/app/ui/dist"
+DIST="$ROOT/web/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
 PROJECT_ID="${DEMOX_PROJECT_ID:-PQBDTM6GLZ}"
@@ -38,9 +37,14 @@ PY
   chmod 600 "${HOME}/.demox/token.json"
 fi
 
+# Seed MediaAccount KV (idempotent) then verify isolation + botcamp gate.
+npm install --prefix "$ROOT"
+npm install --prefix "$ROOT/web"
+npm run seed --prefix "$ROOT"
+npm run test:isolation --prefix "$ROOT"
 npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" test
-npm --prefix "$ROOT/app" run build
+npm run build --prefix "$ROOT/web"
 
 python3 - "$DIST/index.html" <<'PY'
 import sys
@@ -48,7 +52,11 @@ from pathlib import Path
 html = Path(sys.argv[1]).read_text()
 if "location.replace" in html or "camp.aigc.sx.cn" in html:
     raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
-print("dist/index.html stays on the Demox origin")
+if "自媒体账号" not in html and "BotCamp" not in html:
+    raise SystemExit("refusing to deploy: expected MediaAccount workbench title in index.html")
+if "DeepSeek Bot" in html:
+    raise SystemExit("refusing to deploy: still shipping DeepSeek Bot shell as site root")
+print("dist/index.html is MediaAccount workbench on the Demox origin")
 PY
 
 ID=""
@@ -68,7 +76,7 @@ fi
 
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID in project $PROJECT_ID"
+  echo "Updating Demox site $ID in project $PROJECT_ID (MediaAccount workbench)"
   DEPLOY_ARGS+=(--id "$ID")
 else
   echo "Creating a Demox site in project $PROJECT_ID"
@@ -113,7 +121,7 @@ BUNDLE="$tmpdir/bot"
 mkdir -p "$BUNDLE"
 "$ROOT/app/node_modules/.bin/esbuild" "$ROOT/functions/bot/entry.mjs" \
   --bundle --platform=node --format=cjs --outfile="$BUNDLE/index.js"
-echo "推送云函数 ${FN_SLUG}（routes 仅创建时生效）: ${FN_ROUTES}"
+echo "推送云函数 ${FN_SLUG}（含 media/* CONTROL；routes 仅创建时生效）: ${FN_ROUTES}"
 FN_LOG="$tmpdir/fn.log"
 "${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"
 VERSION="$(python3 - "$FN_LOG" <<'PY'
@@ -129,5 +137,6 @@ PY
 echo "把 production 指到 v${VERSION}"
 # --version=N keeps the CLI from treating --version as its own version flag.
 "${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"
-echo "静态页面和云函数已发布。账号环境变量要用 demox env set 单独设置，不要写进仓库。"
+echo "自媒体工作台静态页 + media CONTROL 云函数已发布。"
+echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"
 echo "生产账本用 BOTCAMP_STORE=demox-project 和 BOTCAMP_PROJECT_ID，不要把 BOTCAMP_DATA_DIR 指到 /tmp。"

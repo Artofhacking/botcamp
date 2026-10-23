@@ -1215,3 +1215,73 @@ test('a client keeps a bearer session across the first password change', async (
     await ctx.close()
   }
 })
+
+test('media CONTROL serves workbench auth, workspace, and owner isolation', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const users = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/demo-users', payload: null },
+    })
+    assert.equal(users.status, 200)
+    assert.equal(users.json.ok, true)
+    assert.equal(users.json.users.some(u => u.username === 'phosa'), true)
+
+    const denied = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(denied.status, 401)
+
+    const loginA = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/login', payload: { username: 'phosa' } },
+    })
+    assert.equal(loginA.status, 200)
+    assert.equal(loginA.json.ok, true)
+    assert.equal(typeof loginA.json.token, 'string')
+    assert.match(String(loginA.setCookie?.[0] || ''), /botcamp_media_session=/)
+
+    const wsA = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(wsA.status, 200)
+    assert.equal(wsA.json.workspace.account.display_name, '小稿的AI日记')
+    assert.equal(wsA.json.workspace.account.platform, 'xiaoheihe')
+    assert.equal(wsA.json.workspace.posts.length > 0, true)
+
+    const loginB = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/login', payload: { username: 'other_creator' } },
+    })
+    assert.equal(loginB.status, 200)
+    const wsB = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(wsB.status, 200)
+    assert.equal(wsB.json.workspace.account.display_name, '别家效率号')
+    assert.equal(
+      wsB.json.workspace.posts.some(p => p.title === wsA.json.workspace.posts[0]?.title),
+      false,
+    )
+
+    const cross = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: {
+        endpoint: 'media/manuscript',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          manuscriptId: wsA.json.workspace.manuscripts[0]?.id,
+        },
+      },
+    })
+    assert.equal(cross.status, 403)
+  } finally {
+    await ctx.close()
+  }
+})

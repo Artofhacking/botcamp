@@ -66,3 +66,11 @@ export function updateUser(id, body) {
 export function deleteUser(id) {
   return send('admin/delete', { id })
 }
+
+export function fetchMediaWorkspace() {
+  return send('media/workspace', null)
+}
+
+export function fetchMediaManuscript(accountId, manuscriptId) {
+  return send('media/manuscript', { accountId, manuscriptId })
+}

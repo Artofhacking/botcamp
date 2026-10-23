@@ -1,28 +1,33 @@
 import type { WorkspaceBundle } from "./types";
 
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
+type BotOk<T> = T & { ok?: boolean; error?: { message?: string } };
+
+async function bot<T>(
+  endpoint: string,
+  payload: unknown = null,
 ): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  const headers = new Headers({ "Content-Type": "application/json" });
   const token = localStorage.getItem("botcamp_token");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(path, {
-    ...init,
+  const res = await fetch("api/bot", {
+    method: "POST",
     headers,
     credentials: "include",
+    cache: "no-store",
+    body: JSON.stringify({ endpoint, payload }),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    const err = new Error(`请求失败 (${res.status}): ${text}`);
+  const data = (await res.json().catch(() => ({}))) as BotOk<T>;
+  if (!res.ok || data.ok === false) {
+    const message =
+      (data.error && typeof data.error.message === "string"
+        ? data.error.message
+        : null) || `请求失败 (${res.status})`;
+    const err = new Error(message);
     (err as Error & { status?: number }).status = res.status;
     throw err;
   }
-  return res.json() as Promise<T>;
+  return data;
 }
 
 export type DemoUser = { username: string; display_name: string };
@@ -34,38 +39,38 @@ export type AuthUser = {
 };
 
 export async function fetchDemoUsers(): Promise<DemoUser[]> {
-  const data = await request<{ users: DemoUser[] }>("/api/auth/demo-users");
+  const data = await bot<{ users: DemoUser[] }>("media/demo-users");
   return data.users;
 }
 
-export async function login(username: string): Promise<AuthUser & { token: string }> {
-  const data = await request<{
+export async function login(
+  username: string,
+): Promise<AuthUser & { token: string }> {
+  const data = await bot<{
     owner_user_id: string;
     username: string;
     display_name: string;
     token: string;
-  }>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ username }),
-  });
+  }>("media/login", { username });
   localStorage.setItem("botcamp_token", data.token);
   return data;
 }
 
 export async function logout(): Promise<void> {
   try {
-    await request("/api/auth/logout", { method: "POST" });
+    await bot("media/logout", {});
   } finally {
     localStorage.removeItem("botcamp_token");
   }
 }
 
 export async function fetchMe(): Promise<AuthUser> {
-  return request<AuthUser>("/api/auth/me");
+  return bot<AuthUser>("media/me");
 }
 
 export async function fetchWorkspace(): Promise<WorkspaceBundle> {
-  return request<WorkspaceBundle>("/api/me/workspace");
+  const data = await bot<{ workspace: WorkspaceBundle }>("media/workspace");
+  return data.workspace;
 }
 
 export async function fetchManuscript(
@@ -76,5 +81,5 @@ export async function fetchManuscript(
   body: string | null;
   published_edition: string | null;
 }> {
-  return request(`/api/accounts/${accountId}/manuscripts/${manuscriptId}`);
+  return bot("media/manuscript", { accountId, manuscriptId });
 }

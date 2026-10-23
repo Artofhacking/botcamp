@@ -95,9 +95,60 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-account{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto;font-size:12px;line-height:16px;color:var(--bt-ink-2)}
 .dsb-account-mail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsb-account-quota{color:var(--bt-ink-3)}
-.dsb-account-actions{display:flex;gap:10px}
+.dsb-account-actions{display:flex;flex-wrap:wrap;gap:10px}
 .dsb-account-actions button{padding:0;border:0;background:none;color:var(--bt-accent);font:inherit;cursor:pointer}
 .dsb-frame[data-rail] .dsb-account{display:none}
+.dsb-media-rail{display:none;flex:none;height:28px;padding:0 8px;border:0;border-radius:8px;background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 14%,transparent);color:var(--bt-accent,#4d6bfe);font:inherit;font-size:11px;font-weight:600;cursor:pointer;writing-mode:horizontal-tb}
+.dsb-frame[data-rail] .dsb-media-rail{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:10px;font-size:10px;line-height:1.1;text-align:center;white-space:pre-line}
+.dsb-frame[data-rail] .dsb-side-foot{flex-direction:column;gap:8px}
+
+/* 自媒体账号工作台（Gate 全屏视图） */
+.dsb-media{min-height:100%;display:flex;flex-direction:column;background:
+  radial-gradient(900px 420px at 8% -8%,color-mix(in srgb,var(--bt-accent,#4d6bfe) 14%,transparent),transparent 55%),
+  radial-gradient(700px 360px at 100% 0%,color-mix(in srgb,var(--bt-ink,#141414) 6%,transparent),transparent 50%),
+  var(--bt-main,#fcfcfc);color:var(--bt-ink,#141414)}
+.dsb-media-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:28px 24px 12px;max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box}
+.dsb-media-brand{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--bt-accent,#4d6bfe);margin-bottom:6px}
+.dsb-media-head h1{margin:0;font-size:28px;font-weight:650;line-height:1.2}
+.dsb-media-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.dsb-media-back{flex:none;height:36px;padding:0 14px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 14%,transparent);border-radius:10px;background:var(--bt-card,#fff);color:inherit;font:inherit;cursor:pointer}
+.dsb-media-back:hover{background:color-mix(in srgb,var(--bt-ink,#141414) 5%,transparent)}
+.dsb-media-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:8px 24px 0;max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box;border-bottom:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent)}
+.dsb-media-tab{height:34px;padding:0 12px;border:0;border-radius:8px 8px 0 0;background:transparent;color:var(--bt-ink-2);font:inherit;font-size:13px;cursor:pointer}
+.dsb-media-tab:hover{background:color-mix(in srgb,var(--bt-ink,#141414) 5%,transparent)}
+.dsb-media-tab.active{color:var(--bt-ink,#141414);background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 12%,transparent);font-weight:600}
+.dsb-media-body{flex:1;padding:16px 24px 40px;max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box}
+.dsb-media-loading{padding:24px;text-align:center;color:var(--bt-ink-2)}
+.dsb-media-section{display:flex;flex-direction:column;gap:12px}
+.dsb-media-section h3{margin:8px 0 0;font-size:15px;font-weight:600}
+.dsb-media-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.dsb-media-stat{padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--bt-ink,#141414) 4%,transparent)}
+.dsb-media-stat-label{font-size:12px;color:var(--bt-ink-3)}
+.dsb-media-stat-value{margin-top:4px;font-size:20px;font-weight:650}
+.dsb-media-card{padding:14px 16px;border-radius:12px;background:var(--bt-card,#fff);border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent)}
+.dsb-media-card h3{margin:0 0 6px;font-size:16px}
+.dsb-media-card p{margin:0;font-size:14px;line-height:1.5;color:var(--bt-ink-2)}
+.dsb-media-pills,.dsb-media-meta{display:flex;flex-wrap:wrap;gap:8px}
+.dsb-media-pill{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:8px;background:color-mix(in srgb,var(--bt-ink,#141414) 6%,transparent);font-size:12px}
+.dsb-media-pill.ok{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 16%,transparent);color:var(--bt-accent,#4d6bfe)}
+.dsb-media-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.dsb-media-list li{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent);background:var(--bt-card,#fff)}
+.dsb-media-muted{color:var(--bt-ink-3);font-size:13px;line-height:1.45}
+.dsb-media-link{align-self:flex-start;margin-top:4px;padding:0;border:0;background:none;color:var(--bt-accent,#4d6bfe);font:inherit;cursor:pointer}
+.dsb-media-table-wrap{overflow:auto;border-radius:12px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 10%,transparent)}
+.dsb-media-table{width:100%;border-collapse:collapse;font-size:13px}
+.dsb-media-table th,.dsb-media-table td{padding:10px 12px;text-align:left;border-bottom:1px solid color-mix(in srgb,var(--bt-ink,#141414) 8%,transparent);vertical-align:top}
+.dsb-media-table th{font-weight:600;background:color-mix(in srgb,var(--bt-ink,#141414) 4%,transparent)}
+.dsb-media-table a{color:var(--bt-accent,#4d6bfe)}
+.dsb-media-badge{display:inline-block;padding:2px 8px;border-radius:6px;background:color-mix(in srgb,var(--bt-ink,#141414) 8%,transparent);font-size:12px}
+.dsb-media-badge.pub{background:color-mix(in srgb,#1a7f4b 18%,transparent);color:#1a7f4b}
+.dsb-media-badge.draft{background:color-mix(in srgb,#a66b00 18%,transparent);color:#a66b00}
+.dsb-media-preview{margin-top:12px}
+.dsb-media-preview pre{margin:0;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--bt-ink,#141414) 5%,transparent);white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:360px;overflow:auto}
+@media (max-width:720px){
+  .dsb-media-head{flex-direction:column;padding:20px 16px 8px}
+  .dsb-media-tabs,.dsb-media-body{padding-left:16px;padding-right:16px}
+}
 
 .dsb-auth{min-height:100%;display:grid;place-items:center;padding:32px 16px;background:var(--bt-main,#fcfcfc);color:var(--bt-ink,#141414)}
 .dsb-auth-card,.dsb-admin-card{width:min(420px,100%);padding:28px 24px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 12%,transparent);border-radius:16px;background:var(--bt-card,#fff);box-sizing:border-box}

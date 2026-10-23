@@ -789,9 +789,11 @@ function seed() {
 
 export { seed };
 
+const entryUrl = typeof import.meta !== "undefined" ? import.meta.url : "";
 if (
+  entryUrl &&
   process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  path.resolve(process.argv[1]) === fileURLToPath(entryUrl)
 ) {
   seed();
 }

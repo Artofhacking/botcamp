@@ -42,7 +42,7 @@ class Contain extends Component {
   render() { return this.state.failed ? null : this.props.children }
 }
 
-export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
+export function App({ user, onLogout, onAdmin, onMedia, onPassword, onUser }) {
   const team = useMemo(createTeam, [])
   useEffect(() => team.start(), [team])
   useEffect(() => {
@@ -89,9 +89,18 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
           h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
           h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
           h('span', { className: 'dsb-account-actions' },
+            h('button', { type: 'button', onClick: onMedia }, '自媒体账号'),
             user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
             h('button', { type: 'button', onClick: onPassword }, '修改密码'),
             h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
+        // Rail 模式会藏掉账号区，保留独立入口，避免「找不到自媒体账号」。
+        h('button', {
+          type: 'button',
+          className: 'dsb-media-rail',
+          title: '自媒体账号',
+          'aria-label': '自媒体账号',
+          onClick: onMedia,
+        }, '自媒体'),
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
     // The details panel makes room by giving the shell's `_centerCol` column a right margin.
     h('main', { className: 'dsb-main dsb_centerCol' },
