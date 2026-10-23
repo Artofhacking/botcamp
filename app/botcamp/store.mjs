@@ -318,8 +318,11 @@ export async function openStore(dataDir, options = {}) {
           changed = true
         }
         if (claimWorkspace(existing)) changed = true
-        await projectWorkspace(existing)
-        if (changed) await saveAccounts()
+        // 工作区没变就别整表上传。冷启动每次都重写，会让第一次打开列表多等一轮。
+        if (changed) {
+          await projectWorkspace(existing)
+          await saveAccounts()
+        }
         return { created: false }
       })
     },
@@ -466,6 +469,40 @@ export async function openStore(dataDir, options = {}) {
         return principal(data.users.find(user => user.id === userId))
       })
     },
+    // 打开页面只读一次账本。会话、资源和设置在同一次重读里拿齐。
+    async accountContext(token) {
+      if (typeof token !== 'string' || token.length < 20) return null
+      const tokenHash = hashToken(token)
+      return exclusive(async () => {
+        if (data.revoked.includes(tokenHash)) return null
+        const now = Date.now()
+        const session = data.sessions.find(entry => entry.tokenHash === tokenHash)
+        let userId = null
+        if (session) {
+          if (session.expiresAt <= now) {
+            data.sessions = data.sessions.filter(entry => entry !== session)
+            await saveAccounts()
+            return null
+          }
+          userId = session.userId
+        } else if (sessionKey && token.startsWith('v1.')) {
+          userId = verifySession(token, sessionKey)
+        }
+        if (!userId) return null
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user) return null
+        let settings = emptySettings()
+        if (safeKernelKey(user.kernelKey)) {
+          const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+          settings = saved.settings
+        }
+        return {
+          user: principal(user),
+          resources: data.resources.map(resource => ({ ...resource })),
+          settings,
+        }
+      })
+    },
     async deleteSession(token) {
       if (typeof token !== 'string' || token.length < 20) return
       const tokenHash = hashToken(token)
@@ -519,6 +556,8 @@ export async function openStore(dataDir, options = {}) {
       })
     },
     async commitAccess(userId, access) {
+      // 列表每次都会过一遍归属。没有新认领时重写工作区，会把全部文件再上传一次。
+      if (access.pending().length === 0 && access.released().length === 0) return
       await exclusive(async () => {
         let changed = false
         for (const id of access.released()) {
@@ -534,12 +573,10 @@ export async function openStore(dataDir, options = {}) {
           changed = true
         }
         const user = data.users.find(entry => entry.id === userId)
-        if (user) {
-          claimWorkspace(user)
-          await projectWorkspace(user)
-          changed = true
-        }
-        if (changed) await saveAccounts()
+        if (user && claimWorkspace(user)) changed = true
+        if (!changed || !user) return
+        await projectWorkspace(user)
+        await saveAccounts()
       })
     },
     async rememberPage(userId, sessionId, items) {

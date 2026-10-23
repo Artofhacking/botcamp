@@ -270,15 +270,19 @@ export function createHttpLedger({ fetchImpl, apiUrl = API_URL, token, projectId
   }
   let prepared = null
   const ensure = () => {
-    prepared ??= (async () => {
-      for (const [name, columns] of Object.entries(SCHEMAS)) {
+    // 表已经在的时候，创建接口仍要等平台确认，冷启动会把六张表串行走一遍。
+    // 先并行读一行，缺表再创建。
+    prepared ??= Promise.all(Object.entries(SCHEMAS).map(async ([name, columns]) => {
+      try {
+        await call('list_project_rows', { table: name, limit: 1 })
+      } catch {
         try {
           await call('create_project_table', { name, columns })
-        } catch (error) {
-          if (error.code !== 'exists') throw error
+        } catch (createError) {
+          if (createError.code !== 'exists') throw createError
         }
       }
-    })()
+    }))
     return prepared
   }
   const list = async (table) => {
