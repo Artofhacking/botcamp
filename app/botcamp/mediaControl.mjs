@@ -6,6 +6,7 @@
  * 1) Workbench SPA — media/login (phosa / other_creator) → Bearer / media cookie
  * 2) BotCamp shell — already logged in; owner mapped from botcamp user
  */
+import crypto from 'node:crypto'
 import path from 'node:path'
 import {
   configureDataRoot,
@@ -20,11 +21,8 @@ import {
   loadMediaAccountBundle,
 } from '../../server/accountStore.mjs'
 import {
-  createSession,
-  destroySession,
   findDemoUser,
   listDemoUsers,
-  resolveSession,
   SESSION_COOKIE,
 } from '../../server/auth.mjs'
 import {
@@ -36,7 +34,45 @@ import {
 const SCHEMA = '1.0.0'
 /** Separate from botcamp_session so workbench login does not clobber DS Bot sessions. */
 export const MEDIA_SESSION_COOKIE = 'botcamp_media_session'
+const MEDIA_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 let readyForRoot = ''
+
+/**
+ * Stateless signed tokens — Demox cold starts / multi-instance cannot share file KV sessions.
+ * Secret prefers BOTCAMP_MEDIA_TOKEN_SECRET, then store token, else a fixed local-dev fallback.
+ */
+function mediaTokenSecret() {
+  return process.env.BOTCAMP_MEDIA_TOKEN_SECRET
+    || process.env.BOTCAMP_STORE_TOKEN
+    || 'botcamp-media-local-dev'
+}
+
+function issueMediaToken(ownerUserId) {
+  const body = Buffer.from(JSON.stringify({
+    o: ownerUserId,
+    e: Date.now() + MEDIA_TOKEN_TTL_MS,
+    v: 1,
+  })).toString('base64url')
+  const sig = crypto.createHmac('sha256', mediaTokenSecret()).update(body).digest('base64url')
+  return `${body}.${sig}`
+}
+
+function verifyMediaToken(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null
+  const [body, sig] = token.split('.')
+  if (!body || !sig) return null
+  const expect = crypto.createHmac('sha256', mediaTokenSecret()).update(body).digest('base64url')
+  const a = Buffer.from(sig)
+  const b = Buffer.from(expect)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
+  try {
+    const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+    if (!data?.o || typeof data.e !== 'number' || data.e < Date.now()) return null
+    return { owner_user_id: String(data.o) }
+  } catch {
+    return null
+  }
+}
 
 function nowIso() {
   return new Date().toISOString()
@@ -219,7 +255,7 @@ function manuscriptForOwner(ownerId, payload) {
 function resolveMediaOwner(req, botcampUser) {
   ensureSeeded()
   const token = extractMediaToken(req)
-  const session = resolveSession(token)
+  const session = verifyMediaToken(token)
   if (session?.owner_user_id) return { ownerId: session.owner_user_id, via: 'media' }
   if (botcampUser?.id) {
     const ownerId = mediaOwnerIdFor(botcampUser)
@@ -252,7 +288,7 @@ export function handleMediaControl(req, endpoint, payload, botcampUser) {
     if (!user) {
       return { status: 401, body: { ok: false, error: { code: 'media/invalid', message: '无效的演示用户' } } }
     }
-    const session = createSession(user.owner_user_id)
+    const token = issueMediaToken(user.owner_user_id)
     return {
       status: 200,
       body: {
@@ -260,14 +296,13 @@ export function handleMediaControl(req, endpoint, payload, botcampUser) {
         owner_user_id: user.owner_user_id,
         username: user.username,
         display_name: user.display_name,
-        token: session.token,
+        token,
       },
-      setCookie: mediaCookieHeader(session.token, req, 7 * 24 * 60 * 60),
+      setCookie: mediaCookieHeader(token, req, Math.floor(MEDIA_TOKEN_TTL_MS / 1000)),
     }
   }
 
   if (endpoint === 'media/logout') {
-    destroySession(extractMediaToken(req))
     return {
       status: 200,
       body: { ok: true },
@@ -276,8 +311,7 @@ export function handleMediaControl(req, endpoint, payload, botcampUser) {
   }
 
   if (endpoint === 'media/me') {
-    const token = extractMediaToken(req)
-    const session = resolveSession(token)
+    const session = verifyMediaToken(extractMediaToken(req))
     if (!session) {
       return { status: 401, body: { ok: false, error: { code: 'media/unauthorized', message: '需要登录' } } }
     }
