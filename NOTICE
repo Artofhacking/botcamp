@@ -1,0 +1,10 @@
+BotCamp serves the DeepSeek Bot window from Fei2411/DeepSeek-Bot.
+
+The files under ds-bot/ and app/ui/ are from that project (Apache License 2.0,
+Copyright 2026 Fei2411 and the DS Bot contributors):
+
+  https://github.com/Fei2411/DeepSeek-Bot
+
+See ds-bot/LICENSE and ds-bot/NOTICE. app/ui/src/primitives.js replaces the
+Harness Markdown primitive with react-markdown, the same stand-in that
+project uses for its own window.

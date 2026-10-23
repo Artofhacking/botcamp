@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "BotCamp window",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

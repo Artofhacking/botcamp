@@ -1,50 +1,136 @@
 # BotCamp
 
-自媒体创作者工具：按设计文档持久化 **MediaAccount（自媒体账号）** 号下数据，并用带标签页的工作台查看。
+用户安装客户端使用。壳是 Tauri，窗口里仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的界面（`app/ui`，Apache-2.0）。Mac 和 Windows 用同一套代码。Android 和 iOS 以后也沿用这个壳。网站不再作为产品入口。
 
-种子账号：**小稿的AI日记 @ 小黑盒**（`xiaoheihe`）。Schema 固定，无用户自定义字段。凭证只存 `credential_ref` 指针，不入库密文。
+客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上要先发布带 Bearer 和 CORS 的网关，安装包才能连上。
 
-## 本地运行
+Mac 上先测开发窗口。需要 Node.js 22、Rust stable，以及 Xcode 命令行工具（`xcode-select --install`）。不要运行 `build:windows`，那个安装包只能在 Windows 上打。
+
+```bash
+git checkout cursor/windows-client-3944
+npm --prefix app ci
+npm --prefix client ci
+npm --prefix client run dev
+```
+
+空的本地库会有一个开发管理员：`admin@localhost` / `botcamp-dev`。这只在本机开发窗口里有效，不是线上账号。窗口标题是 BotCamp。登录后左下角能看到邮箱和配额。三个 bot 要能连上 camp 的内核才会出现；本机没有内核交换密钥时，名单是空的。不要把密钥发出来。
+
+在 Mac 上打出应用：
+
+```bash
+npm --prefix client run build:mac
+```
+
+产物在 `client/src-tauri/target/release/bundle/`。这个包装好后默认请求线上。线上网关还没有 Bearer，所以现在用上面的 `dev` 测，不要用打出来的包装线上。
+
+在 Windows 上打出 NSIS 安装包：
+
+```bash
+npm --prefix client run build:windows
+```
+
+Android、iOS 还没开始打包。
+
+[https://botcamp.demox.site/](https://botcamp.demox.site/) 仍可打开现有页面。页面里没有跳转到 camp 的脚本。未登录只看到登录页。
+
+[https://camp.aigc.sx.cn](https://camp.aigc.sx.cn) 不是网站。`deploy/nginx/camp.conf` 让它不返回 HTML、不托管静态资源、不把浏览器送到 Demox，也不再把 `/` 交给内核（避免 303 到 `./` 的循环）。只有 `/api/` 可以到达 `127.0.0.1:3080`，而且请求必须带 `botcamp_session`。没有这个 cookie 时，nginx 在进 dsh 之前返回 401。这份配置写进仓库之后，还要在腾讯云那台机器上 `nginx -t && systemctl reload nginx` 才会生效。
+
+## 账号
+
+dsh 内核和 ds-bot 插件都是单租户。隔离和配额做在网关里，发生在请求进入内核之前。
+
+- 邮箱加密码登录。没有公开注册，账号由管理员开通。密码用 scrypt 保存。会话是 `botcamp_session` httpOnly cookie。内核的 `dsh-auth` 只留在网关进程里，不回给浏览器，也不写进日志。
+- Demox 上已经存在的云函数只能接到 `/api/bot` 和 `/api/bot/feed`。登录和管理也走 `POST /api/bot`（`auth/login`、`auth/me`、`admin/create` 这些 endpoint），网关再改写成原来的账号接口。直接调用 `/api/auth/*` 和 `/api/admin/*` 在本地开发服务器上仍然可用。
+- 未登录的 `POST /api/bot` 和 `GET /api/bot/feed` 返回 401，不会请求内核。用户 A 读不到用户 B。配额为 0 时发送会被拒绝，同样不会进内核。
+- 每个账号有一个稳定的 `kernelKey`。发往内核的 Bot 请求会带上 `x-botcamp-namespace`，以及调用者自己的 `botcamp_session`，好让 camp 的 nginx 认出这是已登录调用。
+- 对话原文、个人设置和工作区文件跟账本走同一处存储。本地开发写在 `data/`（已 gitignore）。线上不写 `/tmp`。
+- 每个账号有自己的工作区目录。文件、目录和工作区列表只来自这个目录；路径一旦越出目录，在进内核之前就拒绝。模型目录和服务商密钥任何账号（包括管理员）都不能通过页面改。用量只返回调用者自己的记录。
+
+`NODE_ENV=production`（或 `BOTCAMP_PRODUCTION=1`）时，没有 `BOTCAMP_ADMIN_EMAIL` 和 `BOTCAMP_ADMIN_PASSWORD` 就不会创建管理员。源码里的 `admin@localhost` / `botcamp-dev` 只给本机 `npm run dev`，Demox 函数会强制按生产环境处理，不会使用这对开发密码。
+
+新用户的默认配额是 200，可以用 `BOTCAMP_DEFAULT_QUOTA` 改。
+
+Demox 用户函数的磁盘会在冷启动时清空，函数环境变量也不是数据库。平台留得住的业务数据在项目库里：网站 API `https://api.demox.site/website` 的 `project_rows`（MySQL），项目 `PQBDTM6GLZ`。函数设置 `BOTCAMP_STORE=demox-project` 后，账号、会话、配额、个人设置和每个账号的工作区文件都写进这个库。进程里的目录只是当次实例的缓存，打开时从项目库灌进来，写完再写回。不要设置 `BOTCAMP_DATA_DIR=/tmp/botcamp-data`。项目库一行大约 32KB，更长的正文会拆开存放。访问项目库的令牌放在函数环境变量 `BOTCAMP_STORE_TOKEN`，不要写进仓库。Demox 的个人访问令牌目前没有更细的权限，这块令牌也能管理站点，所以只放在函数环境里。
+
+## 本地网页
+
+客户端开发时界面由 `npm run dev:client` 开在 http://127.0.0.1:5195 。单独看网页仍是：
+
+```bash
+npm --prefix app ci
+npm --prefix app test
+npm --prefix app run dev
+```
+
+打开 http://127.0.0.1:5173 。标题是 DeepSeek Bot。客户端窗口的标题是 BotCamp。
+
+用户库为空时，用环境变量创建第一名管理员：
+
+```bash
+BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' npm --prefix app run dev
+```
+
+## Demox
+
+| 字段 | 值 |
+| --- | --- |
+| 项目 | `botcamp` / `PQBDTM6GLZ` |
+| 站点 | `botcamp-dsh-frontend` / `IVBLF9PE` |
+| 地址 | https://botcamp.demox.site/ |
+| 函数 | slug `bot`，routes `/api/bot`、`/api/bot/feed`（只在创建时生效） |
+
+```bash
+./scripts/deploy-demox.sh
+```
+
+脚本会跑测试、构建页面、发布静态文件，把 `functions/bot/entry.mjs` 打成单个 `index.js` 上传，并把 `production` 别名指到新版本。云函数平台只保存入口文件的内容，所以登录、隔离和配额必须打进这一个文件。
+
+管理员密码不要写进 git。函数上传之后单独执行（把值换成现场生成的密码）：
+
+```bash
+npx --yes @demox-site/cli@1.1.6 env set --id IVBLF9PE --slug bot \
+  NODE_ENV=production BOTCAMP_PRODUCTION=1 \
+  BOTCAMP_ADMIN_EMAIL=you@example.com BOTCAMP_ADMIN_PASSWORD='至少 8 位' \
+  BOTCAMP_STORE=demox-project BOTCAMP_PROJECT_ID=PQBDTM6GLZ \
+  BOTCAMP_STORE_TOKEN='项目库令牌'
+npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_DIR
+```
+
+云函数不能把一条无限 SSE 留在连接上。`/api/bot/feed` 读到第一条事件或大约 2.5 秒就取消上游。页面如果发现流在几秒内自己结束，会等 5 秒再重连。
+
+内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。浏览器打开 `https://camp.aigc.sx.cn/` 仍是纯文本 404。网关换 `dsh-auth` 时请求 `GET /` 并带上 `x-botcamp-exchange`，值来自函数环境变量 `BOTCAMP_KERNEL_EXCHANGE`。服务器上的 `/etc/nginx/snippets/dsh-camp-exchange.conf` 对上这个值，才把这一次请求交给内核，并继续用原来的 `/etc/nginx/snippets/dsh-camp-token.conf` 带上启动令牌。这个值不要写进 git。装上 nginx 的命令是 `./scripts/apply-camp-exchange.sh`，它读取环境变量 `sshkey`。
+
+---
+
+## 自媒体账号工作台（`web/` + `server/`）
+
+按设计文档持久化 **MediaAccount** 号下数据，并用带标签页的工作台查看。种子：**小稿的AI日记 @ 小黑盒**（归属 `phosa`）。Schema 固定；凭证只存 `credential_ref`。
+
+### 本地运行
 
 ```bash
 npm install
 npm install --prefix web
-npm run seed          # 写入 data/kv + data/blobs（host.kv 形状）
-npm run test:isolation  # 证明 phosa 看不到 other_creator 的号
-npm run dev           # API :8787 + Vite :5173（已代理 /api）
+npm run seed
+npm run test:isolation   # phosa 看不到 other_creator
+npm run dev              # API :8787 + Vite :5173
 ```
 
-浏览器打开 http://127.0.0.1:5173 → 登录 `phosa` 或 `other_creator`（演示切换）。
+打开 http://127.0.0.1:5173 → 登录 `phosa` 或 `other_creator`。界面支持 **浅色 / 深色**（跟随系统，可手动切换，偏好存 `localStorage`）。
 
-生产：
+### 多用户隔离
 
-```bash
-npm run build
-npm start             # 种子 + Express 托管 web/dist，端口 8787
-```
+- Session：`botcamp_session` cookie 或 `Authorization: Bearer` → `owner_user_id`
+- 未登录 401；跨 owner 的 `media_account` / 稿件 403
+- `/api/debug/kv-keys` 已删除
 
-## 多用户隔离
+### 存储键 → Tab
 
-- 每个请求经 session（httpOnly cookie `botcamp_session` 或 `Authorization: Bearer`）解析 `owner_user_id`。
-- 无硬编码全局 OWNER；未登录访问数据 API → **401**。
-- `GET /api/accounts/:id` / manuscripts / workspace：资源 `owner_user_id` 不匹配 → **403**。
-- 列表只返回 `owner:{uid}:media_accounts` 下且归属校验通过的号。
-- `/api/debug/kv-keys` 已删除，不向客户端暴露全局 KV。
-- 种子：`phosa` → 小稿的AI日记；`other_creator` → 别家效率号（含机密选题探针）。
-
-## 存储键 → UI Tab
-
-| Tab | KV / 数据 |
+| Tab | 来源 |
 | --- | --- |
-| 运营看板 | 派生自号下实体（`accountStore.deriveBoard`） |
+| 运营看板 | 派生只读 |
 | 帖子 / 选题发布 | `media_account:{id}:post:*` |
-| 历史稿件 | `media_account:{id}:manuscript:*` + `data/blobs/manuscripts/**` |
-| 已发作品 | Post 中 `status∈{已发布,被隐藏}`（当前镜像指标） |
-| 互动快照（趋势） | `media_account:{id}:engagement_snapshot:*`（SoT，append-only） |
-| 粉丝 | `media_account:{id}:follower_snapshot:*` |
-| 收益 | `media_account:{id}:revenue:*` |
-| 平台事件 | `media_account:{id}:platform_event:*` |
-
-权威链：趋势以互动快照为准；帖子 metrics 仅为当前镜像；稿页 ≠ 发布版。
-
-设计文档：仓库外 Project store `docs/account-data-model.md`（小黑盒实操锚定）。
+| 历史稿件 | `manuscript:*` + blobs |
+| 已发作品 | Post 已发布（镜像指标） |
+| 互动快照 | `engagement_snapshot:*`（趋势 SoT） |
+| 粉丝 / 收益 / 平台事件 | 对应实体键 |

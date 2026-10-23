@@ -1,0 +1,16 @@
+{
+  "name": "botcamp-client",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:mac": "tauri build --bundles app,dmg",
+    "build:windows": "tauri build --bundles nsis",
+    "dev:ui": "npm --prefix ../app run dev:client",
+    "build:ui": "npm --prefix ../app run build:client"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
