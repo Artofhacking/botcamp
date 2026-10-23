@@ -9,9 +9,16 @@ body[data-ds-dark-theme]{color-scheme:dark}
 ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
 
 .dsb-frame{display:grid;grid-template-columns:280px minmax(0,1fr);height:100%}
-.dsb-frame-media{grid-template-columns:minmax(300px,340px) minmax(0,1fr)}
+.dsb-frame-media{grid-template-columns:minmax(280px,340px) 6px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:100%}
 .dsb-frame[data-rail]{grid-template-columns:56px minmax(0,1fr)}
-.dsb-frame-media[data-rail]{grid-template-columns:56px minmax(0,1fr)}
+.dsb-frame-media[data-rail]{grid-template-columns:56px 0 minmax(0,1fr)}
+.dsb-frame-media>.dsb-media-top{grid-column:1/-1;grid-row:1}
+.dsb-frame-media>.dsb-side{grid-column:1;grid-row:2;min-height:0}
+.dsb-frame-media>.dsb-side-resizer{grid-column:2;grid-row:2}
+.dsb-frame-media>.dsb-main{grid-column:3;grid-row:2;min-height:0}
+.dsb-frame-media[data-rail]>.dsb-side-resizer{display:none}
+.dsb-chrome-float{position:fixed;inset:0;width:0;height:0;overflow:visible;z-index:50;pointer-events:none}
+.dsb-chrome-float>*{pointer-events:auto}
 
 /* The window has no title bar. A band along the top of the sidebar and of the conversation
    moves the window (BAND in src/main.mjs); its first row of controls sits centered in it.
@@ -28,6 +35,10 @@ body[data-ds-dark-theme]{color-scheme:dark}
 .dsb-side{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;padding:0 12px 6px;background:var(--bt-sidebar);border-right:1px solid color-mix(in srgb,var(--bt-ink) 12%,transparent);box-sizing:border-box}
 .dsb-side-list,.dsb-side-sessions{display:flex;flex-direction:column;min-width:0;min-height:0;margin:0 -12px 0 -4px;padding-left:4px}
 .dsb-side-sessions{flex:0 1 38%;max-height:42%;border-top:1px solid color-mix(in srgb,var(--bt-ink) 10%,transparent);padding-top:6px}
+.dsb-side-sessions.collapsed{flex:0 0 auto;max-height:none}
+.dsb-side-sessions.collapsed .bt-list{display:none}
+.dsb-side-sessions-toggle{align-self:flex-start;margin:0 8px 4px;padding:2px 0;border:0;background:none;color:var(--bt-ink-3);font:inherit;font-size:11px;cursor:pointer}
+.dsb-side-sessions-toggle:hover{color:var(--bt-ink)}
 .dsb-side-sessions-label{padding:4px 10px 2px;font-size:11px;font-weight:600;color:var(--bt-ink-3);letter-spacing:.02em}
 .dsb-side .bt-list{overflow-x:hidden;overflow-y:auto}
 .dsb-frame[data-rail] .dsb-side{padding:0 10px 6px}
@@ -123,9 +134,47 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-mw-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .dsb-mw-list li{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
 .dsb-mw-list li:last-child{border-bottom:0}
+.dsb-mw-list li.active{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 8%,transparent);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px}
 .dsb-mw-list strong{font-size:13px;font-weight:600}
 .dsb-mw-preview{margin:0;padding:8px;border-radius:8px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.45;max-height:160px;overflow:auto}
 .dsb-mw-error{margin:0;padding:8px 12px;color:var(--bt-danger,#d14343);font-size:12px}
+
+/* 顶栏：BotCamp + 当前号 / 切号 / 起新号 */
+.dsb-media-top{position:relative;z-index:12;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:8px 16px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 10%,transparent);background:color-mix(in srgb,var(--bt-sidebar,var(--bt-main)) 92%,transparent);backdrop-filter:blur(8px)}
+.dsb-media-top-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.dsb-media-top-brand>strong{font-size:15px;font-weight:700;letter-spacing:.01em}
+.dsb-media-top-focus{max-width:min(360px,52vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:30px;padding:0 10px;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:8px;background:var(--bt-main);color:var(--bt-ink);font:inherit;font-size:13px;cursor:pointer}
+.dsb-media-top-focus:hover{border-color:color-mix(in srgb,var(--bt-accent,#4d6bfe) 40%,transparent)}
+.dsb-media-top-focus:disabled{opacity:.6;cursor:default}
+.dsb-media-switch{position:absolute;top:calc(100% - 2px);left:16px;z-index:20;min-width:220px;max-width:min(360px,90vw);padding:6px;border:1px solid color-mix(in srgb,var(--bt-ink) 12%,transparent);border-radius:10px;background:var(--bt-card,var(--bt-main));box-shadow:0 10px 28px color-mix(in srgb,var(--bt-ink) 16%,transparent);display:flex;flex-direction:column;gap:2px}
+.dsb-media-switch button{display:block;width:100%;padding:8px 10px;border:0;border-radius:7px;background:transparent;color:var(--bt-ink);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.dsb-media-switch button:hover{background:color-mix(in srgb,var(--bt-ink) 6%,transparent)}
+.dsb-media-switch button.active{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 12%,transparent);font-weight:600}
+.dsb-media-switch button:disabled{opacity:.55;cursor:default}
+
+/* 侧栏拖宽 */
+.dsb-side-resizer{position:relative;z-index:4;width:6px;margin:0;padding:0;cursor:col-resize;background:transparent;touch-action:none}
+.dsb-side-resizer:hover,.dsb-side-resizer:active{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 28%,transparent)}
+
+/* 对话锚定条 */
+.dsb-anchor-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;margin:8px 16px 0;padding:8px 12px;border:1px solid color-mix(in srgb,var(--bt-accent,#4d6bfe) 28%,transparent);border-radius:10px;background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 10%,transparent);font-size:12px;line-height:1.35;color:var(--bt-ink)}
+.dsb-anchor-bar.soft{border-color:color-mix(in srgb,var(--bt-ink) 10%,transparent);background:color-mix(in srgb,var(--bt-ink) 4%,transparent);color:var(--bt-ink-2)}
+.dsb-anchor-bar button{flex:none;padding:0;border:0;background:none;color:var(--bt-accent,#4d6bfe);font:inherit;font-size:12px;cursor:pointer}
+.dsb-chat>.dsb-anchor-bar+.dsb-scroll{padding-top:16px}
+
+/* 移动端：底栏切对话 / 工作台 Tab */
+.dsb-mobile-bar{display:none}
+.dsb-frame-media.dsb-mobile{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+.dsb-frame-media.dsb-mobile>.dsb-media-top{grid-column:1;grid-row:1}
+.dsb-frame-media.dsb-mobile>.dsb-side,.dsb-frame-media.dsb-mobile>.dsb-main{grid-column:1;grid-row:2}
+.dsb-frame-media.dsb-mobile>.dsb-mobile-bar{grid-column:1;grid-row:3;display:flex;gap:4px;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0));border-top:1px solid color-mix(in srgb,var(--bt-ink) 12%,transparent);background:var(--bt-sidebar,var(--bt-main));overflow-x:auto}
+.dsb-frame-media.dsb-mobile[data-mobile-pane=chat]>.dsb-side{display:none}
+.dsb-frame-media.dsb-mobile[data-mobile-pane=workbench]>.dsb-main{display:none}
+.dsb-frame-media.dsb-mobile .dsb-side{padding-bottom:4px}
+.dsb-frame-media.dsb-mobile .dsb-mw{flex:1 1 auto;max-height:none}
+.dsb-frame-media.dsb-mobile .dsb-side-sessions{flex:0 1 28%;max-height:32%}
+.dsb-mobile-bar button{flex:0 0 auto;height:34px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--bt-ink-2);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}
+.dsb-mobile-bar button.active{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 14%,transparent);color:var(--bt-ink);font-weight:600}
 
 .dsb-auth{min-height:100%;display:grid;place-items:center;padding:32px 16px;background:var(--bt-main,#fcfcfc);color:var(--bt-ink,#141414)}
 .dsb-auth-card,.dsb-admin-card{width:min(420px,100%);padding:28px 24px;border:1px solid color-mix(in srgb,var(--bt-ink,#141414) 12%,transparent);border-radius:16px;background:var(--bt-card,#fff);box-sizing:border-box}

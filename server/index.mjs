@@ -34,6 +34,10 @@ const MEDIA_CONTROL = new Set([
   "media/me",
   "media/workspace",
   "media/manuscript",
+  "media/accounts",
+  "media/focus",
+  "media/create-account",
+  "media/note",
 ]);
 
 export function createApp() {

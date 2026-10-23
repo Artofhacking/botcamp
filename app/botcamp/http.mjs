@@ -593,6 +593,7 @@ export async function createBotcamp(options = {}) {
   const MEDIA_CONTROL = new Set([
     'media/demo-users', 'media/login', 'media/logout', 'media/me',
     'media/workspace', 'media/manuscript',
+    'media/accounts', 'media/focus', 'media/create-account', 'media/note',
   ])
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',

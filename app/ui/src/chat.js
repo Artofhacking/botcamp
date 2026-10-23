@@ -1,6 +1,7 @@
 import { createElement as h, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { call } from '../../../ds-bot/src/client/api.js'
 import { Bubbles, ChatRows, Shimmer } from '../../../ds-bot/src/client/cells.js'
+import { noteMediaEntity } from './account.js'
 import { earlierBanner, visiblePending } from './chatSync.js'
 import { ComposerPlus, ComposerVoice } from '../../../ds-bot/src/client/composer.js'
 import { t } from '../../../ds-bot/src/client/i18n.js'
@@ -149,7 +150,8 @@ function Composer({ sessionId, placeholder, disabled, onSend, actions, useUi, us
 }
 
 // One conversation in the main view, drawn with the Bot views' own rows, cards and docks.
-export function Chat({ sessionId, team }) {
+// `anchor` / `workspace` bind the 主编 chat to the left workbench SoT.
+export function Chat({ sessionId, team, anchor, onClearAnchor, workspace, onWorkbenchWrite }) {
   const { actions, hooks, chat: feed } = team
   const roster = hooks.useRoster(value => value)
   const bot = roster.byId[sessionId]
@@ -179,7 +181,40 @@ export function Chat({ sessionId, team }) {
       : banner === 'more' ? h('button', { type: 'button', className: 'bt-soft', onClick: () => load(view.cursor, scroller.current) }, t('Load earlier')) : null
   const waiting = bot?.waiting === true
 
+  const sendBound = async (text) => {
+    const account = workspace?.account
+    const prefix = anchor && account
+      ? `【锚定工作台 · ${anchor.kind} · ${anchor.title} · ${account.display_name}】\n`
+      : account
+        ? `【当前号 · ${account.display_name} · ${account.platform}】\n`
+        : ''
+    const outbound = prefix + text
+    await send(outbound, actions, sessionId)
+    // Persist into workbench SoT so left pane stays the authority.
+    if (account) {
+      try {
+        await noteMediaEntity({
+          accountId: account.id,
+          kind: anchor?.kind === 'post' ? 'post' : 'event',
+          entityId: anchor?.kind === 'post' ? anchor.id : undefined,
+          title: anchor?.title || null,
+          text,
+        })
+        onWorkbenchWrite?.()
+      } catch {
+        // Chat already sent; workbench write failure should not block the turn.
+      }
+    }
+  }
+
   return h('div', { className: 'dsb-chat' },
+    anchor ? h('div', { className: 'dsb-anchor-bar' },
+      h('span', null, `主编锚定：${anchor.kind} · ${anchor.title}`),
+      h('button', { type: 'button', onClick: onClearAnchor }, '取消')) : null,
+    workspace?.account && !anchor
+      ? h('div', { className: 'dsb-anchor-bar soft' },
+        h('span', null, `工作台 SoT：${workspace.account.display_name}`))
+      : null,
     h('div', { ref: scroller, className: 'dsb-scroll', 'data-conversation-scroll': '', onScroll },
       h('div', { className: 'dsb-column' },
         earlier ? h('div', { className: 'bt-earlier-top' }, earlier) : null,
@@ -187,7 +222,6 @@ export function Chat({ sessionId, team }) {
           h(ChatRows, { items: view.items, sessionId, roster, actions, useUi: hooks.useUi, clock: true }),
           outgoing.length ? h('div', { className: 'dsb-pending' }, h(ChatRows, { items: outgoing, sessionId, roster, actions })) : null,
           stream?.text ? h(Bubbles, { texts: [stream.text], roster, selfId: bot?.id, actions, streaming: true, sessionId }) : null,
-          // The Bot views' activity row (from the header pill) draws itself in here.
           h('div', { 'data-chat-running': '' }),
           question ? h(PendingQuestion, { key: JSON.stringify([sessionId, question.id]), sessionId, question, actions, inline: true }) : null))),
     h('div', { className: 'dsb-composer-root' },
@@ -196,7 +230,7 @@ export function Chat({ sessionId, team }) {
         sessionId,
         disabled: waiting,
         placeholder: waiting ? t('Pick a model and {name} can start.', { name }) : name ? t('Message {name}', { name }) : t('Message'),
-        onSend: text => send(text, actions, sessionId),
+        onSend: sendBound,
         actions,
         useUi: hooks.useUi,
         useRoster: hooks.useRoster,

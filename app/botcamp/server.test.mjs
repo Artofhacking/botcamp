@@ -1281,6 +1281,64 @@ test('media CONTROL serves workbench auth, workspace, and owner isolation', asyn
       },
     })
     assert.equal(cross.status, 403)
+
+    const accounts = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/accounts', payload: null },
+    })
+    assert.equal(accounts.status, 200)
+    assert.equal(accounts.json.accounts.some(a => a.id === wsA.json.workspace.account.id), true)
+
+    const created = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/create-account', payload: { display_name: '测试新号' } },
+    })
+    assert.equal(created.status, 200)
+    assert.equal(created.json.workspace.account.display_name, '测试新号')
+
+    const focused = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/focus', payload: { accountId: wsA.json.workspace.account.id } },
+    })
+    assert.equal(focused.status, 200)
+    assert.equal(focused.json.workspace.account.id, wsA.json.workspace.account.id)
+
+    const postId = wsA.json.workspace.posts[0]?.id
+    const noted = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: {
+        endpoint: 'media/note',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          kind: 'post',
+          entityId: postId,
+          title: wsA.json.workspace.posts[0]?.title,
+          text: '主编写回测试',
+        },
+      },
+    })
+    assert.equal(noted.status, 200)
+    const updated = noted.json.workspace.posts.find(p => p.id === postId)
+    assert.match(String(updated?.remark || ''), /主编写回测试/)
+    assert.equal(noted.json.workspace.platform_events.some(e => e.event_type === 'chat_writeback'), true)
+
+    const stolen = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: {
+        endpoint: 'media/note',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          kind: 'event',
+          text: '不应写入',
+        },
+      },
+    })
+    assert.equal(stolen.status, 403)
   } finally {
     await ctx.close()
   }

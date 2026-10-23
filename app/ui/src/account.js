@@ -74,3 +74,19 @@ export function fetchMediaWorkspace() {
 export function fetchMediaManuscript(accountId, manuscriptId) {
   return send('media/manuscript', { accountId, manuscriptId })
 }
+
+export function fetchMediaAccounts() {
+  return send('media/accounts', null)
+}
+
+export function focusMediaAccount(accountId) {
+  return send('media/focus', { accountId })
+}
+
+export function createMediaAccount(body) {
+  return send('media/create-account', body ?? {})
+}
+
+export function noteMediaEntity(body) {
+  return send('media/note', body)
+}

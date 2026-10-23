@@ -233,6 +233,157 @@ function workspaceForOwner(ownerId) {
   return { status: 200, body: { ok: true, owner_user_id: ownerId, workspace: bundle } }
 }
 
+function listAccounts(ownerId) {
+  const ids = kvGet(`owner:${ownerId}:media_accounts`) || []
+  const focus = getFocusedAccountId(ownerId)
+  const accounts = ids
+    .map((id) => kvGet(`media_account:${id}`))
+    .filter((a) => a && !a.deleted_at && a.owner_user_id === ownerId)
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      owner_user_id: ownerId,
+      current_media_account_id: focus,
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        display_name: a.display_name,
+        platform: a.platform,
+        status: a.status,
+        stage: a.stage,
+        biz_line_tag: a.biz_line_tag,
+      })),
+    },
+  }
+}
+
+function focusAccount(ownerId, payload) {
+  const accountId = typeof payload?.accountId === 'string' ? payload.accountId : ''
+  const account = kvGet(`media_account:${accountId}`)
+  if (!account || account.deleted_at || account.owner_user_id !== ownerId) {
+    return { status: 403, body: { ok: false, error: { code: 'media/forbidden', message: '无权切换到该自媒体账号。' } } }
+  }
+  const stamp = nowIso()
+  const prev = kvGet(`owner:${ownerId}:focus`) || { id: ownerId, owner_user_id: ownerId, schema_version: SCHEMA, version: 0 }
+  kvSet(`owner:${ownerId}:focus`, {
+    ...prev,
+    current_media_account_id: accountId,
+    version: (prev.version || 0) + 1,
+    updated_at: stamp,
+  })
+  return workspaceForOwner(ownerId)
+}
+
+function createAccount(ownerId, payload) {
+  const label = typeof payload?.display_name === 'string' && payload.display_name.trim()
+    ? payload.display_name.trim()
+    : '新自媒体账号'
+  const stamp = nowIso()
+  const macId = `mac_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  const meta = {
+    owner_user_id: ownerId,
+    media_account_id: macId,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: stamp,
+    updated_at: stamp,
+    deleted_at: null,
+  }
+  const ids = kvGet(`owner:${ownerId}:media_accounts`) || []
+  kvSet(`owner:${ownerId}:media_accounts`, [...ids, macId])
+  kvSet(`media_account:${macId}`, {
+    id: macId,
+    ...meta,
+    platform: typeof payload?.platform === 'string' ? payload.platform : 'other',
+    display_name: label,
+    handle: null,
+    profile_url: null,
+    avatar_ref: null,
+    biz_line_tag: 'default',
+    status: 'onboarding',
+    onboarding_path: 'new_account',
+    stage: 'onboarding',
+    content_timezone: 'Asia/Singapore',
+    credential_ref: null,
+  })
+  kvSet(`media_account:${macId}:profile`, {
+    ...meta,
+    what_it_is: '尚未完成主编引导',
+    goal: '打开对话，由主编一次一问完成起号',
+    redlines_summary: '',
+    tone_notes: null,
+  })
+  kvSet(`media_account:${macId}:rules`, {
+    ...meta,
+    enabled_rule_ids: [],
+    publish_window_start: null,
+    publish_window_end: null,
+  })
+  for (const key of ['posts', 'manuscripts', 'engagement_snapshots', 'follower_snapshots', 'revenue', 'platform_events', 'daily_trends']) {
+    kvSet(`media_account:${macId}:${key}`, [])
+  }
+  const prev = kvGet(`owner:${ownerId}:focus`) || { id: ownerId, owner_user_id: ownerId, schema_version: SCHEMA, version: 0 }
+  kvSet(`owner:${ownerId}:focus`, {
+    ...prev,
+    current_media_account_id: macId,
+    version: (prev.version || 0) + 1,
+    updated_at: stamp,
+  })
+  return workspaceForOwner(ownerId)
+}
+
+/** Persist a chat write-back onto a post remark and/or a platform event, then return workspace. */
+function noteOnEntity(ownerId, payload) {
+  const accountId = typeof payload?.accountId === 'string' ? payload.accountId : getFocusedAccountId(ownerId)
+  const account = kvGet(`media_account:${accountId}`)
+  if (!account || account.deleted_at || account.owner_user_id !== ownerId) {
+    return { status: 403, body: { ok: false, error: { code: 'media/forbidden', message: '无权写入该自媒体账号。' } } }
+  }
+  const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
+  if (!text) {
+    return { status: 400, body: { ok: false, error: { code: 'media/invalid', message: '缺少写入内容。' } } }
+  }
+  const stamp = nowIso()
+  const kind = payload?.kind === 'post' ? 'post' : 'event'
+  const entityId = typeof payload?.entityId === 'string' ? payload.entityId : ''
+
+  if (kind === 'post' && entityId) {
+    const post = kvGet(`media_account:${accountId}:post:${entityId}`)
+    if (!post || post.owner_user_id !== ownerId) {
+      return { status: 404, body: { ok: false, error: { code: 'media/not_found', message: '帖子不存在。' } } }
+    }
+    const line = `[主编对话 ${stamp}] ${text}`
+    kvSet(`media_account:${accountId}:post:${entityId}`, {
+      ...post,
+      remark: post.remark ? `${post.remark}\n${line}` : line,
+      version: (post.version || 1) + 1,
+      updated_at: stamp,
+    })
+  }
+
+  const evtId = `evt_chat_${Date.now().toString(36)}`
+  const evtIds = kvGet(`media_account:${accountId}:platform_events`) || []
+  kvSet(`media_account:${accountId}:platform_events`, [evtId, ...evtIds])
+  kvSet(`media_account:${accountId}:platform_event:${evtId}`, {
+    id: evtId,
+    owner_user_id: ownerId,
+    media_account_id: accountId,
+    schema_version: SCHEMA,
+    version: 1,
+    created_at: stamp,
+    updated_at: stamp,
+    deleted_at: null,
+    name: entityId ? `对话锚定 · ${payload?.title || entityId}` : '对话写入工作台',
+    event_type: 'chat_writeback',
+    occurred_at: stamp,
+    registered_on: stamp.slice(0, 10),
+    related_title: payload?.title || null,
+    remark: text.slice(0, 2000),
+  })
+
+  return workspaceForOwner(ownerId)
+}
+
 function manuscriptForOwner(ownerId, payload) {
   const accountId = typeof payload?.accountId === 'string' ? payload.accountId : ''
   const manuscriptId = typeof payload?.manuscriptId === 'string' ? payload.manuscriptId : ''
@@ -336,6 +487,10 @@ export function handleMediaControl(req, endpoint, payload, botcampUser) {
 
   if (endpoint === 'media/workspace') return workspaceForOwner(resolved.ownerId)
   if (endpoint === 'media/manuscript') return manuscriptForOwner(resolved.ownerId, payload)
+  if (endpoint === 'media/accounts') return listAccounts(resolved.ownerId)
+  if (endpoint === 'media/focus') return focusAccount(resolved.ownerId, payload)
+  if (endpoint === 'media/create-account') return createAccount(resolved.ownerId, payload)
+  if (endpoint === 'media/note') return noteOnEntity(resolved.ownerId, payload)
 
   return { status: 404, body: { ok: false, error: { message: '未知的自媒体接口。' } } }
 }
