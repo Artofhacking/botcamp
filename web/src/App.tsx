@@ -116,7 +116,17 @@ function buildNeeds(data: WorkspaceBundle): NeedsItem[] {
   }
 
   for (const m of data.manuscripts) {
-    if (!m.final_review_passed && m.status !== "归档废弃") {
+    // Only active pipeline manuscripts — not entire historical archive
+    const active =
+      m.status === "写稿中" ||
+      m.status === "待确认" ||
+      (m.post_id &&
+        data.posts.some(
+          (p) =>
+            p.id === m.post_id &&
+            (p.status === "写稿中" || p.status === "待确认"),
+        ));
+    if (!m.final_review_passed && active) {
       items.push({
         id: `need-ms-${m.id}`,
         kind: "review",
