@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme="dark"] {
   --bg0: #0f1419;
   --bg1: #171d25;
   --bg2: #1e2630;
@@ -10,9 +11,40 @@
   --warn: #f0b429;
   --danger: #f07178;
   --chip: #2a3340;
+  --panel-grad: linear-gradient(180deg, var(--bg1), rgba(23, 29, 37, 0.85));
+  --body-radials:
+    radial-gradient(1200px 600px at 10% -10%, rgba(62, 207, 142, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(86, 156, 214, 0.1), transparent 50%);
+  --code-bg: #0b0f14;
+  --code-text: #c9d4df;
+  --hover-row: rgba(255, 255, 255, 0.02);
+  --tab-hover: rgba(255, 255, 255, 0.03);
   --radius: 12px;
   --font: "DM Sans", "Noto Sans SC", system-ui, sans-serif;
   color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg0: #f3f6f4;
+  --bg1: #ffffff;
+  --bg2: #eef2ef;
+  --line: rgba(15, 30, 24, 0.1);
+  --text: #15201a;
+  --muted: #5a6b62;
+  --accent: #0d8f5b;
+  --accent-dim: rgba(13, 143, 91, 0.12);
+  --warn: #a66b00;
+  --danger: #c03545;
+  --chip: #e2eae5;
+  --panel-grad: linear-gradient(180deg, #ffffff, #f7faf8);
+  --body-radials:
+    radial-gradient(1100px 520px at 8% -8%, rgba(13, 143, 91, 0.1), transparent 55%),
+    radial-gradient(800px 420px at 100% 0%, rgba(40, 110, 180, 0.08), transparent 50%);
+  --code-bg: #e8eee9;
+  --code-text: #24312a;
+  --hover-row: rgba(15, 30, 24, 0.03);
+  --tab-hover: rgba(15, 30, 24, 0.04);
+  color-scheme: light;
 }
 
 * {
@@ -28,12 +60,10 @@ body,
 
 body {
   font-family: var(--font);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(62, 207, 142, 0.12), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(86, 156, 214, 0.1), transparent 50%),
-    var(--bg0);
+  background: var(--body-radials), var(--bg0);
   color: var(--text);
   line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a {
@@ -120,7 +150,7 @@ button {
 
 .tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--tab-hover);
 }
 
 .tab.active {
@@ -130,7 +160,7 @@ button {
 }
 
 .panel {
-  background: linear-gradient(180deg, var(--bg1), rgba(23, 29, 37, 0.85));
+  background: var(--panel-grad);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem;
@@ -198,13 +228,13 @@ td {
 th {
   color: var(--muted);
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg2);
   position: sticky;
   top: 0;
 }
 
 tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--hover-row);
 }
 
 .badge {
@@ -221,7 +251,7 @@ tr:hover td {
 }
 
 .badge.draft {
-  background: rgba(240, 180, 41, 0.15);
+  background: rgba(240, 180, 41, 0.18);
   color: var(--warn);
 }
 
@@ -247,6 +277,7 @@ tr:hover td {
   border: 1px solid var(--line);
   cursor: pointer;
   color: inherit;
+  background: var(--bg2);
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -255,7 +286,8 @@ tr:hover td {
   background: var(--accent-dim);
 }
 
-button.pill.switch {
+button.pill.switch,
+button.pill.theme-toggle {
   border: 0;
   cursor: pointer;
 }
@@ -284,11 +316,11 @@ button.pill.switch {
 .ms-preview {
   margin-top: 0.75rem;
   white-space: pre-wrap;
-  background: #0b0f14;
+  background: var(--code-bg);
   border-radius: 8px;
   padding: 0.75rem;
   font-size: 0.85rem;
-  color: #c9d4df;
+  color: var(--code-text);
   max-height: 240px;
   overflow: auto;
 }

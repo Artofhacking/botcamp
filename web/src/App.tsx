@@ -9,6 +9,13 @@ import {
   type AuthUser,
   type DemoUser,
 } from "./api";
+import {
+  applyTheme,
+  cycleTheme,
+  getStoredTheme,
+  themeLabel,
+  type ThemeMode,
+} from "./theme";
 import type { TabId, WorkspaceBundle } from "./types";
 import "./index.css";
 
@@ -34,14 +41,37 @@ function statusClass(status: string) {
   return "badge";
 }
 
+function ThemeToggle({
+  mode,
+  onCycle,
+}: {
+  mode: ThemeMode;
+  onCycle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="pill theme-toggle"
+      onClick={onCycle}
+      title="切换浅色 / 深色 / 跟随系统"
+    >
+      主题 · {themeLabel(mode)}
+    </button>
+  );
+}
+
 function LoginScreen({
   users,
   onLogin,
   error,
+  themeMode,
+  onCycleTheme,
 }: {
   users: DemoUser[];
   onLogin: (username: string) => Promise<void>;
   error: string | null;
+  themeMode: ThemeMode;
+  onCycleTheme: () => void;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -50,6 +80,9 @@ function LoginScreen({
       <header className="hero">
         <div className="brand">BotCamp · 自媒体账号</div>
         <h1>登录</h1>
+        <div className="meta">
+          <ThemeToggle mode={themeMode} onCycle={onCycleTheme} />
+        </div>
         <p className="note">
           数据按 owner 隔离：登录后只能看到自己的自媒体账号。演示用户可切换验证
           A≠B。
@@ -91,6 +124,7 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabId>("board");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [msPreview, setMsPreview] = useState<{
     id: string;
     title: string;
@@ -103,6 +137,22 @@ export default function App() {
     setData(ws);
     setError(null);
   }, []);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      if (getStoredTheme() === "system") applyTheme("system");
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [themeMode]);
+
+  function onCycleTheme() {
+    const next = cycleTheme(themeMode);
+    setThemeMode(next);
+    applyTheme(next);
+  }
 
   useEffect(() => {
     (async () => {
@@ -173,7 +223,13 @@ export default function App() {
 
   if (!user) {
     return (
-      <LoginScreen users={demoUsers} onLogin={handleLogin} error={authError} />
+      <LoginScreen
+        users={demoUsers}
+        onLogin={handleLogin}
+        error={authError}
+        themeMode={themeMode}
+        onCycleTheme={onCycleTheme}
+      />
     );
   }
 
@@ -199,6 +255,7 @@ export default function App() {
           </span>
         </div>
         <div className="meta user-bar">
+          <ThemeToggle mode={themeMode} onCycle={onCycleTheme} />
           <span className="note">切换演示用户（验证隔离）：</span>
           {demoUsers.map((u) => (
             <button
