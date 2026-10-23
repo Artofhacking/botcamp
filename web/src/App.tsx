@@ -132,11 +132,11 @@ function buildNeeds(data: WorkspaceBundle): NeedsItem[] {
   }
 
   for (const e of data.platform_events) {
-    const t = `${e.event_type} ${e.name} ${e.remark || ""}`.toLowerCase();
-    if (
-      /审核|未通过|拒绝|隐藏|下架|违规/.test(t) ||
-      e.event_type.includes("审核")
-    ) {
+    const t = `${e.event_type} ${e.name} ${e.remark || ""}`;
+    const failed =
+      /未通过|拒绝|隐藏|下架|违规|失败/.test(t) ||
+      (/审核/.test(t) && !/通过|成功/.test(t));
+    if (failed) {
       items.push({
         id: `need-ev-${e.id}`,
         kind: "event",

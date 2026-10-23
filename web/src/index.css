@@ -304,7 +304,7 @@ a {
 
 .brief-k {
   flex: none;
-  width: 52px;
+  min-width: 2.5em;
   color: var(--ink-3);
   font-weight: 600;
 }
@@ -316,6 +316,10 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.brief-bar .brief-row {
+  align-items: baseline;
 }
 
 .main-bar {
