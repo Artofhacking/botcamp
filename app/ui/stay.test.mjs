@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
 import { earlierBanner, visiblePending } from './src/chatSync.js'
+import { generateInitialPassword, issueNote, passwordToShow } from './src/initialPassword.js'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -60,6 +61,17 @@ test('refreshing the latest page does not say it is loading earlier messages', (
   assert.equal(earlierBanner({ loadingEarlier: true, failed: false, cursor: 'p1' }), 'loading')
   assert.equal(earlierBanner({ loadingEarlier: false, failed: true, cursor: 'p1' }), 'failed')
   assert.equal(earlierBanner({ loadingEarlier: false, failed: false, cursor: null }), 'none')
+})
+
+test('opening an account sends a generated password and shows the one the server keeps', () => {
+  const draft = generateInitialPassword(Uint8Array.from({ length: 20 }, (_, index) => index + 1))
+  assert.match(draft, /^[A-HJ-NP-Za-km-z2-9]{20}$/)
+  const server = 'ServerKeptPassword1'
+  assert.equal(passwordToShow({ password: server }, draft), server)
+  assert.equal(passwordToShow({ user: { email: 'a@example.com' } }, draft), draft)
+  assert.equal(passwordToShow({ password: 'short' }, draft), draft)
+  assert.match(issueNote('a@example.com', { mustChangePassword: true }), /第一次登录必须修改/)
+  assert.match(issueNote('a@example.com', {}), /可以自己修改/)
 })
 
 test('a feed that ends immediately waits several seconds', () => {

@@ -1,5 +1,6 @@
 import { createElement as h, useEffect, useState } from 'react'
 import { createUser, deleteUser, listUsers, updateUser } from './account.js'
+import { generateInitialPassword, issueNote, passwordToShow } from './initialPassword.js'
 
 function IssuedPassword({ issued, onClose }) {
   const [copied, setCopied] = useState(false)
@@ -12,7 +13,7 @@ function IssuedPassword({ issued, onClose }) {
     }
   }
   return h('div', { className: 'dsb-issued' },
-    h('p', null, `${issued.email} 的初始密码只显示这一次。交给用户后，对方第一次登录必须修改。`),
+    h('p', null, issueNote(issued.email, issued.user)),
     h('input', { readOnly: true, value: issued.password, spellCheck: false, 'aria-label': '初始密码', onFocus: event => event.target.select() }),
     h('div', { className: 'dsb-issued-actions' },
       h('button', { type: 'button', onClick: copy }, copied ? '已复制' : '复制'),
@@ -53,7 +54,7 @@ function UserRow({ user, self, onChange, onIssued }) {
         setBusy(true)
         setError('')
         updateUser(user.id, { resetPassword: true }).then((result) => {
-          onIssued({ email: user.email, password: result.password })
+          onIssued({ email: user.email, password: result.password, user: result.user })
           return onChange()
         }, failure => setError(failure?.message ?? '重置失败')).finally(() => setBusy(false))
       } }, '重置初始密码'),
@@ -79,8 +80,9 @@ export function Admin({ user, onClose }) {
     setBusy(true)
     setError('')
     try {
-      const created = await createUser({ email: form.email, quota: Number(form.quota) })
-      setIssued({ email: created.user.email, password: created.password })
+      const draft = generateInitialPassword()
+      const created = await createUser({ email: form.email, quota: Number(form.quota), password: draft })
+      setIssued({ email: created.user.email, password: passwordToShow(created, draft), user: created.user })
       setForm({ email: '', quota: form.quota })
       await load()
     } catch (failure) {
