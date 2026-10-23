@@ -111,7 +111,7 @@ export async function createBotcamp(options = {}) {
   const store = await openStore(options.dataDir ?? defaultDataDir(), { ledger: options.ledger ?? null })
   const boot = await store.bootstrap(env)
   if (boot.created) console.info('[botcamp] 已创建引导管理员。')
-  else if ((await store.listUsers()).length === 0) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
+  else if (boot.empty) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
 
   const jar = new Map()
 
