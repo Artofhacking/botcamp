@@ -139,8 +139,9 @@ function mediaCookieHeader(token, req, maxAge) {
 }
 
 export function mediaOwnerIdFor(user) {
+  // Local + production admins see the seeded 小稿账号 after email/password login.
   const email = String(user?.email || '').toLowerCase()
-  if (email === 'admin@localhost') return PHOSA_OWNER_ID
+  if (email === 'admin@localhost' || user?.role === 'admin') return PHOSA_OWNER_ID
   return `usr_botcamp_${user.id}`
 }
 

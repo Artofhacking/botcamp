@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Build the MediaAccount workbench (web/) and publish static + authenticated bot function.
-# Workbench API rides POST /api/bot media/* CONTROL (Demox only routes /api/bot[+feed]).
+# Build the DeepSeek Bot / BotCamp shell (app/ui) and publish static + authenticated bot function.
+# MediaAccount workbench is an in-app Gate view (「自媒体账号」) after email/password login,
+# served via POST /api/bot media/* CONTROL. Optional static copy also lands at /media/.
 # Requires demox login or DEMOX_TOKEN. Does not print function env values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIST="$ROOT/web/dist"
+DIST="$ROOT/app/ui/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
 PROJECT_ID="${DEMOX_PROJECT_ID:-PQBDTM6GLZ}"
@@ -37,14 +38,21 @@ PY
   chmod 600 "${HOME}/.demox/token.json"
 fi
 
-# Seed MediaAccount KV (idempotent) then verify isolation + botcamp gate.
 npm install --prefix "$ROOT"
-npm install --prefix "$ROOT/web"
 npm run seed --prefix "$ROOT"
 npm run test:isolation --prefix "$ROOT"
 npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" test
-npm run build --prefix "$ROOT/web"
+npm --prefix "$ROOT/app" run build
+
+# Optional: nest MediaAccount SPA under /media/ (shell at site root stays primary).
+if [[ -d "$ROOT/web" ]]; then
+  npm install --prefix "$ROOT/web"
+  npm run build --prefix "$ROOT/web"
+  rm -rf "$DIST/media"
+  mkdir -p "$DIST/media"
+  cp -a "$ROOT/web/dist/." "$DIST/media/"
+fi
 
 python3 - "$DIST/index.html" <<'PY'
 import sys
@@ -52,11 +60,7 @@ from pathlib import Path
 html = Path(sys.argv[1]).read_text()
 if "location.replace" in html or "camp.aigc.sx.cn" in html:
     raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
-if "自媒体账号" not in html and "BotCamp" not in html:
-    raise SystemExit("refusing to deploy: expected MediaAccount workbench title in index.html")
-if "DeepSeek Bot" in html:
-    raise SystemExit("refusing to deploy: still shipping DeepSeek Bot shell as site root")
-print("dist/index.html is MediaAccount workbench on the Demox origin")
+print("dist/index.html stays on the Demox origin (BotCamp / DeepSeek Bot shell)")
 PY
 
 ID=""
@@ -76,7 +80,7 @@ fi
 
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID in project $PROJECT_ID (MediaAccount workbench)"
+  echo "Updating Demox site $ID in project $PROJECT_ID (BotCamp shell + /media workbench)"
   DEPLOY_ARGS+=(--id "$ID")
 else
   echo "Creating a Demox site in project $PROJECT_ID"
@@ -123,20 +127,41 @@ mkdir -p "$BUNDLE"
   --bundle --platform=node --format=cjs --outfile="$BUNDLE/index.js"
 echo "推送云函数 ${FN_SLUG}（含 media/* CONTROL；routes 仅创建时生效）: ${FN_ROUTES}"
 FN_LOG="$tmpdir/fn.log"
-"${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"
-VERSION="$(python3 - "$FN_LOG" <<'PY'
+attempt=1
+delay=4
+VERSION=""
+while [[ $attempt -le 5 ]]; do
+  echo "function push attempt $attempt"
+  if "${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"; then
+    VERSION="$(python3 - "$FN_LOG" <<'PY'
 import re, sys
 from pathlib import Path
 text = Path(sys.argv[1]).read_text()
 match = re.search(r"版本:\s*(\d+)", text) or re.search(r"\bv(\d+)\b", text)
-if not match:
-    raise SystemExit("could not parse function version")
-print(match.group(1))
+print(match.group(1) if match else "")
 PY
 )"
+    [[ -n "$VERSION" ]] && break
+  fi
+  sleep "$delay"
+  delay=$((delay * 2))
+  attempt=$((attempt + 1))
+done
+if [[ -z "$VERSION" ]]; then
+  echo "云函数推送失败"
+  exit 1
+fi
 echo "把 production 指到 v${VERSION}"
-# --version=N keeps the CLI from treating --version as its own version flag.
-"${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"
-echo "自媒体工作台静态页 + media CONTROL 云函数已发布。"
+attempt=1
+delay=4
+while [[ $attempt -le 5 ]]; do
+  if "${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"; then
+    break
+  fi
+  sleep "$delay"
+  delay=$((delay * 2))
+  attempt=$((attempt + 1))
+done
+echo "BotCamp 壳静态页 + media CONTROL 云函数已发布。自媒体入口在登录后左下角「自媒体账号」。"
 echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"
 echo "生产账本用 BOTCAMP_STORE=demox-project 和 BOTCAMP_PROJECT_ID，不要把 BOTCAMP_DATA_DIR 指到 /tmp。"
