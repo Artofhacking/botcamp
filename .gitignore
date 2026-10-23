@@ -1,8 +1,14 @@
 node_modules/
+web/node_modules/
+web/dist/
 dist/
 app/ui/dist/
 client/src-tauri/target/
 client/src-tauri/gen/
+data/
 /data/
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example

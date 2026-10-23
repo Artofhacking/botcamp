@@ -99,3 +99,38 @@ npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_
 云函数不能把一条无限 SSE 留在连接上。`/api/bot/feed` 读到第一条事件或大约 2.5 秒就取消上游。页面如果发现流在几秒内自己结束，会等 5 秒再重连。
 
 内核进程保持：`dsh web --public-url https://camp.aigc.sx.cn/ --trusted-host camp.aigc.sx.cn`。浏览器打开 `https://camp.aigc.sx.cn/` 仍是纯文本 404。网关换 `dsh-auth` 时请求 `GET /` 并带上 `x-botcamp-exchange`，值来自函数环境变量 `BOTCAMP_KERNEL_EXCHANGE`。服务器上的 `/etc/nginx/snippets/dsh-camp-exchange.conf` 对上这个值，才把这一次请求交给内核，并继续用原来的 `/etc/nginx/snippets/dsh-camp-token.conf` 带上启动令牌。这个值不要写进 git。装上 nginx 的命令是 `./scripts/apply-camp-exchange.sh`，它读取环境变量 `sshkey`。
+
+---
+
+## 自媒体账号工作台（`web/` + `server/`）
+
+按设计文档持久化 **MediaAccount** 号下数据，并用带标签页的工作台查看。种子：**小稿的AI日记 @ 小黑盒**（归属 `phosa`）。Schema 固定；凭证只存 `credential_ref`。
+
+### 本地运行
+
+```bash
+npm install
+npm install --prefix web
+npm run seed
+npm run test:isolation   # phosa 看不到 other_creator
+npm run dev              # API :8787 + Vite :5173
+```
+
+打开 http://127.0.0.1:5173 → 登录 `phosa` 或 `other_creator`。界面支持 **浅色 / 深色**（跟随系统，可手动切换，偏好存 `localStorage`）。
+
+### 多用户隔离
+
+- Session：`botcamp_session` cookie 或 `Authorization: Bearer` → `owner_user_id`
+- 未登录 401；跨 owner 的 `media_account` / 稿件 403
+- `/api/debug/kv-keys` 已删除
+
+### 存储键 → Tab
+
+| Tab | 来源 |
+| --- | --- |
+| 运营看板 | 派生只读 |
+| 帖子 / 选题发布 | `media_account:{id}:post:*` |
+| 历史稿件 | `manuscript:*` + blobs |
+| 已发作品 | Post 已发布（镜像指标） |
+| 互动快照 | `engagement_snapshot:*`（趋势 SoT） |
+| 粉丝 / 收益 / 平台事件 | 对应实体键 |
