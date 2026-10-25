@@ -133,11 +133,11 @@ function BoardBody({ data, onAnchor, onAct, busy }) {
                 type: 'button',
                 className: 'dsb-mw-act ghost',
                 onClick: () => onAnchor(it.anchor),
-              }, '锚定对话')))))),
+              }, '锚定对话'))))),
     (board.writing || []).length
       ? h('div', { className: 'dsb-mw-focus' },
         h('div', { className: 'dsb-mw-label' }, '进行中'),
-        board.writing.slice(0, 5).map(p =>
+        board.writing.slice(0, 5).map((p) =>
           h('button', {
             key: p.id,
             type: 'button',
