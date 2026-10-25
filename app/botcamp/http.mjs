@@ -424,6 +424,14 @@ export async function createBotcamp(options = {}) {
     sendJson(res, 200, { ok: true, value })
   }
 
+  /** Kernel state with no usable roster after ownership filter → company-local employees. */
+  function stateNeedsCompany(value) {
+    if (!value || typeof value !== 'object') return true
+    if (value.unchanged) return false
+    if (value.companyMode) return false
+    return !Array.isArray(value.bots) || value.bots.length === 0
+  }
+
   async function handleBot(req, res, context, body) {
     const user = context.user
     if (passwordWall(res, user)) return
@@ -466,7 +474,12 @@ export async function createBotcamp(options = {}) {
           return
         }
         const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
-        await store.syncWorkspace(user.id)
+        // Listing must return even when remote file sync is slow/unavailable.
+        try {
+          await store.syncWorkspace(user.id)
+        } catch (error) {
+          console.error('[botcamp]', error instanceof Error ? error.message : 'syncWorkspace failed')
+        }
         sendJson(res, 200, result)
         return
       }
@@ -541,7 +554,7 @@ export async function createBotcamp(options = {}) {
           !upstream.ok
           || parsed?.ok === false
           || !parsed
-          || (parsed?.ok !== false && Array.isArray(parsed?.value?.bots) && parsed.value.bots.length === 0)
+          || (parsed?.ok !== false && stateNeedsCompany(parsed.value))
         )
       ) {
         await replyCompanyState(res, user, createAccess(user.id, context.resources))
@@ -560,6 +573,11 @@ export async function createBotcamp(options = {}) {
         parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
         if (endpoint === 'state' && parsed.ok !== false && parsed.value && !parsed.value.unchanged) {
           parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
+        }
+        // Foreign / unowned kernel bots are stripped by filterState — fall back after filter.
+        if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value)) {
+          await replyCompanyState(res, user, createAccess(user.id, context.resources))
+          return
         }
         if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)

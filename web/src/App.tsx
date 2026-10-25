@@ -822,6 +822,7 @@ export default function App() {
   const [data, setData] = useState<WorkspaceBundle | null>(null);
   const [accounts, setAccounts] = useState<MediaAccountRow[]>([]);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<MainMode>("chat");
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -844,15 +845,21 @@ export default function App() {
   );
 
   const loadWorkspace = useCallback(async () => {
-    const ws = await fetchWorkspace();
-    setData(ws);
     try {
-      const acc = await fetchMediaAccounts();
-      setAccounts(acc.accounts || []);
-    } catch {
-      setAccounts([]);
+      const ws = await fetchWorkspace();
+      setData(ws);
+      setWorkspaceError(null);
+      try {
+        const acc = await fetchMediaAccounts();
+        setAccounts(acc.accounts || []);
+      } catch {
+        setAccounts([]);
+      }
+      return ws;
+    } catch (e) {
+      setWorkspaceError((e as Error).message || "工作台加载失败");
+      throw e;
     }
-    return ws;
   }, []);
 
   useEffect(() => {
@@ -894,8 +901,12 @@ export default function App() {
         const me = await restoreSession();
         if (me) {
           setUser(me);
-          const ws = await loadWorkspace();
-          setMessages([openerMessage(ws, null)]);
+          try {
+            const ws = await loadWorkspace();
+            setMessages([openerMessage(ws, null)]);
+          } catch (e) {
+            setWorkspaceError((e as Error).message || "工作台加载失败");
+          }
         }
       } catch (e) {
         setAuthError((e as Error).message);
@@ -908,11 +919,16 @@ export default function App() {
   async function afterLogin(next: AuthUser) {
     setUser(next);
     setAuthError(null);
+    setWorkspaceError(null);
     setAnchor(null);
     setMode("chat");
     setDrawer(false);
-    const ws = await loadWorkspace();
-    setMessages([openerMessage(ws, null)]);
+    try {
+      const ws = await loadWorkspace();
+      setMessages([openerMessage(ws, null)]);
+    } catch (e) {
+      setWorkspaceError((e as Error).message || "工作台加载失败");
+    }
   }
 
   const onCycleTheme = () => {
@@ -1207,7 +1223,30 @@ export default function App() {
     );
   }
 
-  if (!data || !brief) return <div className="loading">加载工作台…</div>;
+  if (!data || !brief) {
+    return (
+      <div className="loading">
+        {workspaceError ? (
+          <>
+            <p>{workspaceError}</p>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                void loadWorkspace()
+                  .then((ws) => setMessages([openerMessage(ws, null)]))
+                  .catch(() => {});
+              }}
+            >
+              重试
+            </button>
+          </>
+        ) : (
+          "加载工作台…"
+        )}
+      </div>
+    );
+  }
 
   const rail = (
     <div className="rail-wrap">

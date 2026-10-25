@@ -94,7 +94,7 @@ export function applyUserSetting(current, endpoint, payload) {
   if (endpoint === 'folders') {
     return {
       settings,
-      value: { team: settings.workspace || null, picker: null, folders: [] },
+      value: { team: settings.workspace || null, picker: 'browse', folders: [] },
     }
   }
   if (endpoint === 'connector-connect' || endpoint === 'connector-disconnect' || endpoint === 'connector-retry') {

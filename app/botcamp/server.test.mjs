@@ -1077,6 +1077,46 @@ function validInitial(password) {
   return typeof password === 'string' && password.length >= 8 && password.length <= 200 && !/[^A-Za-z0-9]/.test(password)
 }
 
+test('unowned kernel bots fall back to the company roster after filterState', async () => {
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      return Response.json({
+        ok: true,
+        value: {
+          revision: 9,
+          modelsKey: 'foreign-models',
+          bots: [{ id: 'foreign-bot', name: '外人', sessionId: 'foreign-sess' }],
+          rooms: [{ id: 'foreign-room', name: '外群' }],
+        },
+      })
+    }
+    if (body.endpoint === 'create-bot') {
+      return Response.json({ ok: true, value: { id: `bot-${body.payload?.name}`, name: body.payload?.name, sessionId: `sess-${body.payload?.name}` } })
+    }
+    return Response.json({ ok: true, value: null })
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(login.setCookie),
+      body: { endpoint: 'state', payload: {} },
+    })
+    assert.equal(state.status, 200)
+    assert.equal(state.json.ok, true)
+    assert.equal(state.json.value.companyMode, 'company-local')
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营'])
+    assert.equal(state.json.value.mainBotId, 'co_chief')
+    assert.equal(state.json.value.bots.some(bot => bot.id === 'foreign-bot'), false)
+  } finally {
+    await ctx.close()
+  }
+})
+
 test('state gets a kernel cookie from the exchange header and does not show it', async () => {
   const seen = []
   const fetchImpl = async (url, init = {}) => {
