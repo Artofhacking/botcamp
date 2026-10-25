@@ -3,8 +3,8 @@
 
 export const DEFAULT_TEAM = Object.freeze([
   {
-    name: '主编',
-    brief: '负责判断。看选题值不值得做，口径和事实站不站得住，成品能不能发出去。',
+    name: '总负责人',
+    brief: '协调写手与运营。你进公司先看到团队；问某个号或全部号的进度，由我把表格和文章落到看板上。',
     color: 'blue',
     avatar: { shape: 'star' },
   },

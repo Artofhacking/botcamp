@@ -1,4 +1,14 @@
+import {
+  buildCompanyState,
+  claimCompanyAccess,
+  companyChatPage,
+  companySend,
+  isCompanySessionId,
+  mergeProjectRooms,
+} from './company.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
+import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
+import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
 import { applyUserSetting } from './userSettings.mjs'
@@ -108,7 +118,13 @@ export async function createBotcamp(options = {}) {
   const env = options.env ?? process.env
   const kernelOrigin = (options.kernelOrigin ?? env.DSH_KERNEL_ORIGIN ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
-  const store = await openStore(options.dataDir ?? defaultDataDir(), { ledger: options.ledger ?? null })
+  const dataDir = options.dataDir ?? defaultDataDir()
+  // Tests / Demox cache: keep MediaAccount KV under the same dataDir. Local default
+  // already is repo data/, so seed + botcamp accounts share one tree.
+  if (options.dataDir || env.BOTCAMP_DATA_DIR || env.BOTCAMP_STORE === 'demox-project') {
+    bindMediaDataDir(dataDir)
+  }
+  const store = await openStore(dataDir, { ledger: options.ledger ?? null })
   const boot = await store.bootstrap(env)
   if (boot.created) console.info('[botcamp] 已创建引导管理员。')
   else if (boot.empty) console.warn('[botcamp] 用户库为空。设置 BOTCAMP_ADMIN_EMAIL 和 BOTCAMP_ADMIN_PASSWORD 后重启，才会创建管理员。')
@@ -395,6 +411,19 @@ export async function createBotcamp(options = {}) {
     }
   }
 
+  async function replyCompanyState(res, user, access) {
+    const ownerId = mediaOwnerIdFor(user)
+    claimCompanyAccess(access, ownerId)
+    const value = rewriteValue('state', buildCompanyState(ownerId, user), user, access, {})
+    // filterState rebuilds mainBotIds from user.mainBotIds; force chief as the landing DM.
+    if (value && typeof value === 'object' && !value.unchanged) {
+      value.mainBotIds = ['co_chief']
+      value.mainBotId = 'co_chief'
+    }
+    await store.commitAccess(user.id, access)
+    sendJson(res, 200, { ok: true, value })
+  }
+
   async function handleBot(req, res, context, body) {
     const user = context.user
     if (passwordWall(res, user)) return
@@ -406,6 +435,25 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = createAccess(user.id, context.resources)
+      const ownerId = mediaOwnerIdFor(user)
+      const sessionHint = payload?.botId || payload?.sessionId
+
+      // Company-local sessions never hit the kernel (roster / chat / send).
+      if (
+        (endpoint === 'chat' || endpoint === 'earlier' || endpoint === 'send')
+        && isCompanySessionId(sessionHint)
+      ) {
+        claimCompanyAccess(access, ownerId)
+        await store.commitAccess(user.id, access)
+        if (endpoint === 'send') {
+          const result = companySend(ownerId, payload)
+          sendJson(res, result.ok ? 200 : 400, result)
+          return
+        }
+        sendJson(res, 200, companyChatPage(ownerId, payload))
+        return
+      }
+
       const decision = decide(endpoint, payload, access, { role: user.role, workspaceId: user.kernelKey })
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
@@ -457,13 +505,23 @@ export async function createBotcamp(options = {}) {
       if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, user)
       else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       outboundPayload = stripPathFields(outboundPayload)
-      const upstream = await callKernel('/api/bot', {
-        method: 'POST',
-        body: JSON.stringify({ endpoint, payload: outboundPayload }),
-        signal: client.signal,
-        namespace: user.kernelKey,
-        sessionToken: readSessionToken(req),
-      })
+      let upstream
+      try {
+        upstream = await callKernel('/api/bot', {
+          method: 'POST',
+          body: JSON.stringify({ endpoint, payload: outboundPayload }),
+          signal: client.signal,
+          namespace: user.kernelKey,
+          sessionToken: readSessionToken(req),
+        })
+      } catch (error) {
+        if (endpoint === 'state') {
+          if (charged) await store.refund(user.id).catch(() => {})
+          await replyCompanyState(res, user, createAccess(user.id, context.resources))
+          return
+        }
+        throw error
+      }
       const text = await upstream.text()
       let parsed = null
       try { parsed = text ? JSON.parse(text) : null } catch { parsed = null }
@@ -476,6 +534,19 @@ export async function createBotcamp(options = {}) {
         for (const id of reserved) rollback.release(id)
         await store.commitAccess(user.id, rollback)
       }
+      // Empty / failed kernel state → company roster so login always shows employees.
+      if (
+        endpoint === 'state'
+        && (
+          !upstream.ok
+          || parsed?.ok === false
+          || !parsed
+          || (parsed?.ok !== false && Array.isArray(parsed?.value?.bots) && parsed.value.bots.length === 0)
+        )
+      ) {
+        await replyCompanyState(res, user, createAccess(user.id, context.resources))
+        return
+      }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'value')) {
         const after = createAccess(user.id, context.resources)
         if (parsed.ok !== false) {
@@ -487,9 +558,16 @@ export async function createBotcamp(options = {}) {
           }
         }
         parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
+        if (endpoint === 'state' && parsed.ok !== false && parsed.value && !parsed.value.unchanged) {
+          parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
+        }
         if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)
         sendJson(res, upstream.status, parsed)
+        return
+      }
+      if (endpoint === 'state') {
+        await replyCompanyState(res, user, createAccess(user.id, context.resources))
         return
       }
       if (res.writableEnded || res.destroyed) return
@@ -507,6 +585,12 @@ export async function createBotcamp(options = {}) {
       if (error?.code === 'LIMIT') {
         sendJson(res, 413, { ok: false, error: { message: '请求太大。' } })
         return
+      }
+      if (body?.endpoint === 'state') {
+        try {
+          await replyCompanyState(res, user, createAccess(user.id, context.resources))
+          return
+        } catch { /* fall through */ }
       }
       console.error('[botcamp]', error instanceof Error ? error.message : 'bot proxy failed')
       sendJson(res, 502, { ok: false, error: { code: 'bot/error', message: '暂时连不上内核。' } })
@@ -583,7 +667,19 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  const CONTROL = new Set(['auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password', 'admin/list', 'admin/create', 'admin/update', 'admin/delete'])
+  const MEDIA_CONTROL = new Set([
+    'media/demo-users', 'media/login', 'media/logout', 'media/me',
+    'media/workspace', 'media/manuscript',
+    'media/accounts', 'media/focus', 'media/create-account', 'media/note',
+    'media/update',
+  ])
+  const BOARD_CONTROL = new Set(WHITEBOARD_CONTROL)
+  const CONTROL = new Set([
+    'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',
+    'admin/list', 'admin/create', 'admin/update', 'admin/delete',
+    ...MEDIA_CONTROL,
+    ...BOARD_CONTROL,
+  ])
 
   function jsonRequest(req, method, url, json) {
     const raw = Buffer.from(JSON.stringify(json ?? {}))
@@ -596,8 +692,14 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  // Demox 已经建好的函数只能接到 /api/bot 和 /api/bot/feed。登录和管理走同一条 POST，
-  // 在这里改写成原来的接口，这样本地和线上用的是同一套校验。
+  function sendMediaResult(res, result) {
+    const headers = {}
+    if (result.setCookie) headers['set-cookie'] = result.setCookie
+    sendJson(res, result.status, result.body, headers)
+  }
+
+  // Demox 已经建好的函数只能接到 /api/bot 和 /api/bot/feed。登录、管理、自媒体工作台
+  // 走同一条 POST，在这里改写成原来的接口 / MediaAccount 读路径。
   async function handleControl(req, res, body) {
     const payload = body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload) ? body.payload : {}
     if (body.endpoint === 'auth/me') return handleAuth(jsonRequest(req, 'GET', '/api/auth/me'), res, '/api/auth/me')
@@ -605,7 +707,30 @@ export async function createBotcamp(options = {}) {
     if (body.endpoint === 'auth/logout') return handleAuth(jsonRequest(req, 'POST', '/api/auth/logout', {}), res, '/api/auth/logout')
     if (body.endpoint === 'auth/signup') return handleAuth(jsonRequest(req, 'POST', '/api/auth/signup', payload), res, '/api/auth/signup')
     if (body.endpoint === 'auth/password') return handleAuth(jsonRequest(req, 'POST', '/api/auth/password', payload), res, '/api/auth/password')
+
+    if (MEDIA_CONTROL.has(body.endpoint)) {
+      // demo-users / login 公开；其余用 media session（Bearer/cookie）或 botcamp 会话。
+      const user = await currentUser(req)
+      if (user && passwordWall(res, user)) return
+      sendMediaResult(res, handleMediaControl(req, body.endpoint, payload, user))
+      return
+    }
+    if (BOARD_CONTROL.has(body.endpoint)) {
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      if (passwordWall(res, user)) return
+      sendMediaResult(res, handleWhiteboardControl(req, body.endpoint, payload, user))
+      return
+    }
+
     const user = await currentUser(req)
+    if (!user) {
+      sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+      return
+    }
     if (passwordWall(res, user)) return
     if (body.endpoint === 'admin/list') return handleAdmin(jsonRequest(req, 'GET', '/api/admin/users'), res, '/api/admin/users', user)
     if (body.endpoint === 'admin/create') return handleAdmin(jsonRequest(req, 'POST', '/api/admin/users', payload), res, '/api/admin/users', user)

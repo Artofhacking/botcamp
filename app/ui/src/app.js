@@ -1,4 +1,4 @@
-import { Component, createElement as h, Fragment, useEffect, useMemo } from 'react'
+import { Component, createElement as h, Fragment, useEffect, useMemo, useState } from 'react'
 import { me } from './account.js'
 import { ErrorToast } from '../../../ds-bot/src/client/feedback.js'
 import { HeaderPill } from '../../../ds-bot/src/client/header.js'
@@ -8,8 +8,9 @@ import { BrandMark, TeamSidebar, YouAvatar } from '../../../ds-bot/src/client/si
 import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
 import { createTeam } from './team.js'
+import { WhiteboardFab, WhiteboardPanel } from './whiteboard.js'
+import { parseBoardHref } from './whiteboardApi.js'
 
-// The team's theme and accent, as the plugin paints them.
 function useTheme(prefs) {
   useEffect(() => {
     const theme = allThemes()[prefs?.theme] ?? allThemes().deepseek
@@ -22,8 +23,17 @@ function useTheme(prefs) {
   }, [prefs?.theme, prefs?.accent, prefs?.motion])
 }
 
-// A dialog or panel that fails closes, and the failure shows as a toast; the window stays.
-// One that fails again at once stays closed.
+function useMobile() {
+  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 820px)')
+    const onChange = () => setMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return mobile
+}
+
 class Contain extends Component {
   constructor(props) {
     super(props)
@@ -63,11 +73,37 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
       window.removeEventListener('focus', tick)
     }
   }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role, user?.mustChangePassword])
+
+  const mobile = useMobile()
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
+  const [boardFocus, setBoardFocus] = useState(null)
+
   const { hooks, actions } = team
   const views = { ...hooks, actions }
   const wide = hooks.useLayout(state => state.wide)
   const shown = hooks.useShown(id => id)
+  const roster = hooks.useRoster(value => value)
   useTheme(hooks.useRoster(value => value.prefs))
+
+  useEffect(() => {
+    if (!roster?.ready || shown) return
+    const chief = (roster.bots || []).find((b) => b.name === '总负责人' || b.name === '主编' || b.id === 'co_chief')
+      || (roster.bots || [])[0]
+    if (chief?.id) actions.landOn(chief.id)
+  }, [roster?.ready, roster?.bots, shown, actions])
+
+  useEffect(() => {
+    const onLink = (event) => {
+      const href = event.detail?.href
+      const parsed = parseBoardHref(href)
+      if (!parsed) return
+      setBoardFocus(parsed)
+      setWhiteboardOpen(true)
+    }
+    window.addEventListener('botcamp:board-link', onLink)
+    return () => window.removeEventListener('botcamp:board-link', onLink)
+  }, [])
+
   const closeOverlays = (error) => {
     actions.closeSettings()
     actions.closeMemory()
@@ -78,27 +114,69 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     actions.closeOverlay()
     actions.reportError(error, 'overlay')
   }
-  return h('div', { className: 'dsb-frame', 'data-rail': wide ? undefined : '' },
+
+  const chatMain = shown
+    ? h(Fragment, { key: shown },
+      h('div', { className: 'dsb-head' }, h(HeaderPill, { ...views, sessionId: shown, useSession: team.sessionHook(shown) })),
+      h(Chat, { sessionId: shown, team }))
+    : h('div', { className: 'dsb-mw-muted', style: { padding: 24 } }, '正在准备对话…')
+
+  return h('div', {
+    className: `dsb-frame${mobile ? ' dsb-mobile' : ''}`,
+    'data-rail': !mobile && !wide ? '' : undefined,
+    'data-whiteboard': whiteboardOpen ? '' : undefined,
+  },
     h('aside', { className: 'dsb-side' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
+      wide || mobile
+        ? null
+        : h('button', {
+          type: 'button',
+          className: 'dsb-expand',
+          'aria-label': t('Expand sidebar'),
+          title: t('Expand sidebar'),
+          onClick: () => actions.toggleSidebar(),
+        }, h(BrandMark, { size: 22 })),
       h('div', { className: 'dsb-side-list' },
-        wide ? null : h('button', { type: 'button', className: 'dsb-expand', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: () => actions.toggleSidebar() }, h(BrandMark, { size: 22 })),
-        h(TeamSidebar, { ...views, wide })),
+        h(TeamSidebar, { ...views, wide: wide || mobile })),
       h('div', { className: 'dsb-side-foot' },
-        user ? h('div', { className: 'dsb-account' },
-          h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
-          h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
-          h('span', { className: 'dsb-account-actions' },
-            user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
-            h('button', { type: 'button', onClick: onPassword }, '修改密码'),
-            h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
+        user && (wide || mobile)
+          ? h('div', { className: 'dsb-account' },
+            h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
+            h('span', { className: 'dsb-account-actions' },
+              user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户') : null,
+              h('button', { type: 'button', onClick: onPassword }, '密码'),
+              h('button', { type: 'button', onClick: onLogout }, '退出')))
+          : null,
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
-    // The details panel makes room by giving the shell's `_centerCol` column a right margin.
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
-      shown ? h(Fragment, { key: shown },
-        h('div', { className: 'dsb-head' }, h(HeaderPill, { ...views, sessionId: shown, useSession: team.sessionHook(shown) })),
-        h(Chat, { sessionId: shown, team })) : null),
-    h(Contain, { onError: closeOverlays }, h(Overlays, views)),
-    h(ErrorToast, views))
+      chatMain),
+    h(WhiteboardFab, {
+      open: whiteboardOpen,
+      onClick: () => setWhiteboardOpen((v) => !v),
+    }),
+    h(WhiteboardPanel, {
+      open: whiteboardOpen,
+      sessionId: shown,
+      focusLink: boardFocus,
+      onClose: () => setWhiteboardOpen(false),
+      onConsumedFocus: () => setBoardFocus(null),
+    }),
+    mobile
+      ? h('nav', { className: 'dsb-mobile-bar', 'aria-label': '主区切换' },
+        h('button', {
+          type: 'button',
+          className: !whiteboardOpen ? 'active' : undefined,
+          onClick: () => setWhiteboardOpen(false),
+        }, '对话'),
+        h('button', {
+          type: 'button',
+          className: whiteboardOpen ? 'active' : undefined,
+          onClick: () => setWhiteboardOpen(true),
+        }, '白板'))
+      : null,
+    h('div', { className: 'dsb-chrome-float', 'aria-hidden': false },
+      h(Contain, { onError: closeOverlays }, h(Overlays, views)),
+      h(ErrorToast, views)))
 }

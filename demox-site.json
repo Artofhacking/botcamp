@@ -6,5 +6,6 @@
   "origin_host": "botcamp.demox.site",
   "projectId": "PQBDTM6GLZ",
   "projectSlug": "botcamp",
-  "projectName": "botcamp"
+  "projectName": "botcamp",
+  "root": "app/ui/dist"
 }

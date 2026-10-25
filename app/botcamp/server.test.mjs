@@ -273,12 +273,12 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     assert.equal(explicit.length, 2)
     assert.notEqual(explicit[0].headers['x-botcamp-namespace'], explicit[1].headers['x-botcamp-namespace'])
     assert.match(explicit[0].headers['x-botcamp-namespace'], /^u_/)
-    assert.equal(creates.filter(call => ['主编', '写手', '运营'].includes(JSON.parse(call.body).payload.name)).length, 6)
+    assert.equal(creates.filter(call => ['总负责人', '写手', '运营'].includes(JSON.parse(call.body).payload.name)).length, 6)
 
     const stateA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
     const stateB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
-    assert.deepEqual(stateA.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营', '甲'])
-    assert.deepEqual(stateB.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营', '乙'])
+    assert.deepEqual(stateA.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营', '甲'])
+    assert.deepEqual(stateB.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营', '乙'])
     const idsB = new Set(stateB.json.value.bots.map(bot => bot.id))
     for (const id of stateA.json.value.bots.map(bot => bot.id)) assert.equal(idsB.has(id), false)
     assert.equal(JSON.stringify(stateA.json).includes('bot-b'), false)
@@ -896,7 +896,7 @@ test('opening an account creates the three duty bots without a room, a main bot,
       body: { email: 'a@example.com', password: 'password-user-a', quota: 0 },
     })
     assert.equal(created.status, 201)
-    assert.deepEqual(created.json.team.created, ['主编', '写手', '运营'])
+    assert.deepEqual(created.json.team.created, ['总负责人', '写手', '运营'])
     assert.deepEqual(created.json.team.failed, [])
     assert.equal(created.json.user.used, 0)
     assert.equal(JSON.stringify(created.json).includes('password-user-a'), false)
@@ -935,7 +935,7 @@ test('opening an account creates the three duty bots without a room, a main bot,
       cookie: cookieHeader(login.setCookie),
       body: { endpoint: 'state', payload: {} },
     })
-    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写手', '运营'])
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营'])
     assert.deepEqual(state.json.value.rooms, [])
     assert.equal(state.json.value.mainBotId, null)
     assert.deepEqual(state.json.value.mainBotIds, [])
@@ -966,7 +966,7 @@ test('a missed default bot still leaves the account and does not charge quota', 
     })
     assert.equal(created.status, 201)
     assert.equal(creates, 3)
-    assert.deepEqual(created.json.team.created, ['主编', '运营'])
+    assert.deepEqual(created.json.team.created, ['总负责人', '运营'])
     assert.deepEqual(created.json.team.failed, ['写手'])
     assert.equal(JSON.stringify(created.json).includes('kernel down'), false)
     const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: created.json.password } })
@@ -1211,6 +1211,134 @@ test('a client keeps a bearer session across the first password change', async (
       body: { endpoint: 'auth/me' },
     })
     assert.equal(after.status, 401)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('media CONTROL serves workbench auth, workspace, and owner isolation', async () => {
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD })
+  try {
+    const users = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/demo-users', payload: null },
+    })
+    assert.equal(users.status, 200)
+    assert.equal(users.json.ok, true)
+    assert.equal(users.json.users.some(u => u.username === 'phosa'), true)
+
+    const denied = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(denied.status, 401)
+
+    const loginA = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/login', payload: { username: 'phosa' } },
+    })
+    assert.equal(loginA.status, 200)
+    assert.equal(loginA.json.ok, true)
+    assert.equal(typeof loginA.json.token, 'string')
+    assert.match(String(loginA.setCookie?.[0] || ''), /botcamp_media_session=/)
+
+    const wsA = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(wsA.status, 200)
+    assert.equal(wsA.json.workspace.account.display_name, '小稿的AI日记')
+    assert.equal(wsA.json.workspace.account.platform, 'xiaoheihe')
+    assert.equal(wsA.json.workspace.posts.length > 0, true)
+
+    const loginB = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      body: { endpoint: 'media/login', payload: { username: 'other_creator' } },
+    })
+    assert.equal(loginB.status, 200)
+    const wsB = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: { endpoint: 'media/workspace', payload: null },
+    })
+    assert.equal(wsB.status, 200)
+    assert.equal(wsB.json.workspace.account.display_name, '别家效率号')
+    assert.equal(
+      wsB.json.workspace.posts.some(p => p.title === wsA.json.workspace.posts[0]?.title),
+      false,
+    )
+
+    const cross = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: {
+        endpoint: 'media/manuscript',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          manuscriptId: wsA.json.workspace.manuscripts[0]?.id,
+        },
+      },
+    })
+    assert.equal(cross.status, 403)
+
+    const accounts = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/accounts', payload: null },
+    })
+    assert.equal(accounts.status, 200)
+    assert.equal(accounts.json.accounts.some(a => a.id === wsA.json.workspace.account.id), true)
+
+    const created = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/create-account', payload: { display_name: '测试新号' } },
+    })
+    assert.equal(created.status, 200)
+    assert.equal(created.json.workspace.account.display_name, '测试新号')
+
+    const focused = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: { endpoint: 'media/focus', payload: { accountId: wsA.json.workspace.account.id } },
+    })
+    assert.equal(focused.status, 200)
+    assert.equal(focused.json.workspace.account.id, wsA.json.workspace.account.id)
+
+    const postId = wsA.json.workspace.posts[0]?.id
+    const noted = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginA.json.token}` },
+      body: {
+        endpoint: 'media/note',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          kind: 'post',
+          entityId: postId,
+          title: wsA.json.workspace.posts[0]?.title,
+          text: '主编写回测试',
+        },
+      },
+    })
+    assert.equal(noted.status, 200)
+    const updated = noted.json.workspace.posts.find(p => p.id === postId)
+    assert.match(String(updated?.remark || ''), /主编写回测试/)
+    assert.equal(noted.json.workspace.platform_events.some(e => e.event_type === 'chat_writeback'), true)
+
+    const stolen = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${loginB.json.token}` },
+      body: {
+        endpoint: 'media/note',
+        payload: {
+          accountId: wsA.json.workspace.account.id,
+          kind: 'event',
+          text: '不应写入',
+        },
+      },
+    })
+    assert.equal(stolen.status, 403)
   } finally {
     await ctx.close()
   }

@@ -1,0 +1,14 @@
+_pages/
+_raw/
+__pycache__/
+_partial*.json
+*.pyc
+_state.json
+_views.json
+_post_urls.json
+_manuscript_ids.json
+_merge.py
+_extract_md.py
+_save_*.py
+# large unpacked dump — runtime uses fixture.generated.mjs (gzip)
+fixture.generated.json

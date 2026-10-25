@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build the DeepSeek Bot page and publish app/ui/dist plus the authenticated bot function.
-# Requires demox login or DEMOX_TOKEN. Does not install plugins on the kernel.
-# Does not print function env values. Set BOTCAMP_ADMIN_EMAIL and BOTCAMP_ADMIN_PASSWORD
-# with `demox env set` after this script; do not put those values in git.
+# Build DS Bot shell (app/ui) as Demox site root + authenticated bot function.
+# Site root MUST be DeepSeek Bot / dsb-frame chat shell — NOT the web/ workbench chrome.
+# Optional: nest the standalone MediaAccount workbench under /workbench/.
+# Requires demox login or DEMOX_TOKEN. Does not print function env values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/app/ui/dist"
@@ -38,9 +38,21 @@ PY
   chmod 600 "${HOME}/.demox/token.json"
 fi
 
+npm install --prefix "$ROOT"
+npm run seed --prefix "$ROOT"
+npm run test:isolation --prefix "$ROOT"
 npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" test
 npm --prefix "$ROOT/app" run build
+
+# Optional secondary surface — never the product home.
+npm install --prefix "$ROOT/web"
+npm run build --prefix "$ROOT/web"
+if [[ -d "$ROOT/web/dist" ]]; then
+  rm -rf "$DIST/workbench"
+  mkdir -p "$DIST/workbench"
+  cp -a "$ROOT/web/dist/." "$DIST/workbench/"
+fi
 
 python3 - "$DIST/index.html" <<'PY'
 import sys
@@ -48,7 +60,13 @@ from pathlib import Path
 html = Path(sys.argv[1]).read_text()
 if "location.replace" in html or "camp.aigc.sx.cn" in html:
     raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
-print("dist/index.html stays on the Demox origin")
+if "自媒体账号工作台" in html:
+    raise SystemExit("refusing to deploy: site root is still web/ workbench — expected DS Bot shell")
+if "DeepSeek Bot" not in html:
+    raise SystemExit("refusing to deploy: site root missing DeepSeek Bot title — expected app/ui shell")
+if 'id="root"' not in html and "id='root'" not in html:
+    raise SystemExit("refusing to deploy: site root missing #root mount")
+print("dist/index.html is DS Bot shell (DeepSeek Bot), not workbench")
 PY
 
 ID=""
@@ -68,7 +86,7 @@ fi
 
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID in project $PROJECT_ID"
+  echo "Updating Demox site $ID in project $PROJECT_ID (DS Bot root + /workbench optional)"
   DEPLOY_ARGS+=(--id "$ID")
 else
   echo "Creating a Demox site in project $PROJECT_ID"
@@ -103,6 +121,7 @@ payload.update({
     "projectId": "$PROJECT_ID",
     "projectSlug": existing.get("projectSlug") or "botcamp",
     "projectName": existing.get("projectName") or "botcamp",
+    "root": "app/ui/dist",
 })
 meta_path.write_text(json.dumps(payload, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
@@ -113,21 +132,79 @@ BUNDLE="$tmpdir/bot"
 mkdir -p "$BUNDLE"
 "$ROOT/app/node_modules/.bin/esbuild" "$ROOT/functions/bot/entry.mjs" \
   --bundle --platform=node --format=cjs --outfile="$BUNDLE/index.js"
-echo "推送云函数 ${FN_SLUG}（routes 仅创建时生效）: ${FN_ROUTES}"
+echo "推送云函数 ${FN_SLUG}（含 media/* CONTROL；routes 仅创建时生效）: ${FN_ROUTES}"
 FN_LOG="$tmpdir/fn.log"
-"${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"
-VERSION="$(python3 - "$FN_LOG" <<'PY'
+attempt=1
+delay=4
+VERSION=""
+while [[ $attempt -le 5 ]]; do
+  echo "function push attempt $attempt"
+  if "${DEMOX[@]}" functions push "$BUNDLE" --id "$ID" --slug "$FN_SLUG" --name bot --routes "$FN_ROUTES" | tee "$FN_LOG"; then
+    VERSION="$(python3 - "$FN_LOG" <<'PY'
 import re, sys
 from pathlib import Path
 text = Path(sys.argv[1]).read_text()
 match = re.search(r"版本:\s*(\d+)", text) or re.search(r"\bv(\d+)\b", text)
-if not match:
-    raise SystemExit("could not parse function version")
-print(match.group(1))
+print(match.group(1) if match else "")
 PY
 )"
+    [[ -n "$VERSION" ]] && break
+  fi
+  sleep "$delay"
+  delay=$((delay * 2))
+  attempt=$((attempt + 1))
+done
+if [[ -z "$VERSION" ]]; then
+  echo "云函数推送失败"
+  exit 1
+fi
 echo "把 production 指到 v${VERSION}"
-# --version=N keeps the CLI from treating --version as its own version flag.
-"${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"
-echo "静态页面和云函数已发布。账号环境变量要用 demox env set 单独设置，不要写进仓库。"
-echo "生产账本用 BOTCAMP_STORE=demox-project 和 BOTCAMP_PROJECT_ID，不要把 BOTCAMP_DATA_DIR 指到 /tmp。"
+attempt=1
+delay=4
+while [[ $attempt -le 5 ]]; do
+  if "${DEMOX[@]}" functions alias set --id "$ID" --slug "$FN_SLUG" production --version="$VERSION"; then
+    break
+  fi
+  sleep "$delay"
+  delay=$((delay * 2))
+  attempt=$((attempt + 1))
+done
+
+# Live title proof (fail if CDN still serves workbench-first chrome)
+echo "Verifying live HTML is DS Bot shell…"
+sleep 3
+curl -fsS "https://botcamp.demox.site/" -o "$tmpdir/live.html"
+python3 - "$tmpdir/live.html" <<'PY'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+m = re.search(r"<title>([^<]*)</title>", text, re.I)
+title = m.group(1).strip() if m else ""
+print(f"live <title>={title!r}")
+if "自媒体账号工作台" in text:
+    raise SystemExit("LIVE site still serves workbench-first chrome — deploy verification failed")
+if "DeepSeek Bot" not in title and "DeepSeek Bot" not in text[:1500]:
+    raise SystemExit("LIVE site missing DeepSeek Bot shell title — deploy verification failed")
+if 'id="root"' not in text and "id='root'" not in text:
+    raise SystemExit("LIVE site missing #root — deploy verification failed")
+print("LIVE DS Bot shell proof OK")
+PY
+
+# Board is React-side; prove the built bundle still carries the SoT side panel entry.
+python3 - "$DIST" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+assets = list((root / "assets").glob("*.js"))
+blob = "\n".join(p.read_text(errors="ignore") for p in assets)
+needles = ("白板", "关闭白板", "wb-surface", "wb-table", "board://", "dsb-frame", "总负责人", "co_chief", "表格", "文章", "图标")
+missing = [n for n in needles if n not in blob]
+if missing:
+    raise SystemExit(f"built DS Bot bundle missing company/whiteboard markers: {missing}")
+if "报表" in blob:
+    raise SystemExit("built DS Bot bundle still contains 报表 — remove report UI/copy")
+print("built company+whiteboard markers OK:", ", ".join(needles))
+PY
+
+echo "DS Bot 壳（app/ui/dist）已发布为站点根；可选 /workbench/ 为独立工作台。云函数 production → v${VERSION}。"
+echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"

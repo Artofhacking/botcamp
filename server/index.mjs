@@ -20,11 +20,26 @@ import {
   extractToken,
   resolveSession,
 } from "./auth.mjs";
+import { handleMediaControl } from "../app/botcamp/mediaControl.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
 
 ensureStoreDirs();
+
+const MEDIA_CONTROL = new Set([
+  "media/demo-users",
+  "media/login",
+  "media/logout",
+  "media/me",
+  "media/workspace",
+  "media/manuscript",
+  "media/accounts",
+  "media/focus",
+  "media/create-account",
+  "media/note",
+  "media/update",
+]);
 
 export function createApp() {
   const app = express();
@@ -39,6 +54,26 @@ export function createApp() {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, schema_version: "1.0.0", auth: true });
+  });
+
+  // Demox-shaped CONTROL surface so web/ can use the same api/bot client locally.
+  app.post("/api/bot", (req, res) => {
+    const endpoint = req.body?.endpoint;
+    const payload =
+      req.body?.payload &&
+      typeof req.body.payload === "object" &&
+      !Array.isArray(req.body.payload)
+        ? req.body.payload
+        : {};
+    if (!MEDIA_CONTROL.has(endpoint)) {
+      return res.status(404).json({
+        ok: false,
+        error: { message: "本地 Express 只处理 media/* 控制面。" },
+      });
+    }
+    const result = handleMediaControl(req, endpoint, payload, null);
+    if (result.setCookie) res.setHeader("set-cookie", result.setCookie);
+    return res.status(result.status).json(result.body);
   });
 
   /** Dev/demo login directory — usernames only, no secrets. */

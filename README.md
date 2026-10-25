@@ -106,6 +106,8 @@ npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_
 
 按设计文档持久化 **MediaAccount** 号下数据，并用带标签页的工作台查看。种子：**小稿的AI日记 @ 小黑盒**（归属 `phosa`）。Schema 固定；凭证只存 `credential_ref`。
 
+公网站点 https://botcamp.demox.site/ **主入口是 DeepSeek Bot 聊天壳**（`app/ui`，Grok-bot 风格对话 + 侧栏轻量看板）。邮箱+密码登录后：主区对话走 DS Bot chat/feed；侧栏「看板 / Needs you / 漏斗」读写 MediaAccount SoT。独立工作台静态副本可选 `/workbench/`（调试用，不是产品首页）。读写走 `POST /api/bot` 的 `media/*` CONTROL。`./scripts/deploy-demox.sh` 发布 `app/ui/dist` 为根 + bot 函数。
+
 ### 本地运行
 
 ```bash
@@ -113,14 +115,14 @@ npm install
 npm install --prefix web
 npm run seed
 npm run test:isolation   # phosa 看不到 other_creator
-npm run dev              # API :8787 + Vite :5173
+npm run dev              # API :8787 + Vite :5173（独立工作台，经 /api/bot media/*）
 ```
 
-打开 http://127.0.0.1:5173 → 登录 `phosa` 或 `other_creator`。界面支持 **浅色 / 深色**（跟随系统，可手动切换，偏好存 `localStorage`）。
+独立工作台：http://127.0.0.1:5173 → 演示用户 `phosa` / `other_creator`。主产品壳：`npm --prefix app run dev` → 邮箱密码登录后点「自媒体账号」。
 
 ### 多用户隔离
 
-- Session：`botcamp_session` cookie 或 `Authorization: Bearer` → `owner_user_id`
+- 壳内：BotCamp 会话 → owner；独立 `/media/`：签名 media token → owner
 - 未登录 401；跨 owner 的 `media_account` / 稿件 403
 - `/api/debug/kv-keys` 已删除
 

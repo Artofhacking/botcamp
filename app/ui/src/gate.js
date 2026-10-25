@@ -41,6 +41,7 @@ export function Gate() {
     })
   }
   if (admin) return h(Admin, { user, onClose: () => setAdmin(false) })
+  // 工作台嵌在 App 侧栏；不再全屏替换对话。
   return h(App, {
     user,
     onUser: setUser,

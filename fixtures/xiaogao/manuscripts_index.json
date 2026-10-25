@@ -1,0 +1,30 @@
+{
+  "source_url": "https://app.notion.com/p/3f888c11a23281ae8075c0dc9f62fe50",
+  "title": "历史稿子",
+  "children": [
+    {"url": "https://app.notion.com/p/3f888c11a232819782a4ea50d1898098", "title": "【个人开发日记1】本机能跑，不等于别人能打开"},
+    {"url": "https://app.notion.com/p/3f888c11a23281eea570e64428c6ec9e", "title": "【个人开发日记2】如何发布自己的网站"},
+    {"url": "https://app.notion.com/p/3f888c11a23281e485c0f8bc7b13434b", "title": "【个人开发日记3】分币不掏就能发布个人网站的几种操作"},
+    {"url": "https://app.notion.com/p/3f888c11a2328122810dce8cd5ec1a30", "title": "【个人开发日记4】0成本运营一个完整的线上服务"},
+    {"url": "https://app.notion.com/p/3f888c11a23281e7a56ed1f290f19d4e", "title": "【整点花活儿】如何快速搭建个人Steam分析网站"},
+    {"url": "https://app.notion.com/p/3f888c11a232811cb8a9dd569a0914d0", "title": "一个免费的数据库+后端"},
+    {"url": "https://app.notion.com/p/3f888c11a23281a39c5ee16843a93aea", "title": "抽屉里的红米，是一台自带电池的小服务器"},
+    {"url": "https://app.notion.com/p/3f888c11a23281a48f10f14e2ec3d832", "title": "网站放国外国内卡不卡"},
+    {"url": "https://app.notion.com/p/3f888c11a23281e4a3eae657d4dad087", "title": "技术向", "type": "folder", "children": [
+      {"url": "https://app.notion.com/p/3f888c11a232818e9444ffef04af8683", "title": "AI基础", "type": "folder", "children": [
+        {"url": "https://app.notion.com/p/3f888c11a23281ef9220e87ef01e84b0", "title": "如何搭建一个个人AI助手"}
+      ]},
+      {"url": "https://app.notion.com/p/3f888c11a2328123b3d3c38dd2decfc5", "title": "云服务基础", "type": "folder", "children": [
+        {"url": "https://app.notion.com/p/3f888c11a2328129b6e6dd6e92def913", "title": "什么是Serverless架构"}
+      ]},
+      {"url": "https://app.notion.com/p/3f888c11a23281cb8741f057f2ec5eb7", "title": "网站基础", "type": "folder", "children": [
+        {"url": "https://app.notion.com/p/3f888c11a232817ba253ca54e02be4b8", "title": "Cloudflare Pages-小黑盒成品"},
+        {"url": "https://app.notion.com/p/3f888c11a2328128b8c5e98735a29002", "title": "Cloudflare为什么被叫赛博菩萨-小黑盒成品"},
+        {"url": "https://app.notion.com/p/3f888c11a23281888478e422b283562d", "title": "Cloudflare系列批量初稿"},
+        {"url": "https://app.notion.com/p/3f888c11a23281a2984ce21a4e6c5147", "title": "为什么Cloudflare被称为赛博佛祖"},
+        {"url": "https://app.notion.com/p/3f888c11a23281e8bc62d4541fa8c858", "title": "什么是CDN"},
+        {"url": "https://app.notion.com/p/3f888c11a2328155a06ac8f4757cc3af", "title": "什么是域名"}
+      ]}
+    ]}
+  ]
+}

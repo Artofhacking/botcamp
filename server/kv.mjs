@@ -6,10 +6,35 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const DATA_ROOT = path.resolve(__dirname, "../data");
-export const KV_ROOT = path.join(DATA_ROOT, "kv");
-export const BLOB_ROOT = path.join(DATA_ROOT, "blobs");
+function moduleDir() {
+  // Demox uploads a CJS bundle where import.meta.url may be missing.
+  const url = typeof import.meta !== "undefined" ? import.meta.url : "";
+  if (!url) return path.resolve(process.cwd(), "server");
+  try {
+    return path.dirname(fileURLToPath(url));
+  } catch {
+    return path.resolve(process.cwd(), "server");
+  }
+}
+
+let dataRoot = path.resolve(moduleDir(), "../data");
+
+export function getDataRoot() {
+  return dataRoot;
+}
+
+/** @deprecated use getDataRoot(); kept as live binding for scripts that import DATA_ROOT */
+export let DATA_ROOT = dataRoot;
+export let KV_ROOT = path.join(dataRoot, "kv");
+export let BLOB_ROOT = path.join(dataRoot, "blobs");
+
+/** Point MediaAccount KV at a directory (e.g. botcamp dataDir). Resets on each call. */
+export function configureDataRoot(root) {
+  dataRoot = path.resolve(root);
+  DATA_ROOT = dataRoot;
+  KV_ROOT = path.join(dataRoot, "kv");
+  BLOB_ROOT = path.join(dataRoot, "blobs");
+}
 
 function keyToPath(key) {
   const safe = String(key).replace(/\.\./g, "").replace(/\\/g, "/");

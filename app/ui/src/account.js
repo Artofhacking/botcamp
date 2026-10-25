@@ -66,3 +66,31 @@ export function updateUser(id, body) {
 export function deleteUser(id) {
   return send('admin/delete', { id })
 }
+
+export function fetchMediaWorkspace() {
+  return send('media/workspace', null)
+}
+
+export function fetchMediaManuscript(accountId, manuscriptId) {
+  return send('media/manuscript', { accountId, manuscriptId })
+}
+
+export function fetchMediaAccounts() {
+  return send('media/accounts', null)
+}
+
+export function focusMediaAccount(accountId) {
+  return send('media/focus', { accountId })
+}
+
+export function createMediaAccount(body) {
+  return send('media/create-account', body ?? {})
+}
+
+export function noteMediaEntity(body) {
+  return send('media/note', body)
+}
+
+export function updateMediaEntity(body) {
+  return send('media/update', body)
+}
