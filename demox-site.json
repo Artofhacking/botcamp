@@ -7,5 +7,5 @@
   "projectId": "PQBDTM6GLZ",
   "projectSlug": "botcamp",
   "projectName": "botcamp",
-  "root": "web/dist"
+  "root": "app/ui/dist"
 }

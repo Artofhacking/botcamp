@@ -186,6 +186,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     onWorkspace: setWorkspace,
     onAnchor,
     anchor,
+    onWrote: bump,
   })
 
   const sessions = h('div', { className: `dsb-side-sessions${sessionsOpen ? '' : ' collapsed'}` },
@@ -259,8 +260,8 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
           type: 'button',
           className: mobilePane === 'workbench' ? 'active' : undefined,
           onClick: () => setMobilePane('workbench'),
-        }, '工作台'),
-        WORKBENCH_TABS.slice(0, 4).map(t => h('button', {
+        }, '看板'),
+        WORKBENCH_TABS.slice(0, 3).map(t => h('button', {
           key: t.id,
           type: 'button',
           className: mobilePane === 'workbench' && tab === t.id ? 'active' : undefined,

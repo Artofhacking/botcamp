@@ -90,3 +90,7 @@ export function createMediaAccount(body) {
 export function noteMediaEntity(body) {
   return send('media/note', body)
 }
+
+export function updateMediaEntity(body) {
+  return send('media/update', body)
+}

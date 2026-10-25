@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build MediaAccount workbench (web/) as Demox site root + authenticated bot function.
-# Site root MUST be BotCamp workbench (title contains BotCamp), NOT DeepSeek Bot shell.
-# Optional: nest DS Bot shell under /shell/.
+# Build DS Bot shell (app/ui) as Demox site root + authenticated bot function.
+# Site root MUST be DeepSeek Bot / dsb-frame chat shell — NOT the web/ workbench chrome.
+# Optional: nest the standalone MediaAccount workbench under /workbench/.
 # Requires demox login or DEMOX_TOKEN. Does not print function env values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIST="$ROOT/web/dist"
+DIST="$ROOT/app/ui/dist"
 META="$ROOT/demox-site.json"
 NAME="${DEMOX_SITE_NAME:-botcamp-dsh-frontend}"
 PROJECT_ID="${DEMOX_PROJECT_ID:-PQBDTM6GLZ}"
@@ -45,14 +45,13 @@ npm --prefix "$ROOT/app" ci
 npm --prefix "$ROOT/app" test
 npm --prefix "$ROOT/app" run build
 
+# Optional secondary surface — never the product home.
 npm install --prefix "$ROOT/web"
 npm run build --prefix "$ROOT/web"
-
-# Optional: keep DS Bot shell under /shell/ for debugging — never as site root.
-if [[ -d "$ROOT/app/ui/dist" ]]; then
-  rm -rf "$DIST/shell"
-  mkdir -p "$DIST/shell"
-  cp -a "$ROOT/app/ui/dist/." "$DIST/shell/"
+if [[ -d "$ROOT/web/dist" ]]; then
+  rm -rf "$DIST/workbench"
+  mkdir -p "$DIST/workbench"
+  cp -a "$ROOT/web/dist/." "$DIST/workbench/"
 fi
 
 python3 - "$DIST/index.html" <<'PY'
@@ -61,11 +60,13 @@ from pathlib import Path
 html = Path(sys.argv[1]).read_text()
 if "location.replace" in html or "camp.aigc.sx.cn" in html:
     raise SystemExit("refusing to deploy: dist/index.html points the browser at camp")
-if "DeepSeek Bot" in html:
-    raise SystemExit("refusing to deploy: site root is still DeepSeek Bot shell — expected web/ workbench")
-if "BotCamp" not in html:
-    raise SystemExit("refusing to deploy: site root title/brand missing BotCamp")
-print("dist/index.html is BotCamp workbench (not DeepSeek Bot)")
+if "自媒体账号工作台" in html:
+    raise SystemExit("refusing to deploy: site root is still web/ workbench — expected DS Bot shell")
+if "DeepSeek Bot" not in html:
+    raise SystemExit("refusing to deploy: site root missing DeepSeek Bot title — expected app/ui shell")
+if 'id="root"' not in html and "id='root'" not in html:
+    raise SystemExit("refusing to deploy: site root missing #root mount")
+print("dist/index.html is DS Bot shell (DeepSeek Bot), not workbench")
 PY
 
 ID=""
@@ -85,7 +86,7 @@ fi
 
 DEPLOY_ARGS=(deploy "$DIST" --name "$NAME" --project "$PROJECT_ID")
 if [[ -n "$ID" ]]; then
-  echo "Updating Demox site $ID in project $PROJECT_ID (BotCamp workbench root + /shell optional)"
+  echo "Updating Demox site $ID in project $PROJECT_ID (DS Bot root + /workbench optional)"
   DEPLOY_ARGS+=(--id "$ID")
 else
   echo "Creating a Demox site in project $PROJECT_ID"
@@ -120,7 +121,7 @@ payload.update({
     "projectId": "$PROJECT_ID",
     "projectSlug": existing.get("projectSlug") or "botcamp",
     "projectName": existing.get("projectName") or "botcamp",
-    "root": "web/dist",
+    "root": "app/ui/dist",
 })
 meta_path.write_text(json.dumps(payload, indent=2) + "\n")
 print(f"Wrote {meta_path}: {site_id} -> {url}")
@@ -169,8 +170,8 @@ while [[ $attempt -le 5 ]]; do
   attempt=$((attempt + 1))
 done
 
-# Live title proof (fail if CDN still serves DeepSeek Bot)
-echo "Verifying live HTML title…"
+# Live title proof (fail if CDN still serves workbench-first chrome)
+echo "Verifying live HTML is DS Bot shell…"
 sleep 3
 curl -fsS "https://botcamp.demox.site/" -o "$tmpdir/live.html"
 python3 - "$tmpdir/live.html" <<'PY'
@@ -180,12 +181,28 @@ text = Path(sys.argv[1]).read_text()
 m = re.search(r"<title>([^<]*)</title>", text, re.I)
 title = m.group(1).strip() if m else ""
 print(f"live <title>={title!r}")
-if "DeepSeek Bot" in text:
-    raise SystemExit("LIVE site still serves DeepSeek Bot — deploy verification failed")
-if "BotCamp" not in title and "BotCamp" not in text[:1200]:
-    raise SystemExit("LIVE site missing BotCamp brand in head — deploy verification failed")
-print("LIVE title proof OK")
+if "自媒体账号工作台" in text:
+    raise SystemExit("LIVE site still serves workbench-first chrome — deploy verification failed")
+if "DeepSeek Bot" not in title and "DeepSeek Bot" not in text[:1500]:
+    raise SystemExit("LIVE site missing DeepSeek Bot shell title — deploy verification failed")
+if 'id="root"' not in text and "id='root'" not in text:
+    raise SystemExit("LIVE site missing #root — deploy verification failed")
+print("LIVE DS Bot shell proof OK")
 PY
 
-echo "BotCamp 工作台（web/dist）已发布为站点根；可选 /shell/ 为 DS Bot。云函数 production → v${VERSION}。"
+# Board is React-side; prove the built bundle still carries the SoT side panel entry.
+python3 - "$DIST" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+assets = list((root / "assets").glob("*.js"))
+blob = "\n".join(p.read_text(errors="ignore") for p in assets)
+needles = ("Needs you", "看板", "media/update", "dsb-mw", "dsb-frame")
+missing = [n for n in needles if n not in blob]
+if missing:
+    raise SystemExit(f"built DS Bot bundle missing board markers: {missing}")
+print("built board entry markers OK:", ", ".join(needles))
+PY
+
+echo "DS Bot 壳（app/ui/dist）已发布为站点根；可选 /workbench/ 为独立工作台。云函数 production → v${VERSION}。"
 echo "账号环境变量要用 demox env set 单独设置，不要写进仓库。"

@@ -130,6 +130,12 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-mw-funnel{display:flex;flex-wrap:wrap;gap:6px}
 .dsb-mw-funnel span{font-size:11px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--bt-ink) 6%,transparent)}
 .dsb-mw-focus{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.dsb-mw-need{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
+.dsb-mw-need:last-child{border-bottom:0}
+.dsb-mw-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.dsb-mw-act{height:26px;padding:0 9px;border:0;border-radius:7px;background:var(--bt-ink);color:var(--bt-main,#fff);font:inherit;font-size:12px;cursor:pointer}
+.dsb-mw-act.ghost{background:color-mix(in srgb,var(--bt-ink) 8%,transparent);color:var(--bt-ink)}
+.dsb-mw-act:disabled{opacity:.45;cursor:default}
 .dsb-mw-item,.dsb-mw-link{align-self:flex-start;padding:0;border:0;background:none;color:var(--bt-accent,#4d6bfe);font:inherit;font-size:13px;text-align:left;cursor:pointer}
 .dsb-mw-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .dsb-mw-list li{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}

@@ -106,7 +106,7 @@ npx --yes @demox-site/cli@1.1.6 env unset --id IVBLF9PE --slug bot BOTCAMP_DATA_
 
 按设计文档持久化 **MediaAccount** 号下数据，并用带标签页的工作台查看。种子：**小稿的AI日记 @ 小黑盒**（归属 `phosa`）。Schema 固定；凭证只存 `credential_ref`。
 
-公网站点 https://botcamp.demox.site/ **主入口是 BotCamp / DeepSeek Bot 聊天壳**（邮箱+密码登录）。自媒体工作台在登录后左下角「自媒体账号」；可选静态副本在 `/media/`（演示用户选择器，仅本地/调试用）。读写走 `POST /api/bot` 的 `media/*` CONTROL。`./scripts/deploy-demox.sh` 发布 `app/ui/dist` + bot 函数。
+公网站点 https://botcamp.demox.site/ **主入口是 DeepSeek Bot 聊天壳**（`app/ui`，Grok-bot 风格对话 + 侧栏轻量看板）。邮箱+密码登录后：主区对话走 DS Bot chat/feed；侧栏「看板 / Needs you / 漏斗」读写 MediaAccount SoT。独立工作台静态副本可选 `/workbench/`（调试用，不是产品首页）。读写走 `POST /api/bot` 的 `media/*` CONTROL。`./scripts/deploy-demox.sh` 发布 `app/ui/dist` 为根 + bot 函数。
 
 ### 本地运行
 
