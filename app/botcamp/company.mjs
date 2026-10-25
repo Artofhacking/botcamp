@@ -77,12 +77,15 @@ function botShape(member) {
 function roomShape(account) {
   const id = roomIdForAccount(account.id)
   const platform = account.platform === 'xiaoheihe' ? '小黑盒' : (account.platform || '')
+  const members = [CHIEF_ID, WRITER_ID, OPS_ID]
   return {
     id,
     name: account.display_name,
     brief: `项目群 · ${platform} · 跟进本号进度与报表`,
     sessionId: id,
-    memberIds: [CHIEF_ID, WRITER_ID, OPS_ID],
+    // DS Bot sidebar / RoomAvatar expect `members` (ids), not memberIds.
+    members,
+    memberIds: members,
     createdAt: 2,
     named: true,
   }

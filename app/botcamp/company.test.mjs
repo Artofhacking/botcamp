@@ -25,6 +25,8 @@ test('company state lists employees and project rooms without an account gate', 
     assert.equal(state.mainBotId, CHIEF_ID)
     assert.deepEqual(state.bots.map((b) => b.name), ['总负责人', '写手', '运营'])
     assert.ok(state.rooms.some((r) => /小稿/.test(r.name)))
+    const room = state.rooms.find((r) => /小稿/.test(r.name))
+    assert.ok(Array.isArray(room.members) && room.members.includes(CHIEF_ID), 'rooms must expose members for DS Bot UI')
     assert.equal(isCompanySessionId(CHIEF_ID), true)
   } finally {
     configureDataRoot(prev)
