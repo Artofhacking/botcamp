@@ -206,12 +206,14 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .dsb-frame[data-whiteboard]>.dsb-main{grid-column:2}
 .dsb-frame[data-whiteboard]>.wb-panel{grid-column:3;grid-row:1;min-width:0;min-height:0}
 .wb-fab{position:fixed;top:12px;right:14px;z-index:30;height:32px;padding:0 12px;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:999px;background:color-mix(in srgb,var(--bt-main) 88%,transparent);backdrop-filter:blur(8px);color:var(--bt-ink);font:inherit;font-size:13px;cursor:pointer;box-shadow:0 4px 16px color-mix(in srgb,var(--bt-ink) 10%,transparent)}
-.wb-fab:hover,.wb-fab.open{border-color:color-mix(in srgb,var(--bt-ink) 28%,transparent);background:var(--bt-main)}
+.wb-fab:hover{border-color:color-mix(in srgb,var(--bt-ink) 28%,transparent);background:var(--bt-main)}
 .wb-panel{display:flex;flex-direction:column;min-height:0;background:var(--bt-main);border-left:1px solid color-mix(in srgb,var(--bt-ink) 12%,transparent)}
 .wb-head{display:flex;align-items:center;gap:8px;padding:10px 12px 6px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
-.wb-head-actions{margin-left:auto;display:flex;gap:6px}
+.wb-head-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
 .wb-quiet{padding:0 6px;border:0;background:none;color:var(--bt-ink-2);font:inherit;font-size:12px;cursor:pointer}
 .wb-quiet:hover{color:var(--bt-ink)}
+.wb-close{height:28px;padding:0 10px;border:1px solid color-mix(in srgb,var(--bt-ink) 16%,transparent);border-radius:8px;background:color-mix(in srgb,var(--bt-ink) 6%,transparent);color:var(--bt-ink);font:inherit;font-size:12px;cursor:pointer}
+.wb-close:hover{background:color-mix(in srgb,var(--bt-ink) 12%,transparent)}
 .wb-cat{font-size:11px;color:var(--bt-ink-3)}
 .wb-tools{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
 .wb-tools button{height:26px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:var(--bt-ink-2);font:inherit;font-size:12px;cursor:pointer}

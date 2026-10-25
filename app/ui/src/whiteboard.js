@@ -446,7 +446,13 @@ export function WhiteboardPanel({
       board?.category ? h('span', { className: 'wb-cat' }, board.category) : null,
       h('div', { className: 'wb-head-actions' },
         h('button', { type: 'button', className: 'wb-quiet', onClick: openWarehouse }, '仓库'),
-        h('button', { type: 'button', className: 'wb-quiet', onClick: onClose }, '关闭'))),
+        h('button', {
+          type: 'button',
+          className: 'wb-close',
+          onClick: onClose,
+          'aria-label': '关闭白板',
+          title: '关闭白板，恢复对话全宽',
+        }, '关闭白板'))),
     picker
       ? h('div', { className: 'wb-picker' },
         h('button', { type: 'button', className: 'wb-primary', onClick: onCreateBoard }, '新建白板'),
@@ -524,11 +530,12 @@ export function WhiteboardPanel({
 }
 
 export function WhiteboardFab({ open, onClick }) {
+  // Open board owns the chrome; floating entry must disappear until closed.
+  if (open) return null
   return h('button', {
     type: 'button',
-    className: `wb-fab${open ? ' open' : ''}`,
+    className: 'wb-fab',
     onClick,
     title: '打开白板',
-    'aria-pressed': open,
   }, '白板')
 }
