@@ -215,11 +215,14 @@ export async function materializeFolder(root, rel) {
 export async function runWorkspace({ root, workspaceId, endpoint, payload }) {
   if (endpoint === 'workspace-list' || endpoint === 'workspaces') {
     const listing = await listDirectories(root, '')
+    const entry = { id: workspaceId, workspaceId, name: '我的工作区', sessionIds: [] }
     return {
       ok: true,
       value: {
-        workspaces: [{ id: workspaceId, name: '我的工作区' }],
-        folders: (listing?.entries ?? []).map(entry => ({ path: entry.path, title: entry.name })),
+        workspaces: [entry],
+        // DSH host workspaces.list reads `.items` (workspaceId + sessionIds).
+        items: [entry],
+        folders: (listing?.entries ?? []).map(folder => ({ path: folder.path, title: folder.name })),
       },
     }
   }
