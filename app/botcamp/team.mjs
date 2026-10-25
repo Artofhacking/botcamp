@@ -4,7 +4,7 @@
 export const DEFAULT_TEAM = Object.freeze([
   {
     name: '总负责人',
-    brief: '协调写手与运营。你进公司先看到团队；问某个号或全部号的状态，由我出报表与进度汇报。',
+    brief: '协调写手与运营。你进公司先看到团队；问某个号或全部号的进度，由我把表格和文章落到看板上。',
     color: 'blue',
     avatar: { shape: 'star' },
   },

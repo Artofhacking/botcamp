@@ -14,166 +14,131 @@ import {
 const TOOLS = [
   { id: 'select', label: '选择' },
   { id: 'pan', label: '平移' },
-  { id: 'rect', label: '矩形' },
-  { id: 'ellipse', label: '椭圆' },
-  { id: 'diamond', label: '菱形' },
-  { id: 'text', label: '文本' },
-  { id: 'note', label: '卡片' },
-  { id: 'frame', label: '画框' },
-  { id: 'connector', label: '连线' },
+  { id: 'table', label: '表格' },
+  { id: 'article', label: '文章' },
+  { id: 'icon', label: '图标' },
 ]
 
-function diamondPoints(x, y, w, h) {
-  const mx = x + w / 2
-  const my = y + h / 2
-  return `${mx},${y} ${x + w},${my} ${mx},${y + h} ${x},${my}`
+const ICON_GLYPH = {
+  column: '▣',
+  post: '✎',
+  draft: '◌',
+  alert: '!',
+  ok: '✓',
+  marker: '●',
 }
 
-function anchorPoint(obj, which = 'c') {
-  const ax = { l: obj.x, c: obj.x + obj.w / 2, r: obj.x + obj.w }
-  const ay = { t: obj.y, c: obj.y + obj.h / 2, b: obj.y + obj.h }
-  if (which === 'n') return { x: ax.c, y: ay.t }
-  if (which === 's') return { x: ax.c, y: ay.b }
-  if (which === 'w') return { x: ax.l, y: ay.c }
-  if (which === 'e') return { x: ax.r, y: ay.c }
-  return { x: ax.c, y: ay.c }
+function iconGlyph(name) {
+  return ICON_GLYPH[name] || ICON_GLYPH.marker
 }
 
-function connectorPath(from, to) {
-  if (!from || !to) return ''
-  const a = anchorPoint(from, 'e')
-  const b = anchorPoint(to, 'w')
-  const mx = (a.x + b.x) / 2
-  return `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`
+function TableView({ obj }) {
+  const columns = Array.isArray(obj.columns) && obj.columns.length ? obj.columns : ['列']
+  const rows = Array.isArray(obj.rows) ? obj.rows : []
+  return h('div', { className: 'wb-comp wb-table' },
+    obj.title ? h('div', { className: 'wb-comp-title' }, obj.title) : null,
+    h('table', null,
+      h('thead', null, h('tr', null, columns.map((c, i) => h('th', { key: i }, c)))),
+      h('tbody', null,
+        rows.length
+          ? rows.map((row, ri) => h('tr', { key: ri },
+            columns.map((_, ci) => h('td', { key: ci }, row[ci] ?? ''))))
+          : h('tr', null, h('td', { colSpan: columns.length }, '（无行）')))))
 }
 
-function CanvasObject({ obj, selected, byId, onPointerDown }) {
+function ArticleView({ obj }) {
+  return h('div', { className: 'wb-comp wb-article' },
+    h('div', { className: 'wb-comp-title' }, obj.title || '文章'),
+    h('div', { className: 'wb-comp-body' }, obj.body || obj.text || ''))
+}
+
+function IconView({ obj }) {
+  return h('div', { className: 'wb-comp wb-icon' },
+    h('span', { className: 'wb-icon-glyph', 'aria-hidden': true }, iconGlyph(obj.icon)),
+    h('span', { className: 'wb-icon-label' }, obj.label || obj.title || '标记'))
+}
+
+function CanvasObject({ obj, selected, onPointerDown }) {
   if (obj.archived_at) return null
-  const common = {
+  let body = null
+  if (obj.type === 'table') body = h(TableView, { obj })
+  else if (obj.type === 'icon') body = h(IconView, { obj })
+  else body = h(ArticleView, { obj })
+  return h('div', {
+    className: `wb-node${selected ? ' selected' : ''}`,
     'data-id': obj.id,
+    'data-type': obj.type,
+    style: {
+      transform: `translate(${obj.x}px, ${obj.y}px)`,
+      width: obj.w,
+      minHeight: obj.h,
+    },
     onPointerDown: (e) => onPointerDown(e, obj),
-    style: { cursor: 'pointer' },
-  }
-  if (obj.type === 'connector') {
-    const d = connectorPath(byId.get(obj.from_id), byId.get(obj.to_id))
-    if (!d) return null
-    return h('path', {
-      ...common,
-      d,
-      fill: 'none',
-      stroke: selected ? '#2563eb' : (obj.stroke || '#334155'),
-      strokeWidth: selected ? 2.5 : (obj.stroke_width || 1.5),
-      markerEnd: 'url(#wb-arrow)',
-    })
-  }
-  const stroke = selected ? '#2563eb' : (obj.stroke || '#334155')
-  const fill = obj.fill || '#fff'
-  const sw = selected ? 2.25 : (obj.stroke_width || 1.25)
-  let shape = null
-  if (obj.type === 'ellipse') {
-    shape = h('ellipse', {
-      cx: obj.x + obj.w / 2,
-      cy: obj.y + obj.h / 2,
-      rx: obj.w / 2,
-      ry: obj.h / 2,
-      fill,
-      stroke,
-      strokeWidth: sw,
-    })
-  } else if (obj.type === 'diamond') {
-    shape = h('polygon', { points: diamondPoints(obj.x, obj.y, obj.w, obj.h), fill, stroke, strokeWidth: sw })
-  } else if (obj.type === 'frame') {
-    shape = h('rect', {
-      x: obj.x,
-      y: obj.y,
-      width: obj.w,
-      height: obj.h,
-      rx: 4,
-      fill: 'transparent',
-      stroke,
-      strokeWidth: sw,
-      strokeDasharray: '6 4',
-    })
-  } else {
-    shape = h('rect', {
-      x: obj.x,
-      y: obj.y,
-      width: obj.w,
-      height: obj.h,
-      rx: obj.type === 'note' ? 10 : 6,
-      fill: obj.type === 'note' ? (obj.fill || '#f8fafc') : fill,
-      stroke,
-      strokeWidth: sw,
-    })
-  }
-  const lines = String(obj.text || '').split('\n').slice(0, 12)
-  return h('g', common,
-    shape,
-    lines.length
-      ? h('text', {
-        x: obj.x + 12,
-        y: obj.y + 22,
-        fill: 'var(--bt-ink, #0f172a)',
-        fontSize: 13,
-        fontFamily: 'inherit',
-      }, lines.map((line, i) => h('tspan', { key: i, x: obj.x + 12, dy: i === 0 ? 0 : 16 }, line.slice(0, 48))))
-      : null)
+  }, body)
 }
 
-function World({ objects, selectedId, camera, onPointerDown, onWheel, onPointerMove, onPointerUp, svgRef }) {
-  const byId = new Map(objects.map((o) => [o.id, o]))
-  const sorted = [...objects].sort((a, b) => {
-    if (a.type === 'frame' && b.type !== 'frame') return -1
-    if (b.type === 'frame' && a.type !== 'frame') return 1
-    if (a.type === 'connector' && b.type !== 'connector') return 1
-    if (b.type === 'connector' && a.type !== 'connector') return -1
-    return (a.z || 0) - (b.z || 0)
-  })
-  return h('svg', {
-    ref: svgRef,
-    className: 'wb-svg',
+function World({ objects, selectedId, camera, onPointerDown, onWheel, onPointerMove, onPointerUp, surfaceRef }) {
+  const sorted = [...objects].sort((a, b) => (a.z || 0) - (b.z || 0))
+  return h('div', {
+    ref: surfaceRef,
+    className: 'wb-surface',
     onWheel,
     onPointerMove,
     onPointerUp,
     onPointerLeave: onPointerUp,
+    onPointerDown: (e) => {
+      if (e.target === e.currentTarget || e.target.classList?.contains('wb-world')) onPointerDown(e, null)
+    },
   },
-    h('defs', null,
-      h('marker', {
-        id: 'wb-arrow',
-        viewBox: '0 0 10 10',
-        refX: 8,
-        refY: 5,
-        markerWidth: 7,
-        markerHeight: 7,
-        orient: 'auto-start-reverse',
-      }, h('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#334155' })),
-      h('pattern', {
-        id: 'wb-grid',
-        width: 32,
-        height: 32,
-        patternUnits: 'userSpaceOnUse',
-      }, h('path', {
-        d: 'M 32 0 L 0 0 0 32',
-        fill: 'none',
-        stroke: 'color-mix(in srgb, var(--bt-ink) 10%, transparent)',
-        strokeWidth: 1,
-      }))),
-    h('g', { transform: `translate(${camera.x},${camera.y}) scale(${camera.zoom})` },
-      h('rect', {
-        x: -4000,
-        y: -4000,
-        width: 8000,
-        height: 8000,
-        fill: 'url(#wb-grid)',
-        onPointerDown: (e) => onPointerDown(e, null),
-      }),
+    h('div', {
+      className: 'wb-world',
+      style: { transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})` },
+    },
       sorted.map((obj) => h(CanvasObject, {
         key: obj.id,
         obj,
         selected: obj.id === selectedId,
-        byId,
         onPointerDown,
       }))))
+}
+
+function blankComponent(type, world) {
+  if (type === 'table') {
+    return {
+      type: 'table',
+      x: world.x,
+      y: world.y,
+      w: 360,
+      h: 180,
+      title: '新表格',
+      columns: ['项目', '状态'],
+      rows: [['示例', '进行中']],
+      created_by: 'user',
+    }
+  }
+  if (type === 'icon') {
+    return {
+      type: 'icon',
+      x: world.x,
+      y: world.y,
+      w: 140,
+      h: 44,
+      icon: 'marker',
+      label: '标记',
+      title: '标记',
+      created_by: 'user',
+    }
+  }
+  return {
+    type: 'article',
+    x: world.x,
+    y: world.y,
+    w: 240,
+    h: 140,
+    title: '新文章',
+    body: '在此写正文。',
+    created_by: 'user',
+  }
 }
 
 export function WhiteboardPanel({
@@ -192,8 +157,7 @@ export function WhiteboardPanel({
   const [warehouse, setWarehouse] = useState(null)
   const [busy, setBusy] = useState(false)
   const drag = useRef(null)
-  const svgRef = useRef(null)
-  const connectFrom = useRef(null)
+  const surfaceRef = useRef(null)
 
   const camera = board?.camera || { x: 0, y: 0, zoom: 1 }
 
@@ -211,7 +175,7 @@ export function WhiteboardPanel({
       setBoard(res.board)
       await refreshList()
     } catch (failure) {
-      setError(failure?.message || '加载白板失败')
+      setError(failure?.message || '加载看板失败')
     } finally {
       setBusy(false)
     }
@@ -251,7 +215,7 @@ export function WhiteboardPanel({
   }
 
   const clientToWorld = (event) => {
-    const rect = svgRef.current?.getBoundingClientRect()
+    const rect = surfaceRef.current?.getBoundingClientRect()
     if (!rect) return { x: 0, y: 0 }
     return {
       x: (event.clientX - rect.left - camera.x) / camera.zoom,
@@ -263,7 +227,7 @@ export function WhiteboardPanel({
     event.preventDefault()
     const factor = event.deltaY > 0 ? 0.92 : 1.08
     const zoom = Math.min(3, Math.max(0.2, camera.zoom * factor))
-    const rect = svgRef.current?.getBoundingClientRect()
+    const rect = surfaceRef.current?.getBoundingClientRect()
     if (!rect) return
     const mx = event.clientX - rect.left
     const my = event.clientY - rect.top
@@ -276,48 +240,20 @@ export function WhiteboardPanel({
     if (!board) return
     event.stopPropagation()
     const world = clientToWorld(event)
-    if (tool === 'pan' || event.button === 1 || event.spaceKey) {
+    if (tool === 'pan' || event.button === 1) {
       drag.current = { kind: 'pan', x: event.clientX, y: event.clientY, cam: { ...camera } }
       event.currentTarget?.setPointerCapture?.(event.pointerId)
       return
     }
-    if (tool === 'connector') {
-      if (!obj || obj.type === 'connector') return
-      if (!connectFrom.current) {
-        connectFrom.current = obj.id
-        setSelectedId(obj.id)
-        return
-      }
-      if (connectFrom.current === obj.id) return
-      const connector = {
-        type: 'connector',
-        from_id: connectFrom.current,
-        to_id: obj.id,
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-        text: '',
-        created_by: 'user',
-      }
-      connectFrom.current = null
-      void persistObjects([connector])
-      return
-    }
     if (tool !== 'select' && !obj) {
-      const type = tool
-      const draft = {
-        type,
-        x: world.x,
-        y: world.y,
-        w: type === 'text' ? 160 : 200,
-        h: type === 'text' ? 40 : type === 'frame' ? 220 : 120,
-        text: type === 'text' ? '文本' : type === 'frame' ? '画框' : type === 'note' ? '卡片' : '',
-        fill: type === 'frame' ? 'transparent' : type === 'note' ? '#f8fafc' : '#ffffff',
-        created_by: 'user',
-      }
-      drag.current = { kind: 'create', draft, ox: world.x, oy: world.y }
-      setSelectedId(null)
+      const draft = blankComponent(tool, world)
+      void (async () => {
+        const res = await upsertObjects({ boardId: board.id, objects: [draft] })
+        setBoard(res.board)
+        const created = res.objects?.[0]
+        if (created) setSelectedId(created.id)
+        setTool('select')
+      })()
       return
     }
     if (obj) {
@@ -347,22 +283,12 @@ export function WhiteboardPanel({
       setBoard({ ...board, camera: next })
       return
     }
-    const world = clientToWorld(event)
     if (d.kind === 'move') {
+      const world = clientToWorld(event)
       const objects = board.objects.map((o) => (o.id === d.id
         ? { ...o, x: d.baseX + (world.x - d.ox), y: d.baseY + (world.y - d.oy) }
         : o))
       setBoard({ ...board, objects })
-      return
-    }
-    if (d.kind === 'create') {
-      const w = Math.max(40, world.x - d.ox)
-      const h = Math.max(28, world.y - d.oy)
-      d.draft = { ...d.draft, x: d.ox, y: d.oy, w, h }
-      setBoard({
-        ...board,
-        objects: [...board.objects.filter((o) => o.id !== '__draft__'), { ...d.draft, id: '__draft__' }],
-      })
     }
   }
 
@@ -377,22 +303,11 @@ export function WhiteboardPanel({
     if (d.kind === 'move') {
       const obj = board.objects.find((o) => o.id === d.id)
       if (obj) await persistObjects([obj])
-      return
-    }
-    if (d.kind === 'create' && d.draft) {
-      const { id: _drop, ...rest } = d.draft
-      const cleaned = board.objects.filter((o) => o.id !== '__draft__')
-      setBoard({ ...board, objects: cleaned })
-      const res = await upsertObjects({ boardId: board.id, objects: [rest] })
-      setBoard(res.board)
-      const created = res.objects?.[0]
-      if (created) setSelectedId(created.id)
-      setTool('select')
     }
   }
 
   const onCreateBoard = async () => {
-    const title = window.prompt('白板名称', '新白板')
+    const title = window.prompt('看板名称', '新看板')
     if (title == null) return
     const category = window.prompt('分类（可留空）', '') || null
     const res = await createBoard({ title, category, sessionId })
@@ -424,25 +339,35 @@ export function WhiteboardPanel({
     if (!obj) return
     setSelectedId(objectId)
     const zoom = camera.zoom || 1
-    const x = 200 - obj.x * zoom
-    const y = 160 - obj.y * zoom
+    const x = 120 - obj.x * zoom
+    const y = 80 - obj.y * zoom
     void persistCamera({ x, y, zoom })
   }
 
-  useEffect(() => {
-    if (selectedId && board?.objects?.some((o) => o.id === selectedId)) {
-      /* keep */
-    }
-  }, [selectedId, board])
+  const selected = board?.objects?.find((o) => o.id === selectedId) || null
+
+  const patchSelected = (patch) => {
+    if (!board || !selected) return
+    setBoard({
+      ...board,
+      objects: board.objects.map((o) => (o.id === selected.id ? { ...o, ...patch } : o)),
+    })
+  }
+
+  const commitSelected = () => {
+    if (!selected) return
+    const current = board.objects.find((o) => o.id === selected.id)
+    if (current) void persistObjects([current])
+  }
 
   if (!open) return null
 
   const categories = [...new Set(boards.map((b) => b.category || '未分类'))]
 
-  return h('section', { className: 'wb-panel', 'aria-label': '白板' },
+  return h('section', { className: 'wb-panel', 'aria-label': '看板' },
     h('header', { className: 'wb-head' },
       h('button', { type: 'button', className: 'wb-quiet', onClick: () => setPicker((v) => !v) },
-        board ? board.title : '选择白板'),
+        board ? board.title : '选择看板'),
       board?.category ? h('span', { className: 'wb-cat' }, board.category) : null,
       h('div', { className: 'wb-head-actions' },
         h('button', { type: 'button', className: 'wb-quiet', onClick: openWarehouse }, '仓库'),
@@ -455,7 +380,7 @@ export function WhiteboardPanel({
         }, '关闭白板'))),
     picker
       ? h('div', { className: 'wb-picker' },
-        h('button', { type: 'button', className: 'wb-primary', onClick: onCreateBoard }, '新建白板'),
+        h('button', { type: 'button', className: 'wb-primary', onClick: onCreateBoard }, '新建看板'),
         categories.map((cat) => h('div', { key: cat, className: 'wb-picker-group' },
           h('div', { className: 'wb-picker-label' }, cat),
           boards.filter((b) => (b.category || '未分类') === cat).map((b) => h('button', {
@@ -470,7 +395,7 @@ export function WhiteboardPanel({
         key: t.id,
         type: 'button',
         className: tool === t.id ? 'active' : undefined,
-        onClick: () => { setTool(t.id); connectFrom.current = null },
+        onClick: () => setTool(t.id),
       }, t.label)),
       h('button', {
         type: 'button',
@@ -479,37 +404,56 @@ export function WhiteboardPanel({
         title: '下墙进仓库（不删除）',
       }, '下墙')),
     error ? h('p', { className: 'wb-error', role: 'alert' }, error) : null,
-    busy && !board ? h('p', { className: 'wb-muted' }, '加载白板…') : null,
+    busy && !board ? h('p', { className: 'wb-muted' }, '加载看板…') : null,
     board
       ? h(World, {
         objects: board.objects || [],
         selectedId,
         camera,
-        svgRef,
+        surfaceRef,
         onPointerDown,
         onPointerMove,
         onPointerUp,
         onWheel,
       })
       : null,
-    selectedId && board
+    selected
       ? h('div', { className: 'wb-inspector' },
-        h('button', { type: 'button', className: 'wb-quiet', onClick: () => focusObject(selectedId) }, '定位'),
-        h('textarea', {
-          value: board.objects.find((o) => o.id === selectedId)?.text || '',
-          rows: 3,
-          onChange: (e) => {
-            const text = e.target.value
-            setBoard({
-              ...board,
-              objects: board.objects.map((o) => (o.id === selectedId ? { ...o, text } : o)),
+        h('button', { type: 'button', className: 'wb-quiet', onClick: () => focusObject(selected.id) }, '定位'),
+        selected.type === 'table'
+          ? h('textarea', {
+            rows: 4,
+            value: [
+              selected.title || '',
+              (selected.columns || []).join('\t'),
+              ...(selected.rows || []).map((r) => r.join('\t')),
+            ].join('\n'),
+            onChange: (e) => {
+              const lines = e.target.value.split('\n')
+              const title = lines[0] || ''
+              const columns = (lines[1] || '').split('\t').filter(Boolean)
+              const rows = lines.slice(2).filter(Boolean).map((line) => line.split('\t'))
+              patchSelected({ title, columns, rows, text: e.target.value })
+            },
+            onBlur: commitSelected,
+          })
+          : selected.type === 'icon'
+            ? h('input', {
+              value: selected.label || '',
+              onChange: (e) => patchSelected({ label: e.target.value, title: e.target.value, text: e.target.value }),
+              onBlur: commitSelected,
             })
-          },
-          onBlur: () => {
-            const obj = board.objects.find((o) => o.id === selectedId)
-            if (obj) void persistObjects([obj])
-          },
-        }))
+            : h('textarea', {
+              rows: 4,
+              value: `${selected.title || ''}\n${selected.body || ''}`,
+              onChange: (e) => {
+                const i = e.target.value.indexOf('\n')
+                const title = i < 0 ? e.target.value : e.target.value.slice(0, i)
+                const body = i < 0 ? '' : e.target.value.slice(i + 1)
+                patchSelected({ title, body, text: e.target.value })
+              },
+              onBlur: commitSelected,
+            }))
       : null,
     warehouse
       ? h('div', { className: 'wb-warehouse' },
@@ -521,16 +465,15 @@ export function WhiteboardPanel({
           : warehouse.map((item) => h('div', { key: `${item.board_id}:${item.object.id}`, className: 'wb-warehouse-row' },
             h('div', null,
               h('strong', null, item.board_title),
-              h('p', null, (item.object.text || item.object.type).slice(0, 80))),
+              h('p', null, (item.object.title || item.object.label || item.object.type || '').slice(0, 80))),
             h('button', {
               type: 'button',
               onClick: () => void onRestore(item.board_id, item.object.id),
-            }, '放回白板'))))
+            }, '放回看板'))))
       : null)
 }
 
 export function WhiteboardFab({ open, onClick }) {
-  // Open board owns the chrome; floating entry must disappear until closed.
   if (open) return null
   return h('button', {
     type: 'button',

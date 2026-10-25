@@ -8,7 +8,7 @@ import { seed } from '../../scripts/seed.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import {
   buildCompanyState,
-  buildProgressReport,
+  buildStatusKanban,
   CHIEF_ID,
   companyChatPage,
   companySend,
@@ -34,26 +34,29 @@ test('company state lists employees and project rooms without an account gate', 
   }
 })
 
-test('chief send returns a real SoT progress report', async () => {
+test('chief send places kanban table/article/icon components', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
   const prev = getDataRoot()
   try {
     configureDataRoot(path.join(dir, 'media-store'))
     seed()
-    const report = buildProgressReport(PHOSA_OWNER_ID, {})
-    assert.match(report, /进度汇报/)
-    assert.match(report, /小稿/)
-    assert.match(report, /漏斗/)
+    const kanban = buildStatusKanban(PHOSA_OWNER_ID, {})
+    assert.match(kanban.heading, /看板/)
+    assert.ok(kanban.columns.some((c) => c.name === '待你处理'))
+    assert.equal(kanban.table.columns.includes('账号'), true)
+    assert.doesNotMatch(JSON.stringify(kanban), /报表/)
+
     const page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
     assert.equal(page.ok, true)
-    const sent = companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '全部号出个报表' })
+    const sent = companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '全部号进度' })
     assert.equal(sent.ok, true)
     const after = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
     const last = after.value.items.at(-1)
     assert.equal(last.kind, 'bot')
-    assert.match(last.text, /漏斗/)
-    assert.match(last.text, /MediaAccount SoT/)
+    assert.match(last.text, /看板/)
     assert.match(last.text, /board:\/\//)
+    assert.doesNotMatch(last.text, /报表/)
+    assert.ok(sent.value.boardLink?.href)
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

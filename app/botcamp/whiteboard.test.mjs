@@ -8,7 +8,7 @@ import { handleWhiteboardControl } from './whiteboard.mjs'
 
 const user = { id: 'u_wb_test', email: 'admin@example.com', role: 'admin' }
 
-test('whiteboard create, place shapes, archive to warehouse', async () => {
+test('whiteboard components: table article icon, archive warehouse, kanban place', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-wb-'))
   const prev = getDataRoot()
   try {
@@ -19,26 +19,35 @@ test('whiteboard create, place shapes, archive to warehouse', async () => {
     const upsert = handleWhiteboardControl({}, 'whiteboard/objects/upsert', {
       boardId,
       objects: [
-        { type: 'rect', x: 40, y: 40, w: 120, h: 80, text: '矩形' },
-        { type: 'ellipse', x: 200, y: 40, w: 100, h: 80, text: '圆' },
-        { type: 'note', x: 40, y: 160, w: 220, h: 120, text: '进度卡' },
+        { type: 'table', x: 40, y: 40, w: 320, h: 160, title: '漏斗', columns: ['阶段', '数'], rows: [['选题', '3']] },
+        { type: 'article', x: 40, y: 220, w: 240, h: 120, title: '待处理帖', body: '正文' },
+        { type: 'icon', x: 300, y: 220, w: 120, h: 44, icon: 'alert', label: '待你处理' },
+        { type: 'rect', x: 0, y: 0, w: 10, h: 10, text: 'legacy' },
       ],
     }, user)
-    assert.equal(upsert.body.board.objects.length, 3)
+    assert.equal(upsert.body.board.objects.length, 4)
+    assert.ok(upsert.body.board.objects.every((o) => ['table', 'article', 'icon'].includes(o.type)))
     const id = upsert.body.objects[0].id
     const archived = handleWhiteboardControl({}, 'whiteboard/objects/archive', { boardId, objectId: id }, user)
-    assert.equal(archived.body.board.objects.length, 2)
+    assert.equal(archived.body.board.objects.length, 3)
     const warehouse = handleWhiteboardControl({}, 'whiteboard/warehouse', {}, user)
     assert.equal(warehouse.body.items.length, 1)
     assert.equal(warehouse.body.items[0].object.id, id)
     const placed = handleWhiteboardControl({}, 'whiteboard/place', {
       boardId,
-      title: 'Bot 落板',
-      body: '真实画布对象',
-      type: 'note',
+      heading: '小稿 · 看板',
+      columns: [
+        { name: '待你处理', icon: 'alert', items: [{ title: '帖 A', body: '待确认' }] },
+        { name: '写稿中', icon: 'post', items: [] },
+      ],
+      table: { title: '汇总', columns: ['账号', '粉丝'], rows: [['小稿', '448']] },
+      createdBy: '总负责人',
     }, user)
     assert.match(placed.body.link.href, /^board:\/\//)
-    assert.ok(placed.body.board.objects.some((o) => o.text.includes('Bot 落板')))
+    assert.ok(placed.body.board.objects.some((o) => o.type === 'table'))
+    assert.ok(placed.body.board.objects.some((o) => o.type === 'article'))
+    assert.ok(placed.body.board.objects.some((o) => o.type === 'icon'))
+    assert.ok(placed.body.board.objects.every((o) => !['rect', 'ellipse', 'diamond', 'frame', 'connector'].includes(o.type)))
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

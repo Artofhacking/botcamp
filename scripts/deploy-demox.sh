@@ -197,10 +197,12 @@ import sys
 root = Path(sys.argv[1])
 assets = list((root / "assets").glob("*.js"))
 blob = "\n".join(p.read_text(errors="ignore") for p in assets)
-needles = ("Needs you", "报表", "白板", "wb-svg", "board://", "dsb-frame", "总负责人", "co_chief")
+needles = ("白板", "关闭白板", "wb-surface", "wb-table", "board://", "dsb-frame", "总负责人", "co_chief", "表格", "文章", "图标")
 missing = [n for n in needles if n not in blob]
 if missing:
     raise SystemExit(f"built DS Bot bundle missing company/whiteboard markers: {missing}")
+if "报表" in blob:
+    raise SystemExit("built DS Bot bundle still contains 报表 — remove report UI/copy")
 print("built company+whiteboard markers OK:", ", ".join(needles))
 PY
 

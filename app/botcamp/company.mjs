@@ -1,12 +1,12 @@
 /**
  * Company-chat mode: enter = see employees; SoT stays under MediaAccount.
- * Local roster + transcripts when the kernel is unavailable; reports use real SoT.
+ * Status goes onto the whiteboard as table / article / icon kanban components.
  */
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { ensureMediaSeeded } from './mediaControl.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
-import { placeOnBoard } from './whiteboard.mjs'
+import { placeKanban } from './whiteboard.mjs'
 
 export const COMPANY_MODE = 'company-local'
 export const CHIEF_ID = 'co_chief'
@@ -18,7 +18,7 @@ const EMPLOYEES = Object.freeze([
     id: CHIEF_ID,
     name: '总负责人',
     brief: DEFAULT_TEAM[0]?.brief
-      || '协调写手与运营；你问某个号或全部号的状态，我整理报表与进度汇报。',
+      || '协调写手与运营；问某个号或全部号的进度，我会把表格和文章落到看板上。',
     color: 'blue',
     avatar: { shape: 'star' },
   },
@@ -81,7 +81,7 @@ function roomShape(account) {
   return {
     id,
     name: account.display_name,
-    brief: `项目群 · ${platform} · 跟进本号进度与报表`,
+    brief: `项目群 · ${platform} · 跟进本号进度与看板`,
     sessionId: id,
     // DS Bot sidebar / RoomAvatar expect `members` (ids), not memberIds.
     members,
@@ -95,9 +95,30 @@ function chatKey(ownerId, sessionId) {
   return `company:${ownerId}:chat:${sessionId}`
 }
 
+function scrubLegacyCopy(text) {
+  if (typeof text !== 'string') return text
+  return text
+    .replaceAll('进度汇报', '看板更新')
+    .replaceAll('出个报表', '更新看板')
+    .replaceAll('出报表', '更新看板')
+    .replaceAll('本号报表', '本号看板')
+    .replaceAll('全部号报表', '全部号进度')
+    .replaceAll('报表面板', '白板')
+    .replaceAll('号报表', '看板')
+    .replaceAll('报表', '看板')
+}
+
 function loadChat(ownerId, sessionId) {
   const saved = kvGet(chatKey(ownerId, sessionId))
-  return Array.isArray(saved?.items) ? saved.items : []
+  if (!Array.isArray(saved?.items)) return []
+  let dirty = false
+  const items = saved.items.map((item) => {
+    if (typeof item?.text !== 'string' || !item.text.includes('报表')) return item
+    dirty = true
+    return { ...item, text: scrubLegacyCopy(item.text) }
+  })
+  if (dirty) saveChat(ownerId, sessionId, items)
+  return items
 }
 
 function saveChat(ownerId, sessionId, items) {
@@ -118,12 +139,12 @@ function seedWelcome(ownerId, sessionId, accounts) {
     text = [
       '我是总负责人。进公司不用先选号——写手和运营都在侧栏。',
       `目前在管：${names}。`,
-      '你可以直接问「全部号进度」「小稿出个报表」，或点开某个项目群看该号跟进。',
+      '问「全部号进度」或「小稿看板」，我会把漏斗表、待你处理文章落到右侧白板上。',
     ].join('\n')
   } else if (sessionId === WRITER_ID) {
-    text = '我是写手。定稿、改标题、补脚本找我；跨号进度也可以让总负责人汇总。'
+    text = '我是写手。定稿、改标题、补脚本找我；跨号进度也可以让总负责人汇总到看板。'
   } else if (sessionId === OPS_ID) {
-    text = '我是运营。排期、发布闸门、粉丝与互动数据我这边跟；要总览找总负责人出报表。'
+    text = '我是运营。排期、发布闸门、粉丝与互动数据我这边跟；要总览找总负责人更新看板。'
   } else {
     const account = accounts.find((a) => roomIdForAccount(a.id) === sessionId)
     const bundle = account ? loadMediaAccountBundle(account.id) : null
@@ -132,7 +153,7 @@ function seedWelcome(ownerId, sessionId, accounts) {
     text = [
       `【项目群】${account?.display_name || '未命名号'}`,
       bits ? `当前漏斗：${bits}` : '漏斗暂无帖子。',
-      '在这个群里追问进度，或让总负责人出本号报表。',
+      '在这个群里追问进度，或让总负责人把本号落到看板上。',
     ].join('\n')
   }
   const welcome = [{ kind: 'bot', text, time: Date.now() - 1000 }]
@@ -145,55 +166,111 @@ function fmt(n) {
   return Number(n).toLocaleString('zh-CN')
 }
 
-function reportForAccount(account) {
-  const bundle = loadMediaAccountBundle(account.id)
-  if (!bundle) return `## ${account.display_name}\n（读不到 SoT）`
-  const { board, posts, manuscripts } = bundle
-  const funnel = board.post_funnel || {}
-  const funnelLine = ['选题', '写稿中', '待确认', '已发布', '被隐藏', '搁置']
-    .map((k) => `${k} ${funnel[k] || 0}`)
-    .join(' · ')
-  const needs = []
-  for (const p of posts || []) {
-    if (p.status === '待确认' || p.status === '选题') needs.push(`- 帖「${p.title}」· ${p.status}`)
-  }
-  for (const m of manuscripts || []) {
-    if (!m.final_review_passed && (m.status === '写稿中' || m.status === '待确认')) {
-      needs.push(`- 稿「${m.title}」· 终审未过`)
-    }
-  }
-  const writing = (board.writing || []).slice(0, 5).map((p) => `- ${p.title} · ${p.status}`).join('\n')
-  return [
-    `## ${account.display_name}`,
-    `${account.platform === 'xiaoheihe' ? '小黑盒' : account.platform} · ${account.status}`,
-    `粉丝 ${fmt(board.followers_latest?.followers)} · KPI ¥${board.revenue_kpi_cny}`,
-    `漏斗：${funnelLine}`,
-    needs.length ? `Needs you（${needs.length}）\n${needs.slice(0, 8).join('\n')}` : 'Needs you：无',
-    writing ? `进行中\n${writing}` : '进行中：无',
-  ].join('\n')
-}
-
-export function buildProgressReport(ownerId, { accountHint } = {}) {
+function pickAccounts(ownerId, accountHint) {
   ensureMediaSeeded()
   const accounts = listOwnerAccounts(ownerId)
-  if (accounts.length === 0) return '目前还没有任何自媒体号落在 SoT 里。'
-  let picked = accounts
-  if (accountHint) {
-    const hint = String(accountHint).toLowerCase()
-    const match = accounts.filter((a) =>
-      a.display_name.toLowerCase().includes(hint)
-      || a.id.toLowerCase().includes(hint)
-      || (a.handle && String(a.handle).toLowerCase().includes(hint)))
-    if (match.length) picked = match
-  }
-  const header = picked.length === accounts.length
-    ? `【进度汇报 · 全部 ${picked.length} 个号】`
-    : `【进度汇报 · ${picked.map((a) => a.display_name).join('、')}】`
-  return [header, '', ...picked.map((a) => reportForAccount(a))].join('\n\n')
+  if (!accountHint) return accounts
+  const hint = String(accountHint).toLowerCase()
+  const match = accounts.filter((a) =>
+    a.display_name.toLowerCase().includes(hint)
+    || a.id.toLowerCase().includes(hint)
+    || (a.handle && String(a.handle).toLowerCase().includes(hint)))
+  return match.length ? match : accounts
 }
 
-function wantsReport(text) {
-  return /报表|进度|汇报|状态|漏斗|needs\s*you|怎么样了|概况|总览/i.test(text || '')
+/** Build kanban columns + summary table from MediaAccount SoT. */
+export function buildStatusKanban(ownerId, { accountHint } = {}) {
+  const picked = pickAccounts(ownerId, accountHint)
+  if (picked.length === 0) {
+    return {
+      heading: '公司看板',
+      columns: [],
+      table: { title: '汇总表', columns: ['说明'], rows: [['目前还没有任何自媒体号落在 SoT 里。']] },
+      summary: '目前还没有任何自媒体号落在 SoT 里。',
+    }
+  }
+
+  const needsItems = []
+  const writingItems = []
+  const publishedItems = []
+  const topicItems = []
+  const tableRows = []
+
+  for (const account of picked) {
+    const bundle = loadMediaAccountBundle(account.id)
+    if (!bundle) {
+      tableRows.push([account.display_name, '—', '读不到 SoT', '—', '—'])
+      continue
+    }
+    const { board, posts, manuscripts } = bundle
+    const funnel = board.post_funnel || {}
+    tableRows.push([
+      account.display_name,
+      account.platform === 'xiaoheihe' ? '小黑盒' : (account.platform || '—'),
+      fmt(board.followers_latest?.followers),
+      String(funnel['已发布'] || 0),
+      String((funnel['选题'] || 0) + (funnel['写稿中'] || 0) + (funnel['待确认'] || 0)),
+    ])
+
+    for (const p of posts || []) {
+      if (p.status === '待确认' || p.status === '选题') {
+        needsItems.push({
+          title: p.title || '未命名帖',
+          body: `${account.display_name} · 帖 · ${p.status}`,
+        })
+      }
+      if (p.status === '选题') {
+        topicItems.push({
+          title: p.title || '未命名选题',
+          body: `${account.display_name} · 选题`,
+        })
+      }
+      if (p.status === '已发布') {
+        publishedItems.push({
+          title: p.title || '已发布帖',
+          body: `${account.display_name} · 已发布`,
+        })
+      }
+    }
+    for (const m of manuscripts || []) {
+      if (!m.final_review_passed && (m.status === '写稿中' || m.status === '待确认')) {
+        needsItems.push({
+          title: m.title || '未命名稿',
+          body: `${account.display_name} · 稿 · 终审未过`,
+        })
+      }
+    }
+    for (const p of (board.writing || []).slice(0, 8)) {
+      writingItems.push({
+        title: p.title || '写稿中',
+        body: `${account.display_name} · ${p.status || '写稿中'}`,
+      })
+    }
+  }
+
+  const heading = picked.length === listOwnerAccounts(ownerId).length
+    ? `全部 ${picked.length} 个号 · 看板`
+    : `${picked.map((a) => a.display_name).join('、')} · 看板`
+
+  return {
+    heading,
+    columns: [
+      { name: '待你处理', icon: 'alert', items: needsItems.slice(0, 8) },
+      { name: '选题', icon: 'draft', items: topicItems.slice(0, 8) },
+      { name: '写稿中', icon: 'post', items: writingItems.slice(0, 8) },
+      { name: '已发布', icon: 'ok', items: publishedItems.slice(0, 8) },
+    ],
+    table: {
+      title: '账号汇总表',
+      columns: ['账号', '平台', '粉丝', '已发布', '在制'],
+      rows: tableRows,
+    },
+    summary: `${heading}：待你处理 ${needsItems.length} · 选题 ${topicItems.length} · 写稿中 ${writingItems.length} · 已发布 ${publishedItems.length}`,
+  }
+}
+
+function wantsBoardUpdate(text) {
+  return /看板|进度|状态|漏斗|needs\s*you|待你处理|怎么样了|概况|总览|帖子|稿/i.test(text || '')
 }
 
 function accountHintFromText(text, accounts) {
@@ -281,26 +358,29 @@ export function companySend(ownerId, payload) {
   let reply
   let boardLink = null
   const roomAccountId = accountIdFromRoom(sessionId)
-  if (wantsReport(text) || sessionId === CHIEF_ID && /号/.test(text)) {
+  if (wantsBoardUpdate(text) || (sessionId === CHIEF_ID && /号|看板/.test(text))) {
     const hint = roomAccountId
       ? (accounts.find((a) => a.id === roomAccountId)?.display_name || null)
       : accountHintFromText(text, accounts)
-    reply = buildProgressReport(ownerId, { accountHint: hint })
+    const kanban = buildStatusKanban(ownerId, { accountHint: hint })
     try {
-      const placed = placeOnBoard(ownerId, {
+      const placed = placeKanban(ownerId, {
         sessionId,
-        title: hint ? `${hint} · 进度汇报` : '全部号 · 进度汇报',
-        body: reply,
         category: hint || '公司',
-        type: 'note',
+        heading: kanban.heading,
+        columns: kanban.columns,
+        table: kanban.table,
         createdBy: '总负责人',
       })
       boardLink = placed.link
-      reply += `\n\n[${boardLink.label}](${boardLink.href})`
+      reply = [
+        kanban.summary,
+        '已更新右侧白板：表格 + 文章卡片 + 栏目标记（图标）。',
+        boardLink ? `[${boardLink.label}](${boardLink.href})` : '',
+      ].filter(Boolean).join('\n\n')
     } catch {
-      /* board place is best-effort */
+      reply = `${kanban.summary}\n\n（看板落板失败，请稍后重试打开白板。）`
     }
-    reply += '\n\n——\n（公司本地汇报：数字来自 MediaAccount SoT。内核模型通路接通后，总负责人可改为模型编排+同一套 SoT。）'
   } else if (roomAccountId) {
     const account = accounts.find((a) => a.id === roomAccountId)
     const bundle = account ? loadMediaAccountBundle(account.id) : null
@@ -308,16 +388,16 @@ export function companySend(ownerId, payload) {
     reply = [
       `收到。这个项目群跟进「${account?.display_name || '本号'}」。`,
       `写手侧：${writing}。`,
-      '要完整漏斗与 Needs you，直接说「出个报表」或「进度汇报」。',
+      '要看板视图，直接说「本号进度」或「更新看板」。',
     ].join('\n')
   } else if (sessionId === WRITER_ID) {
-    reply = '好。跨号产量我可以按稿状态列，但全盘进度还是让总负责人出报表更清楚。你也可以说「我负责的号进度」。'
+    reply = '好。跨号产量我可以按稿状态列，全盘进度让总负责人更新看板更清楚。你也可以说「我负责的号进度」。'
   } else if (sessionId === OPS_ID) {
-    reply = '好。发布闸门和数据我跟。要粉丝/收益/事件总览，跟总负责人说「全部号报表」即可。'
+    reply = '好。发布闸门和数据我跟。要粉丝与漏斗总览，跟总负责人说「全部号进度」即可。'
   } else {
     reply = [
       '收到。写手和运营都在侧栏；某个号可以进对应项目群跟进。',
-      '需要数字时直接说「全部号进度」或「小稿出个报表」。',
+      '需要看板时直接说「全部号进度」或「小稿看板」。',
     ].join('\n')
   }
 

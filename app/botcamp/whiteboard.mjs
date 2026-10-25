@@ -1,12 +1,15 @@
 /**
- * ProcessOn-class whiteboard SoT: boards + freeform canvas objects in host.kv.
- * Archive goes to warehouse (not delete). Bots place lasting content via place().
+ * Whiteboard SoT: infinite canvas of readable components only —
+ * table / article / icon. Archive → warehouse (not delete).
+ * Bots place kanban status via placeKanban / place().
  */
 import crypto from 'node:crypto'
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { ensureMediaSeeded, mediaOwnerIdFor } from './mediaControl.mjs'
 
-const SCHEMA = '1.0.0'
+const SCHEMA = '1.1.0'
+const COMPONENT_TYPES = Object.freeze(['table', 'article', 'icon'])
+const LEGACY_SHAPE_TYPES = new Set(['rect', 'ellipse', 'diamond', 'text', 'note', 'frame', 'connector'])
 
 function nowIso() {
   return new Date().toISOString()
@@ -69,7 +72,7 @@ function createBoardRecord(ownerId, { title, category, sessionId } = {}) {
   const board = {
     id,
     owner_user_id: ownerId,
-    title: (title && String(title).trim()) || '未命名白板',
+    title: (title && String(title).trim()) || '未命名看板',
     category: category == null || category === '' ? null : String(category),
     session_id: sessionId || null,
     camera: defaultCamera(),
@@ -107,7 +110,7 @@ function resolveDefaultBoard(ownerId, sessionId) {
   const list = listBoardMeta(ownerId)
   if (list[0]) return loadBoard(ownerId, list[0].id)
   return createBoardRecord(ownerId, {
-    title: '公司白板',
+    title: '公司看板',
     category: null,
     sessionId: sessionId || null,
   })
@@ -123,67 +126,98 @@ function rememberOpen(ownerId, boardId, sessionId) {
   kvSet(prefsKey(ownerId), prefs)
 }
 
-function layoutSlot(board, index) {
-  const col = index % 3
-  const row = Math.floor(index / 3)
-  return { x: 80 + col * 280, y: 80 + row * 200, w: 240, h: 140 }
+function coerceType(rawType) {
+  if (COMPONENT_TYPES.includes(rawType)) return rawType
+  if (LEGACY_SHAPE_TYPES.has(rawType)) return 'article'
+  return 'article'
+}
+
+function defaultSize(type) {
+  if (type === 'table') return { w: 360, h: 220 }
+  if (type === 'icon') return { w: 140, h: 48 }
+  return { w: 240, h: 140 }
 }
 
 function normalizeObject(raw, board) {
   if (!raw || typeof raw !== 'object') return null
-  const type = ['rect', 'ellipse', 'diamond', 'text', 'note', 'frame', 'connector'].includes(raw.type)
-    ? raw.type
-    : 'note'
+  const type = coerceType(raw.type)
   const id = typeof raw.id === 'string' && raw.id ? raw.id : newId('obj')
   const stamp = nowIso()
   const existing = (board.objects || []).find((o) => o.id === id)
+  const size = defaultSize(type)
   const base = existing ? { ...existing } : {
     id,
     type,
     x: 80,
     y: 80,
-    w: 200,
-    h: 120,
+    w: size.w,
+    h: size.h,
+    title: '',
+    body: '',
     text: '',
-    fill: type === 'frame' ? 'transparent' : '#ffffff',
-    stroke: '#334155',
-    stroke_width: type === 'frame' ? 1.5 : 1.25,
-    parent_id: null,
-    from_id: null,
-    to_id: null,
+    icon: 'marker',
+    label: '',
+    columns: [],
+    rows: [],
     z: (board.objects || []).length,
     created_by: 'user',
     created_at: stamp,
     archived_at: null,
   }
-  const next = {
+  const title = raw.title != null ? String(raw.title) : (base.title || '')
+  const body = raw.body != null ? String(raw.body) : (base.body || '')
+  let text = raw.text != null ? String(raw.text) : base.text
+  if (!text) text = [title, body].filter(Boolean).join('\n')
+  const columns = Array.isArray(raw.columns)
+    ? raw.columns.map((c) => String(c))
+    : (Array.isArray(base.columns) ? base.columns : [])
+  const rows = Array.isArray(raw.rows)
+    ? raw.rows.map((row) => (Array.isArray(row) ? row.map((cell) => (cell == null ? '' : String(cell))) : [String(row)]))
+    : (Array.isArray(base.rows) ? base.rows : [])
+  const label = raw.label != null ? String(raw.label) : (base.label || title || '')
+  const icon = raw.icon != null ? String(raw.icon) : (base.icon || 'marker')
+  return {
     ...base,
     type,
     x: Number.isFinite(raw.x) ? raw.x : base.x,
     y: Number.isFinite(raw.y) ? raw.y : base.y,
-    w: Number.isFinite(raw.w) ? Math.max(40, raw.w) : base.w,
-    h: Number.isFinite(raw.h) ? Math.max(28, raw.h) : base.h,
-    text: raw.text != null ? String(raw.text) : base.text,
-    fill: raw.fill != null ? String(raw.fill) : base.fill,
-    stroke: raw.stroke != null ? String(raw.stroke) : base.stroke,
-    stroke_width: Number.isFinite(raw.stroke_width) ? raw.stroke_width : base.stroke_width,
-    parent_id: raw.parent_id === undefined ? base.parent_id : raw.parent_id,
-    from_id: raw.from_id === undefined ? base.from_id : raw.from_id,
-    to_id: raw.to_id === undefined ? base.to_id : raw.to_id,
+    w: Number.isFinite(raw.w) ? Math.max(48, raw.w) : base.w,
+    h: Number.isFinite(raw.h) ? Math.max(36, raw.h) : base.h,
+    title,
+    body,
+    text,
+    icon,
+    label,
+    columns,
+    rows,
     z: Number.isFinite(raw.z) ? raw.z : base.z,
     created_by: raw.created_by || base.created_by,
     updated_at: stamp,
     archived_at: raw.archived_at === undefined ? base.archived_at : raw.archived_at,
   }
-  if (type === 'connector') {
-    next.w = 0
-    next.h = 0
-  }
-  return next
+}
+
+function scrubCopy(value) {
+  if (typeof value !== 'string') return value
+  return value
+    .replaceAll('进度汇报', '看板更新')
+    .replaceAll('总负责人报表', '总负责人看板')
+    .replaceAll('报表', '看板')
 }
 
 function publicBoard(board, { includeArchived = false } = {}) {
-  const objects = (board.objects || []).filter((o) => includeArchived || !o.archived_at)
+  const objects = (board.objects || [])
+    .filter((o) => includeArchived || !o.archived_at)
+    .map((o) => {
+      const n = normalizeObject(o, board) || o
+      return {
+        ...n,
+        title: scrubCopy(n.title),
+        body: scrubCopy(n.body),
+        text: scrubCopy(n.text),
+        label: scrubCopy(n.label),
+      }
+    })
   return {
     id: board.id,
     title: board.title,
@@ -198,23 +232,42 @@ function publicBoard(board, { includeArchived = false } = {}) {
 }
 
 function linkFor(board, object) {
+  const labelBit = object.title || object.label || object.type
   return {
     board_id: board.id,
     object_id: object.id,
     board_title: board.title,
     href: `board://${board.id}/${object.id}`,
-    label: `白板·${board.title}`,
+    label: `看板·${board.title}·${labelBit}`.slice(0, 48),
   }
 }
 
-/** Place lasting bot content with non-overlapping layout. */
+function appendObjects(board, drafts) {
+  const next = []
+  for (const raw of drafts) {
+    const obj = normalizeObject(raw, { ...board, objects: [...(board.objects || []), ...next] })
+    if (obj) next.push(obj)
+  }
+  board.objects = [...(board.objects || []), ...next]
+  return next
+}
+
+/** Place one readable component (table / article / icon only). */
 export function placeOnBoard(ownerId, {
   sessionId,
   boardId,
   title,
   body,
   category,
-  type = 'note',
+  type = 'article',
+  icon,
+  label,
+  columns,
+  rows,
+  x,
+  y,
+  w,
+  h,
   createdBy = 'bot',
 } = {}) {
   ensureMediaSeeded()
@@ -222,24 +275,140 @@ export function placeOnBoard(ownerId, {
   if (!board) board = resolveDefaultBoard(ownerId, sessionId)
   if (category != null && board.category == null) board.category = String(category) || null
   if (sessionId && !board.session_id) board.session_id = sessionId
-  const active = (board.objects || []).filter((o) => !o.archived_at && o.type !== 'connector')
-  const slot = layoutSlot(board, active.length)
-  const text = [title, body].filter(Boolean).join('\n\n')
-  const object = normalizeObject({
-    type: type === 'rect' || type === 'ellipse' || type === 'text' || type === 'frame' ? type : 'note',
-    x: slot.x,
-    y: slot.y,
-    w: slot.w,
-    h: Math.max(slot.h, Math.min(320, 60 + String(text).split('\n').length * 18)),
-    text,
-    fill: type === 'frame' ? 'transparent' : '#f8fafc',
-    stroke: '#0f172a',
+  const active = (board.objects || []).filter((o) => !o.archived_at)
+  const col = active.length % 3
+  const row = Math.floor(active.length / 3)
+  const size = defaultSize(coerceType(type))
+  const [object] = appendObjects(board, [{
+    type: coerceType(type),
+    x: Number.isFinite(x) ? x : 80 + col * 280,
+    y: Number.isFinite(y) ? y : 80 + row * 180,
+    w: Number.isFinite(w) ? w : size.w,
+    h: Number.isFinite(h) ? h : size.h,
+    title: title || '',
+    body: body || '',
+    text: [title, body].filter(Boolean).join('\n\n'),
+    icon: icon || 'marker',
+    label: label || title || '',
+    columns: columns || [],
+    rows: rows || [],
     created_by: createdBy,
-  }, board)
-  board.objects = [...(board.objects || []), object]
+  }])
   saveBoard(board)
   rememberOpen(ownerId, board.id, sessionId)
   return { board: publicBoard(board), object, link: linkFor(board, object) }
+}
+
+/**
+ * Place a kanban of real items: column icons + article cards + one summary table.
+ * `columns`: [{ name, icon, items: [{ title, body }] }]
+ */
+export function placeKanban(ownerId, {
+  sessionId,
+  boardId,
+  category,
+  heading,
+  columns = [],
+  table,
+  createdBy = 'bot',
+} = {}) {
+  ensureMediaSeeded()
+  let board = boardId ? loadBoard(ownerId, boardId) : null
+  if (!board) board = resolveDefaultBoard(ownerId, sessionId)
+  if (category != null) board.category = String(category) || null
+  if (sessionId && !board.session_id) board.session_id = sessionId
+
+  const stamp = nowIso()
+  // Archive prior non-user components so the board stays current (warehouse, not delete).
+  board.objects = (board.objects || []).map((o) => (
+    !o.archived_at && o.created_by !== 'user'
+      ? { ...o, archived_at: stamp, updated_at: stamp }
+      : o
+  ))
+
+  const drafts = []
+  const colW = 260
+  const gap = 28
+  const originX = 48
+  const originY = 48
+
+  if (heading) {
+    drafts.push({
+      type: 'article',
+      x: originX,
+      y: originY - 8,
+      w: Math.max(320, columns.length * (colW + gap) - gap),
+      h: 64,
+      title: heading,
+      body: '看板组件：表格 · 文章 · 图标。数字来自 MediaAccount SoT。',
+      created_by: createdBy,
+    })
+  }
+
+  columns.forEach((col, i) => {
+    const x = originX + i * (colW + gap)
+    drafts.push({
+      type: 'icon',
+      x,
+      y: originY + 72,
+      w: colW - 20,
+      h: 44,
+      icon: col.icon || 'column',
+      label: col.name,
+      title: col.name,
+      created_by: createdBy,
+    })
+    const items = Array.isArray(col.items) ? col.items : []
+    items.slice(0, 8).forEach((item, j) => {
+      drafts.push({
+        type: 'article',
+        x,
+        y: originY + 132 + j * 128,
+        w: colW - 20,
+        h: 112,
+        title: item.title || '未命名',
+        body: item.body || '',
+        created_by: createdBy,
+      })
+    })
+    if (items.length === 0) {
+      drafts.push({
+        type: 'article',
+        x,
+        y: originY + 132,
+        w: colW - 20,
+        h: 72,
+        title: '（空）',
+        body: '这一栏暂时没有条目。',
+        created_by: createdBy,
+      })
+    }
+  })
+
+  if (table && Array.isArray(table.columns) && Array.isArray(table.rows)) {
+    drafts.push({
+      type: 'table',
+      x: originX,
+      y: originY + 132 + 8 * 128 + 24,
+      w: Math.max(360, columns.length * (colW + gap) - gap),
+      h: 48 + Math.max(1, table.rows.length) * 28,
+      title: table.title || '汇总表',
+      columns: table.columns,
+      rows: table.rows,
+      created_by: createdBy,
+    })
+  }
+
+  const placed = appendObjects(board, drafts)
+  saveBoard(board)
+  rememberOpen(ownerId, board.id, sessionId)
+  const focus = placed.find((o) => o.type === 'table') || placed[0]
+  return {
+    board: publicBoard(board),
+    objects: placed,
+    object: focus,
+    link: focus ? linkFor(board, focus) : null,
+  }
 }
 
 function ownerFrom(req, botcampUser) {
@@ -269,7 +438,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
     const boardId = payload?.boardId
     const board = boardId ? loadBoard(ownerId, boardId) : resolveDefaultBoard(ownerId, payload?.sessionId)
     if (!board) {
-      return { status: 404, body: { ok: false, error: { message: '白板不存在' } } }
+      return { status: 404, body: { ok: false, error: { message: '看板不存在' } } }
     }
     rememberOpen(ownerId, board.id, payload?.sessionId)
     return {
@@ -292,7 +461,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
 
   if (endpoint === 'whiteboard/update') {
     const board = loadBoard(ownerId, payload?.boardId)
-    if (!board) return { status: 404, body: { ok: false, error: { message: '白板不存在' } } }
+    if (!board) return { status: 404, body: { ok: false, error: { message: '看板不存在' } } }
     if (payload?.title != null) board.title = String(payload.title).trim() || board.title
     if (payload?.category !== undefined) {
       board.category = payload.category == null || payload.category === '' ? null : String(payload.category)
@@ -312,7 +481,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
 
   if (endpoint === 'whiteboard/objects/upsert') {
     const board = loadBoard(ownerId, payload?.boardId)
-    if (!board) return { status: 404, body: { ok: false, error: { message: '白板不存在' } } }
+    if (!board) return { status: 404, body: { ok: false, error: { message: '看板不存在' } } }
     const items = Array.isArray(payload?.objects) ? payload.objects : [payload?.object].filter(Boolean)
     const byId = new Map((board.objects || []).map((o) => [o.id, o]))
     const touched = []
@@ -332,7 +501,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
 
   if (endpoint === 'whiteboard/objects/archive') {
     const board = loadBoard(ownerId, payload?.boardId)
-    if (!board) return { status: 404, body: { ok: false, error: { message: '白板不存在' } } }
+    if (!board) return { status: 404, body: { ok: false, error: { message: '看板不存在' } } }
     const ids = new Set(Array.isArray(payload?.objectIds) ? payload.objectIds : [payload?.objectId].filter(Boolean))
     const stamp = nowIso()
     board.objects = (board.objects || []).map((o) => (ids.has(o.id) ? { ...o, archived_at: stamp, updated_at: stamp } : o))
@@ -342,7 +511,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
 
   if (endpoint === 'whiteboard/objects/restore') {
     const board = loadBoard(ownerId, payload?.boardId)
-    if (!board) return { status: 404, body: { ok: false, error: { message: '白板不存在' } } }
+    if (!board) return { status: 404, body: { ok: false, error: { message: '看板不存在' } } }
     const ids = new Set(Array.isArray(payload?.objectIds) ? payload.objectIds : [payload?.objectId].filter(Boolean))
     const stamp = nowIso()
     board.objects = (board.objects || []).map((o) => (ids.has(o.id) ? { ...o, archived_at: null, updated_at: stamp } : o))
@@ -361,7 +530,7 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
         items.push({
           board_id: board.id,
           board_title: board.title,
-          object: o,
+          object: normalizeObject(o, board) || o,
         })
       }
     }
@@ -370,6 +539,18 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
   }
 
   if (endpoint === 'whiteboard/place') {
+    if (payload?.kanban || Array.isArray(payload?.columns)) {
+      const placed = placeKanban(ownerId, {
+        sessionId: payload?.sessionId,
+        boardId: payload?.boardId,
+        category: payload?.category,
+        heading: payload?.heading || payload?.title,
+        columns: payload?.columns || payload?.kanban?.columns,
+        table: payload?.table || payload?.kanban?.table,
+        createdBy: payload?.createdBy || 'bot',
+      })
+      return { status: 200, body: { ok: true, ...placed } }
+    }
     const placed = placeOnBoard(ownerId, {
       sessionId: payload?.sessionId,
       boardId: payload?.boardId,
@@ -377,6 +558,14 @@ export function handleWhiteboardControl(req, endpoint, payload, botcampUser) {
       body: payload?.body,
       category: payload?.category,
       type: payload?.type,
+      icon: payload?.icon,
+      label: payload?.label,
+      columns: payload?.columns,
+      rows: payload?.rows,
+      x: payload?.x,
+      y: payload?.y,
+      w: payload?.w,
+      h: payload?.h,
       createdBy: payload?.createdBy || 'bot',
     })
     return { status: 200, body: { ok: true, ...placed } }

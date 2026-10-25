@@ -220,9 +220,27 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .wb-tools button:hover{background:color-mix(in srgb,var(--bt-ink) 6%,transparent)}
 .wb-tools button.active{background:color-mix(in srgb,var(--bt-ink) 10%,transparent);color:var(--bt-ink);font-weight:600}
 .wb-tools button:disabled{opacity:.4;cursor:default}
-.wb-svg{flex:1 1 auto;width:100%;min-height:0;touch-action:none;background:color-mix(in srgb,var(--bt-ink) 2%,var(--bt-main))}
+.wb-surface{flex:1 1 auto;width:100%;min-height:0;overflow:hidden;touch-action:none;position:relative;background:
+  linear-gradient(color-mix(in srgb,var(--bt-ink) 6%,transparent) 1px,transparent 1px) 0 0/24px 24px,
+  linear-gradient(90deg,color-mix(in srgb,var(--bt-ink) 6%,transparent) 1px,transparent 1px) 0 0/24px 24px,
+  color-mix(in srgb,var(--bt-ink) 2%,var(--bt-main))}
+.wb-world{position:absolute;inset:0;transform-origin:0 0;width:8000px;height:8000px}
+.wb-node{position:absolute;top:0;left:0;box-sizing:border-box;cursor:grab;user-select:none}
+.wb-node.selected{outline:2px solid #2563eb;outline-offset:2px;border-radius:10px}
+.wb-comp{width:100%;height:100%;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:10px;background:var(--bt-main,#fff);box-shadow:0 1px 0 color-mix(in srgb,var(--bt-ink) 4%,transparent);overflow:hidden}
+.wb-comp-title{padding:8px 10px 4px;font-size:13px;font-weight:650;line-height:1.3}
+.wb-comp-body{padding:0 10px 10px;font-size:12px;line-height:1.45;color:var(--bt-ink-2);white-space:pre-wrap;word-break:break-word}
+.wb-table{padding:0;overflow:auto}
+.wb-table .wb-comp-title{border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
+.wb-table table{width:100%;border-collapse:collapse;font-size:12px}
+.wb-table th,.wb-table td{padding:6px 8px;border-top:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent);text-align:left;vertical-align:top}
+.wb-table th{font-weight:600;background:color-mix(in srgb,var(--bt-ink) 4%,transparent)}
+.wb-icon{display:flex;align-items:center;gap:8px;padding:8px 10px;min-height:44px}
+.wb-icon-glyph{flex:none;width:28px;height:28px;display:inline-grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--bt-ink) 8%,transparent);font-size:14px;font-weight:700}
+.wb-icon-label{font-size:13px;font-weight:600}
 .wb-inspector{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-top:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
-.wb-inspector textarea{flex:1;min-height:54px;resize:vertical;padding:6px 8px;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:8px;background:var(--bt-main);color:inherit;font:inherit;font-size:12px}
+.wb-inspector textarea,.wb-inspector input{flex:1;min-height:54px;resize:vertical;padding:6px 8px;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:8px;background:var(--bt-main);color:inherit;font:inherit;font-size:12px}
+.wb-inspector input{min-height:32px;resize:none}
 .wb-picker{padding:8px 10px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent);max-height:40%;overflow:auto}
 .wb-picker-group{margin-top:8px}
 .wb-picker-label{font-size:11px;font-weight:600;color:var(--bt-ink-3);margin-bottom:4px}
