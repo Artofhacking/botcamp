@@ -89,7 +89,7 @@ export function bindMediaDataDir(dataDir) {
   readyForRoot = ''
 }
 
-function ensureSeeded() {
+export function ensureMediaSeeded() {
   ensureStoreDirs()
   const root = getDataRoot()
   const fixtureTs = FIXTURE_META?.import_timestamp || null
@@ -101,6 +101,10 @@ function ensureSeeded() {
   if (readyForRoot === root && !needsImport) return
   if (needsImport) seed()
   readyForRoot = root
+}
+
+function ensureSeeded() {
+  ensureMediaSeeded()
 }
 
 function readCookie(req, name) {

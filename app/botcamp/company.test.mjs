@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { configureDataRoot } from '../../server/kv.mjs'
+import { configureDataRoot, getDataRoot } from '../../server/kv.mjs'
 import { seed } from '../../scripts/seed.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import {
@@ -17,6 +17,7 @@ import {
 
 test('company state lists employees and project rooms without an account gate', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
+  const prev = getDataRoot()
   try {
     configureDataRoot(path.join(dir, 'media-store'))
     seed()
@@ -26,12 +27,14 @@ test('company state lists employees and project rooms without an account gate', 
     assert.ok(state.rooms.some((r) => /小稿/.test(r.name)))
     assert.equal(isCompanySessionId(CHIEF_ID), true)
   } finally {
+    configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })
   }
 })
 
 test('chief send returns a real SoT progress report', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
+  const prev = getDataRoot()
   try {
     configureDataRoot(path.join(dir, 'media-store'))
     seed()
@@ -49,6 +52,7 @@ test('chief send returns a real SoT progress report', async () => {
     assert.match(last.text, /漏斗/)
     assert.match(last.text, /MediaAccount SoT/)
   } finally {
+    configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })
   }
 })

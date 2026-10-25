@@ -410,7 +410,7 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  function replyCompanyState(res, user, access) {
+  async function replyCompanyState(res, user, access) {
     const ownerId = mediaOwnerIdFor(user)
     claimCompanyAccess(access, ownerId)
     const value = rewriteValue('state', buildCompanyState(ownerId, user), user, access, {})
@@ -419,7 +419,7 @@ export async function createBotcamp(options = {}) {
       value.mainBotIds = ['co_chief']
       value.mainBotId = 'co_chief'
     }
-    void store.commitAccess(user.id, access)
+    await store.commitAccess(user.id, access)
     sendJson(res, 200, { ok: true, value })
   }
 
@@ -516,7 +516,7 @@ export async function createBotcamp(options = {}) {
       } catch (error) {
         if (endpoint === 'state') {
           if (charged) await store.refund(user.id).catch(() => {})
-          replyCompanyState(res, user, createAccess(user.id, context.resources))
+          await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         }
         throw error
@@ -543,7 +543,7 @@ export async function createBotcamp(options = {}) {
           || (parsed?.ok !== false && Array.isArray(parsed?.value?.bots) && parsed.value.bots.length === 0)
         )
       ) {
-        replyCompanyState(res, user, createAccess(user.id, context.resources))
+        await replyCompanyState(res, user, createAccess(user.id, context.resources))
         return
       }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'value')) {
@@ -566,7 +566,7 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (endpoint === 'state') {
-        replyCompanyState(res, user, createAccess(user.id, context.resources))
+        await replyCompanyState(res, user, createAccess(user.id, context.resources))
         return
       }
       if (res.writableEnded || res.destroyed) return
@@ -587,7 +587,7 @@ export async function createBotcamp(options = {}) {
       }
       if (body?.endpoint === 'state') {
         try {
-          replyCompanyState(res, user, createAccess(user.id, context.resources))
+          await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         } catch { /* fall through */ }
       }

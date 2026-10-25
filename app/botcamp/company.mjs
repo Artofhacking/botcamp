@@ -4,6 +4,7 @@
  */
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
+import { ensureMediaSeeded } from './mediaControl.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
 export const COMPANY_MODE = 'company-local'
@@ -169,6 +170,7 @@ function reportForAccount(account) {
 }
 
 export function buildProgressReport(ownerId, { accountHint } = {}) {
+  ensureMediaSeeded()
   const accounts = listOwnerAccounts(ownerId)
   if (accounts.length === 0) return '目前还没有任何自媒体号落在 SoT 里。'
   let picked = accounts
@@ -217,6 +219,7 @@ export function claimCompanyAccess(access, ownerId) {
 }
 
 export function buildCompanyState(ownerId, user) {
+  ensureMediaSeeded()
   const accounts = listOwnerAccounts(ownerId)
   const bots = EMPLOYEES.map(botShape)
   const rooms = accounts.map(roomShape)
@@ -326,15 +329,9 @@ export function mergeProjectRooms(state, ownerId, access) {
     rooms.push(room)
     have.add(room.id)
   }
-  const bots = presentChiefName(state.bots)
-  let mainBotIds = Array.isArray(state.mainBotIds) ? [...state.mainBotIds] : []
-  const chief = bots.find((b) => b.name === '总负责人')
-  if (chief && !mainBotIds.includes(chief.id)) mainBotIds = [chief.id, ...mainBotIds]
   return {
     ...state,
-    bots,
+    bots: presentChiefName(state.bots),
     rooms,
-    mainBotId: mainBotIds[0] ?? state.mainBotId ?? null,
-    mainBotIds,
   }
 }
