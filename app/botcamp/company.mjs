@@ -6,6 +6,7 @@ import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { ensureMediaSeeded } from './mediaControl.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
+import { placeOnBoard } from './whiteboard.mjs'
 
 export const COMPANY_MODE = 'company-local'
 export const CHIEF_ID = 'co_chief'
@@ -275,12 +276,27 @@ export function companySend(ownerId, payload) {
   items.push({ kind: 'user', text, time: now })
 
   let reply
+  let boardLink = null
   const roomAccountId = accountIdFromRoom(sessionId)
   if (wantsReport(text) || sessionId === CHIEF_ID && /号/.test(text)) {
     const hint = roomAccountId
       ? (accounts.find((a) => a.id === roomAccountId)?.display_name || null)
       : accountHintFromText(text, accounts)
     reply = buildProgressReport(ownerId, { accountHint: hint })
+    try {
+      const placed = placeOnBoard(ownerId, {
+        sessionId,
+        title: hint ? `${hint} · 进度汇报` : '全部号 · 进度汇报',
+        body: reply,
+        category: hint || '公司',
+        type: 'note',
+        createdBy: '总负责人',
+      })
+      boardLink = placed.link
+      reply += `\n\n[${boardLink.label}](${boardLink.href})`
+    } catch {
+      /* board place is best-effort */
+    }
     reply += '\n\n——\n（公司本地汇报：数字来自 MediaAccount SoT。内核模型通路接通后，总负责人可改为模型编排+同一套 SoT。）'
   } else if (roomAccountId) {
     const account = accounts.find((a) => a.id === roomAccountId)
@@ -304,7 +320,7 @@ export function companySend(ownerId, payload) {
 
   items.push({ kind: 'bot', text: reply, time: now + 1 })
   saveChat(ownerId, sessionId, items)
-  return { ok: true, value: { sent: true, sessionId } }
+  return { ok: true, value: { sent: true, sessionId, boardLink } }
 }
 
 /** Rename legacy duty bot label when kernel still returns 主编. */

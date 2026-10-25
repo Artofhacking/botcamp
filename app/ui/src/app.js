@@ -9,6 +9,8 @@ import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
 import { BoardAccountHead, MediaSidePanel, useMediaAccounts } from './mediaSide.js'
 import { createTeam } from './team.js'
+import { WhiteboardFab, WhiteboardPanel } from './whiteboard.js'
+import { parseBoardHref } from './whiteboardApi.js'
 
 function useTheme(prefs) {
   useEffect(() => {
@@ -75,7 +77,9 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
 
   const mobile = useMobile()
   const [tab, setTab] = useState('board')
-  const [boardOpen, setBoardOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
+  const [boardFocus, setBoardFocus] = useState(null)
   const [anchor, setAnchor] = useState(null)
   const [workspace, setWorkspace] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -87,7 +91,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const onAnchor = useCallback((next) => {
     setAnchor(next)
     if (next?.tab) setTab(next.tab)
-    if (mobile) setBoardOpen(false)
+    if (mobile) setReportOpen(false)
   }, [mobile])
 
   const onFocusAccount = async (id) => {
@@ -122,13 +126,24 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const roster = hooks.useRoster(value => value)
   useTheme(hooks.useRoster(value => value.prefs))
 
-  // Enter company = land on 总负责人 (chief), never an account picker.
   useEffect(() => {
     if (!roster?.ready || shown) return
-    const chief = (roster.bots || []).find((b) => b.name === '总负责人' || b.id === 'co_chief')
+    const chief = (roster.bots || []).find((b) => b.name === '总负责人' || b.name === '主编' || b.id === 'co_chief')
       || (roster.bots || [])[0]
     if (chief?.id) actions.landOn(chief.id)
   }, [roster?.ready, roster?.bots, shown, actions])
+
+  useEffect(() => {
+    const onLink = (event) => {
+      const href = event.detail?.href
+      const parsed = parseBoardHref(href)
+      if (!parsed) return
+      setBoardFocus(parsed)
+      setWhiteboardOpen(true)
+    }
+    window.addEventListener('botcamp:board-link', onLink)
+    return () => window.removeEventListener('botcamp:board-link', onLink)
+  }, [])
 
   const closeOverlays = (error) => {
     actions.closeSettings()
@@ -140,9 +155,6 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     actions.closeOverlay()
     actions.reportError(error, 'overlay')
   }
-
-  const openBoard = () => setBoardOpen(true)
-  const closeBoard = () => setBoardOpen(false)
 
   const chatMain = shown
     ? h(Fragment, { key: shown },
@@ -157,21 +169,21 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
       }))
     : h('div', { className: 'dsb-mw-muted', style: { padding: 24 } }, '正在准备对话…')
 
-  const boardDrawer = boardOpen
+  const reportDrawer = reportOpen
     ? h(Fragment, null,
       h('button', {
         type: 'button',
         className: 'dsb-board-scrim',
-        'aria-label': '关闭看板',
-        onClick: closeBoard,
+        'aria-label': '关闭报表',
+        onClick: () => setReportOpen(false),
       }),
       h('aside', {
         className: 'dsb-board-drawer',
         role: 'dialog',
-        'aria-label': '号看板',
+        'aria-label': '号报表',
       },
         h('div', { className: 'dsb-board-drawer-head' },
-          h('button', { type: 'button', className: 'dsb-board-close', onClick: closeBoard }, '关闭'),
+          h('button', { type: 'button', className: 'dsb-board-close', onClick: () => setReportOpen(false) }, '关闭'),
           h(BoardAccountHead, {
             account: workspace?.account,
             accounts: mediaAccounts.accounts,
@@ -196,7 +208,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   return h('div', {
     className: `dsb-frame${mobile ? ' dsb-mobile' : ''}`,
     'data-rail': !mobile && !wide ? '' : undefined,
-    'data-board': boardOpen ? '' : undefined,
+    'data-whiteboard': whiteboardOpen ? '' : undefined,
   },
     h('aside', { className: 'dsb-side' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
@@ -215,9 +227,8 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
         h('button', {
           type: 'button',
           className: 'dsb-board-entry',
-          onClick: openBoard,
+          onClick: () => setReportOpen(true),
           title: '报表面板（也可在对话里问总负责人）',
-          'aria-expanded': boardOpen,
         }, wide || mobile ? '报表' : '报'),
         user && (wide || mobile)
           ? h('div', { className: 'dsb-account' },
@@ -231,20 +242,31 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
       chatMain),
+    h(WhiteboardFab, {
+      open: whiteboardOpen,
+      onClick: () => setWhiteboardOpen((v) => !v),
+    }),
+    h(WhiteboardPanel, {
+      open: whiteboardOpen,
+      sessionId: shown,
+      focusLink: boardFocus,
+      onClose: () => setWhiteboardOpen(false),
+      onConsumedFocus: () => setBoardFocus(null),
+    }),
     mobile
       ? h('nav', { className: 'dsb-mobile-bar', 'aria-label': '主区切换' },
         h('button', {
           type: 'button',
-          className: !boardOpen ? 'active' : undefined,
-          onClick: closeBoard,
+          className: !whiteboardOpen && !reportOpen ? 'active' : undefined,
+          onClick: () => { setWhiteboardOpen(false); setReportOpen(false) },
         }, '对话'),
         h('button', {
           type: 'button',
-          className: boardOpen ? 'active' : undefined,
-          onClick: openBoard,
-        }, '看板'))
+          className: whiteboardOpen ? 'active' : undefined,
+          onClick: () => { setReportOpen(false); setWhiteboardOpen(true) },
+        }, '白板'))
       : null,
-    boardDrawer,
+    reportDrawer,
     h('div', { className: 'dsb-chrome-float', 'aria-hidden': false },
       h(Contain, { onError: closeOverlays }, h(Overlays, views)),
       h(ErrorToast, views)))

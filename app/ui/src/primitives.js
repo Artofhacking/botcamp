@@ -24,9 +24,29 @@ function CodeBlock({ children, labels }) {
     h('pre', { ref: block }, children))
 }
 
-// Links open outside the window; mention links stay for the chat's own click handler.
+function boardLinkProps(props) {
+  const href = props.href || ''
+  if (!href.startsWith('board://')) return null
+  return {
+    ...props,
+    href,
+    target: undefined,
+    rel: undefined,
+    onClick: (event) => {
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('botcamp:board-link', { detail: { href } }))
+    },
+  }
+}
+
+// Links open outside the window; mention / board links stay in-app.
 const elements = labels => ({
-  a: ({ node: _node, ...props }) => h('a', props.href?.startsWith(MENTION_ORIGIN) ? props : { ...props, target: '_blank', rel: 'noreferrer' }),
+  a: ({ node: _node, ...props }) => {
+    if (props.href?.startsWith(MENTION_ORIGIN)) return h('a', props)
+    const board = boardLinkProps(props)
+    if (board) return h('a', board)
+    return h('a', { ...props, target: '_blank', rel: 'noreferrer' })
+  },
   pre: ({ children }) => h(CodeBlock, { labels }, children),
 })
 

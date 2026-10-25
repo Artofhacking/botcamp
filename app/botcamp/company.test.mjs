@@ -51,6 +51,7 @@ test('chief send returns a real SoT progress report', async () => {
     assert.equal(last.kind, 'bot')
     assert.match(last.text, /漏斗/)
     assert.match(last.text, /MediaAccount SoT/)
+    assert.match(last.text, /board:\/\//)
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

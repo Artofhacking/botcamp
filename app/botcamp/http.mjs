@@ -8,6 +8,7 @@ import {
 } from './company.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
 import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
+import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
 import { applyUserSetting } from './userSettings.mjs'
@@ -672,10 +673,12 @@ export async function createBotcamp(options = {}) {
     'media/accounts', 'media/focus', 'media/create-account', 'media/note',
     'media/update',
   ])
+  const BOARD_CONTROL = new Set(WHITEBOARD_CONTROL)
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',
     'admin/list', 'admin/create', 'admin/update', 'admin/delete',
     ...MEDIA_CONTROL,
+    ...BOARD_CONTROL,
   ])
 
   function jsonRequest(req, method, url, json) {
@@ -710,6 +713,16 @@ export async function createBotcamp(options = {}) {
       const user = await currentUser(req)
       if (user && passwordWall(res, user)) return
       sendMediaResult(res, handleMediaControl(req, body.endpoint, payload, user))
+      return
+    }
+    if (BOARD_CONTROL.has(body.endpoint)) {
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      if (passwordWall(res, user)) return
+      sendMediaResult(res, handleWhiteboardControl(req, body.endpoint, payload, user))
       return
     }
 
