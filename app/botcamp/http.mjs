@@ -1,5 +1,13 @@
+import {
+  buildCompanyState,
+  claimCompanyAccess,
+  companyChatPage,
+  companySend,
+  isCompanySessionId,
+  mergeProjectRooms,
+} from './company.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
-import { bindMediaDataDir, handleMediaControl } from './mediaControl.mjs'
+import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
 import { applyUserSetting } from './userSettings.mjs'
@@ -402,6 +410,19 @@ export async function createBotcamp(options = {}) {
     }
   }
 
+  function replyCompanyState(res, user, access) {
+    const ownerId = mediaOwnerIdFor(user)
+    claimCompanyAccess(access, ownerId)
+    const value = rewriteValue('state', buildCompanyState(ownerId, user), user, access, {})
+    // filterState rebuilds mainBotIds from user.mainBotIds; force chief as the landing DM.
+    if (value && typeof value === 'object' && !value.unchanged) {
+      value.mainBotIds = ['co_chief']
+      value.mainBotId = 'co_chief'
+    }
+    void store.commitAccess(user.id, access)
+    sendJson(res, 200, { ok: true, value })
+  }
+
   async function handleBot(req, res, context, body) {
     const user = context.user
     if (passwordWall(res, user)) return
@@ -413,6 +434,25 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = createAccess(user.id, context.resources)
+      const ownerId = mediaOwnerIdFor(user)
+      const sessionHint = payload?.botId || payload?.sessionId
+
+      // Company-local sessions never hit the kernel (roster / chat / send).
+      if (
+        (endpoint === 'chat' || endpoint === 'earlier' || endpoint === 'send')
+        && isCompanySessionId(sessionHint)
+      ) {
+        claimCompanyAccess(access, ownerId)
+        await store.commitAccess(user.id, access)
+        if (endpoint === 'send') {
+          const result = companySend(ownerId, payload)
+          sendJson(res, result.ok ? 200 : 400, result)
+          return
+        }
+        sendJson(res, 200, companyChatPage(ownerId, payload))
+        return
+      }
+
       const decision = decide(endpoint, payload, access, { role: user.role, workspaceId: user.kernelKey })
       if (decision.action === 'refuse') {
         sendJson(res, 200, refused(decision.message ?? CROSS_MESSAGE))
@@ -464,13 +504,23 @@ export async function createBotcamp(options = {}) {
       if (endpoint === 'state') outboundPayload = stateRequestPayload(payload, user)
       else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       outboundPayload = stripPathFields(outboundPayload)
-      const upstream = await callKernel('/api/bot', {
-        method: 'POST',
-        body: JSON.stringify({ endpoint, payload: outboundPayload }),
-        signal: client.signal,
-        namespace: user.kernelKey,
-        sessionToken: readSessionToken(req),
-      })
+      let upstream
+      try {
+        upstream = await callKernel('/api/bot', {
+          method: 'POST',
+          body: JSON.stringify({ endpoint, payload: outboundPayload }),
+          signal: client.signal,
+          namespace: user.kernelKey,
+          sessionToken: readSessionToken(req),
+        })
+      } catch (error) {
+        if (endpoint === 'state') {
+          if (charged) await store.refund(user.id).catch(() => {})
+          replyCompanyState(res, user, createAccess(user.id, context.resources))
+          return
+        }
+        throw error
+      }
       const text = await upstream.text()
       let parsed = null
       try { parsed = text ? JSON.parse(text) : null } catch { parsed = null }
@@ -483,6 +533,19 @@ export async function createBotcamp(options = {}) {
         for (const id of reserved) rollback.release(id)
         await store.commitAccess(user.id, rollback)
       }
+      // Empty / failed kernel state → company roster so login always shows employees.
+      if (
+        endpoint === 'state'
+        && (
+          !upstream.ok
+          || parsed?.ok === false
+          || !parsed
+          || (parsed?.ok !== false && Array.isArray(parsed?.value?.bots) && parsed.value.bots.length === 0)
+        )
+      ) {
+        replyCompanyState(res, user, createAccess(user.id, context.resources))
+        return
+      }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'value')) {
         const after = createAccess(user.id, context.resources)
         if (parsed.ok !== false) {
@@ -494,9 +557,16 @@ export async function createBotcamp(options = {}) {
           }
         }
         parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
+        if (endpoint === 'state' && parsed.ok !== false && parsed.value && !parsed.value.unchanged) {
+          parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
+        }
         if (endpoint === 'usage' && parsed.ok !== false) await store.writeUsage(user.id, parsed.value)
         await store.commitAccess(user.id, after)
         sendJson(res, upstream.status, parsed)
+        return
+      }
+      if (endpoint === 'state') {
+        replyCompanyState(res, user, createAccess(user.id, context.resources))
         return
       }
       if (res.writableEnded || res.destroyed) return
@@ -514,6 +584,12 @@ export async function createBotcamp(options = {}) {
       if (error?.code === 'LIMIT') {
         sendJson(res, 413, { ok: false, error: { message: '请求太大。' } })
         return
+      }
+      if (body?.endpoint === 'state') {
+        try {
+          replyCompanyState(res, user, createAccess(user.id, context.resources))
+          return
+        } catch { /* fall through */ }
       }
       console.error('[botcamp]', error instanceof Error ? error.message : 'bot proxy failed')
       sendJson(res, 502, { ok: false, error: { code: 'bot/error', message: '暂时连不上内核。' } })
@@ -594,6 +670,7 @@ export async function createBotcamp(options = {}) {
     'media/demo-users', 'media/login', 'media/logout', 'media/me',
     'media/workspace', 'media/manuscript',
     'media/accounts', 'media/focus', 'media/create-account', 'media/note',
+    'media/update',
   ])
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',

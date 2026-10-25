@@ -7,12 +7,8 @@ import { Overlays } from '../../../ds-bot/src/client/overlays.js'
 import { BrandMark, TeamSidebar, YouAvatar } from '../../../ds-bot/src/client/sidebar.js'
 import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
-import { MediaSidePanel, MediaTopBar, WORKBENCH_TABS, useMediaAccounts } from './mediaSide.js'
+import { BoardAccountHead, MediaSidePanel, useMediaAccounts } from './mediaSide.js'
 import { createTeam } from './team.js'
-
-const SIDE_MIN = 280
-const SIDE_MAX = 520
-const SIDE_DEFAULT = 340
 
 function useTheme(prefs) {
   useEffect(() => {
@@ -78,13 +74,8 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role, user?.mustChangePassword])
 
   const mobile = useMobile()
-  const [sideWidth, setSideWidth] = useState(() => {
-    const raw = Number(localStorage.getItem('botcamp_side_width') || SIDE_DEFAULT)
-    return Number.isFinite(raw) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, raw)) : SIDE_DEFAULT
-  })
-  const [sessionsOpen, setSessionsOpen] = useState(() => localStorage.getItem('botcamp_sessions_open') !== '0')
   const [tab, setTab] = useState('board')
-  const [mobilePane, setMobilePane] = useState('chat') // chat | workbench
+  const [boardOpen, setBoardOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const [workspace, setWorkspace] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -96,7 +87,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const onAnchor = useCallback((next) => {
     setAnchor(next)
     if (next?.tab) setTab(next.tab)
-    if (mobile) setMobilePane('chat')
+    if (mobile) setBoardOpen(false)
   }, [mobile])
 
   const onFocusAccount = async (id) => {
@@ -124,42 +115,21 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     }
   }
 
-  const startResize = (event) => {
-    if (mobile || !wide) return
-    event.preventDefault()
-    const startX = event.clientX
-    const startW = sideWidth
-    let latest = startW
-    const onMove = (e) => {
-      latest = Math.min(SIDE_MAX, Math.max(SIDE_MIN, startW + (e.clientX - startX)))
-      setSideWidth(latest)
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      localStorage.setItem('botcamp_side_width', String(latest))
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
-
-  useEffect(() => {
-    localStorage.setItem('botcamp_side_width', String(sideWidth))
-  }, [sideWidth])
-
-  const toggleSessions = () => {
-    setSessionsOpen((v) => {
-      const next = !v
-      localStorage.setItem('botcamp_sessions_open', next ? '1' : '0')
-      return next
-    })
-  }
-
   const { hooks, actions } = team
   const views = { ...hooks, actions }
   const wide = hooks.useLayout(state => state.wide)
   const shown = hooks.useShown(id => id)
+  const roster = hooks.useRoster(value => value)
   useTheme(hooks.useRoster(value => value.prefs))
+
+  // Enter company = land on 总负责人 (chief), never an account picker.
+  useEffect(() => {
+    if (!roster?.ready || shown) return
+    const chief = (roster.bots || []).find((b) => b.name === '总负责人' || b.id === 'co_chief')
+      || (roster.bots || [])[0]
+    if (chief?.id) actions.landOn(chief.id)
+  }, [roster?.ready, roster?.bots, shown, actions])
+
   const closeOverlays = (error) => {
     actions.closeSettings()
     actions.closeMemory()
@@ -171,34 +141,8 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     actions.reportError(error, 'overlay')
   }
 
-  const account = workspace?.account
-  // Top bar spans full width; columns are side | resizer | chat.
-  const frameStyle = (!mobile && wide)
-    ? { gridTemplateColumns: `${sideWidth}px 6px minmax(0,1fr)` }
-    : undefined
-
-  const workbench = h(MediaSidePanel, {
-    wide: wide || mobile,
-    mobile,
-    tab,
-    onTab: setTab,
-    reloadToken,
-    onWorkspace: setWorkspace,
-    onAnchor,
-    anchor,
-    onWrote: bump,
-  })
-
-  const sessions = h('div', { className: `dsb-side-sessions${sessionsOpen ? '' : ' collapsed'}` },
-    wide || mobile
-      ? h('button', { type: 'button', className: 'dsb-side-sessions-toggle', onClick: toggleSessions },
-        sessionsOpen ? '收起会话' : '展开会话')
-      : h('button', { type: 'button', className: 'dsb-expand', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: () => actions.toggleSidebar() }, h(BrandMark, { size: 22 })),
-    sessionsOpen || !(wide || mobile)
-      ? h(Fragment, null,
-        h('div', { className: 'dsb-side-sessions-label' }, wide || mobile ? '会话' : null),
-        h(TeamSidebar, { ...views, wide: wide || mobile }))
-      : null)
+  const openBoard = () => setBoardOpen(true)
+  const closeBoard = () => setBoardOpen(false)
 
   const chatMain = shown
     ? h(Fragment, { key: shown },
@@ -211,41 +155,79 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
         workspace,
         onWorkbenchWrite: bump,
       }))
-    : h('div', { className: 'dsb-mw-muted', style: { padding: 24 } }, '正在准备主编对话…')
+    : h('div', { className: 'dsb-mw-muted', style: { padding: 24 } }, '正在准备对话…')
+
+  const boardDrawer = boardOpen
+    ? h(Fragment, null,
+      h('button', {
+        type: 'button',
+        className: 'dsb-board-scrim',
+        'aria-label': '关闭看板',
+        onClick: closeBoard,
+      }),
+      h('aside', {
+        className: 'dsb-board-drawer',
+        role: 'dialog',
+        'aria-label': '号看板',
+      },
+        h('div', { className: 'dsb-board-drawer-head' },
+          h('button', { type: 'button', className: 'dsb-board-close', onClick: closeBoard }, '关闭'),
+          h(BoardAccountHead, {
+            account: workspace?.account,
+            accounts: mediaAccounts.accounts,
+            onFocus: onFocusAccount,
+            onCreate: onCreateAccount,
+            busy: switchBusy,
+          })),
+        h(MediaSidePanel, {
+          wide: true,
+          mobile: false,
+          drawer: true,
+          tab,
+          onTab: setTab,
+          reloadToken,
+          onWorkspace: setWorkspace,
+          onAnchor,
+          anchor,
+          onWrote: bump,
+        })))
+    : null
 
   return h('div', {
-    className: `dsb-frame dsb-frame-media${mobile ? ' dsb-mobile' : ''}`,
+    className: `dsb-frame${mobile ? ' dsb-mobile' : ''}`,
     'data-rail': !mobile && !wide ? '' : undefined,
-    'data-mobile-pane': mobile ? mobilePane : undefined,
-    style: frameStyle,
+    'data-board': boardOpen ? '' : undefined,
   },
-    h(MediaTopBar, {
-      account,
-      accounts: mediaAccounts.accounts,
-      onFocus: onFocusAccount,
-      onCreate: onCreateAccount,
-      busy: switchBusy,
-    }),
     h('aside', { className: 'dsb-side' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
-      workbench,
-      sessions,
+      wide || mobile
+        ? null
+        : h('button', {
+          type: 'button',
+          className: 'dsb-expand',
+          'aria-label': t('Expand sidebar'),
+          title: t('Expand sidebar'),
+          onClick: () => actions.toggleSidebar(),
+        }, h(BrandMark, { size: 22 })),
+      h('div', { className: 'dsb-side-list' },
+        h(TeamSidebar, { ...views, wide: wide || mobile })),
       h('div', { className: 'dsb-side-foot' },
-        user ? h('div', { className: 'dsb-account' },
-          h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
-          h('span', { className: 'dsb-account-quota' }, `已用 ${user.used} / ${user.quota} 条`),
-          h('span', { className: 'dsb-account-actions' },
-            user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户与配额') : null,
-            h('button', { type: 'button', onClick: onPassword }, '修改密码'),
-            h('button', { type: 'button', onClick: onLogout }, '退出'))) : null,
+        h('button', {
+          type: 'button',
+          className: 'dsb-board-entry',
+          onClick: openBoard,
+          title: '报表面板（也可在对话里问总负责人）',
+          'aria-expanded': boardOpen,
+        }, wide || mobile ? '报表' : '报'),
+        user && (wide || mobile)
+          ? h('div', { className: 'dsb-account' },
+            h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
+            h('span', { className: 'dsb-account-actions' },
+              user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户') : null,
+              h('button', { type: 'button', onClick: onPassword }, '密码'),
+              h('button', { type: 'button', onClick: onLogout }, '退出')))
+          : null,
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
-    mobile ? null : h('div', {
-      className: 'dsb-side-resizer',
-      role: 'separator',
-      'aria-orientation': 'vertical',
-      'aria-label': '调整工作台宽度',
-      onMouseDown: startResize,
-    }),
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
       chatMain),
@@ -253,21 +235,16 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
       ? h('nav', { className: 'dsb-mobile-bar', 'aria-label': '主区切换' },
         h('button', {
           type: 'button',
-          className: mobilePane === 'chat' ? 'active' : undefined,
-          onClick: () => setMobilePane('chat'),
+          className: !boardOpen ? 'active' : undefined,
+          onClick: closeBoard,
         }, '对话'),
         h('button', {
           type: 'button',
-          className: mobilePane === 'workbench' ? 'active' : undefined,
-          onClick: () => setMobilePane('workbench'),
-        }, '看板'),
-        WORKBENCH_TABS.slice(0, 3).map(t => h('button', {
-          key: t.id,
-          type: 'button',
-          className: mobilePane === 'workbench' && tab === t.id ? 'active' : undefined,
-          onClick: () => { setTab(t.id); setMobilePane('workbench') },
-        }, t.label)))
+          className: boardOpen ? 'active' : undefined,
+          onClick: openBoard,
+        }, '看板'))
       : null,
+    boardDrawer,
     h('div', { className: 'dsb-chrome-float', 'aria-hidden': false },
       h(Contain, { onError: closeOverlays }, h(Overlays, views)),
       h(ErrorToast, views)))

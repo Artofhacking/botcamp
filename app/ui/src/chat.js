@@ -209,12 +209,8 @@ export function Chat({ sessionId, team, anchor, onClearAnchor, workspace, onWork
 
   return h('div', { className: 'dsb-chat' },
     anchor ? h('div', { className: 'dsb-anchor-bar' },
-      h('span', null, `主编锚定：${anchor.kind} · ${anchor.title}`),
+      h('span', null, `锚定：${anchor.kind} · ${anchor.title}`),
       h('button', { type: 'button', onClick: onClearAnchor }, '取消')) : null,
-    workspace?.account && !anchor
-      ? h('div', { className: 'dsb-anchor-bar soft' },
-        h('span', null, `工作台 SoT：${workspace.account.display_name}`))
-      : null,
     h('div', { ref: scroller, className: 'dsb-scroll', 'data-conversation-scroll': '', onScroll },
       h('div', { className: 'dsb-column' },
         earlier ? h('div', { className: 'bt-earlier-top' }, earlier) : null,

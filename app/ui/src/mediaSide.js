@@ -203,22 +203,21 @@ function ManuscriptBody({ data, onOpen, preview, onAnchor, activeId }) {
       : null)
 }
 
-export function MediaTopBar({ account, accounts, onFocus, onCreate, busy }) {
+/** Quiet account switcher for the board drawer — never a permanent top-left chrome. */
+export function BoardAccountHead({ account, accounts, onFocus, onCreate, busy }) {
   const [open, setOpen] = useState(false)
   const platform = account?.platform === 'xiaoheihe' ? '小黑盒' : account?.platform
-  return h('div', { className: 'dsb-media-top' },
-    h('div', { className: 'dsb-media-top-brand' },
-      h('strong', null, 'BotCamp'),
-      account
-        ? h('button', {
-          type: 'button',
-          className: 'dsb-media-top-focus',
-          disabled: busy,
-          onClick: () => setOpen(v => !v),
-          'aria-expanded': open,
-          title: '切换自媒体账号',
-        }, `${account.display_name} · ${platform}`)
-        : h('span', { className: 'dsb-mw-muted' }, '加载账号…')),
+  return h('div', { className: 'dsb-board-account' },
+    account
+      ? h('button', {
+        type: 'button',
+        className: 'dsb-board-account-btn',
+        disabled: busy,
+        onClick: () => setOpen(v => !v),
+        'aria-expanded': open,
+        title: '切换自媒体账号',
+      }, `${account.display_name} · ${platform}`)
+      : h('span', { className: 'dsb-mw-muted' }, '加载账号…'),
     open ? h('div', { className: 'dsb-media-switch', role: 'menu' },
       (accounts || []).map(a => h('button', {
         key: a.id,
@@ -236,12 +235,16 @@ export function MediaTopBar({ account, accounts, onFocus, onCreate, busy }) {
       }, '起新号')) : null)
 }
 
+/** @deprecated — kept as alias; do not mount as page chrome. */
+export const MediaTopBar = BoardAccountHead
+
 /**
- * Side workbench: tabs on top, SoT content. Chat stays main; clicks emit onAnchor.
+ * Board content for the drawer panel. Chat stays the page; clicks emit onAnchor.
  */
 export function MediaSidePanel({
   wide,
   mobile,
+  drawer,
   tab,
   onTab,
   reloadToken,
@@ -300,9 +303,7 @@ export function MediaSidePanel({
     }
   }
 
-  if (!wide && !mobile) {
-    return h('div', { className: 'dsb-mw-rail', title: '展开侧栏查看看板' }, '板')
-  }
+  if (!wide && !mobile && !drawer) return null
 
   let body = null
   if (error && !data) body = h('p', { className: 'dsb-mw-error', role: 'alert' }, error)
@@ -372,7 +373,7 @@ export function MediaSidePanel({
     })
   }
 
-  return h('div', { className: `dsb-mw${mobile ? ' mobile' : ''}` },
+  return h('div', { className: `dsb-mw${drawer ? ' drawer' : ''}${mobile ? ' mobile' : ''}` },
     h('div', { className: 'dsb-mw-tabs', role: 'tablist', 'aria-label': '号看板' },
       WORKBENCH_TABS.map(t => h('button', {
         key: t.id,

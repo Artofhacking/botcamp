@@ -197,11 +197,11 @@ import sys
 root = Path(sys.argv[1])
 assets = list((root / "assets").glob("*.js"))
 blob = "\n".join(p.read_text(errors="ignore") for p in assets)
-needles = ("Needs you", "看板", "media/update", "dsb-mw", "dsb-frame")
+needles = ("Needs you", "报表", "media/update", "dsb-frame", "总负责人", "co_chief")
 missing = [n for n in needles if n not in blob]
 if missing:
-    raise SystemExit(f"built DS Bot bundle missing board markers: {missing}")
-print("built board entry markers OK:", ", ".join(needles))
+    raise SystemExit(f"built DS Bot bundle missing company/board markers: {missing}")
+print("built company-chat markers OK:", ", ".join(needles))
 PY
 
 echo "DS Bot 壳（app/ui/dist）已发布为站点根；可选 /workbench/ 为独立工作台。云函数 production → v${VERSION}。"

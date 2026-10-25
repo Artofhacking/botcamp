@@ -138,8 +138,16 @@ export function createTeam() {
     return bot ? currentPart(bot) : id
   }
 
+  const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, turnClock })
   const actions = {
-    ...teamActions({ call, after, partFor, roster, ui, live, cards, turnClock }),
+    ...baseActions,
+    // Company-local sessions have no kernel feed; reload the page after send.
+    send: async (sessionId, text) => {
+      const value = await baseActions.send(sessionId, text)
+      const id = partFor(sessionId)
+      if (typeof id === 'string' && id.startsWith('co_')) chat.emit('hello', {})
+      return value
+    },
     // The full-pane overlays sit above the conversation, so opening one dismisses them.
     openSession: (id) => {
       ui.set(state => (state.newChat || state.exchange || state.menu || state.palette ? { ...state, newChat: null, exchange: null, menu: null, palette: null } : state))
