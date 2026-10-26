@@ -100,6 +100,11 @@ test('workspace listing retry is not painted in flight or on failure', () => {
   hidden.length = 0
   hideWorkspaceRetry({ textContent: '主编 写稿 数据', querySelectorAll: () => [] })
   assert.deepEqual(hidden, [])
+  const plus = readFileSync(`${root}/ds-bot/src/client/composer.js`, 'utf8')
+  const fn = plus.slice(plus.indexOf('export function ComposerPlus'))
+  const memoAt = fn.indexOf('const place = useMemo(')
+  const returnAt = fn.indexOf('if (sessionId === undefined || target === undefined) return null')
+  assert.ok(memoAt > 0 && returnAt > memoAt)
 })
 
 test('a feed that ends immediately waits several seconds', () => {
