@@ -136,7 +136,7 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       body: JSON.stringify({ endpoint: 'admin/create', payload: { email: 'zero@example.com', password: 'password-zero', quota: 0 } }),
     }, env, { fetchImpl })
     assert.equal(created.statusCode, 201)
-    assert.deepEqual(JSON.parse(created.body).team.created, ['总负责人', '写手', '运营'])
+    assert.deepEqual(JSON.parse(created.body).team.created, ['主编', '写稿', '数据'])
     assert.deepEqual(JSON.parse(created.body).team.failed, [])
     const other = await handler({
       method: 'POST',
@@ -190,7 +190,7 @@ test('deployed handler logs in, isolates, blocks a zero quota, and hides the ker
       headers: { cookie: zeroCookie },
       body: JSON.stringify({ endpoint: 'state', payload: {} }),
     }, env, { fetchImpl })
-    assert.deepEqual(JSON.parse(seen.body).value.bots.map(bot => bot.name), ['总负责人', '写手', '运营'])
+    assert.deepEqual(JSON.parse(seen.body).value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
     assert.equal(JSON.parse(seen.body).value.bots.some(bot => bot.id === madeBot.id), false)
     const blocked = await handler({
       method: 'POST',

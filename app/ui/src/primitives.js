@@ -24,27 +24,28 @@ function CodeBlock({ children, labels }) {
     h('pre', { ref: block }, children))
 }
 
-function boardLinkProps(props) {
+function docLinkProps(props) {
   const href = props.href || ''
-  if (!href.startsWith('board://')) return null
+  if (!href.startsWith('doc://')) return null
   return {
     ...props,
     href,
+    className: 'lib-doc-link',
     target: undefined,
     rel: undefined,
     onClick: (event) => {
       event.preventDefault()
-      window.dispatchEvent(new CustomEvent('botcamp:board-link', { detail: { href } }))
+      window.dispatchEvent(new CustomEvent('botcamp:doc-link', { detail: { href } }))
     },
   }
 }
 
-// Links open outside the window; mention / board links stay in-app.
+// Links open outside the window; mention / document links stay in-app.
 const elements = labels => ({
   a: ({ node: _node, ...props }) => {
     if (props.href?.startsWith(MENTION_ORIGIN)) return h('a', props)
-    const board = boardLinkProps(props)
-    if (board) return h('a', board)
+    const doc = docLinkProps(props)
+    if (doc) return h('a', doc)
     return h('a', { ...props, target: '_blank', rel: 'noreferrer' })
   },
   pre: ({ children }) => h(CodeBlock, { labels }, children),

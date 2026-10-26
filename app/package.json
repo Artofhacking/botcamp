@@ -8,14 +8,21 @@
     "build": "vite build",
     "build:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=https://botcamp.demox.site vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test botcamp/server.test.mjs botcamp/company.test.mjs botcamp/whiteboard.test.mjs botcamp/projectLedger.test.mjs ui/stay.test.mjs ui/session.test.mjs ../functions/bot/handler.test.mjs"
+    "test": "node --test botcamp/server.test.mjs botcamp/company.test.mjs botcamp/library.test.mjs botcamp/whiteboard.test.mjs botcamp/projectLedger.test.mjs ui/stay.test.mjs ui/session.test.mjs ../functions/bot/handler.test.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.2",
+    "@vscode/markdown-it-katex": "^1.1.2",
+    "katex": "^0.19.1",
+    "markdown-it": "^15.0.3",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-mark": "^4.0.0",
+    "markdown-it-task-lists": "^2.1.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-markdown": "10.1.0",
-    "remark-gfm": "4.0.1"
+    "remark-gfm": "4.0.1",
+    "sanitize-html": "^2.18.1"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",

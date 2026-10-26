@@ -8,12 +8,13 @@ import { seed } from '../../scripts/seed.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import {
   buildCompanyState,
-  buildStatusKanban,
   CHIEF_ID,
   companyChatPage,
   companySend,
   isCompanySessionId,
 } from './company.mjs'
+import { getLibraryNode } from './library.mjs'
+import { OTHER_OWNER_ID } from '../../scripts/seed-ids.mjs'
 
 test('company state lists employees and project rooms without an account gate', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
@@ -23,7 +24,7 @@ test('company state lists employees and project rooms without an account gate', 
     seed()
     const state = buildCompanyState(PHOSA_OWNER_ID, { prefs: {} })
     assert.equal(state.mainBotId, CHIEF_ID)
-    assert.deepEqual(state.bots.map((b) => b.name), ['总负责人', '写手', '运营'])
+    assert.deepEqual(state.bots.map((b) => b.name), ['主编', '写稿', '数据'])
     assert.ok(state.rooms.some((r) => /小稿/.test(r.name)))
     const room = state.rooms.find((r) => /小稿/.test(r.name))
     assert.ok(Array.isArray(room.members) && room.members.includes(CHIEF_ID), 'rooms must expose members for DS Bot UI')
@@ -34,29 +35,40 @@ test('company state lists employees and project rooms without an account gate', 
   }
 })
 
-test('chief send places kanban table/article/icon components', async () => {
+test('chief send keeps a markdown note and links it', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
   const prev = getDataRoot()
   try {
     configureDataRoot(path.join(dir, 'media-store'))
     seed()
-    const kanban = buildStatusKanban(PHOSA_OWNER_ID, {})
-    assert.match(kanban.heading, /看板/)
-    assert.ok(kanban.columns.some((c) => c.name === '待你处理'))
-    assert.equal(kanban.table.columns.includes('账号'), true)
-    assert.doesNotMatch(JSON.stringify(kanban), /报表/)
-
     const page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
     assert.equal(page.ok, true)
+    assert.match(page.value.items[0].text, /主编/)
+    assert.doesNotMatch(page.value.items[0].text, /报表|看板|白板/)
+
     const sent = companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '全部号进度' })
     assert.equal(sent.ok, true)
     const after = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
     const last = after.value.items.at(-1)
     assert.equal(last.kind, 'bot')
-    assert.match(last.text, /看板/)
-    assert.match(last.text, /board:\/\//)
-    assert.doesNotMatch(last.text, /报表/)
-    assert.ok(sent.value.boardLink?.href)
+    assert.match(last.text, /doc:\/\/doc_[a-f0-9]+/)
+    assert.doesNotMatch(last.text, /报表|看板|白板|board:\/\//)
+    const id = last.text.match(/doc:\/\/(doc_[a-f0-9]+)/)[1]
+    const node = getLibraryNode(PHOSA_OWNER_ID, id)
+    assert.equal(node.kind, 'file')
+    assert.equal(typeof node.content, 'string')
+    assert.ok(node.content.length > 0)
+    assert.equal(getLibraryNode(OTHER_OWNER_ID, id), null)
+    assert.equal(sent.value.docLink.href, `doc://${id}`)
+
+    const remembered = companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '记下来：明天只改标题' })
+    assert.equal(remembered.ok, true)
+    const again = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    const note = again.value.items.at(-1)
+    const noteId = note.text.match(/doc:\/\/(doc_[a-f0-9]+)/)[1]
+    const kept = getLibraryNode(PHOSA_OWNER_ID, noteId)
+    assert.match(kept.content, /明天只改标题/)
+    assert.equal(getLibraryNode(OTHER_OWNER_ID, noteId), null)
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

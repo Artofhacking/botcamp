@@ -273,12 +273,12 @@ test('user A cannot read user B, quota blocks a send, and an admin can set quota
     assert.equal(explicit.length, 2)
     assert.notEqual(explicit[0].headers['x-botcamp-namespace'], explicit[1].headers['x-botcamp-namespace'])
     assert.match(explicit[0].headers['x-botcamp-namespace'], /^u_/)
-    assert.equal(creates.filter(call => ['总负责人', '写手', '运营'].includes(JSON.parse(call.body).payload.name)).length, 6)
+    assert.equal(creates.filter(call => ['主编', '写稿', '数据'].includes(JSON.parse(call.body).payload.name)).length, 6)
 
     const stateA = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieA, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
     const stateB = await api(ctx.base, '/api/bot', { method: 'POST', cookie: cookieB, body: { endpoint: 'state', payload: { since: -1, models: '' } } })
-    assert.deepEqual(stateA.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营', '甲'])
-    assert.deepEqual(stateB.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营', '乙'])
+    assert.deepEqual(stateA.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据', '甲'])
+    assert.deepEqual(stateB.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据', '乙'])
     const idsB = new Set(stateB.json.value.bots.map(bot => bot.id))
     for (const id of stateA.json.value.bots.map(bot => bot.id)) assert.equal(idsB.has(id), false)
     assert.equal(JSON.stringify(stateA.json).includes('bot-b'), false)
@@ -896,7 +896,7 @@ test('opening an account creates the three duty bots without a room, a main bot,
       body: { email: 'a@example.com', password: 'password-user-a', quota: 0 },
     })
     assert.equal(created.status, 201)
-    assert.deepEqual(created.json.team.created, ['总负责人', '写手', '运营'])
+    assert.deepEqual(created.json.team.created, ['主编', '写稿', '数据'])
     assert.deepEqual(created.json.team.failed, [])
     assert.equal(created.json.user.used, 0)
     assert.equal(JSON.stringify(created.json).includes('password-user-a'), false)
@@ -935,7 +935,7 @@ test('opening an account creates the three duty bots without a room, a main bot,
       cookie: cookieHeader(login.setCookie),
       body: { endpoint: 'state', payload: {} },
     })
-    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营'])
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
     assert.deepEqual(state.json.value.rooms, [])
     assert.equal(state.json.value.mainBotId, null)
     assert.deepEqual(state.json.value.mainBotIds, [])
@@ -953,7 +953,7 @@ test('a missed default bot still leaves the account and does not charge quota', 
     const body = JSON.parse(init.body ?? '{}')
     if (body.endpoint !== 'create-bot') return Response.json({ ok: true, value: { revision: 1, bots: [], rooms: [] } })
     creates += 1
-    if (body.payload?.name === '写手') return Response.json({ ok: false, error: { message: 'kernel down' } }, { status: 500 })
+    if (body.payload?.name === '写稿') return Response.json({ ok: false, error: { message: 'kernel down' } }, { status: 500 })
     return Response.json({ ok: true, value: { id: `bot-${creates}`, name: body.payload.name, sessionId: `sess-${creates}` } })
   }
   const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
@@ -966,8 +966,8 @@ test('a missed default bot still leaves the account and does not charge quota', 
     })
     assert.equal(created.status, 201)
     assert.equal(creates, 3)
-    assert.deepEqual(created.json.team.created, ['总负责人', '运营'])
-    assert.deepEqual(created.json.team.failed, ['写手'])
+    assert.deepEqual(created.json.team.created, ['主编', '数据'])
+    assert.deepEqual(created.json.team.failed, ['写稿'])
     assert.equal(JSON.stringify(created.json).includes('kernel down'), false)
     const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: 'a@example.com', password: created.json.password } })
     assert.equal(login.status, 200)
@@ -1109,7 +1109,7 @@ test('unowned kernel bots fall back to the company roster after filterState', as
     assert.equal(state.status, 200)
     assert.equal(state.json.ok, true)
     assert.equal(state.json.value.companyMode, 'company-local')
-    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['总负责人', '写手', '运营'])
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
     assert.equal(state.json.value.mainBotId, 'co_chief')
     assert.equal(state.json.value.bots.some(bot => bot.id === 'foreign-bot'), false)
   } finally {

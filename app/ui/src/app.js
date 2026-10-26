@@ -7,9 +7,9 @@ import { Overlays } from '../../../ds-bot/src/client/overlays.js'
 import { BrandMark, TeamSidebar, YouAvatar } from '../../../ds-bot/src/client/sidebar.js'
 import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
+import { LibraryPanel } from './library.js'
+import { parseDocHref } from './libraryApi.js'
 import { createTeam } from './team.js'
-import { WhiteboardFab, WhiteboardPanel } from './whiteboard.js'
-import { parseBoardHref } from './whiteboardApi.js'
 
 function useTheme(prefs) {
   useEffect(() => {
@@ -75,8 +75,15 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   }, [onUser, onLogout, user?.used, user?.quota, user?.email, user?.role, user?.mustChangePassword])
 
   const mobile = useMobile()
-  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
-  const [boardFocus, setBoardFocus] = useState(null)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [docFocus, setDocFocus] = useState(null)
+  const [color, setColor] = useState(() => (document.body.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light'))
+  const setScheme = (next) => {
+    localStorage.setItem('botcamp-color', next)
+    document.body.toggleAttribute('data-ds-dark-theme', next === 'dark')
+    window.dispatchEvent(new Event('botcamp:color'))
+    setColor(next)
+  }
 
   const { hooks, actions } = team
   const views = { ...hooks, actions }
@@ -87,7 +94,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
 
   useEffect(() => {
     if (!roster?.ready || shown) return
-    const chief = (roster.bots || []).find((b) => b.name === '总负责人' || b.name === '主编' || b.id === 'co_chief')
+    const chief = (roster.bots || []).find((b) => b.name === '主编' || b.name === '总负责人' || b.id === 'co_chief')
       || (roster.bots || [])[0]
     if (chief?.id) actions.landOn(chief.id)
   }, [roster?.ready, roster?.bots, shown, actions])
@@ -95,13 +102,13 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   useEffect(() => {
     const onLink = (event) => {
       const href = event.detail?.href
-      const parsed = parseBoardHref(href)
-      if (!parsed) return
-      setBoardFocus(parsed)
-      setWhiteboardOpen(true)
+      const id = parseDocHref(href)
+      if (!id) return
+      setDocFocus(id)
+      setLibraryOpen(true)
     }
-    window.addEventListener('botcamp:board-link', onLink)
-    return () => window.removeEventListener('botcamp:board-link', onLink)
+    window.addEventListener('botcamp:doc-link', onLink)
+    return () => window.removeEventListener('botcamp:doc-link', onLink)
   }, [])
 
   const closeOverlays = (error) => {
@@ -124,7 +131,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   return h('div', {
     className: `dsb-frame${mobile ? ' dsb-mobile' : ''}`,
     'data-rail': !mobile && !wide ? '' : undefined,
-    'data-whiteboard': whiteboardOpen ? '' : undefined,
+    'data-library': libraryOpen ? '' : undefined,
   },
     h('aside', { className: 'dsb-side' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
@@ -148,33 +155,42 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
               h('button', { type: 'button', onClick: onPassword }, '密码'),
               h('button', { type: 'button', onClick: onLogout }, '退出')))
           : null,
+        h('button', {
+          type: 'button',
+          className: 'dsb-docs-entry',
+          'data-open': libraryOpen ? '' : undefined,
+          title: '文档库',
+          onClick: () => setLibraryOpen((open) => !open),
+        }, wide || mobile ? '文档库' : '文'),
+        h('button', {
+          type: 'button',
+          className: 'dsb-docs-entry',
+          title: color === 'dark' ? '切换到浅色' : '切换到深色',
+          onClick: () => setScheme(color === 'dark' ? 'light' : 'dark'),
+        }, color === 'dark' ? (wide || mobile ? '浅色' : '浅') : (wide || mobile ? '深色' : '深')),
         h('button', { type: 'button', className: 'dsb-settings', title: t('Settings'), onClick: () => actions.openSettings() }, h(YouAvatar)))),
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
       chatMain),
-    h(WhiteboardFab, {
-      open: whiteboardOpen,
-      onClick: () => setWhiteboardOpen((v) => !v),
-    }),
-    h(WhiteboardPanel, {
-      open: whiteboardOpen,
-      sessionId: shown,
-      focusLink: boardFocus,
-      onClose: () => setWhiteboardOpen(false),
-      onConsumedFocus: () => setBoardFocus(null),
-    }),
+    libraryOpen
+      ? h(LibraryPanel, {
+        focusId: docFocus,
+        onClose: () => setLibraryOpen(false),
+        onConsumedFocus: () => setDocFocus(null),
+      })
+      : null,
     mobile
       ? h('nav', { className: 'dsb-mobile-bar', 'aria-label': '主区切换' },
         h('button', {
           type: 'button',
-          className: !whiteboardOpen ? 'active' : undefined,
-          onClick: () => setWhiteboardOpen(false),
+          className: !libraryOpen ? 'active' : undefined,
+          onClick: () => setLibraryOpen(false),
         }, '对话'),
         h('button', {
           type: 'button',
-          className: whiteboardOpen ? 'active' : undefined,
-          onClick: () => setWhiteboardOpen(true),
-        }, '白板'))
+          className: libraryOpen ? 'active' : undefined,
+          onClick: () => setLibraryOpen(true),
+        }, '文档'))
       : null,
     h('div', { className: 'dsb-chrome-float', 'aria-hidden': false },
       h(Contain, { onError: closeOverlays }, h(Overlays, views)),
