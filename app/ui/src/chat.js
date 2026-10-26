@@ -221,7 +221,9 @@ export function Chat({ sessionId, team, anchor, onClearAnchor, workspace, onWork
           h('div', { 'data-chat-running': '' }),
           question ? h(PendingQuestion, { key: JSON.stringify([sessionId, question.id]), sessionId, question, actions, inline: true }) : null))),
     h('div', { className: 'dsb-composer-root' },
-      h(ModelChoiceDock, { sessionId, useRoster: hooks.useRoster, actions }),
+      typeof sessionId === 'string' && sessionId.startsWith('co_')
+        ? null
+        : h(ModelChoiceDock, { sessionId, useRoster: hooks.useRoster, actions }),
       h(Composer, {
         sessionId,
         disabled: waiting,

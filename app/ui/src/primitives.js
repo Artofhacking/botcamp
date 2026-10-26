@@ -1,7 +1,7 @@
 // The window's own versions of the DSH interface primitives the Bot views draw with (see
 // ds-bot/src/client/dsh-primitives.js and vite.config.js).
 import { createElement as h, useMemo, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
+import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { MENTION_ORIGIN } from '../../../ds-bot/src/client/text.js'
 
@@ -24,27 +24,28 @@ function CodeBlock({ children, labels }) {
     h('pre', { ref: block }, children))
 }
 
-function boardLinkProps(props) {
+function docLinkProps(props) {
   const href = props.href || ''
-  if (!href.startsWith('board://')) return null
+  if (!href.startsWith('doc://')) return null
   return {
     ...props,
     href,
+    className: 'lib-doc-link',
     target: undefined,
     rel: undefined,
     onClick: (event) => {
       event.preventDefault()
-      window.dispatchEvent(new CustomEvent('botcamp:board-link', { detail: { href } }))
+      window.dispatchEvent(new CustomEvent('botcamp:doc-link', { detail: { href } }))
     },
   }
 }
 
-// Links open outside the window; mention / board links stay in-app.
+// Links open outside the window; mention / document links stay in-app.
 const elements = labels => ({
   a: ({ node: _node, ...props }) => {
     if (props.href?.startsWith(MENTION_ORIGIN)) return h('a', props)
-    const board = boardLinkProps(props)
-    if (board) return h('a', board)
+    const doc = docLinkProps(props)
+    if (doc) return h('a', doc)
     return h('a', { ...props, target: '_blank', rel: 'noreferrer' })
   },
   pre: ({ children }) => h(CodeBlock, { labels }, children),
@@ -55,5 +56,9 @@ export function MarkdownText({ text, labels, variant }) {
   // New element types on every render would remount each code block as a reply streams in.
   const components = useMemo(() => elements(labels), [labels?.code?.copyLabel, labels?.code?.copiedLabel])
   return h('div', { className: variant === 'compact' ? 'md_markdown md-compact' : 'md_markdown' },
-    h(Markdown, { remarkPlugins: plugins, components }, text ?? ''))
+    h(Markdown, {
+      remarkPlugins: plugins,
+      components,
+      urlTransform: (url) => (typeof url === 'string' && url.startsWith('doc://') ? url : defaultUrlTransform(url)),
+    }, text ?? ''))
 }

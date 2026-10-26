@@ -649,6 +649,17 @@ export async function openStore(dataDir, options = {}) {
         return root
       })
     },
+    // Listing must not upload the tree. The host retries until this directory can be read.
+    localWorkspace(userId) {
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return null
+        const claimed = claimWorkspace(user)
+        const root = await ensureWorkspace(dir, user.kernelKey)
+        if (claimed) await saveAccounts()
+        return root
+      })
+    },
     syncWorkspace(userId) {
       return exclusive(async () => {
         const user = data.users.find(entry => entry.id === userId)

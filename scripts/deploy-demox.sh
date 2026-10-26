@@ -197,13 +197,13 @@ import sys
 root = Path(sys.argv[1])
 assets = list((root / "assets").glob("*.js"))
 blob = "\n".join(p.read_text(errors="ignore") for p in assets)
-needles = ("白板", "关闭白板", "wb-surface", "wb-table", "board://", "dsb-frame", "总负责人", "co_chief", "表格", "文章", "图标")
+needles = ("文档库", "lib-fab", "Vditor", "dsb-frame", "主编", "co_chief")
 missing = [n for n in needles if n not in blob]
 if missing:
-    raise SystemExit(f"built DS Bot bundle missing company/whiteboard markers: {missing}")
-if "报表" in blob:
-    raise SystemExit("built DS Bot bundle still contains 报表 — remove report UI/copy")
-print("built company+whiteboard markers OK:", ", ".join(needles))
+    raise SystemExit(f"built DS Bot bundle missing company/library markers: {missing}")
+if "报表" in blob or "白板" in blob or "关闭白板" in blob:
+    raise SystemExit("built DS Bot bundle still contains 报表 or 白板")
+print("built company+library markers OK:", ", ".join(needles))
 PY
 
 echo "DS Bot 壳（app/ui/dist）已发布为站点根；可选 /workbench/ 为独立工作台。云函数 production → v${VERSION}。"

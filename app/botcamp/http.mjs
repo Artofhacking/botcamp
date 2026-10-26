@@ -3,11 +3,13 @@ import {
   claimCompanyAccess,
   companyChatPage,
   companySend,
+  companySessionIds,
   isCompanySessionId,
   mergeProjectRooms,
 } from './company.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
 import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
+import { handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset } from './library.mjs'
 import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
@@ -425,11 +427,29 @@ export async function createBotcamp(options = {}) {
   }
 
   /** Kernel state with no usable roster after ownership filter → company-local employees. */
-  function stateNeedsCompany(value) {
+  function stateNeedsCompany(value, payload) {
     if (!value || typeof value !== 'object') return true
-    if (value.unchanged) return false
     if (value.companyMode) return false
-    return !Array.isArray(value.bots) || value.bots.length === 0
+    const empty = !Array.isArray(value.bots) || value.bots.length === 0
+    if (value.unchanged) {
+      // A first load has no roster yet. `unchanged` would leave it empty and the host retries.
+      const since = payload?.since
+      const fresh = since == null || since === '' || Number(since) < 0
+      return fresh && empty
+    }
+    return empty
+  }
+
+  function stampWorkspaceSessions(result, ownerId) {
+    const sessionIds = companySessionIds(ownerId)
+    const lists = [result?.value?.items, result?.value?.workspaces]
+    for (const list of lists) {
+      if (!Array.isArray(list)) continue
+      for (const item of list) {
+        if (item && typeof item === 'object') item.sessionIds = sessionIds
+      }
+    }
+    return result
   }
 
   async function handleBot(req, res, context, body) {
@@ -468,13 +488,25 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (decision.action === 'workspace') {
-        const root = await store.ensureUserWorkspace(user.id)
+        const listing = endpoint === 'workspace-list' || endpoint === 'workspaces'
+        const root = listing
+          ? await store.localWorkspace(user.id)
+          : await store.ensureUserWorkspace(user.id)
         if (!root || !(await pathsStayInside(root, payload))) {
           sendJson(res, 200, refused(PATH_MESSAGE))
           return
         }
         const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
-        // Listing must return even when remote file sync is slow/unavailable.
+        if (listing) stampWorkspaceSessions(result, ownerId)
+        // The host retries "Retry listing workspace…" until this answer arrives.
+        // Remote file sync must not hold that answer.
+        if (listing) {
+          sendJson(res, 200, result)
+          void store.syncWorkspace(user.id).catch((error) => {
+            console.error('[botcamp]', error instanceof Error ? error.message : 'syncWorkspace failed')
+          })
+          return
+        }
         try {
           await store.syncWorkspace(user.id)
         } catch (error) {
@@ -519,21 +551,30 @@ export async function createBotcamp(options = {}) {
       else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       outboundPayload = stripPathFields(outboundPayload)
       let upstream
+      const kernelAbort = new AbortController()
+      const stopKernel = () => kernelAbort.abort()
+      // A hung kernel used to leave the roster empty, so the host kept listing workspaces.
+      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 1200) : null
+      if (client.signal.aborted) stopKernel()
+      else client.signal.addEventListener('abort', stopKernel, { once: true })
       try {
         upstream = await callKernel('/api/bot', {
           method: 'POST',
           body: JSON.stringify({ endpoint, payload: outboundPayload }),
-          signal: client.signal,
+          signal: kernelAbort.signal,
           namespace: user.kernelKey,
           sessionToken: readSessionToken(req),
         })
       } catch (error) {
-        if (endpoint === 'state') {
+        if (endpoint === 'state' && !client.signal.aborted) {
           if (charged) await store.refund(user.id).catch(() => {})
           await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         }
         throw error
+      } finally {
+        if (kernelTimer) clearTimeout(kernelTimer)
+        client.signal.removeEventListener('abort', stopKernel)
       }
       const text = await upstream.text()
       let parsed = null
@@ -554,7 +595,7 @@ export async function createBotcamp(options = {}) {
           !upstream.ok
           || parsed?.ok === false
           || !parsed
-          || (parsed?.ok !== false && stateNeedsCompany(parsed.value))
+          || (parsed?.ok !== false && stateNeedsCompany(parsed.value, payload))
         )
       ) {
         await replyCompanyState(res, user, createAccess(user.id, context.resources))
@@ -575,7 +616,7 @@ export async function createBotcamp(options = {}) {
           parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
         }
         // Foreign / unowned kernel bots are stripped by filterState — fall back after filter.
-        if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value)) {
+        if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value, payload)) {
           await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         }
@@ -692,10 +733,12 @@ export async function createBotcamp(options = {}) {
     'media/update',
   ])
   const BOARD_CONTROL = new Set(WHITEBOARD_CONTROL)
+  const DOCS_CONTROL = new Set(LIBRARY_CONTROL)
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',
     'admin/list', 'admin/create', 'admin/update', 'admin/delete',
     ...MEDIA_CONTROL,
+    ...DOCS_CONTROL,
     ...BOARD_CONTROL,
   ])
 
@@ -731,6 +774,16 @@ export async function createBotcamp(options = {}) {
       const user = await currentUser(req)
       if (user && passwordWall(res, user)) return
       sendMediaResult(res, handleMediaControl(req, body.endpoint, payload, user))
+      return
+    }
+    if (DOCS_CONTROL.has(body.endpoint)) {
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      if (passwordWall(res, user)) return
+      sendMediaResult(res, await handleLibraryControl(req, body.endpoint, payload, user))
       return
     }
     if (BOARD_CONTROL.has(body.endpoint)) {
@@ -772,6 +825,10 @@ export async function createBotcamp(options = {}) {
     if (req.method === 'OPTIONS') {
       res.statusCode = 204
       res.end()
+      return
+    }
+    if (path === '/api/library/asset' || path === '/api/library/assets' || path.startsWith('/api/library/asset/')) {
+      serveLibraryAsset(req, res, path)
       return
     }
     if (path.startsWith('/api/auth')) {
@@ -823,6 +880,69 @@ export async function createBotcamp(options = {}) {
       return
     }
     sendJson(res, 404, { ok: false, error: { message: '未知接口。' } })
+  }
+
+  function serveLibraryAsset(req, res, path) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.setHeader('allow', 'GET, HEAD')
+      sendJson(res, 405, { ok: false, error: { message: '找不到。' } })
+      return
+    }
+    const matched = matchLibraryAssetPath(path)
+    if (!matched?.id) {
+      sendJson(res, 404, { ok: false, error: { message: '找不到。' } })
+      return
+    }
+    const asset = readLibraryAsset(matched.id)
+    if (!asset) {
+      sendJson(res, 404, { ok: false, error: { message: '找不到。' } })
+      return
+    }
+    const total = asset.bytes.length
+    res.setHeader('content-type', asset.contentType)
+    res.setHeader('x-content-type-options', 'nosniff')
+    res.setHeader('accept-ranges', 'bytes')
+    res.setHeader('cache-control', 'public, max-age=31536000, immutable')
+    const range = typeof req.headers.range === 'string' ? req.headers.range.trim() : ''
+    let start = 0
+    let end = total - 1
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range)
+      const bad = !match || (match[1] === '' && match[2] === '')
+      if (!bad && match[1] === '') {
+        const suffix = Number(match[2])
+        if (!Number.isFinite(suffix) || suffix <= 0) {
+          res.statusCode = 416
+          res.setHeader('content-range', `bytes */${total}`)
+          res.end()
+          return
+        }
+        start = Math.max(0, total - suffix)
+      } else if (!bad) {
+        start = Number(match[1])
+        end = match[2] === '' ? total - 1 : Number(match[2])
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= total) {
+          res.statusCode = 416
+          res.setHeader('content-range', `bytes */${total}`)
+          res.end()
+          return
+        }
+        end = Math.min(end, total - 1)
+      } else {
+        res.statusCode = 416
+        res.setHeader('content-range', `bytes */${total}`)
+        res.end()
+        return
+      }
+      res.statusCode = 206
+      res.setHeader('content-range', `bytes ${start}-${end}/${total}`)
+    } else {
+      res.statusCode = 200
+    }
+    const chunk = asset.bytes.subarray(start, end + 1)
+    res.setHeader('content-length', chunk.length)
+    if (req.method === 'HEAD') res.end()
+    else res.end(chunk)
   }
 
   return { store, handle, idle: () => store.idle() }

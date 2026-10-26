@@ -39,11 +39,17 @@ for (const [tag, text] of [
   ['feedback', FEEDBACK_CSS], ['about', ABOUT_CSS], ['members', MEMBER_CSS],
 ]) installStyles(text, tag)
 
-// The plugin's colors switch on body[data-ds-dark-theme], which DSH sets; here the system's
-// light or dark mode sets it.
-const dark = matchMedia('(prefers-color-scheme: dark)')
-const paint = () => { document.body.toggleAttribute('data-ds-dark-theme', dark.matches) }
-paint()
-dark.addEventListener('change', paint)
+// The plugin's colors switch on body[data-ds-dark-theme]. A saved choice wins; otherwise
+// the system light or dark mode sets it.
+const COLOR_KEY = 'botcamp-color'
+const darkQuery = matchMedia('(prefers-color-scheme: dark)')
+const paintScheme = () => {
+  const choice = localStorage.getItem(COLOR_KEY)
+  const dark = choice === 'dark' || (choice !== 'light' && darkQuery.matches)
+  document.body.toggleAttribute('data-ds-dark-theme', dark)
+}
+paintScheme()
+darkQuery.addEventListener('change', paintScheme)
+window.addEventListener('botcamp:color', paintScheme)
 
 createRoot(document.getElementById('root')).render(h(Gate))
