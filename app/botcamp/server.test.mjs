@@ -1148,6 +1148,7 @@ test('workspace list returns host items with company sessions and does not wait 
     assert.ok(item.sessionIds.includes('co_chief'))
     assert.ok(item.sessionIds.includes('co_writer'))
     assert.ok(item.sessionIds.includes('co_ops'))
+    assert.ok(item.sessionIds.includes('co_room_mac_01JHEYBOXXIAOGUAO0001'))
     assert.deepEqual(listed.json.value.workspaces[0].sessionIds, item.sessionIds)
   } finally {
     releaseSync()

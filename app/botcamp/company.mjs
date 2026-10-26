@@ -279,6 +279,7 @@ export function claimCompanyAccess(access, ownerId) {
 
 /** Sessions the host must see on the workspace, or it keeps listing. */
 export function companySessionIds(ownerId) {
+  ensureMediaSeeded()
   const ids = EMPLOYEES.map((member) => member.id)
   for (const account of listOwnerAccounts(ownerId)) ids.push(roomIdForAccount(account.id))
   return ids
