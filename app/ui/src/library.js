@@ -1,6 +1,8 @@
 import { createElement as h, useEffect, useMemo, useRef, useState } from 'react'
-import 'katex/dist/katex.min.css'
-import { renderLibraryMarkdown } from './libraryMarkdown.js'
+import VditorModule from 'vditor'
+
+const Vditor = VditorModule?.default || VditorModule
+import 'vditor/dist/index.css'
 import {
   createLibraryNode,
   deleteLibraryNode,
@@ -11,6 +13,16 @@ import {
 } from './libraryApi.js'
 
 const MEDIA_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm'
+const MAX_IMAGE = 4 * 1024 * 1024
+const MAX_VIDEO = 12 * 1024 * 1024
+
+function vditorCdn() {
+  return new URL('vditor/', document.baseURI).href.replace(/\/$/, '')
+}
+
+function isDark() {
+  return document.body.hasAttribute('data-ds-dark-theme')
+}
 
 function sniffType(file) {
   const type = String(file?.type || '').toLowerCase()
@@ -39,40 +51,27 @@ function readBase64(file) {
   })
 }
 
-function filesFromClipboard(data) {
-  const found = []
-  if (data?.files?.length) found.push(...data.files)
-  if (data?.items) {
-    for (const item of data.items) {
-      if (item.kind !== 'file') continue
-      const file = item.getAsFile()
-      if (file) found.push(file)
-    }
-  }
-  const seen = new Set()
-  return found.filter((file) => {
-    const key = `${file.name}:${file.size}:${file.type}:${file.lastModified}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+function escapeAttr(value) {
+  return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;')
 }
 
-function LibraryPreview({ markdown }) {
-  const html = useMemo(() => renderLibraryMarkdown(markdown || ''), [markdown])
-  if (!String(markdown || '').trim()) return h('p', { className: 'lib-muted' }, '（空文档）')
-  return h('div', {
-    className: 'lib-md',
-    onClick: (event) => {
-      const link = event.target.closest?.('a')
-      if (!link) return
-      const href = link.getAttribute('href') || ''
-      if (!href.startsWith('doc://')) return
-      event.preventDefault()
-      window.dispatchEvent(new CustomEvent('botcamp:doc-link', { detail: { href } }))
-    },
-    dangerouslySetInnerHTML: { __html: html },
-  })
+async function storeMedia(files) {
+  const chunks = []
+  for (const file of files) {
+    const contentType = sniffType(file)
+    if (!contentType) return { error: `不支持的文件：${file.name || '未命名'}` }
+    const video = contentType.startsWith('video/')
+    if (file.size <= 0 || file.size > (video ? MAX_VIDEO : MAX_IMAGE)) {
+      return { error: video ? '视频太大或是空的。' : '图片太大或是空的。' }
+    }
+    const saved = await uploadLibraryAsset({ contentType, data: await readBase64(file) })
+    const url = String(saved?.url || '')
+    if (!/^https?:\/\//i.test(url)) return { error: '上传没有返回可用的地址。' }
+    chunks.push(video
+      ? `<video src="${escapeAttr(url)}" controls></video>\n\n`
+      : `![](${url})\n\n`)
+  }
+  return { markdown: chunks.join('') }
 }
 
 function childrenOf(nodes, parentId) {
@@ -92,7 +91,7 @@ function Tree({ nodes, parentId, depth, open, onToggle, selectedId, onSelect }) 
     h('button', {
       type: 'button',
       className: selectedId === node.id ? 'active' : undefined,
-      style: { paddingLeft: `${8 + depth * 14}px` },
+      style: { paddingLeft: `${6 + depth * 12}px` },
       onClick: () => {
         onSelect(node.id)
         if (node.kind === 'folder') onToggle(node.id)
@@ -103,21 +102,140 @@ function Tree({ nodes, parentId, depth, open, onToggle, selectedId, onSelect }) 
       : null)))
 }
 
+function DocEditor({ docId, markdown, editorRef, onChange, onFlush }) {
+  const hostRef = useRef(null)
+  const onChangeRef = useRef(onChange)
+  const onFlushRef = useRef(onFlush)
+  onChangeRef.current = onChange
+  onFlushRef.current = onFlush
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return undefined
+    let dead = false
+    const cdn = vditorCdn()
+    const dark = isDark()
+    let ready = false
+    const editor = new Vditor(host, {
+      value: markdown || '',
+      mode: 'wysiwyg',
+      lang: 'zh_CN',
+      theme: dark ? 'dark' : 'classic',
+      cdn,
+      height: '100%',
+      cache: { enable: false },
+      outline: { enable: false, position: 'left' },
+      placeholder: '随便写。没有规定要写哪些小节。',
+      toolbar: [
+        'headings', 'bold', 'italic', 'strike', '|',
+        'list', 'ordered-list', 'check', 'quote', '|',
+        'code', 'inline-code', 'link', 'table', '|',
+        'upload', 'undo', 'redo',
+      ],
+      toolbarConfig: { pin: true },
+      preview: {
+        mode: 'editor',
+        actions: [],
+        theme: { current: dark ? 'dark' : 'light', path: `${cdn}/dist/css/content-theme` },
+        hljs: { style: dark ? 'github-dark' : 'github', lineNumber: false },
+        markdown: { mark: true, footnotes: true, callout: true, sanitize: true },
+      },
+      hint: { emojiPath: `${cdn}/dist/images/emoji` },
+      link: {
+        isOpen: false,
+        click(anchor) {
+          const href = anchor?.getAttribute?.('href') || ''
+          if (href.startsWith('doc://')) {
+            window.dispatchEvent(new CustomEvent('botcamp:doc-link', { detail: { href } }))
+            return
+          }
+          if (/^https?:\/\//i.test(href)) window.open(href, '_blank', 'noopener')
+        },
+      },
+      upload: {
+        accept: MEDIA_ACCEPT,
+        multiple: true,
+        max: MAX_VIDEO,
+        handler: async (files) => {
+          try {
+            const stored = await storeMedia(files)
+            if (stored.error) return stored.error
+            if (stored.markdown && !dead) editor.insertValue(stored.markdown)
+          } catch (failure) {
+            return failure?.message || '上传失败'
+          }
+          return null
+        },
+      },
+      input() {
+        if (!dead) onChangeRef.current?.()
+      },
+      after() {
+        if (dead) {
+          try { editor.destroy() } catch { /* init lost the race with unmount */ }
+          return
+        }
+        ready = true
+        editorRef.current = editor
+        onChangeRef.current?.()
+      },
+    })
+
+    const slot = host.parentElement
+    const fit = () => {
+      const next = slot?.clientHeight || 0
+      if (next > 0) host.style.height = `${next}px`
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    if (slot) observer.observe(slot)
+
+    const onColor = () => {
+      if (dead || !editorRef.current) return
+      const nextDark = isDark()
+      editorRef.current.setTheme(
+        nextDark ? 'dark' : 'classic',
+        nextDark ? 'dark' : 'light',
+        nextDark ? 'github-dark' : 'github',
+        `${vditorCdn()}/dist/css/content-theme`,
+      )
+    }
+    window.addEventListener('botcamp:color', onColor)
+
+    return () => {
+      dead = true
+      window.removeEventListener('botcamp:color', onColor)
+      observer.disconnect()
+      if (!ready) return
+      let value
+      try { value = editor.getValue() } catch { value = undefined }
+      editorRef.current = null
+      if (value != null) onFlushRef.current?.(value)
+      try { editor.destroy() } catch { /* already torn down */ }
+    }
+  }, [docId])
+
+  return h('div', { className: 'lib-vditor-slot' },
+    h('div', { ref: hostRef, 'data-doc-id': docId }))
+}
+
 export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
   const [nodes, setNodes] = useState([])
   const [selectedId, setSelectedId] = useState(focusId || null)
   const [open, setOpen] = useState(() => new Set())
-  const [mode, setMode] = useState(focusId ? 'read' : 'edit')
   const [title, setTitle] = useState('')
-  const [draft, setDraft] = useState('')
   const [kind, setKind] = useState(null)
+  const [loaded, setLoaded] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [composer, setComposer] = useState(null)
   const [composerName, setComposerName] = useState('')
-  const fileRef = useRef(null)
-  const areaRef = useRef(null)
-  const caretRef = useRef(null)
+  const editorRef = useRef(null)
+  const titleRef = useRef('')
+  const selectedRef = useRef(selectedId)
+  const savedRef = useRef({ id: null, name: '', content: '' })
+  const timerRef = useRef(null)
+  selectedRef.current = selectedId
 
   const selected = useMemo(() => nodes.find((node) => node.id === selectedId) || null, [nodes, selectedId])
 
@@ -133,6 +251,58 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
     return next
   }
 
+  const persist = async () => {
+    const saved = savedRef.current
+    const id = saved.id
+    if (!id || id !== selectedRef.current) return
+    const editor = editorRef.current
+    if (!editor) return
+    const name = titleRef.current.trim()
+    if (!name) return
+    const content = editor.getValue()
+    if (name === saved.name && content === saved.content) return
+    try {
+      const updated = await updateLibraryNode({ id, name, content })
+      if (savedRef.current.id !== id || selectedRef.current !== id) return
+      const returned = updated.node.content || ''
+      const current = editorRef.current?.getValue?.()
+      savedRef.current = { id, name: updated.node.name, content: returned }
+      if (updated.node.name !== titleRef.current.trim()) {
+        titleRef.current = updated.node.name
+        setTitle(updated.node.name)
+      }
+      if (current === content && returned !== content && editorRef.current) {
+        editorRef.current.setValue(returned)
+        savedRef.current.content = editorRef.current.getValue()
+      } else if (current != null && current !== content) {
+        queueSave()
+      }
+      setError('')
+      await reload()
+    } catch (failure) {
+      setError(failure?.message || '保存失败')
+    }
+  }
+
+  const queueSave = () => {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => { void persist() }, 650)
+  }
+
+  const flush = (value) => {
+    clearTimeout(timerRef.current)
+    const saved = savedRef.current
+    const name = titleRef.current.trim()
+    if (!saved.id || !name || value == null) return
+    if (name === saved.name && value === saved.content) return
+    const id = saved.id
+    void updateLibraryNode({ id, name, content: value }).then((updated) => {
+      if (savedRef.current.id === id) {
+        savedRef.current = { id, name: updated.node.name, content: updated.node.content || '' }
+      }
+    }).catch((failure) => setError(failure?.message || '保存失败'))
+  }
+
   useEffect(() => {
     let stopped = false
     reload().catch((failure) => { if (!stopped) setError(failure?.message || '文档库打不开') })
@@ -142,7 +312,6 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
   useEffect(() => {
     if (!focusId) return
     setSelectedId(focusId)
-    setMode('read')
     onConsumedFocus?.()
   }, [focusId])
 
@@ -150,20 +319,27 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
     if (!selectedId) {
       setKind(null)
       setTitle('')
-      setDraft('')
+      titleRef.current = ''
+      setLoaded(null)
+      savedRef.current = { id: null, name: '', content: '' }
       return undefined
     }
     let stopped = false
+    setLoaded(null)
     getLibraryNode(selectedId).then((data) => {
       if (stopped) return
       const node = data.node
       if (!node) return
       setKind(node.kind)
       setTitle(node.name || '')
-      setDraft(node.content || '')
+      titleRef.current = node.name || ''
+      savedRef.current = { id: node.id, name: node.name || '', content: node.content || '' }
+      setLoaded({ id: node.id, content: node.content || '' })
     }).catch((failure) => { if (!stopped) setError(failure?.message || '打不开这篇文档') })
     return () => { stopped = true }
   }, [selectedId])
+
+  useEffect(() => () => { clearTimeout(timerRef.current) }, [])
 
   const parentForCreate = () => {
     if (!selected) return null
@@ -188,30 +364,8 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
       setComposerName('')
       await reload()
       setSelectedId(made.node.id)
-      if (made.node.kind === 'file') {
-        setMode('edit')
-        setKind('file')
-        setTitle(made.node.name)
-        setDraft(made.node.content || '')
-      }
     } catch (failure) {
       setError(failure?.message || '创建失败')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const save = async () => {
-    if (!selectedId || kind !== 'file' || busy) return
-    setBusy(true)
-    setError('')
-    try {
-      const updated = await updateLibraryNode({ id: selectedId, name: title, content: draft })
-      setTitle(updated.node.name)
-      setDraft(updated.node.content || '')
-      await reload()
-    } catch (failure) {
-      setError(failure?.message || '保存失败')
     } finally {
       setBusy(false)
     }
@@ -220,6 +374,8 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
   const remove = async () => {
     if (!selectedId || busy) return
     if (!window.confirm('删除这篇文档？文件夹会连同里面的文件一起删除。')) return
+    clearTimeout(timerRef.current)
+    savedRef.current = { id: null, name: '', content: '' }
     setBusy(true)
     setError('')
     try {
@@ -233,36 +389,6 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
     }
   }
 
-  const insertFiles = async (files) => {
-    if (!files.length || kind !== 'file' || busy) return
-    setBusy(true)
-    setError('')
-    try {
-      let next = draft
-      const area = areaRef.current
-      const placed = area && document.activeElement === area
-        ? { start: area.selectionStart, end: area.selectionEnd }
-        : caretRef.current
-      let start = Number.isInteger(placed?.start) ? placed.start : next.length
-      let end = Number.isInteger(placed?.end) ? placed.end : next.length
-      for (const file of files) {
-        const contentType = sniffType(file)
-        const saved = await uploadLibraryAsset({ contentType, data: await readBase64(file) })
-        const snippet = String(saved.contentType || contentType).startsWith('video/')
-          ? `<video src="${saved.url}" controls></video>\n`
-          : `![](${saved.url})\n`
-        next = `${next.slice(0, start)}${snippet}${next.slice(end)}`
-        start += snippet.length
-        end = start
-      }
-      setDraft(next)
-    } catch (failure) {
-      setError(failure?.message || '上传失败')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const toggle = (id) => {
     setOpen((prev) => {
       const next = new Set(prev)
@@ -271,6 +397,8 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
       return next
     })
   }
+
+  const fileOpen = kind === 'file' && loaded?.id === selectedId
 
   return h('section', { className: 'lib-panel', 'aria-label': '文档库' },
     h('header', { className: 'lib-head' },
@@ -289,60 +417,39 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
               autoFocus: true,
             }),
             h('div', { className: 'lib-tools' },
-              h('button', { type: 'submit', className: 'lib-primary', disabled: busy }, '创建'),
+              h('button', { type: 'submit', disabled: busy }, '创建'),
               h('button', { type: 'button', onClick: () => { setComposer(null); setComposerName('') } }, '取消')))
           : h('div', { className: 'lib-tools' },
             h('button', { type: 'button', onClick: () => setComposer('folder') }, '新建文件夹'),
-            h('button', { type: 'button', onClick: () => setComposer('file') }, '新建文档')),
+            h('button', { type: 'button', onClick: () => setComposer('file') }, '新建文档'),
+            selectedId ? h('button', { type: 'button', onClick: remove, disabled: busy }, '删除') : null),
         error ? h('p', { className: 'lib-error', role: 'alert' }, error) : null,
         nodes.length === 0
-          ? h('p', { className: 'lib-muted' }, '还没有文档。可以新建文件夹或文档，正文没有固定格式。')
+          ? h('p', { className: 'lib-muted' }, '还没有文档。')
           : h(Tree, { nodes, parentId: null, depth: 0, open, onToggle: toggle, selectedId, onSelect: setSelectedId })),
       h('div', { className: 'lib-editor' },
         !selectedId
-          ? h('p', { className: 'lib-muted' }, '选一篇文档，或新建一篇。')
+          ? h('p', { className: 'lib-muted lib-empty' }, '选一篇文档，或新建一篇。')
           : kind === 'folder'
-            ? h('p', { className: 'lib-muted' }, `文件夹「${title || selected?.name || ''}」。在这里新建的文档会放进这个文件夹。`)
-            : h('div', { className: 'lib-editor-fill' },
-              h('input', {
-                'aria-label': '文档名称',
-                value: title,
-                onChange: (event) => setTitle(event.target.value),
-              }),
-              h('div', { className: 'lib-editor-bar' },
-                h('button', { type: 'button', className: mode === 'edit' ? 'active' : undefined, onClick: () => setMode('edit') }, '编辑'),
-                h('button', { type: 'button', className: mode === 'read' ? 'active' : undefined, onClick: () => setMode('read') }, '预览'),
-                h('button', { type: 'button', onClick: () => fileRef.current?.click(), disabled: busy }, '上传图片或视频'),
-                h('button', { type: 'button', className: 'lib-primary', onClick: save, disabled: busy }, busy ? '保存中…' : '保存'),
-                h('button', { type: 'button', onClick: remove, disabled: busy }, '删除'),
+            ? h('p', { className: 'lib-muted lib-empty' }, `文件夹「${title || selected?.name || ''}」`)
+            : !fileOpen
+              ? h('p', { className: 'lib-muted lib-empty' }, '正在打开…')
+              : h('div', { className: 'lib-editor-fill' },
                 h('input', {
-                  ref: fileRef,
-                  type: 'file',
-                  accept: MEDIA_ACCEPT,
-                  multiple: true,
-                  hidden: true,
-                  'aria-label': '选择图片或视频',
+                  className: 'lib-name',
+                  'aria-label': '文档名称',
+                  value: title,
                   onChange: (event) => {
-                    const files = [...(event.target.files || [])]
-                    event.target.value = ''
-                    void insertFiles(files)
+                    titleRef.current = event.target.value
+                    setTitle(event.target.value)
+                    queueSave()
                   },
-                })),
-              h('p', { className: 'lib-muted' }, '正文没有固定栏目。需要时可用引用式提示（内部、对外、待核实）、脚注、==高亮== 和 $公式$。图片和视频上传后是能直接打开的地址。'),
-              mode === 'read'
-                ? h('div', { className: 'lib-preview' }, h(LibraryPreview, { markdown: draft }))
-                : h('textarea', {
-                  ref: areaRef,
-                  'aria-label': '正文',
-                  value: draft,
-                  onChange: (event) => setDraft(event.target.value),
-                  onSelect: (event) => { caretRef.current = { start: event.target.selectionStart, end: event.target.selectionEnd } },
-                  onPaste: (event) => {
-                    const files = filesFromClipboard(event.clipboardData)
-                    if (!files.length) return
-                    event.preventDefault()
-                    void insertFiles(files)
-                  },
-                  placeholder: '随便写。没有规定要写哪些小节。',
+                }),
+                h(DocEditor, {
+                  docId: loaded.id,
+                  markdown: loaded.content,
+                  editorRef,
+                  onChange: queueSave,
+                  onFlush: flush,
                 })))))
 }

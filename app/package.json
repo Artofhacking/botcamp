@@ -22,7 +22,8 @@
     "react-dom": "19.2.0",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
-    "sanitize-html": "^2.18.1"
+    "sanitize-html": "^2.18.1",
+    "vditor": "^4.0.1"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",
