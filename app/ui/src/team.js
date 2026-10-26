@@ -119,6 +119,8 @@ export function createTeam() {
     const value = await call('state', { since: known.revision, models: known.modelsKey ?? '', locale: language() })
     if (order < applied) return
     applied = order
+    // An empty roster marked ready is what makes the host retry workspace listing.
+    if (!value?.unchanged && (!Array.isArray(value?.bots) || value.bots.length === 0)) return
     setChanged(activity, value.activity ?? {})
     setChanged(work, value.work ?? NO_WORK)
     noteNews(value.memoryNews ?? {})

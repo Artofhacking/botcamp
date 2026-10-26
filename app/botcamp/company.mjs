@@ -266,15 +266,22 @@ function accountHintFromText(text, accounts) {
 }
 
 export function claimCompanyAccess(access, ownerId) {
-  for (const member of EMPLOYEES) {
-    access.claim(member.id, 'bot')
-    access.claim(member.id, 'session', member.id)
+  for (const id of companySessionIds(ownerId)) {
+    if (id.startsWith('co_room_')) {
+      access.claim(id, 'room')
+      access.claim(id, 'session', id)
+    } else {
+      access.claim(id, 'bot')
+      access.claim(id, 'session', id)
+    }
   }
-  for (const account of listOwnerAccounts(ownerId)) {
-    const id = roomIdForAccount(account.id)
-    access.claim(id, 'room')
-    access.claim(id, 'session', id)
-  }
+}
+
+/** Sessions the host must see on the workspace, or it keeps listing. */
+export function companySessionIds(ownerId) {
+  const ids = EMPLOYEES.map((member) => member.id)
+  for (const account of listOwnerAccounts(ownerId)) ids.push(roomIdForAccount(account.id))
+  return ids
 }
 
 export function buildCompanyState(ownerId, user) {
@@ -287,7 +294,8 @@ export function buildCompanyState(ownerId, user) {
   for (const room of rooms) seedWelcome(ownerId, room.id, accounts)
   const mainBotIds = [CHIEF_ID]
   return {
-    revision: Date.now(),
+    // Stable so a later poll does not look like a new roster and retrigger listing.
+    revision: 2 + rooms.length,
     unchanged: false,
     mainBotId: CHIEF_ID,
     mainBotIds,

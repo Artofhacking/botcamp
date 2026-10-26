@@ -1077,6 +1077,84 @@ function validInitial(password) {
   return typeof password === 'string' && password.length >= 8 && password.length <= 200 && !/[^A-Za-z0-9]/.test(password)
 }
 
+test('a hung kernel state still answers with the company roster', async () => {
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, 30_000)
+        const abort = () => {
+          clearTimeout(timer)
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+        }
+        if (init.signal?.aborted) abort()
+        else init.signal?.addEventListener('abort', abort, { once: true })
+      })
+    }
+    return Response.json({ ok: true, value: { unchanged: true } })
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(login.setCookie),
+      body: { endpoint: 'state', payload: { since: -1, models: '' } },
+    })
+    assert.equal(state.status, 200)
+    assert.equal(state.json.ok, true)
+    assert.equal(state.json.value.companyMode, 'company-local')
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
+    assert.equal(state.json.value.mainBotId, 'co_chief')
+    assert.equal(state.json.value.bots.some(bot => bot.id === 'co_writer'), true)
+    assert.equal(state.json.value.bots.some(bot => bot.id === 'co_ops'), true)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('workspace list returns host items with company sessions and does not wait on sync', async () => {
+  let releaseSync
+  const syncGate = new Promise((resolve) => { releaseSync = resolve })
+  let blockSync = false
+  const fetchImpl = async () => new Response('ok', { status: 200 })
+  const ledger = createMemoryLedger()
+  const original = ledger.saveFiles.bind(ledger)
+  ledger.saveFiles = async (...args) => {
+    if (blockSync) await syncGate
+    return original(...args)
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl, ledger })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    blockSync = true
+    const started = Date.now()
+    const listed = await Promise.race([
+      api(ctx.base, '/api/bot', {
+        method: 'POST',
+        cookie: cookieHeader(login.setCookie),
+        body: { endpoint: 'workspace-list', payload: {} },
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('workspace-list blocked on sync')), 800)),
+    ])
+    const elapsed = Date.now() - started
+    assert.equal(listed.status, 200)
+    assert.equal(listed.json.ok, true)
+    assert.ok(elapsed < 800, `workspace-list waited ${elapsed}ms`)
+    const item = listed.json.value.items[0]
+    assert.equal(item.workspaceId, item.id)
+    assert.ok(item.sessionIds.includes('co_chief'))
+    assert.ok(item.sessionIds.includes('co_writer'))
+    assert.ok(item.sessionIds.includes('co_ops'))
+    assert.deepEqual(listed.json.value.workspaces[0].sessionIds, item.sessionIds)
+  } finally {
+    releaseSync()
+    await ctx.close()
+  }
+})
+
 test('unowned kernel bots fall back to the company roster after filterState', async () => {
   const fetchImpl = async (url, init = {}) => {
     const href = String(url)

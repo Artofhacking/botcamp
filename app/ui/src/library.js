@@ -413,7 +413,13 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
     h('header', { className: 'lib-head' },
       h('strong', null, '文档库'),
       h('div', { className: 'lib-head-actions' },
-        h('button', { type: 'button', onClick: onClose }, '关闭'))),
+        h('button', {
+          type: 'button',
+          className: 'lib-close',
+          onClick: onClose,
+          'aria-label': '关闭文档库',
+          title: '关闭文档库',
+        }, '关闭'))),
     h('div', { className: 'lib-body' },
       h('nav', { className: 'lib-nav', 'aria-label': '文件夹' },
         composer

@@ -11,6 +11,16 @@ import { LibraryPanel } from './library.js'
 import { parseDocHref } from './libraryApi.js'
 import { createTeam } from './team.js'
 
+function DocsFab({ open, onClick }) {
+  if (open) return null
+  return h('button', {
+    type: 'button',
+    className: 'lib-fab',
+    onClick,
+    title: '打开文档库',
+  }, '文档库')
+}
+
 function useTheme(prefs) {
   useEffect(() => {
     const theme = allThemes()[prefs?.theme] ?? allThemes().deepseek
@@ -158,13 +168,6 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
         h('button', {
           type: 'button',
           className: 'dsb-docs-entry',
-          'data-open': libraryOpen ? '' : undefined,
-          title: '文档库',
-          onClick: () => setLibraryOpen((open) => !open),
-        }, wide || mobile ? '文档库' : '文'),
-        h('button', {
-          type: 'button',
-          className: 'dsb-docs-entry',
           title: color === 'dark' ? '切换到浅色' : '切换到深色',
           onClick: () => setScheme(color === 'dark' ? 'light' : 'dark'),
         }, color === 'dark' ? (wide || mobile ? '浅色' : '浅') : (wide || mobile ? '深色' : '深')),
@@ -172,6 +175,7 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
     h('main', { className: 'dsb-main dsb_centerCol' },
       h('div', { className: 'dsb-band', 'data-tauri-drag-region': '' }),
       chatMain),
+    h(DocsFab, { open: libraryOpen, onClick: () => setLibraryOpen(true) }),
     libraryOpen
       ? h(LibraryPanel, {
         focusId: docFocus,

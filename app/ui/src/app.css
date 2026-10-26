@@ -200,6 +200,9 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
   .dsb-admin-create,.dsb-admin-head{flex-direction:column;align-items:stretch}
 }
 
+.lib-fab{position:fixed;top:12px;right:14px;z-index:30;height:32px;padding:0 12px;border:1px solid color-mix(in srgb,var(--bt-ink) 14%,transparent);border-radius:999px;background:color-mix(in srgb,var(--bt-main) 88%,transparent);backdrop-filter:blur(8px);color:var(--bt-ink);font:inherit;font-size:13px;cursor:pointer;box-shadow:0 4px 16px color-mix(in srgb,var(--bt-ink) 10%,transparent)}
+.lib-fab:hover{border-color:color-mix(in srgb,var(--bt-ink) 28%,transparent);background:var(--bt-main)}
+.dsb-frame.dsb-mobile .lib-fab{top:auto;bottom:calc(52px + env(safe-area-inset-bottom,0));right:12px}
 .dsb-docs-entry{flex:none;height:28px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--bt-ink-2);font:inherit;font-size:12px;cursor:pointer}
 .dsb-docs-entry:hover,.dsb-docs-entry[data-open]{color:var(--bt-ink);background:color-mix(in srgb,var(--bt-ink) 6%,transparent)}
 .dsb-frame[data-rail] .dsb-docs-entry{width:36px;height:36px;padding:0}
@@ -214,6 +217,8 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .lib-head-actions{margin-left:auto;display:flex;gap:6px}
 .lib-head button,.lib-tools button{height:26px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--bt-ink-2,var(--bt-ink));font:inherit;font-size:12px;cursor:pointer}
 .lib-head button:hover,.lib-tools button:hover{background:color-mix(in srgb,var(--bt-ink) 6%,transparent);color:var(--bt-ink)}
+.lib-head .lib-close{height:28px;padding:0 10px;border:1px solid color-mix(in srgb,var(--bt-ink) 16%,transparent);border-radius:8px;background:color-mix(in srgb,var(--bt-ink) 6%,transparent);color:var(--bt-ink)}
+.lib-head .lib-close:hover{background:color-mix(in srgb,var(--bt-ink) 12%,transparent)}
 .lib-body{display:grid;grid-template-columns:148px minmax(0,1fr);flex:1 1 auto;min-height:0}
 .lib-nav{min-height:0;overflow:auto;border-right:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent);padding:6px}
 .lib-tools{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px}

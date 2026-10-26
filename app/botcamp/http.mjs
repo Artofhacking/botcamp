@@ -3,6 +3,7 @@ import {
   claimCompanyAccess,
   companyChatPage,
   companySend,
+  companySessionIds,
   isCompanySessionId,
   mergeProjectRooms,
 } from './company.mjs'
@@ -426,11 +427,29 @@ export async function createBotcamp(options = {}) {
   }
 
   /** Kernel state with no usable roster after ownership filter → company-local employees. */
-  function stateNeedsCompany(value) {
+  function stateNeedsCompany(value, payload) {
     if (!value || typeof value !== 'object') return true
-    if (value.unchanged) return false
     if (value.companyMode) return false
-    return !Array.isArray(value.bots) || value.bots.length === 0
+    const empty = !Array.isArray(value.bots) || value.bots.length === 0
+    if (value.unchanged) {
+      // A first load has no roster yet. `unchanged` would leave it empty and the host retries.
+      const since = payload?.since
+      const fresh = since == null || since === '' || Number(since) < 0
+      return fresh && empty
+    }
+    return empty
+  }
+
+  function stampWorkspaceSessions(result, ownerId) {
+    const sessionIds = companySessionIds(ownerId)
+    const lists = [result?.value?.items, result?.value?.workspaces]
+    for (const list of lists) {
+      if (!Array.isArray(list)) continue
+      for (const item of list) {
+        if (item && typeof item === 'object') item.sessionIds = sessionIds
+      }
+    }
+    return result
   }
 
   async function handleBot(req, res, context, body) {
@@ -469,13 +488,25 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (decision.action === 'workspace') {
-        const root = await store.ensureUserWorkspace(user.id)
+        const listing = endpoint === 'workspace-list' || endpoint === 'workspaces'
+        const root = listing
+          ? await store.localWorkspace(user.id)
+          : await store.ensureUserWorkspace(user.id)
         if (!root || !(await pathsStayInside(root, payload))) {
           sendJson(res, 200, refused(PATH_MESSAGE))
           return
         }
         const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
-        // Listing must return even when remote file sync is slow/unavailable.
+        if (listing) stampWorkspaceSessions(result, ownerId)
+        // The host retries "Retry listing workspace…" until this answer arrives.
+        // Remote file sync must not hold that answer.
+        if (listing) {
+          sendJson(res, 200, result)
+          void store.syncWorkspace(user.id).catch((error) => {
+            console.error('[botcamp]', error instanceof Error ? error.message : 'syncWorkspace failed')
+          })
+          return
+        }
         try {
           await store.syncWorkspace(user.id)
         } catch (error) {
@@ -520,21 +551,30 @@ export async function createBotcamp(options = {}) {
       else if (endpoint === 'usage') outboundPayload = usageRequestPayload(payload)
       outboundPayload = stripPathFields(outboundPayload)
       let upstream
+      const kernelAbort = new AbortController()
+      const stopKernel = () => kernelAbort.abort()
+      // A hung kernel used to leave the roster empty, so the host kept listing workspaces.
+      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 1200) : null
+      if (client.signal.aborted) stopKernel()
+      else client.signal.addEventListener('abort', stopKernel, { once: true })
       try {
         upstream = await callKernel('/api/bot', {
           method: 'POST',
           body: JSON.stringify({ endpoint, payload: outboundPayload }),
-          signal: client.signal,
+          signal: kernelAbort.signal,
           namespace: user.kernelKey,
           sessionToken: readSessionToken(req),
         })
       } catch (error) {
-        if (endpoint === 'state') {
+        if (endpoint === 'state' && !client.signal.aborted) {
           if (charged) await store.refund(user.id).catch(() => {})
           await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         }
         throw error
+      } finally {
+        if (kernelTimer) clearTimeout(kernelTimer)
+        client.signal.removeEventListener('abort', stopKernel)
       }
       const text = await upstream.text()
       let parsed = null
@@ -555,7 +595,7 @@ export async function createBotcamp(options = {}) {
           !upstream.ok
           || parsed?.ok === false
           || !parsed
-          || (parsed?.ok !== false && stateNeedsCompany(parsed.value))
+          || (parsed?.ok !== false && stateNeedsCompany(parsed.value, payload))
         )
       ) {
         await replyCompanyState(res, user, createAccess(user.id, context.resources))
@@ -576,7 +616,7 @@ export async function createBotcamp(options = {}) {
           parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
         }
         // Foreign / unowned kernel bots are stripped by filterState — fall back after filter.
-        if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value)) {
+        if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value, payload)) {
           await replyCompanyState(res, user, createAccess(user.id, context.resources))
           return
         }
