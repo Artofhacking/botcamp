@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
 import { earlierBanner, visiblePending } from './src/chatSync.js'
+import { hideWorkspaceRetry } from './src/hideRetry.js'
 import { generateInitialPassword, issueNote, passwordToShow } from './src/initialPassword.js'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -72,6 +73,33 @@ test('opening an account sends a generated password and shows the one the server
   assert.equal(passwordToShow({ password: 'short' }, draft), draft)
   assert.match(issueNote('a@example.com', { mustChangePassword: true }), /第一次登录必须修改/)
   assert.match(issueNote('a@example.com', {}), /可以自己修改/)
+})
+
+test('workspace listing retry is not painted in flight or on failure', () => {
+  const styles = readFileSync(`${root}/ds-bot/src/client/styles.js`, 'utf8')
+  const sidebar = readFileSync(`${root}/ds-bot/src/client/sidebar.js`, 'utf8')
+  const team = read('./src/team.js')
+  assert.match(styles, /html body \[class\*="_heroWorkspaceRow"\]\{display:none!important\}/)
+  assert.equal(sidebar.includes("t('Setting up your Main Bot…')"), false)
+  assert.match(team, /name: '主编'/)
+  assert.match(team, /name: '写稿'/)
+  assert.match(team, /name: '数据'/)
+  assert.match(team, /heardServer \? known\.revision : -1/)
+  const hidden = []
+  const row = {
+    textContent: 'Retry listing workspace',
+    children: [],
+    style: { setProperty(prop, value) { hidden.push([prop, value]) } },
+  }
+  const rootNode = {
+    textContent: '主编 Retry listing workspace',
+    querySelectorAll: () => [row],
+  }
+  hideWorkspaceRetry(rootNode)
+  assert.deepEqual(hidden, [['display', 'none']])
+  hidden.length = 0
+  hideWorkspaceRetry({ textContent: '主编 写稿 数据', querySelectorAll: () => [] })
+  assert.deepEqual(hidden, [])
 })
 
 test('a feed that ends immediately waits several seconds', () => {

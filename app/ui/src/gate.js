@@ -3,7 +3,20 @@ import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { logout, me } from './account.js'
 import { Admin } from './admin.js'
 import { App } from './app.js'
+import { hideWorkspaceRetry } from './hideRetry.js'
 import { Login, PasswordForm } from './login.js'
+
+function useHideWorkspaceRetry() {
+  useEffect(() => {
+    let frame = 0
+    const run = () => { frame = 0; hideWorkspaceRetry(document.body) }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(run) }
+    schedule()
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true })
+    return () => { observer.disconnect(); if (frame) cancelAnimationFrame(frame) }
+  }, [])
+}
 
 function useShellTheme() {
   useEffect(() => {
@@ -19,6 +32,7 @@ export function Gate() {
   const [admin, setAdmin] = useState(false)
   const [changing, setChanging] = useState(false)
   useShellTheme()
+  useHideWorkspaceRetry()
   useEffect(() => {
     let stopped = false
     me().then(next => { if (!stopped) setUser(next) }).catch(() => { if (!stopped) setUser(null) })

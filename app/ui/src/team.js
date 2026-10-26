@@ -7,7 +7,7 @@ import { workPhrase } from '../../../ds-bot/src/client/cells.js'
 import { language } from '../../../ds-bot/src/client/i18n.js'
 import { toolState } from '../../../ds-bot/src/client/mark.js'
 import { noteLeft, setUnread, sharedMap, toggleReaction } from '../../../ds-bot/src/client/shared-map.js'
-import { createSource, EMPTY_ROSTER, indexRoster } from '../../../ds-bot/src/client/sources.js'
+import { createSource, indexRoster } from '../../../ds-bot/src/client/sources.js'
 import { STORAGE, migrateStorage } from '../../../ds-bot/src/client/storage.js'
 import { teamActions } from '../../../ds-bot/src/client/team-actions.js'
 import { currentPart } from '../../../ds-bot/src/client/text.js'
@@ -47,6 +47,36 @@ function createBus() {
 
 const setChanged = (source, value) => { if (JSON.stringify(source.getSnapshot()) !== JSON.stringify(value)) source.set(value) }
 
+const CHIEF_ID = 'co_chief'
+const COMPANY_BOTS = [
+  { id: CHIEF_ID, name: '主编', color: 'blue', avatar: { shape: 'star' } },
+  { id: 'co_writer', name: '写稿', color: 'green', avatar: { shape: 'moon' } },
+  { id: 'co_ops', name: '数据', color: 'orange', avatar: { shape: 'wave' } },
+].map(bot => ({ ...bot, sessionId: bot.id, parts: [bot.id], model: null, waiting: false, createdAt: 1 }))
+
+// On screen before `state` returns, and still on screen if that list fails.
+const COMPANY_ROSTER = indexRoster({
+  revision: 0,
+  mainBotId: CHIEF_ID,
+  mainBotIds: [CHIEF_ID],
+  bots: COMPANY_BOTS,
+  rooms: [],
+  agents: [],
+  exchangeTurns: {},
+  questions: {},
+  secrets: [],
+  capabilities: [],
+  capabilityStatuses: {},
+  secretRequests: {},
+  models: [],
+  defaultModel: null,
+  modelsKey: '',
+  prefs: {},
+  companyMode: 'company-local',
+})
+
+const listsWorkspaceRetry = (error) => String(error?.message ?? error ?? '').includes('Retry listing workspace')
+
 export function createTeam() {
   migrateStorage()
   const unreadStore = sharedMap(STORAGE.unread)
@@ -54,7 +84,7 @@ export function createTeam() {
   // When each conversation was last left; a visit compares new entries against it.
   const seenStore = sharedMap(STORAGE.seen)
   let seenAt = seenStore.read()
-  const roster = createSource(EMPTY_ROSTER)
+  const roster = createSource(COMPANY_ROSTER)
   const ui = createSource({ details: null, view: 'details', renaming: false, tab: null, newChat: null, exchange: null, menu: null, voice: null, palette: null, quote: null, settings: null, memory: null, toast: null, signIn: null, renameAgent: null, unread: unreadStore.read(), reactions: reactionStore.read(), visits: {} })
   const activity = createSource({})
   const work = createSource(NO_WORK)
@@ -69,10 +99,10 @@ export function createTeam() {
   const layout = createSource({ wide: true })
   // The Session facts: the list (each one's latest entry and change, and which one fills
   // the main view), the status (running, a reply not yet seen) and what was just sent.
-  const sessions = createSource({ ids: [], byId: {} })
+  const sessions = createSource({ ids: [CHIEF_ID], byId: { [CHIEF_ID]: { id: CHIEF_ID, retainedBy: { mainView: 1 } } } })
   const status = createSource(new Map())
   const sent = createSource({})
-  const shown = createSource(null)
+  const shown = createSource(CHIEF_ID)
   const chat = createBus()
 
   const editRow = (id, edit) => sessions.set((list) => {
@@ -114,13 +144,21 @@ export function createTeam() {
   // Reads can overlap (the feed and a finished action); an older answer never wins.
   let pulls = 0
   let applied = 0
+  // The painted roster is the company until the server has answered once.
+  // `since: -1` is what makes that first answer a full roster; a later revision
+  // would be treated as already seen and come back unchanged.
+  let heardServer = false
   const pull = async () => {
     const order = ++pulls
     const known = roster.getSnapshot()
-    const value = await call('state', { since: known.revision, models: known.modelsKey ?? '', locale: language() })
+    const value = await call('state', {
+      since: heardServer ? known.revision : -1,
+      models: heardServer ? (known.modelsKey ?? '') : '',
+      locale: language(),
+    })
     if (order < applied) return
     applied = order
-    // An empty roster marked ready is what makes the host retry workspace listing.
+    // An empty answer used to leave the sidebar on a listing retry. Keep the company.
     if (!value?.unchanged && (!Array.isArray(value?.bots) || value.bots.length === 0)) return
     setChanged(activity, value.activity ?? {})
     setChanged(work, value.work ?? NO_WORK)
@@ -134,6 +172,7 @@ export function createTeam() {
     // In a window with no visit record yet, everything already there counts as seen.
     if (Object.keys(seenAt).length === 0) leaveVisits([...value.bots, ...value.rooms].map(entry => entry.id))
     roster.set(indexRoster(value))
+    heardServer = true
   }
   const after = promise => promise.then(async (value) => { await pull().catch(() => {}); return value })
   const partFor = (id) => {
@@ -144,6 +183,10 @@ export function createTeam() {
   const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, heldCards, turnClock })
   const actions = {
     ...baseActions,
+    reportError: (error, where) => {
+      if (listsWorkspaceRetry(error)) return
+      baseActions.reportError(error, where)
+    },
     // Company-local sessions have no kernel feed; reload the page after send.
     send: async (sessionId, text) => {
       const value = await baseActions.send(sessionId, text)
@@ -237,6 +280,7 @@ export function createTeam() {
       void pull().catch((error) => {
         if (stopped) return
         console.warn('[ds-bot] state', error)
+        if (listsWorkspaceRetry(error)) return
         if (!roster.getSnapshot().ready) actions.reportError(error, 'state')
       })
     }
