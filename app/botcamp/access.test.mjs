@@ -8,14 +8,17 @@ import { kvGet } from '../../server/kv.mjs'
 import { PHOSA_MAC_ID, PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import { createBotcamp } from './http.mjs'
 import {
+  accountsVisibleTo,
   bindLoginOwner,
+  boundOwnerIds,
   mediaGrantKey,
+  mediaLoginOwnerKey,
   mediaOwnerIdFor,
 } from './mediaControl.mjs'
 
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
-const OWNER_EMAIL = 'owner@example.com'
+const OWNER_EMAIL = 'phosa@qq.com'
 const STRANGER_EMAIL = 'stranger@example.com'
 const ROOM_ID = `co_room_${PHOSA_MAC_ID}`
 const ACCOUNT_NAME = '小稿的AI日记'
@@ -32,6 +35,7 @@ test('admin role and the admin aliases are not the owner of 小稿', () => {
     assert.equal(bindLoginOwner(email, PHOSA_OWNER_ID).ok, undefined)
   }
   assert.equal(mediaOwnerIdFor({ id: 'member-1', role: 'user', email: OWNER_EMAIL }), 'usr_botcamp_member-1')
+  assert.equal(mediaOwnerIdFor({ id: 'phosa-1', role: 'admin', email: OWNER_EMAIL }), 'usr_botcamp_phosa-1')
 })
 
 async function boot() {
@@ -108,7 +112,6 @@ async function bot(base, cookie, endpoint, payload) {
 test('owner sees 小稿, a stranger and an ungranted admin do not, and a grant is not ownership', async () => {
   const ctx = await boot()
   try {
-    assert.equal(bindLoginOwner(OWNER_EMAIL, PHOSA_OWNER_ID).ok, true)
     const adminLogin = await api(ctx.base, '/api/auth/login', { body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
     assert.equal(adminLogin.status, 200)
     const adminCookie = adminLogin.cookie
@@ -116,7 +119,7 @@ test('owner sees 小稿, a stranger and an ungranted admin do not, and a grant i
 
     const createdOwner = await api(ctx.base, '/api/admin/users', {
       cookie: adminCookie,
-      body: { email: OWNER_EMAIL, password: 'password-owner-1', quota: 5 },
+      body: { email: OWNER_EMAIL, role: 'admin', password: 'password-owner-1', quota: 5 },
     })
     const createdStranger = await api(ctx.base, '/api/admin/users', {
       cookie: adminCookie,
@@ -136,7 +139,11 @@ test('owner sees 小稿, a stranger and an ungranted admin do not, and a grant i
     const ownerLibrary = await bot(ctx.base, owner.cookie, 'library/list', {})
     assert.equal(ownerLibrary.json.nodes.some((node) => node.name === '小稿'), true)
 
+    assert.equal(kvGet(mediaLoginOwnerKey(OWNER_EMAIL))?.ownerId, PHOSA_OWNER_ID)
     assert.equal(kvGet(mediaGrantKey(PHOSA_MAC_ID)) ?? null, null)
+    const siteAdmin = { id: 'site-admin', role: 'admin', email: 'admin@botcamp.demox.site' }
+    assert.deepEqual(boundOwnerIds(siteAdmin), [])
+    assert.equal(accountsVisibleTo(siteAdmin).some((account) => account.display_name === ACCOUNT_NAME), false)
     for (const session of [stranger, adminLogin]) {
       const state = await bot(ctx.base, session.cookie, 'state', { since: -1, models: '' })
       assert.equal(state.json.value.bots.some((bot) => bot.id === 'co_chief'), true)

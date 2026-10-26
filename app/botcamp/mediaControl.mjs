@@ -28,6 +28,7 @@ import {
 import { normalizeEmail, validEmail } from './passwords.mjs'
 import {
   PHOSA_MAC_ID,
+  PHOSA_OWNER_ID,
   seed,
 } from '../../scripts/seed.mjs'
 import packedFixture from '../../fixtures/xiaogao/fixture.generated.mjs'
@@ -91,6 +92,7 @@ export function bindMediaDataDir(dataDir) {
 
 export function ensureMediaSeeded() {
   ensureStoreDirs()
+  ensureOwnerBinding()
   const root = getDataRoot()
   const fixtureTs = FIXTURE_META?.import_timestamp || null
   const applied = kvGet(`media_account:${PHOSA_MAC_ID}:import_meta`)
@@ -159,6 +161,10 @@ const ADMIN_MEDIA_ALIASES = new Set([
   'admin@botcamp.demox.site',
 ])
 
+// The login phosa types on the shell. Role admin on this account is not what
+// makes it the owner, and no admin address is granted from this binding.
+const PHOSA_LOGIN = 'phosa@qq.com'
+
 export function mediaOwnerIdFor(user) {
   if (!user?.id) return ''
   return `usr_botcamp_${user.id}`
@@ -207,7 +213,15 @@ export function bindLoginOwner(email, ownerId) {
   return { ok: true, email: normalized, ownerId }
 }
 
+function ensureOwnerBinding() {
+  const row = kvGet(mediaLoginOwnerKey(PHOSA_LOGIN))
+  const ownerId = typeof row === 'string' ? row : row?.ownerId
+  if (ownerId === PHOSA_OWNER_ID) return
+  bindLoginOwner(PHOSA_LOGIN, PHOSA_OWNER_ID)
+}
+
 export function boundOwnerIds(user) {
+  ensureOwnerBinding()
   const email = normalizeEmail(user?.email)
   if (!email || ADMIN_MEDIA_ALIASES.has(email)) return []
   const row = kvGet(mediaLoginOwnerKey(email))
