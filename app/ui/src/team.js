@@ -61,6 +61,7 @@ export function createTeam() {
   const memoryNews = createSource({})
   const live = createSource({})
   const cards = createSource({})
+  const heldCards = createSource({})
   const turnClock = createSource({})
   const update = createSource({ available: false, phase: 'idle' })
   const browserPages = createSource({})
@@ -140,7 +141,7 @@ export function createTeam() {
     return bot ? currentPart(bot) : id
   }
 
-  const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, turnClock })
+  const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, heldCards, turnClock })
   const actions = {
     ...baseActions,
     // Company-local sessions have no kernel feed; reload the page after send.
@@ -264,6 +265,7 @@ export function createTeam() {
     useMemoryNews: use(memoryNews),
     useLive: use(live),
     useCards: use(cards),
+    useHeldCards: use(heldCards),
     useTurnClock: use(turnClock),
     useUpdate: use(update),
     useRegistry: use(registry),
