@@ -1,7 +1,7 @@
 // The window's own versions of the DSH interface primitives the Bot views draw with (see
 // ds-bot/src/client/dsh-primitives.js and vite.config.js).
 import { createElement as h, useMemo, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
+import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { MENTION_ORIGIN } from '../../../ds-bot/src/client/text.js'
 
@@ -56,5 +56,9 @@ export function MarkdownText({ text, labels, variant }) {
   // New element types on every render would remount each code block as a reply streams in.
   const components = useMemo(() => elements(labels), [labels?.code?.copyLabel, labels?.code?.copiedLabel])
   return h('div', { className: variant === 'compact' ? 'md_markdown md-compact' : 'md_markdown' },
-    h(Markdown, { remarkPlugins: plugins, components }, text ?? ''))
+    h(Markdown, {
+      remarkPlugins: plugins,
+      components,
+      urlTransform: (url) => (typeof url === 'string' && url.startsWith('doc://') ? url : defaultUrlTransform(url)),
+    }, text ?? ''))
 }
