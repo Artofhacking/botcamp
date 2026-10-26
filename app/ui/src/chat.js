@@ -2,7 +2,7 @@ import { createElement as h, useCallback, useEffect, useLayoutEffect, useMemo, u
 import { call } from '../../../ds-bot/src/client/api.js'
 import { Bubbles, ChatRows, Shimmer } from '../../../ds-bot/src/client/cells.js'
 import { noteMediaEntity } from './account.js'
-import { earlierBanner, visiblePending } from './chatSync.js'
+import { acceptFeedItem, earlierBanner, visiblePending } from './chatSync.js'
 import { ComposerPlus, ComposerVoice } from '../../../ds-bot/src/client/composer.js'
 import { t } from '../../../ds-bot/src/client/i18n.js'
 import { ArrowUpIcon } from '../../../ds-bot/src/client/icons.js'
@@ -34,7 +34,8 @@ function useChat(botId, part, feed) {
     try {
       const page = await call('chat', { botId, ...(cursor ? { cursor } : {}) })
       if (!older) {
-        const later = early.current.filter(entry => entry.sessionId === page.sessionId && !page.items.some(item => sameItem(item, entry.item)))
+        const thread = { botId, part, sessionId: page.sessionId }
+        const later = early.current.filter(entry => acceptFeedItem(entry, thread) && !page.items.some(item => sameItem(item, entry.item)))
         early.current = []
         ready.current = true
         const items = [...page.items, ...later.map(entry => entry.item)]
@@ -51,7 +52,7 @@ function useChat(botId, part, feed) {
     } finally {
       busy.current = false
     }
-  }, [botId])
+  }, [botId, part])
 
   // A new part starts the chat over.
   useEffect(() => { void load(undefined) }, [load, part])
@@ -59,19 +60,33 @@ function useChat(botId, part, feed) {
   useEffect(() => feed.on((event, data) => {
     // The feed came back after a break: entries may have been missed.
     if (event === 'hello') { if (ready.current) void load(undefined); return }
-    if (botId === undefined || data?.botId !== botId) return
+    if (botId === undefined) return
     if (event === 'message') {
       if (!data?.item) return
+      const thread = { botId, part, sessionId: part }
+      if (!ready.current) {
+        if (acceptFeedItem(data, thread)) early.current.push(data)
+        return
+      }
+      let accepted = false
+      setView(current => {
+        const here = { botId, part, sessionId: current.sessionId || part }
+        if (!acceptFeedItem(data, here)) return current
+        accepted = true
+        if (current.items.some(item => sameItem(item, data.item))) return current
+        return { ...current, items: [...current.items, data.item] }
+      })
+      if (!accepted) return
       if (data.item.kind === 'user') setPending(list => visiblePending(list, [data.item]))
-      if (!ready.current) { early.current.push(data); return }
-      setView(current => (data.sessionId !== current.sessionId || current.items.some(item => sameItem(item, data.item)) ? current : { ...current, items: [...current.items, data.item] }))
       if (data.item.kind === 'bot') setStream(null)
+    } else if (data?.botId !== botId && data?.botId !== part) {
+      return
     } else if (event === 'stream') {
       if (data.phase === 'start') setStream({ attemptId: data.attemptId, text: '' })
       else if (data.phase === 'end') setStream(current => (current?.attemptId === data.attemptId ? null : current))
       else setStream(current => (current?.attemptId === data.attemptId ? { ...current, text: current.text + data.text } : current))
     }
-  }), [feed, botId, load])
+  }), [feed, botId, part, load])
 
   // Shown at once: the message can come back on the feed before the request returns.
   const send = async (text, actions, sessionId) => {
@@ -84,6 +99,9 @@ function useChat(botId, part, feed) {
       setPending(list => list.filter(item => item !== entry))
       throw error
     }
+    // The host has the line now. Reload so the bubble is the stored one, and
+    // keep the optimistic copy if that reload has not caught up yet.
+    await load()
   }
   return { view, stream, pending, load, send, keep }
 }
@@ -156,7 +174,9 @@ export function Chat({ sessionId, team, anchor, onClearAnchor, workspace, onWork
   const roster = hooks.useRoster(value => value)
   const bot = roster.byId[sessionId]
   const name = bot?.name ?? roster.roomsById[sessionId]?.name ?? ''
-  const { view, stream, pending, load, send, keep } = useChat(bot?.id, sessionId, feed)
+  // A project room is not a bot row. Its chat id is the room id itself.
+  const chatId = bot?.id ?? (typeof sessionId === 'string' && sessionId.startsWith('co_') ? sessionId : undefined)
+  const { view, stream, pending, load, send, keep } = useChat(chatId, sessionId, feed)
   const scroller = useRef(null)
   const follow = useRef(true)
   const question = roster.questions?.[sessionId]

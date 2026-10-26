@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
-import { earlierBanner, visiblePending } from './src/chatSync.js'
+import { acceptFeedItem, earlierBanner, visiblePending } from './src/chatSync.js'
 import { hideWorkspaceRetry } from './src/hideRetry.js'
 import { landingSession } from './src/land.js'
 import { generateInitialPassword, issueNote, passwordToShow } from './src/initialPassword.js'
@@ -56,6 +56,18 @@ test('a sent message already on the page is not drawn again', () => {
   assert.deepEqual(visiblePending(pending, []).map(entry => entry.text), ['你好', '还在路上'])
   const twice = [{ kind: 'user', text: '好', time: 1 }, { kind: 'user', text: '好', time: 2 }]
   assert.equal(visiblePending(twice, [{ kind: 'user', text: '好', time: 3 }]).length, 1)
+})
+
+test('a user bubble stays when the feed event is a different conversation', () => {
+  const thread = { botId: 'co_chief', part: 'co_chief', sessionId: 'co_chief' }
+  const pending = [{ kind: 'user', text: '你好', time: 1 }]
+  const other = { botId: 'co_chief', sessionId: 'session-other', item: { kind: 'user', text: '你好', time: 2 } }
+  assert.equal(acceptFeedItem(other, thread), false)
+  assert.deepEqual(visiblePending(pending, []).map(entry => entry.text), ['你好'])
+  const same = { botId: 'bot-1', sessionId: 'part-9', item: { kind: 'user', text: '你好', time: 3 } }
+  assert.equal(acceptFeedItem(same, { botId: 'bot-1', part: 'part-9', sessionId: null }), true)
+  assert.equal(acceptFeedItem(same, { botId: 'bot-1', part: 'part-1', sessionId: 'part-1' }), false)
+  assert.deepEqual(visiblePending(pending, [same.item]).map(entry => entry.text), [])
 })
 
 test('refreshing the latest page does not say it is loading earlier messages', () => {
