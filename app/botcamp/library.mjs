@@ -8,6 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
+import { isRawTimestampName, readableDocName } from './docName.mjs'
 import { mediaOwnerIdFor } from './mediaControl.mjs'
 
 const MAX_NAME = 80
@@ -131,7 +132,8 @@ function createNode(ownerId, { parentId = null, kind, name, content = '' }) {
   if (tree.nodes.length >= MAX_NODES) return { error: '文档太多了。' }
   const parent = parentId || null
   if (!parentOk(tree.nodes, parent)) return { error: '文件夹不存在。' }
-  const clean = sanitizeName(name, kind)
+  const proposed = kind === 'file' && isRawTimestampName(name) ? readableDocName(content, '') : name
+  const clean = sanitizeName(proposed, kind)
   if (!clean) return { error: '名字无效。' }
   const unique = uniqueName(tree.nodes, parent, clean)
   if (!unique) return { error: '名字冲突。' }
@@ -203,7 +205,9 @@ export function updateLibraryNode(ownerId, { id, name, content, parentId } = {})
   const node = tree.nodes.find((item) => item.id === id)
   if (!node) return { error: '找不到文档。' }
   if (name !== undefined) {
-    const clean = sanitizeName(name, node.kind)
+    const source = content !== undefined ? content : node.content
+    const proposed = node.kind === 'file' && isRawTimestampName(name) ? readableDocName(source, '') : name
+    const clean = sanitizeName(proposed, node.kind)
     if (!clean) return { error: '名字无效。' }
     const unique = uniqueName(tree.nodes, node.parentId, clean, node.id)
     if (!unique) return { error: '名字冲突。' }
@@ -254,11 +258,12 @@ export function keepMarkdown(ownerId, { folderName = '笔记', name, content } =
     if (made.error) return made
     folder = made.node
   }
+  const body = typeof content === 'string' ? content : ''
   const file = createNode(ownerId, {
     parentId: folder.id,
     kind: 'file',
-    name: name || '笔记',
-    content: typeof content === 'string' ? content : '',
+    name: !name || isRawTimestampName(name) ? readableDocName(body, name || '笔记') : name,
+    content: body,
   })
   if (file.error) return file
   const label = file.node.name.replace(/\.md$/i, '')

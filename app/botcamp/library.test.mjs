@@ -37,6 +37,15 @@ test('library is nested markdown with no required sections, isolated by owner', 
     }, A)
     assert.equal(file.status, 200)
     assert.equal(file.body.node.name, '没有格式.md')
+    const stamped = await handleLibraryControl(null, 'library/create', {
+      kind: 'file',
+      parentId: nested.body.node.id,
+      name: '版面1792984373814',
+      content: '# 出门前的一句\n\n随便写一行。\n',
+    }, A)
+    assert.equal(stamped.status, 200)
+    assert.equal(stamped.body.node.name, '出门前的一句.md')
+    assert.equal(stamped.body.node.name.includes('1792984373814'), false)
     assert.equal(file.body.node.content, '随便写一行。\n')
     assert.equal(Object.hasOwn(file.body.node, 'sections'), false)
 
@@ -47,7 +56,7 @@ test('library is nested markdown with no required sections, isolated by owner', 
     assert.equal(updated.node.content, '改过了。\n')
 
     const listed = listLibrary(`usr_botcamp_${A.id}`)
-    assert.equal(listed.nodes.length, 3)
+    assert.equal(listed.nodes.length, 4)
     assert.equal(listLibrary(`usr_botcamp_${B.id}`).nodes.length, 0)
     assert.equal(getLibraryNode(`usr_botcamp_${B.id}`, file.body.node.id), null)
 

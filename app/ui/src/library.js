@@ -3,6 +3,7 @@ import VditorModule from 'vditor'
 
 const Vditor = VditorModule?.default || VditorModule
 import 'vditor/dist/index.css'
+import { isRawTimestampName, readableDocName, visibleDocName } from '../../botcamp/docName.mjs'
 import {
   createLibraryNode,
   deleteLibraryNode,
@@ -11,6 +12,12 @@ import {
   updateLibraryNode,
   uploadLibraryAsset,
 } from './libraryApi.js'
+
+function shownName(node) {
+  if (!node) return ''
+  if (node.kind === 'file' && isRawTimestampName(node.name)) return readableDocName(node.content || '', '')
+  return visibleDocName(node.name)
+}
 
 const MEDIA_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm'
 const MAX_IMAGE = 4 * 1024 * 1024
@@ -96,7 +103,7 @@ function Tree({ nodes, parentId, depth, open, onToggle, selectedId, onSelect }) 
         onSelect(node.id)
         if (node.kind === 'folder') onToggle(node.id)
       },
-    }, `${node.kind === 'folder' ? (open.has(node.id) ? '▾ ' : '▸ ') : ''}${node.name}`),
+    }, `${node.kind === 'folder' ? (open.has(node.id) ? '▾ ' : '▸ ') : ''}${visibleDocName(node.name)}`),
     node.kind === 'folder' && open.has(node.id)
       ? h(Tree, { nodes, parentId: node.id, depth: depth + 1, open, onToggle, selectedId, onSelect })
       : null)))
@@ -265,11 +272,12 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
       const updated = await updateLibraryNode({ id, name, content })
       if (savedRef.current.id !== id || selectedRef.current !== id) return
       const returned = updated.node.content || ''
+      const returnedName = visibleDocName(updated.node.name)
       const current = editorRef.current?.getValue?.()
-      savedRef.current = { id, name: updated.node.name, content: returned }
-      if (updated.node.name !== titleRef.current.trim()) {
-        titleRef.current = updated.node.name
-        setTitle(updated.node.name)
+      savedRef.current = { id, name: returnedName, content: returned }
+      if (returnedName !== titleRef.current.trim()) {
+        titleRef.current = returnedName
+        setTitle(returnedName)
       }
       if (current === content && returned !== content && editorRef.current) {
         editorRef.current.setValue(returned)
@@ -298,7 +306,7 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
     const id = saved.id
     void updateLibraryNode({ id, name, content: value }).then((updated) => {
       if (savedRef.current.id === id) {
-        savedRef.current = { id, name: updated.node.name, content: updated.node.content || '' }
+        savedRef.current = { id, name: visibleDocName(updated.node.name), content: updated.node.content || '' }
       }
     }).catch((failure) => setError(failure?.message || '保存失败'))
   }
@@ -330,10 +338,11 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
       if (stopped) return
       const node = data.node
       if (!node) return
+      const label = shownName(node)
       setKind(node.kind)
-      setTitle(node.name || '')
-      titleRef.current = node.name || ''
-      savedRef.current = { id: node.id, name: node.name || '', content: node.content || '' }
+      setTitle(label)
+      titleRef.current = label
+      savedRef.current = { id: node.id, name: visibleDocName(node.name), content: node.content || '' }
       setLoaded({ id: node.id, content: node.content || '' })
     }).catch((failure) => { if (!stopped) setError(failure?.message || '打不开这篇文档') })
     return () => { stopped = true }
@@ -431,7 +440,7 @@ export function LibraryPanel({ focusId, onClose, onConsumedFocus }) {
         !selectedId
           ? h('p', { className: 'lib-muted lib-empty' }, '选一篇文档，或新建一篇。')
           : kind === 'folder'
-            ? h('p', { className: 'lib-muted lib-empty' }, `文件夹「${title || selected?.name || ''}」`)
+            ? h('p', { className: 'lib-muted lib-empty' }, `文件夹「${title || visibleDocName(selected?.name)}」`)
             : !fileOpen
               ? h('p', { className: 'lib-muted lib-empty' }, '正在打开…')
               : h('div', { className: 'lib-editor-fill' },

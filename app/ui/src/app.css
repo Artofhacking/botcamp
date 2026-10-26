@@ -234,6 +234,9 @@ body[data-bt-room] [data-composer-card]:has(.dsb-send:disabled) .bt-mic:not([ari
 .lib-panel .vditor-toolbar::after{content:"";display:block;clear:both}
 .lib-panel .vditor-content,.lib-panel .vditor-wysiwyg{min-height:0}
 .lib-panel .vditor-wysiwyg pre.vditor-reset{overflow:auto}
+.lib-panel .vditor-wysiwyg :is(h1,h2,h3,h4,h5,h6,div.vditor-wysiwyg__block,div[data-type="footnotes-block"],div[data-type="link-ref-defs-block"],.vditor-toc):before{content:none !important}
+.lib-panel .vditor-reset img,.lib-panel .vditor-wysiwyg img{display:block;width:auto;max-width:min(100%,480px);height:auto;background:transparent}
+.lib-panel blockquote.callout img{width:auto !important;height:auto !important;max-width:min(100%,480px)}
 .lib-panel .vditor-reset video,.lib-panel .vditor-wysiwyg video{display:block;width:min(100%,640px);max-width:100%;height:auto;background:#111}
 .lib-panel blockquote.callout[data-subtype="内部"]{--callout-color:#c47b00}
 .lib-panel blockquote.callout[data-subtype="对外"]{--callout-color:#2f6fed}

@@ -68,6 +68,7 @@ test('chief send keeps a markdown note and links it', async () => {
     const noteId = note.text.match(/doc:\/\/(doc_[a-f0-9]+)/)[1]
     const kept = getLibraryNode(PHOSA_OWNER_ID, noteId)
     assert.match(kept.content, /明天只改标题/)
+    assert.equal(kept.name, '明天只改标题.md')
     assert.equal(getLibraryNode(OTHER_OWNER_ID, noteId), null)
   } finally {
     configureDataRoot(prev)

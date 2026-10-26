@@ -5,6 +5,7 @@
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { ensureMediaSeeded } from './mediaControl.mjs'
+import { readableDocName } from './docName.mjs'
 import { keepMarkdown } from './library.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
@@ -337,7 +338,7 @@ export function companySend(ownerId, payload) {
   const roomAccountId = accountIdFromRoom(sessionId)
   if (wantsRemember(text)) {
     const body = stripRemember(text) || text
-    const keptTitle = body.slice(0, 24) || '笔记'
+    const keptTitle = readableDocName(body, '笔记')
     reply = replyWithDoc(ownerId, { title: keptTitle, body: `${body}\n`, summary: '记下了。' })
   } else if (wantsStatus(text) || (sessionId === CHIEF_ID && /号/.test(text))) {
     const hint = roomAccountId
