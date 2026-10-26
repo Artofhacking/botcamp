@@ -13,6 +13,7 @@ import { teamActions } from '../../../ds-bot/src/client/team-actions.js'
 import { currentPart } from '../../../ds-bot/src/client/text.js'
 import { registry } from '../../../ds-bot/src/client/themes.js'
 import { openFeed } from './api.js'
+import { landingSession } from './land.js'
 
 // Memory news and connector states change without a notice on the feed.
 const CATCH_UP_MS = 15_000
@@ -173,6 +174,14 @@ export function createTeam() {
     if (Object.keys(seenAt).length === 0) leaveVisits([...value.bots, ...value.rooms].map(entry => entry.id))
     roster.set(indexRoster(value))
     heardServer = true
+    const landed = roster.getSnapshot()
+    const open = shown.getSnapshot()
+    const next = landingSession(landed, open)
+    if (next && next !== open) show(next)
+    const details = ui.getSnapshot().details
+    if (details && !landed.byId?.[details] && !landed.roomsById?.[details]) {
+      ui.set(state => (state.details ? { ...state, details: null, view: 'details', renaming: false, tab: null } : state))
+    }
   }
   const after = promise => promise.then(async (value) => { await pull().catch(() => {}); return value })
   const partFor = (id) => {

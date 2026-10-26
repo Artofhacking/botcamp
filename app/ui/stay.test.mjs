@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
 import { earlierBanner, visiblePending } from './src/chatSync.js'
 import { hideWorkspaceRetry } from './src/hideRetry.js'
+import { landingSession } from './src/land.js'
 import { generateInitialPassword, issueNote, passwordToShow } from './src/initialPassword.js'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -105,6 +106,31 @@ test('workspace listing retry is not painted in flight or on failure', () => {
   const memoAt = fn.indexOf('const place = useMemo(')
   const returnAt = fn.indexOf('if (sessionId === undefined || target === undefined) return null')
   assert.ok(memoAt > 0 && returnAt > memoAt)
+})
+
+test('an open conversation that is not on the roster lands on 主编', () => {
+  const kernel = {
+    byId: {
+      'sess-chief': { id: 'bot-chief' },
+      'bot-chief': { id: 'bot-chief' },
+      'sess-writer': { id: 'bot-writer' },
+    },
+    roomsById: {},
+    bots: [
+      { id: 'bot-chief', name: '主编', sessionId: 'sess-chief' },
+      { id: 'bot-writer', name: '写稿', sessionId: 'sess-writer' },
+      { id: 'bot-ops', name: '数据', sessionId: 'sess-ops' },
+    ],
+  }
+  assert.equal(landingSession(kernel, 'co_chief'), 'sess-chief')
+  assert.equal(landingSession(kernel, 'sess-writer'), 'sess-writer')
+  const company = {
+    byId: { co_chief: { id: 'co_chief' } },
+    roomsById: { co_room_mac: { id: 'co_room_mac' } },
+    bots: [{ id: 'co_chief', name: '主编', sessionId: 'co_chief' }],
+  }
+  assert.equal(landingSession(company, 'co_chief'), 'co_chief')
+  assert.equal(landingSession(company, 'co_room_mac'), 'co_room_mac')
 })
 
 test('a feed that ends immediately waits several seconds', () => {

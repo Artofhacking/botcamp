@@ -6,9 +6,10 @@ import {
   companySessionIds,
   isCompanySessionId,
   mergeProjectRooms,
+  viewerCompany,
 } from './company.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
-import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
+import { bindMediaDataDir, grantMediaView, handleMediaControl } from './mediaControl.mjs'
 import { handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset } from './library.mjs'
 import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
@@ -414,11 +415,15 @@ export async function createBotcamp(options = {}) {
   }
 
   async function replyCompanyState(res, user, access) {
-    const ownerId = mediaOwnerIdFor(user)
-    claimCompanyAccess(access, ownerId)
-    const value = rewriteValue('state', buildCompanyState(ownerId, user), user, access, {})
-    // filterState rebuilds mainBotIds from user.mainBotIds; force chief as the landing DM.
+    const view = viewerCompany(user)
+    claimCompanyAccess(access, view.chatOwnerId, view.accounts)
+    const built = buildCompanyState(view.chatOwnerId, user, view.accounts)
+    const value = rewriteValue('state', built, user, access, {})
+    // Employee ids are shared. The first login to claim co_chief must not hide
+    // 主编 / 写稿 / 数据 from everyone else. Rooms stay the ones this viewer may see.
     if (value && typeof value === 'object' && !value.unchanged) {
+      value.bots = built.bots
+      value.rooms = built.rooms
       value.mainBotIds = ['co_chief']
       value.mainBotId = 'co_chief'
     }
@@ -440,8 +445,9 @@ export async function createBotcamp(options = {}) {
     return empty
   }
 
-  function stampWorkspaceSessions(result, ownerId) {
-    const sessionIds = companySessionIds(ownerId)
+  function stampWorkspaceSessions(result, user) {
+    const view = viewerCompany(user)
+    const sessionIds = companySessionIds(view.chatOwnerId, view.accounts)
     const lists = [result?.value?.items, result?.value?.workspaces]
     for (const list of lists) {
       if (!Array.isArray(list)) continue
@@ -463,7 +469,7 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = createAccess(user.id, context.resources)
-      const ownerId = mediaOwnerIdFor(user)
+      const view = viewerCompany(user)
       const sessionHint = payload?.botId || payload?.sessionId
 
       // Company-local sessions never hit the kernel (roster / chat / send).
@@ -471,14 +477,14 @@ export async function createBotcamp(options = {}) {
         (endpoint === 'chat' || endpoint === 'earlier' || endpoint === 'send')
         && isCompanySessionId(sessionHint)
       ) {
-        claimCompanyAccess(access, ownerId)
+        claimCompanyAccess(access, view.chatOwnerId, view.accounts)
         await store.commitAccess(user.id, access)
         if (endpoint === 'send') {
-          const result = companySend(ownerId, payload)
+          const result = companySend(view.chatOwnerId, payload, view.accounts)
           sendJson(res, result.ok ? 200 : 400, result)
           return
         }
-        sendJson(res, 200, companyChatPage(ownerId, payload))
+        sendJson(res, 200, companyChatPage(view.chatOwnerId, payload, view.accounts))
         return
       }
 
@@ -497,7 +503,7 @@ export async function createBotcamp(options = {}) {
           return
         }
         const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
-        if (listing) stampWorkspaceSessions(result, ownerId)
+        if (listing) stampWorkspaceSessions(result, user)
         // The host retries "Retry listing workspace…" until this answer arrives.
         // Remote file sync must not hold that answer.
         if (listing) {
@@ -613,7 +619,7 @@ export async function createBotcamp(options = {}) {
         }
         parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
         if (endpoint === 'state' && parsed.ok !== false && parsed.value && !parsed.value.unchanged) {
-          parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
+          parsed.value = mergeProjectRooms(parsed.value, user, after)
         }
         // Foreign / unowned kernel bots are stripped by filterState — fall back after filter.
         if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value, payload)) {
@@ -737,6 +743,7 @@ export async function createBotcamp(options = {}) {
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',
     'admin/list', 'admin/create', 'admin/update', 'admin/delete',
+    'media/grant',
     ...MEDIA_CONTROL,
     ...DOCS_CONTROL,
     ...BOARD_CONTROL,
@@ -769,6 +776,32 @@ export async function createBotcamp(options = {}) {
     if (body.endpoint === 'auth/signup') return handleAuth(jsonRequest(req, 'POST', '/api/auth/signup', payload), res, '/api/auth/signup')
     if (body.endpoint === 'auth/password') return handleAuth(jsonRequest(req, 'POST', '/api/auth/password', payload), res, '/api/auth/password')
 
+    if (body.endpoint === 'media/grant') {
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      if (passwordWall(res, user)) return
+      const granteeEmail = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
+      let granteeUserId = typeof payload.userId === 'string' ? payload.userId.trim() : ''
+      if (!granteeUserId && granteeEmail) {
+        const users = await store.listUsers()
+        const found = users.find((entry) => entry.email === granteeEmail)
+        if (found) granteeUserId = found.id
+      }
+      const granted = grantMediaView(user, {
+        accountId: payload.accountId,
+        granteeUserId,
+        granteeEmail,
+      })
+      if (granted.error) {
+        sendJson(res, granted.status ?? 403, { ok: false, error: { message: granted.error } })
+        return
+      }
+      sendJson(res, 200, { ok: true, accountId: granted.accountId, grants: granted.grants })
+      return
+    }
     if (MEDIA_CONTROL.has(body.endpoint)) {
       // demo-users / login 公开；其余用 media session（Bearer/cookie）或 botcamp 会话。
       const user = await currentUser(req)

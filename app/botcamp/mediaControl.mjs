@@ -25,9 +25,9 @@ import {
   listDemoUsers,
   SESSION_COOKIE,
 } from '../../server/auth.mjs'
+import { normalizeEmail, validEmail } from './passwords.mjs'
 import {
   PHOSA_MAC_ID,
-  PHOSA_OWNER_ID,
   seed,
 } from '../../scripts/seed.mjs'
 import packedFixture from '../../fixtures/xiaogao/fixture.generated.mjs'
@@ -151,16 +151,149 @@ function mediaCookieHeader(token, req, maxAge) {
   return parts.join('; ')
 }
 
+// These logins used to be rewritten into phosa's owner id. Role and these
+// addresses are not ownership. A grant does not use this set either.
+const ADMIN_MEDIA_ALIASES = new Set([
+  'admin@localhost',
+  'admin@example.com',
+  'admin@botcamp.demox.site',
+])
+
 export function mediaOwnerIdFor(user) {
-  // Local + production admins see the seeded 小稿账号 after email/password login.
-  const email = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : ''
-  if (
-    user?.role === 'admin'
-    || email === 'admin@localhost'
-    || email === 'admin@example.com'
-    || email === 'admin@botcamp.demox.site'
-  ) return PHOSA_OWNER_ID
+  if (!user?.id) return ''
   return `usr_botcamp_${user.id}`
+}
+
+export function mediaLoginOwnerKey(email) {
+  return `media_login_owner:${normalizeEmail(email)}`
+}
+
+export function mediaGrantKey(accountId) {
+  return `media_account:${accountId}:grants`
+}
+
+function grantUserKey(userId) {
+  return `media_grant_user:${userId}`
+}
+
+function grantEmailKey(email) {
+  return `media_grant_email:${normalizeEmail(email)}`
+}
+
+function readIdList(key) {
+  const raw = kvGet(key)
+  return Array.isArray(raw) ? raw.filter((id) => typeof id === 'string' && id) : []
+}
+
+function rememberGrant(key, accountId) {
+  const list = readIdList(key)
+  if (!list.includes(accountId)) kvSet(key, [...list, accountId])
+}
+
+export function readMediaGrants(accountId) {
+  const raw = kvGet(mediaGrantKey(accountId))
+  const userIds = Array.isArray(raw?.userIds) ? raw.userIds.filter((id) => typeof id === 'string' && id) : []
+  const emails = Array.isArray(raw?.emails) ? raw.emails.filter((email) => typeof email === 'string' && email) : []
+  return { userIds, emails }
+}
+
+/** Bind one login email to a media owner id. Not a grant, and not implied by role. */
+export function bindLoginOwner(email, ownerId) {
+  const normalized = normalizeEmail(email)
+  if (!validEmail(normalized)) return { error: '邮箱无效。' }
+  if (ADMIN_MEDIA_ALIASES.has(normalized)) return { error: '这个邮箱不能绑定成小稿的主人。' }
+  if (typeof ownerId !== 'string' || !ownerId || ownerId.length > 200) return { error: '缺少主人。' }
+  kvSet(mediaLoginOwnerKey(normalized), { ownerId })
+  return { ok: true, email: normalized, ownerId }
+}
+
+export function boundOwnerIds(user) {
+  const email = normalizeEmail(user?.email)
+  if (!email || ADMIN_MEDIA_ALIASES.has(email)) return []
+  const row = kvGet(mediaLoginOwnerKey(email))
+  const ownerId = typeof row === 'string' ? row : row?.ownerId
+  return typeof ownerId === 'string' && ownerId ? [ownerId] : []
+}
+
+export function ownerNamespaces(user) {
+  const ids = []
+  const own = mediaOwnerIdFor(user)
+  if (own) ids.push(own)
+  for (const id of boundOwnerIds(user)) if (!ids.includes(id)) ids.push(id)
+  return ids
+}
+
+export function primaryChatOwnerId(user) {
+  const bound = boundOwnerIds(user)
+  if (bound[0]) return bound[0]
+  return mediaOwnerIdFor(user)
+}
+
+export function userOwnsAccount(user, account) {
+  if (!account || account.deleted_at) return false
+  return ownerNamespaces(user).includes(account.owner_user_id)
+}
+
+export function grantedAccountIds(user) {
+  const ids = new Set(readIdList(grantUserKey(user?.id)))
+  const email = normalizeEmail(user?.email)
+  if (email) for (const id of readIdList(grantEmailKey(email))) ids.add(id)
+  return [...ids]
+}
+
+function accountsOwnedBy(ownerId) {
+  const ids = kvGet(`owner:${ownerId}:media_accounts`) || []
+  return ids
+    .map((id) => kvGet(`media_account:${id}`))
+    .filter((account) => account && !account.deleted_at && account.owner_user_id === ownerId)
+}
+
+export function accountsVisibleTo(user) {
+  ensureMediaSeeded()
+  const seen = new Set()
+  const accounts = []
+  const push = (account) => {
+    if (!account || account.deleted_at || seen.has(account.id)) return
+    seen.add(account.id)
+    accounts.push(account)
+  }
+  for (const ownerId of ownerNamespaces(user)) {
+    for (const account of accountsOwnedBy(ownerId)) push(account)
+  }
+  for (const accountId of grantedAccountIds(user)) push(kvGet(`media_account:${accountId}`))
+  return accounts
+}
+
+export function readableLibraryOwnerIds(user) {
+  const ids = [...ownerNamespaces(user)]
+  for (const account of accountsVisibleTo(user)) {
+    if (account.owner_user_id && !ids.includes(account.owner_user_id)) ids.push(account.owner_user_id)
+  }
+  return ids.filter(Boolean)
+}
+
+export function libraryWriteOwnerId(user) {
+  return primaryChatOwnerId(user)
+}
+
+export function grantMediaView(actor, { accountId, granteeUserId, granteeEmail } = {}) {
+  ensureMediaSeeded()
+  if (typeof accountId !== 'string' || !accountId) return { error: '缺少账号。', status: 400 }
+  const account = kvGet(`media_account:${accountId}`)
+  if (!account || account.deleted_at) return { error: '自媒体账号不存在。', status: 404 }
+  if (!userOwnsAccount(actor, account)) return { error: '只有账号主人可以授权。', status: 403 }
+  const userId = typeof granteeUserId === 'string' ? granteeUserId.trim() : ''
+  const email = normalizeEmail(granteeEmail)
+  if (!userId && !email) return { error: '要写明授权给谁。', status: 400 }
+  if (userId.length > 200) return { error: '用户无效。', status: 400 }
+  if (email && !validEmail(email)) return { error: '邮箱无效。', status: 400 }
+  const grants = readMediaGrants(accountId)
+  if (userId && !grants.userIds.includes(userId)) grants.userIds.push(userId)
+  if (email && !grants.emails.includes(email)) grants.emails.push(email)
+  kvSet(mediaGrantKey(accountId), { userIds: grants.userIds, emails: grants.emails })
+  if (userId) rememberGrant(grantUserKey(userId), accountId)
+  if (email) rememberGrant(grantEmailKey(email), accountId)
+  return { ok: true, accountId, grants: { userIds: [...grants.userIds], emails: [...grants.emails] } }
 }
 
 function ensureEmptyWorkspace(ownerId, label) {
@@ -572,11 +705,13 @@ function resolveMediaOwner(req, botcampUser) {
   const session = verifyMediaToken(token)
   if (session?.owner_user_id) return { ownerId: session.owner_user_id, via: 'media' }
   if (botcampUser?.id) {
-    const ownerId = mediaOwnerIdFor(botcampUser)
-    if (ownerId !== PHOSA_OWNER_ID) {
-      ensureEmptyWorkspace(ownerId, botcampUser.email?.split('@')[0] || botcampUser.email)
+    const ownId = mediaOwnerIdFor(botcampUser)
+    const primary = primaryChatOwnerId(botcampUser)
+    // A bound owner already has 小稿. Do not invent a second account for them.
+    if (primary === ownId && !accountsVisibleTo(botcampUser).some((account) => account.owner_user_id === ownId)) {
+      ensureEmptyWorkspace(ownId, botcampUser.email?.split('@')[0] || botcampUser.email)
     }
-    return { ownerId, via: 'botcamp' }
+    return { ownerId: primary, via: 'botcamp' }
   }
   return null
 }

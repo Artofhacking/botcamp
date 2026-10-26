@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url'
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import { isRawTimestampName, readableDocName } from './docName.mjs'
-import { mediaOwnerIdFor } from './mediaControl.mjs'
+import {
+  libraryWriteOwnerId,
+  mediaOwnerIdFor,
+  ownerNamespaces,
+  readableLibraryOwnerIds,
+} from './mediaControl.mjs'
 
 const MAX_NAME = 80
 const MAX_CONTENT = 200_000
@@ -475,38 +480,55 @@ export async function materializeMarkdownMedia(ownerId, markdown, origin) {
   return { markdown: unmaskCode(next, blocks) }
 }
 
+function nodeIn(ownerIds, id) {
+  for (const ownerId of ownerIds) {
+    const node = getLibraryNode(ownerId, id)
+    if (node) return { ownerId, node }
+  }
+  return null
+}
+
 export async function handleLibraryControl(req, endpoint, payload, user) {
-  const ownerId = mediaOwnerIdFor(user)
-  if (!ownerId) return fail(401, '请先登录')
+  const writeOwnerId = libraryWriteOwnerId(user)
+  if (!writeOwnerId && !mediaOwnerIdFor(user)) return fail(401, '请先登录')
   const body = payload && typeof payload === 'object' ? payload : {}
   if (endpoint === 'library/asset') {
     const bytes = decodeBase64(body.data)
     const video = normalizeMediaType(body.contentType).startsWith('video/')
     if (!bytes) return fail(400, video ? '视频数据无效。' : '图片数据无效。')
-    const saved = saveAssetBytes(ownerId, bytes, body.contentType)
+    const saved = saveAssetBytes(writeOwnerId, bytes, body.contentType)
     if (saved.error) return fail(400, saved.error)
     return { status: 200, body: { ok: true, id: saved.id, url: assetPublicUrl(requestOrigin(req), saved.id), contentType: saved.contentType } }
   }
-  return handleLibraryDocument(req, endpoint, body, ownerId)
+  return handleLibraryDocument(req, endpoint, body, user, writeOwnerId)
 }
 
-async function handleLibraryDocument(req, endpoint, body, ownerId) {
+async function handleLibraryDocument(req, endpoint, body, user, writeOwnerId) {
   const prepared = async (content) => {
     if (content === undefined) return {}
-    return materializeMarkdownMedia(ownerId, content, requestOrigin(req))
+    return materializeMarkdownMedia(writeOwnerId, content, requestOrigin(req))
   }
   if (endpoint === 'library/list') {
-    return { status: 200, body: { ok: true, ...listLibrary(ownerId) } }
+    const nodes = []
+    const seen = new Set()
+    for (const ownerId of readableLibraryOwnerIds(user)) {
+      for (const node of listLibrary(ownerId).nodes) {
+        if (seen.has(node.id)) continue
+        seen.add(node.id)
+        nodes.push(node)
+      }
+    }
+    return { status: 200, body: { ok: true, nodes } }
   }
   if (endpoint === 'library/get') {
-    const node = getLibraryNode(ownerId, body.id)
-    if (!node) return fail(404, '找不到文档。')
-    return { status: 200, body: { ok: true, node } }
+    const found = nodeIn(readableLibraryOwnerIds(user), body.id)
+    if (!found) return fail(404, '找不到文档。')
+    return { status: 200, body: { ok: true, node: found.node } }
   }
   if (endpoint === 'library/create') {
     const images = body.kind === 'file' ? await prepared(body.content ?? '') : {}
     if (images.error) return fail(400, images.error)
-    const made = createLibraryNode(ownerId, {
+    const made = createLibraryNode(writeOwnerId, {
       parentId: body.parentId ?? null,
       kind: body.kind,
       name: body.name,
@@ -516,9 +538,14 @@ async function handleLibraryDocument(req, endpoint, body, ownerId) {
     return { status: 200, body: { ok: true, node: made.node } }
   }
   if (endpoint === 'library/update') {
+    const owned = nodeIn(ownerNamespaces(user), body.id)
+    if (!owned) {
+      if (nodeIn(readableLibraryOwnerIds(user), body.id)) return fail(403, '无权修改这份文档。')
+      return fail(404, '找不到文档。')
+    }
     const images = body.content === undefined ? {} : await prepared(body.content)
     if (images.error) return fail(400, images.error)
-    const updated = updateLibraryNode(ownerId, {
+    const updated = updateLibraryNode(owned.ownerId, {
       id: body.id,
       name: body.name,
       content: images.markdown,
@@ -528,7 +555,12 @@ async function handleLibraryDocument(req, endpoint, body, ownerId) {
     return { status: 200, body: { ok: true, node: updated.node } }
   }
   if (endpoint === 'library/delete') {
-    const removed = deleteLibraryNode(ownerId, body.id)
+    const owned = nodeIn(ownerNamespaces(user), body.id)
+    if (!owned) {
+      if (nodeIn(readableLibraryOwnerIds(user), body.id)) return fail(403, '无权修改这份文档。')
+      return fail(404, '找不到文档。')
+    }
+    const removed = deleteLibraryNode(owned.ownerId, body.id)
     if (removed.error) return fail(404, removed.error)
     return { status: 200, body: { ok: true } }
   }

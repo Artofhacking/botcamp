@@ -4,7 +4,7 @@
  */
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
-import { ensureMediaSeeded } from './mediaControl.mjs'
+import { accountsVisibleTo, ensureMediaSeeded, primaryChatOwnerId } from './mediaControl.mjs'
 import { readableDocName } from './docName.mjs'
 import { keepMarkdown } from './library.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
@@ -135,15 +135,31 @@ function saveChat(ownerId, sessionId, items) {
   })
 }
 
+function managedLine(accounts) {
+  const names = (Array.isArray(accounts) ? accounts : [])
+    .map((account) => account?.display_name)
+    .filter(Boolean)
+    .join('、') || '（尚无账号）'
+  return `目前在管：${names}。`
+}
+
 function seedWelcome(ownerId, sessionId, accounts) {
   const items = loadChat(ownerId, sessionId)
-  if (items.length > 0) return items
-  const names = accounts.map((a) => a.display_name).join('、') || '（尚无账号）'
+  if (items.length > 0) {
+    if (sessionId !== CHIEF_ID) return items
+    const first = items[0]
+    if (first?.kind !== 'bot' || typeof first.text !== 'string' || !first.text.includes('目前在管：')) return items
+    const next = first.text.replace(/目前在管：[^\n]*。/, managedLine(accounts))
+    if (next === first.text) return items
+    const updated = [{ ...first, text: next }, ...items.slice(1)]
+    saveChat(ownerId, sessionId, updated)
+    return updated
+  }
   let text
   if (sessionId === CHIEF_ID) {
     text = [
       '我是主编，也是总负责人。进门不用先选号——写稿和数据都在侧栏。',
-      `目前在管：${names}。`,
+      managedLine(accounts),
       '问进度，或说「记下来」，我会写成文档。链接在这条对话里，点开就能看、能改。',
     ].join('\n')
   } else if (sessionId === WRITER_ID) {
@@ -171,9 +187,7 @@ function fmt(n) {
   return Number(n).toLocaleString('zh-CN')
 }
 
-function pickAccounts(ownerId, accountHint) {
-  ensureMediaSeeded()
-  const accounts = listOwnerAccounts(ownerId)
+function pickAccounts(accounts, accountHint) {
   if (!accountHint) return accounts
   const hint = String(accountHint).toLowerCase()
   const match = accounts.filter((a) =>
@@ -184,8 +198,9 @@ function pickAccounts(ownerId, accountHint) {
 }
 
 /** Free-form markdown note. Not a schema and not a required outline. */
-export function statusNote(ownerId, accountHint) {
-  const picked = pickAccounts(ownerId, accountHint)
+export function statusNote(ownerId, accountHint, accounts) {
+  const pool = Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
+  const picked = pickAccounts(pool, accountHint)
   if (picked.length === 0) {
     return { title: '进度', summary: '目前还没有自媒体号。', body: '目前还没有自媒体号。\n' }
   }
@@ -265,8 +280,8 @@ function accountHintFromText(text, accounts) {
   return null
 }
 
-export function claimCompanyAccess(access, ownerId) {
-  for (const id of companySessionIds(ownerId)) {
+export function claimCompanyAccess(access, ownerId, accounts) {
+  for (const id of companySessionIds(ownerId, accounts)) {
     if (id.startsWith('co_room_')) {
       access.claim(id, 'room')
       access.claim(id, 'session', id)
@@ -278,21 +293,40 @@ export function claimCompanyAccess(access, ownerId) {
 }
 
 /** Sessions the host must see on the workspace, or it keeps listing. */
-export function companySessionIds(ownerId) {
+export function companySessionIds(ownerId, accounts) {
   ensureMediaSeeded()
+  const visible = Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
   const ids = EMPLOYEES.map((member) => member.id)
-  for (const account of listOwnerAccounts(ownerId)) ids.push(roomIdForAccount(account.id))
+  for (const account of visible) ids.push(roomIdForAccount(account.id))
   return ids
 }
 
-export function buildCompanyState(ownerId, user) {
+export function viewerCompany(user) {
+  return {
+    chatOwnerId: primaryChatOwnerId(user),
+    accounts: accountsVisibleTo(user),
+  }
+}
+
+function visibleAccounts(ownerId, accounts) {
+  return Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
+}
+
+function sessionVisible(sessionId, accounts) {
+  if (sessionId === CHIEF_ID || sessionId === WRITER_ID || sessionId === OPS_ID) return true
+  const accountId = accountIdFromRoom(sessionId)
+  if (!accountId) return false
+  return accounts.some((account) => account.id === accountId)
+}
+
+export function buildCompanyState(ownerId, user, accounts) {
   ensureMediaSeeded()
-  const accounts = listOwnerAccounts(ownerId)
+  const visible = visibleAccounts(ownerId, accounts)
   const bots = EMPLOYEES.map(botShape)
-  const rooms = accounts.map(roomShape)
+  const rooms = visible.map(roomShape)
   // Warm welcome threads so the company feels occupied on first open.
-  for (const bot of bots) seedWelcome(ownerId, bot.id, accounts)
-  for (const room of rooms) seedWelcome(ownerId, room.id, accounts)
+  for (const bot of bots) seedWelcome(ownerId, bot.id, visible)
+  for (const room of rooms) seedWelcome(ownerId, room.id, visible)
   const mainBotIds = [CHIEF_ID]
   return {
     // Stable so a later poll does not look like a new roster and retrigger listing.
@@ -321,24 +355,30 @@ export function buildCompanyState(ownerId, user) {
   }
 }
 
-export function companyChatPage(ownerId, payload) {
+export function companyChatPage(ownerId, payload, accounts) {
   const sessionId = payload?.botId || payload?.sessionId
   if (!isCompanySessionId(sessionId)) {
     return { ok: false, error: { message: '不是公司会话。' } }
   }
-  const accounts = listOwnerAccounts(ownerId)
-  const items = seedWelcome(ownerId, sessionId, accounts)
+  const visible = visibleAccounts(ownerId, accounts)
+  if (!sessionVisible(sessionId, visible)) {
+    return { ok: false, error: { message: '无法打开这个对话。' } }
+  }
+  const items = seedWelcome(ownerId, sessionId, visible)
   return { ok: true, value: { sessionId, items, cursor: null } }
 }
 
-export function companySend(ownerId, payload) {
+export function companySend(ownerId, payload, accounts) {
   const sessionId = payload?.botId || payload?.sessionId
   const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
   if (!isCompanySessionId(sessionId) || !text) {
     return { ok: false, error: { message: '无法发送。' } }
   }
-  const accounts = listOwnerAccounts(ownerId)
-  const items = seedWelcome(ownerId, sessionId, accounts)
+  const visible = visibleAccounts(ownerId, accounts)
+  if (!sessionVisible(sessionId, visible)) {
+    return { ok: false, error: { message: '无法打开这个对话。' } }
+  }
+  const items = seedWelcome(ownerId, sessionId, visible)
   const now = Date.now()
   items.push({ kind: 'user', text, time: now })
 
@@ -351,12 +391,12 @@ export function companySend(ownerId, payload) {
     reply = replyWithDoc(ownerId, { title: keptTitle, body: `${body}\n`, summary: '记下了。' })
   } else if (wantsStatus(text) || (sessionId === CHIEF_ID && /号/.test(text))) {
     const hint = roomAccountId
-      ? (accounts.find((a) => a.id === roomAccountId)?.display_name || null)
-      : accountHintFromText(text, accounts)
-    const note = statusNote(ownerId, hint)
+      ? (visible.find((a) => a.id === roomAccountId)?.display_name || null)
+      : accountHintFromText(text, visible)
+    const note = statusNote(ownerId, hint, visible)
     reply = replyWithDoc(ownerId, note)
   } else if (roomAccountId) {
-    const account = accounts.find((a) => a.id === roomAccountId)
+    const account = visible.find((a) => a.id === roomAccountId)
     const bundle = account ? loadMediaAccountBundle(account.id) : null
     const writing = (bundle?.board?.writing || []).slice(0, 3).map((p) => p.title).join('、') || '暂无进行中帖子'
     reply = [
@@ -396,9 +436,9 @@ export function presentChiefName(bots) {
   })
 }
 
-export function mergeProjectRooms(state, ownerId, access) {
+export function mergeProjectRooms(state, user, access) {
   if (!state || typeof state !== 'object' || state.unchanged) return state
-  const accounts = listOwnerAccounts(ownerId)
+  const accounts = user && typeof user === 'object' ? accountsVisibleTo(user) : []
   const rooms = Array.isArray(state.rooms) ? [...state.rooms] : []
   const have = new Set(rooms.map((r) => r.id))
   for (const account of accounts) {
