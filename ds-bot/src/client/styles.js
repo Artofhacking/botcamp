@@ -943,10 +943,9 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 [data-content-phase=hero] [class*="_scrollBody"]{justify-content:flex-end!important}
 [data-content-phase=hero] [class*="_composerHero"]{align-self:stretch!important;width:auto!important;padding-bottom:0!important}
 [data-content-phase=hero] [class*="_composerHero"]>[class$="_root"]{display:none!important}
-/* The host paints "Retry listing workspace" in this row while its workspace
-   list is in flight and again when that list fails. The standalone host marks
-   the hero with data-phase, not data-content-phase, so a hero-only rule never
-   matches and the sentence stays on screen. The row is not part of this window. */
+/* The host workspace row stays up while its list is in flight and after the
+   list fails. The standalone host marks the hero with data-phase, so a
+   hero-only rule never matches. This window does not use that row. */
 html body [class*="_heroWorkspaceRow"]{display:none!important}
 [data-content-phase=hero] [class*="_composerHero"] [class*="_input"]{min-height:0!important}
 /* The right sides give back the scrollbar gutter so both edges sit 16px from the column. */
