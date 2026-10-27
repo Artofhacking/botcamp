@@ -96,10 +96,27 @@ function vditorAssets() {
   }
 }
 
+// WKWebView treats a module script's crossorigin attribute as a CORS load.
+// The desktop page is served from tauri://localhost, and that CORS load stays blank.
+function desktopModuleScripts() {
+  return {
+    name: 'desktop-module-scripts',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        if (process.env.VITE_BOTCAMP_CLIENT !== '1') return html
+        return html.replaceAll(' crossorigin', '')
+      },
+    },
+  }
+}
+
 export default defineConfig({
   root: fileURLToPath(new URL('./ui', import.meta.url)),
   base: './',
-  plugins: [ownPrimitives, vditorAssets(), kernelProxy()],
+  // The download zips live in public/ for the website. The desktop bundle must not embed them.
+  publicDir: process.env.VITE_BOTCAMP_CLIENT === '1' ? false : 'public',
+  plugins: [ownPrimitives, vditorAssets(), kernelProxy(), desktopModuleScripts()],
   resolve: { dedupe: ['react', 'react-dom'] },
   optimizeDeps: { esbuildOptions: { plugins: [vditorDepRewrite] } },
   server: { host: '127.0.0.1', port: 5173 },

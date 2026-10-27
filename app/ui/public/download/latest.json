@@ -1,0 +1,8 @@
+{
+  "version": "0.1.1",
+  "platforms": {
+    "darwin-aarch64": "https://botcamp.demox.site/download/BotCamp-mac-apple-silicon.zip",
+    "darwin-x86_64": "https://botcamp.demox.site/download/BotCamp-mac-intel.zip",
+    "windows-x86_64": "https://botcamp.demox.site/download/BotCamp-Windows-x64-setup.exe"
+  }
+}

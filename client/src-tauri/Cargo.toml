@@ -1,6 +1,6 @@
 [package]
 name = "botcamp"
-version = "0.1.0"
+version = "0.1.1"
 description = "BotCamp desktop and mobile shell"
 authors = ["BotCamp"]
 edition = "2021"
@@ -8,6 +8,12 @@ rust-version = "1.77"
 
 # Windows is the first install target. macOS, Android, and iOS keep this crate:
 # the library already exposes the mobile entry point.
+
+[features]
+# Release builds embed the window. `tauri dev` turns this off and follows devUrl.
+# Without it, the installed app opens 127.0.0.1:5195 and the window stays white.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
 
 [lib]
 name = "botcamp_lib"

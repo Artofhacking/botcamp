@@ -1,4 +1,5 @@
 // Each person's desktop runs Chrome. The Demox function never does.
+mod update;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -321,6 +322,7 @@ fn desktop_browser_cookies(app: tauri::AppHandle, desk: tauri::State<Desk>, bot_
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    update::spawn();
     tauri::Builder::default()
         .manage(Desk(Mutex::new(HashMap::new())))
         .invoke_handler(tauri::generate_handler![
