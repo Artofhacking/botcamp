@@ -1,4 +1,5 @@
 // Each person's desktop runs Chrome. The Demox function never does.
+mod ui_server;
 mod update;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -331,6 +332,16 @@ pub fn run() {
             desktop_browser_command,
             desktop_browser_cookies,
         ])
+        .setup(|app| {
+            let url = ui_server::window_url(app);
+            let parsed = url.parse().expect("窗口地址无效");
+            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(parsed))
+                .title(format!("BotCamp {}", env!("CARGO_PKG_VERSION")))
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(880.0, 640.0)
+                .build()?;
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("BotCamp 窗口没有起来")
         .run(|app, event| {

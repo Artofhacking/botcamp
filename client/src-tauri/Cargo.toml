@@ -1,6 +1,6 @@
 [package]
 name = "botcamp"
-version = "0.1.1"
+version = "0.1.2"
 description = "BotCamp desktop and mobile shell"
 authors = ["BotCamp"]
 edition = "2021"

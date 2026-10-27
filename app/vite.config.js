@@ -96,8 +96,9 @@ function vditorAssets() {
   }
 }
 
-// WKWebView treats a module script's crossorigin attribute as a CORS load.
-// The desktop page is served from tauri://localhost, and that CORS load stays blank.
+// The desktop window loads this page from http://127.0.0.1. A custom-scheme
+// document plus a module script stays blank in WKWebView, and a content
+// policy written for that scheme can block the script again.
 function desktopModuleScripts() {
   return {
     name: 'desktop-module-scripts',
@@ -105,7 +106,10 @@ function desktopModuleScripts() {
       order: 'post',
       handler(html) {
         if (process.env.VITE_BOTCAMP_CLIENT !== '1') return html
-        return html.replaceAll(' crossorigin', '')
+        return html
+          .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n?/, '')
+          .replaceAll(' crossorigin', '')
+          .replace('<div id="root"></div>', '<div id="root">正在打开 BotCamp…</div>')
       },
     },
   }
