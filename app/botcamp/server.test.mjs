@@ -1099,11 +1099,22 @@ test('a hung kernel state still answers with the company roster', async () => {
   const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
   try {
     const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const started = Date.now()
     const state = await api(ctx.base, '/api/bot', {
       method: 'POST',
       cookie: cookieHeader(login.setCookie),
       body: { endpoint: 'state', payload: { since: -1, models: '' } },
     })
+    assert.ok(Date.now() - started < 800, `state waited ${Date.now() - started}ms`)
+    const update = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(login.setCookie),
+      body: { endpoint: 'update-check', payload: { fresh: false } },
+    })
+    assert.equal(update.status, 200)
+    assert.equal(update.json.ok, true)
+    assert.equal(update.json.value.available, false)
+    assert.equal(botCalls(ctx.calls, 'update-check').length, 0)
     assert.equal(state.status, 200)
     assert.equal(state.json.ok, true)
     assert.equal(state.json.value.companyMode, 'company-local')

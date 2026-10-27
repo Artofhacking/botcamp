@@ -528,6 +528,14 @@ export async function createBotcamp(options = {}) {
       const view = viewerCompany(user)
       const sessionHint = payload?.botId || payload?.sessionId
 
+      // A hosted shell cannot install the kernel's plugin update. Leaving this
+      // on the kernel holds an instance for several seconds, and the edge then
+      // answers other calls — including state — with HTTP 503.
+      if (endpoint === 'update-check') {
+        sendJson(res, 200, { ok: true, value: { available: false, phase: 'idle', name: 'ds-bot' } })
+        return
+      }
+
       function kernelSignal() {
         const timeout = AbortSignal.timeout(20_000)
         if (typeof AbortSignal.any === 'function') return AbortSignal.any([client.signal, timeout])
@@ -652,7 +660,9 @@ export async function createBotcamp(options = {}) {
       const kernelAbort = new AbortController()
       const stopKernel = () => kernelAbort.abort()
       // A hung kernel used to leave the roster empty, so the host kept listing workspaces.
-      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 1200) : null
+      // The page polls state about every 1.5s. Waiting longer than a short beat
+      // keeps this instance busy and the edge returns 503 to the next call.
+      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 300) : null
       if (client.signal.aborted) stopKernel()
       else client.signal.addEventListener('abort', stopKernel, { once: true })
       try {
