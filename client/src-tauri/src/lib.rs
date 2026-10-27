@@ -1,5 +1,6 @@
 // Each person's desktop runs Chrome. The Demox function never does.
-mod ui_server;
+mod inline_page;
+mod page;
 mod update;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -333,13 +334,25 @@ pub fn run() {
             desktop_browser_cookies,
         ])
         .setup(|app| {
-            let url = ui_server::window_url(app);
+            // The installed app does not open 127.0.0.1 or tauri://localhost.
+            // `tauri dev` is the only build that follows the Vite server.
+            #[cfg(dev)]
+            let url = "http://127.0.0.1:5195/";
+            #[cfg(not(dev))]
+            let url = "about:blank";
             let parsed = url.parse().expect("窗口地址无效");
-            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(parsed))
-                .title(format!("BotCamp {}", env!("CARGO_PKG_VERSION")))
+            let window = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(parsed))
+                .title(page::WINDOW_TITLE)
+                .on_document_title_changed(|window, _| {
+                    let _ = window.set_title(page::WINDOW_TITLE);
+                })
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(880.0, 640.0)
                 .build()?;
+            #[cfg(not(dev))]
+            page::show(&window);
+            #[cfg(dev)]
+            let _ = window;
             Ok(())
         })
         .build(tauri::generate_context!())

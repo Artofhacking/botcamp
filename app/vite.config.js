@@ -96,9 +96,8 @@ function vditorAssets() {
   }
 }
 
-// The desktop window loads this page from http://127.0.0.1. A custom-scheme
-// document plus a module script stays blank in WKWebView, and a content
-// policy written for that scheme can block the script again.
+// The installed window inlines this page. A content policy written for
+// tauri://localhost would block the script, so the client build drops it.
 function desktopModuleScripts() {
   return {
     name: 'desktop-module-scripts',
@@ -125,5 +124,12 @@ export default defineConfig({
   optimizeDeps: { esbuildOptions: { plugins: [vditorDepRewrite] } },
   server: { host: '127.0.0.1', port: 5173 },
   preview: { host: '127.0.0.1', port: 4173 },
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2048 },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 2048,
+    rollupOptions: process.env.VITE_BOTCAMP_CLIENT === '1'
+      ? { output: { inlineDynamicImports: true } }
+      : undefined,
+  },
 })
