@@ -1177,7 +1177,17 @@ test('company send stores a model reply and keeps the relay bot off the roster',
     })
     assert.equal(noted.status, 200)
     assert.equal(noted.json.ok, true)
-    assert.equal(relay, null)
+    assert.equal(relay?.model, 'qoder/deepseek-v4-flash')
+    const notedPage = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    const notedLast = notedPage.json.value.items.at(-1)
+    assert.equal(notedLast.kind, 'bot')
+    assert.match(notedLast.text, /qoder\/deepseek-v4-flash/)
+    assert.doesNotMatch(notedLast.text, /doc:\/\//)
+    assert.equal(notedPage.json.value.items.some(item => item.kind === 'user' && item.text === '记下来：只改标题'), true)
     const prompt = '用一句话介绍你自己'
     const sent = await api(ctx.base, '/api/bot', {
       method: 'POST',
@@ -1331,18 +1341,12 @@ test('a progress document opens from the link on a fresh disk', async () => {
     const sent = await api(ctx.base, '/api/bot', {
       method: 'POST',
       cookie,
-      body: { endpoint: 'send', payload: { botId: 'co_chief', text: '看一下进度' } },
+      body: { endpoint: 'library/create', payload: { kind: 'file', name: '进度备忘', content: '小稿进度备忘\n' } },
     })
     assert.equal(sent.status, 200)
     assert.equal(sent.json.ok, true)
-    const page = await api(ctx.base, '/api/bot', {
-      method: 'POST',
-      cookie,
-      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
-    })
-    const blob = (page.json.value?.items || []).map(item => item.text || '').join('\n')
-    const id = blob.match(/doc:\/\/(doc_[a-f0-9]+)/)?.[1]
-    assert.ok(id)
+    const id = sent.json.node?.id
+    assert.match(id, /^doc_[a-f0-9]+$/)
     configureDataRoot(path.join(otherDir, 'empty-library'))
     const opened = await api(otherBase, '/api/bot', {
       method: 'POST',

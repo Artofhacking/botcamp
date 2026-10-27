@@ -140,11 +140,29 @@ async function waitForKickoff(kernel, bot, until) {
 }
 
 /**
+ * User text plus identity and account facts. The facts ride along on every turn.
+ * Keyword checks do not choose this text.
+ */
+export function modelTurnText(turn) {
+  const text = typeof turn?.text === 'string' ? turn.text.trim() : ''
+  const name = typeof turn?.name === 'string' ? turn.name.trim() : ''
+  const brief = typeof turn?.brief === 'string' ? turn.brief.trim() : ''
+  const facts = typeof turn?.facts === 'string' ? turn.facts.trim() : ''
+  if (!name && !brief && !facts) return text
+  const who = [name ? `你是${name}。` : '', brief].filter(Boolean).join('')
+  return [
+    who,
+    facts ? `账号事实：\n${facts}` : '',
+    `用户原话：\n${text}`,
+  ].filter(Boolean).join('\n\n')
+}
+
+/**
  * kernel(endpoint, payload) returns the kernel value or throws.
  * It must not log the body. The reply is model text, or this throws.
  */
 export async function askKernelModel(kernel, turn) {
-  const text = typeof turn?.text === 'string' ? turn.text.trim() : ''
+  const text = modelTurnText(turn)
   if (!text) throw new Error('empty')
   const brief = typeof turn?.brief === 'string' ? turn.brief : ''
   const deadline = Date.now() + BUDGET_MS

@@ -15,9 +15,7 @@ import {
   OPS_ID,
   WRITER_ID,
 } from './company.mjs'
-import { COMPANY_MODEL_REF, COMPANY_RELAY_NAME, modelReplyAfter, withoutRelayBots } from './companyModel.mjs'
-import { getLibraryNode } from './library.mjs'
-import { OTHER_OWNER_ID } from '../../scripts/seed-ids.mjs'
+import { COMPANY_MODEL_REF, COMPANY_RELAY_NAME, modelReplyAfter, modelTurnText, withoutRelayBots } from './companyModel.mjs'
 
 test('company state lists employees and project rooms without an account gate', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
@@ -44,7 +42,7 @@ test('company state lists employees and project rooms without an account gate', 
   }
 })
 
-test('chief send keeps a markdown note and links it', async () => {
+test('account and progress questions are passed to the model', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
   const prev = getDataRoot()
   try {
@@ -55,96 +53,53 @@ test('chief send keeps a markdown note and links it', async () => {
     assert.match(page.value.items[0].text, /主编/)
     assert.doesNotMatch(page.value.items[0].text, /报表|看板|白板/)
 
-    const sent = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '全部号进度' })
-    assert.equal(sent.ok, true)
-    const after = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    const last = after.value.items.at(-1)
-    assert.equal(last.kind, 'bot')
-    assert.match(last.text, /doc:\/\/doc_[a-f0-9]+/)
-    assert.doesNotMatch(last.text, /报表|看板|白板|board:\/\//)
-    const id = last.text.match(/doc:\/\/(doc_[a-f0-9]+)/)[1]
-    const node = getLibraryNode(PHOSA_OWNER_ID, id)
-    assert.equal(node.kind, 'file')
-    assert.equal(typeof node.content, 'string')
-    assert.ok(node.content.length > 0)
-    assert.equal(getLibraryNode(OTHER_OWNER_ID, id), null)
-    assert.equal(sent.value.docLink.href, `doc://${id}`)
+    const missed = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '全部号进度' })
+    assert.equal(missed.ok, false)
+    assert.match(missed.error.message, /模型这次没有答上来/)
 
-    let modelCalls = 0
-    const remembered = await companySend(
-      PHOSA_OWNER_ID,
-      { botId: CHIEF_ID, text: '记下来：明天只改标题' },
-      undefined,
-      async () => { modelCalls += 1; return '模型不该写这篇笔记' },
-    )
-    assert.equal(modelCalls, 0)
-    assert.equal(remembered.ok, true)
-    const again = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    const note = again.value.items.at(-1)
-    const noteId = note.text.match(/doc:\/\/(doc_[a-f0-9]+)/)[1]
-    const kept = getLibraryNode(PHOSA_OWNER_ID, noteId)
-    assert.match(kept.content, /明天只改标题/)
-    assert.equal(kept.name, '明天只改标题.md')
-    assert.equal(getLibraryNode(OTHER_OWNER_ID, noteId), null)
-  } finally {
-    configureDataRoot(prev)
-    await rm(dir, { recursive: true, force: true })
-  }
-})
-
-test('account questions are answered in the chat and do not file a progress note', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
-  const prev = getDataRoot()
-  try {
-    configureDataRoot(path.join(dir, 'media-store'))
-    seed()
-    let modelCalls = 0
-    const complete = async () => {
-      modelCalls += 1
-      return '2026-10-27 10:53:53（UTC+8）'
+    const asked = []
+    const complete = async (turn) => {
+      asked.push(turn)
+      return `模型回答：${turn.text}`
     }
-    const platform = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我的账号是哪个平台' }, undefined, complete)
-    assert.equal(platform.ok, true)
-    assert.equal(platform.value.docLink, null)
-    let page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    assert.match(page.value.items.at(-1).text, /小黑盒/)
-    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
-    assert.equal(modelCalls, 0)
-
-    const figures = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '现在什么数据' }, undefined, complete)
-    assert.equal(figures.ok, true)
-    assert.equal(figures.value.docLink, null)
-    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    const figureText = page.value.items.at(-1).text
-    assert.match(figureText, /粉丝/)
-    assert.match(figureText, /已发布|写稿中|选题/)
-    assert.doesNotMatch(figureText, /doc:\/\//)
-    assert.equal(modelCalls, 0)
-
-    const shot = await companySend(
-      PHOSA_OWNER_ID,
-      { botId: CHIEF_ID, text: '你能看看我的账号现在什么数据给我截个图吗' },
-      undefined,
-      complete,
-    )
-    assert.equal(shot.value.docLink, null)
-    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    assert.match(page.value.items.at(-1).text, /粉丝/)
-    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
-
-    const who = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我的账号是什么' }, undefined, complete)
-    assert.equal(who.value.docLink, null)
-    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    assert.match(page.value.items.at(-1).text, /小稿的AI日记/)
-    assert.match(page.value.items.at(-1).text, /小黑盒/)
-    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
-    assert.equal(modelCalls, 0)
-
-    const clock = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我说现在' }, undefined, complete)
-    assert.equal(modelCalls, 1)
-    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    assert.match(page.value.items.at(-1).text, /UTC\+8/)
-    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
+    const prompts = [
+      '全部号进度',
+      '记下来：明天只改标题',
+      '看一下进度',
+      '我的账号是哪个平台',
+      '现在什么数据',
+      '你能看看我的账号现在什么数据给我截个图吗',
+      '我的账号是什么',
+      '我说现在',
+    ]
+    for (const text of prompts) {
+      const sent = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text }, undefined, complete)
+      assert.equal(sent.ok, true)
+      assert.equal(sent.value.docLink, null)
+      const after = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+      const user = after.value.items.at(-2)
+      const last = after.value.items.at(-1)
+      assert.equal(user.kind, 'user')
+      assert.equal(user.text, text)
+      assert.equal(last.kind, 'bot')
+      assert.equal(last.text, `模型回答：${text}`)
+      assert.doesNotMatch(last.text, /粉丝|doc:\/\/|小黑盒/)
+    }
+    assert.deepEqual(asked.map((turn) => turn.text), prompts)
+    assert.equal(asked.length, prompts.length)
+    for (const turn of asked) {
+      assert.equal(turn.name, '主编')
+      assert.match(turn.facts, /小稿的AI日记/)
+      assert.match(turn.facts, /小黑盒/)
+      assert.equal(turn.facts, asked[0].facts)
+      const forwarded = modelTurnText(turn)
+      assert.match(forwarded, new RegExp(turn.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      assert.match(forwarded, /账号事实/)
+      assert.equal(modelReplyAfter([
+        { kind: 'user', text: forwarded },
+        { kind: 'bot', text: '模型写的平台说明' },
+      ], forwarded), '模型写的平台说明')
+    }
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

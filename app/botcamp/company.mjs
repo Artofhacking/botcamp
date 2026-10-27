@@ -5,8 +5,6 @@
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { accountsVisibleTo, ensureMediaSeeded, primaryChatOwnerId } from './mediaControl.mjs'
-import { readableDocName } from './docName.mjs'
-import { keepMarkdown } from './library.mjs'
 import { COMPANY_MODEL_REF, COMPANY_MODELS } from './companyModel.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
@@ -206,153 +204,27 @@ function fmt(n) {
   return Number(n).toLocaleString('zh-CN')
 }
 
-function pickAccounts(accounts, accountHint) {
-  if (!accountHint) return accounts
-  const hint = String(accountHint).toLowerCase()
-  const match = accounts.filter((a) =>
-    a.display_name.toLowerCase().includes(hint)
-    || a.id.toLowerCase().includes(hint)
-    || (a.handle && String(a.handle).toLowerCase().includes(hint)))
-  return match.length ? match : accounts
+function platformLabel(account) {
+  if (account?.platform === 'xiaoheihe') return '小黑盒'
+  return account?.platform || ''
 }
 
-/** Free-form markdown note. Not a schema and not a required outline. */
-export function statusNote(ownerId, accountHint, accounts) {
-  const pool = Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
-  const picked = pickAccounts(pool, accountHint)
-  if (picked.length === 0) {
-    return { title: '进度', summary: '目前还没有自媒体号。', body: '目前还没有自媒体号。\n' }
-  }
-  const lines = []
-  const bits = []
-  for (const account of picked) {
-    const bundle = loadMediaAccountBundle(account.id)
-    lines.push(account.display_name)
-    lines.push('')
-    if (!bundle) {
-      lines.push('暂时读不到这份记录。')
-      lines.push('')
-      continue
-    }
-    const funnel = bundle.board?.post_funnel || {}
-    const followers = bundle.board?.followers_latest?.followers
+/** Facts for the model instructions. Every turn gets them; nothing here picks a reply. */
+export function accountFacts(accounts) {
+  if (!Array.isArray(accounts) || accounts.length === 0) return '目前没有自媒体号。'
+  return accounts.map((account) => {
+    const bundle = loadMediaAccountBundle(account?.id)
+    const funnel = bundle?.board?.post_funnel || {}
+    const followers = bundle?.board?.followers_latest?.followers
     const parts = []
     if (followers != null) parts.push(`粉丝 ${fmt(followers)}`)
     for (const [key, count] of Object.entries(funnel)) {
       if (count) parts.push(`${key} ${count}`)
     }
-    if (parts.length) {
-      lines.push(`${parts.join('，')}。`)
-      bits.push(`${account.display_name}：${parts.join('，')}`)
-    }
-    const titles = []
-    for (const post of bundle.posts || []) {
-      if (post?.title) titles.push(`- ${post.title}${post.status ? `（${post.status}）` : ''}`)
-    }
-    for (const manuscript of bundle.manuscripts || []) {
-      if (manuscript?.title && (manuscript.status === '写稿中' || manuscript.status === '待确认')) {
-        titles.push(`- ${manuscript.title}（${manuscript.status}）`)
-      }
-    }
-    if (titles.length) lines.push(...titles.slice(0, 12))
-    lines.push('')
-  }
-  const title = picked.length === 1 ? `${picked[0].display_name} 进度` : '全部号进度'
-  return { title, summary: bits.join('\n') || '记了一笔进度。', body: `${lines.join('\n').trim()}\n` }
-}
-
-function wantsRemember(text) {
-  return /记下来|记住|留档|写进文档|存成文档|帮我记/.test(text || '')
-}
-
-function stripRemember(text) {
-  return String(text || '')
-    .replace(/^(请)?(帮我)?(把这句|把这段|把)?(话)?(记下来|记住|保存一下|保存|留档|写进文档|存成文档)[了]?[：:，,\s]*/, '')
-    .trim()
-}
-
-function wantsStatus(text) {
-  return /进度|状态|漏斗|待你处理|怎么样了|概况|总览|帖子|稿件|看板/.test(text || '')
-}
-
-function wantsPlatform(text) {
-  return /哪个平台|什么平台|平台是哪|在哪[个家]?平台|什么站/.test(text || '')
-}
-
-function wantsFigures(text) {
-  return /什么数据|现在的?数据|当前数据|账号数据|看.*数据|截个图|截图/.test(text || '')
-}
-
-function wantsWhichAccount(text) {
-  return /账号是什么|什么账号|哪个账号/.test(text || '')
-}
-
-function platformName(account) {
-  if (account?.platform === 'xiaoheihe') return '小黑盒'
-  if (account?.platform === 'douyin') return '抖音'
-  return account?.platform || ''
-}
-
-function accountParts(account) {
-  const bundle = loadMediaAccountBundle(account?.id)
-  const funnel = bundle?.board?.post_funnel || {}
-  const followers = bundle?.board?.followers_latest?.followers
-  const parts = []
-  if (followers != null) parts.push(`粉丝 ${fmt(followers)}`)
-  for (const [key, count] of Object.entries(funnel)) {
-    if (count) parts.push(`${key} ${count}`)
-  }
-  return parts
-}
-
-function platformReply(accounts) {
-  if (!accounts.length) return '目前还没有自媒体号。'
-  return `${accounts.map((account) => `${account.display_name}在${platformName(account) || '未填平台'}`).join('。')}。`
-}
-
-function figuresReply(accounts) {
-  if (!accounts.length) return '目前还没有自媒体号。'
-  const lines = accounts.map((account) => {
-    const where = platformName(account)
-    const stats = accountParts(account)
-    const head = where ? `${account.display_name}（${where}）` : account.display_name
-    return `${head}：${stats.length ? stats.join('，') : '还没有记下数字'}`
-  })
-  return `现在的数是这些。\n${lines.join('\n')}`
-}
-
-function accountReply(accounts) {
-  if (!accounts.length) return '目前还没有自媒体号。'
-  return accounts.map((account) => {
-    const where = platformName(account)
-    return where
-      ? `你的账号是「${account.display_name}」，平台是${where}。`
-      : `你的账号是「${account.display_name}」。`
+    const where = platformLabel(account)
+    const head = where ? `${account.display_name}，平台 ${where}` : account.display_name
+    return parts.length ? `${head}。${parts.join('，')}。` : `${head}。`
   }).join('\n')
-}
-
-function replyWithDoc(ownerId, { title, body, summary }) {
-  try {
-    const kept = keepMarkdown(ownerId, { folderName: '笔记', name: title, content: body })
-    if (!kept.link) return `${summary || '记下了。'}\n\n（文档没写成：${kept.error || '请稍后再试。'}）`
-    return [summary, `[${kept.link.label}](${kept.link.href})`].filter(Boolean).join('\n\n')
-  } catch {
-    return `${summary || '记下了。'}\n\n（文档没写成，请稍后再试。）`
-  }
-}
-
-function accountHintFromText(text, accounts) {
-  const raw = String(text || '')
-  if (/全部|所有号|全盘|整体/.test(raw)) return null
-  for (const a of accounts) {
-    if (a.display_name && raw.includes(a.display_name)) return a.display_name
-    if (a.handle && raw.includes(a.handle)) return a.handle
-  }
-  if (/小稿/.test(raw)) {
-    const hit = accounts.find((a) => /小稿/.test(a.display_name || ''))
-    if (hit) return hit.display_name
-  }
-  return null
 }
 
 export function claimCompanyAccess(access, ownerId, accounts) {
@@ -464,54 +336,28 @@ export async function companySend(ownerId, payload, accounts, complete) {
   const items = seedWelcome(ownerId, sessionId, visible)
   const now = Date.now()
 
-  let reply
-  let docLink = null
-  const roomAccountId = accountIdFromRoom(sessionId)
-  const hint = roomAccountId
-    ? (visible.find((a) => a.id === roomAccountId)?.display_name || null)
-    : accountHintFromText(text, visible)
-  const picked = pickAccounts(visible, hint)
-  if (wantsRemember(text)) {
-    const body = stripRemember(text) || text
-    const keptTitle = readableDocName(body, '笔记')
-    reply = replyWithDoc(ownerId, { title: keptTitle, body: `${body}\n`, summary: '记下了。' })
-  } else if (wantsPlatform(text)) {
-    reply = platformReply(picked)
-  } else if (wantsFigures(text) && !wantsStatus(text)) {
-    reply = figuresReply(picked)
-  } else if (wantsStatus(text)) {
-    const note = statusNote(ownerId, hint, visible)
-    reply = replyWithDoc(ownerId, note)
-  } else if (wantsWhichAccount(text)) {
-    reply = accountReply(picked)
-  } else if (typeof complete === 'function') {
-    const speaker = speakerFor(sessionId)
-    try {
-      reply = await complete({ sessionId, text, name: speaker.name, brief: speaker.brief })
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error
-      return { ok: false, error: { message: MODEL_MISSED } }
-    }
-    if (typeof reply !== 'string' || !reply.trim()) {
-      return { ok: false, error: { message: MODEL_MISSED } }
-    }
-    reply = reply.trim()
-  } else if (roomAccountId) {
-    const account = visible.find((a) => a.id === roomAccountId)
-    const bundle = account ? loadMediaAccountBundle(account.id) : null
-    const writing = (bundle?.board?.writing || []).slice(0, 3).map((p) => p.title).join('、') || '暂无进行中帖子'
-    reply = [
-      `收到。这个项目群跟进「${account?.display_name || '本号'}」。`,
-      `写稿这边：${writing}。`,
-      '要留下进度，直接说「本号进度」。',
-    ].join('\n')
-  } else if (sessionId === WRITER_ID) {
-    reply = '好。改标题、补脚本找我。要留底就说「记下来」。全号进度可以问主编。'
-  } else if (sessionId === OPS_ID) {
-    reply = '好。排期、发布和数字我跟。要总览，跟主编说「全部号进度」。'
-  } else {
-    reply = '收到。写稿和数据都在侧栏。要留底就说「记下来」，要进度就说「全部号进度」。'
+  if (typeof complete !== 'function') {
+    return { ok: false, error: { message: MODEL_MISSED } }
   }
+  const speaker = speakerFor(sessionId)
+  let reply
+  try {
+    reply = await complete({
+      sessionId,
+      text,
+      name: speaker.name,
+      brief: speaker.brief,
+      facts: accountFacts(visible),
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    return { ok: false, error: { message: MODEL_MISSED } }
+  }
+  if (typeof reply !== 'string' || !reply.trim()) {
+    return { ok: false, error: { message: MODEL_MISSED } }
+  }
+  reply = reply.trim()
+  let docLink = null
   const linked = reply.match(/doc:\/\/(doc_[a-f0-9]+)/)
   if (linked) docLink = { href: `doc://${linked[1]}` }
 
