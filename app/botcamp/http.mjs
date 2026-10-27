@@ -465,7 +465,13 @@ export async function createBotcamp(options = {}) {
 
   async function hydrateLibraries(user) {
     const libraries = await store.readLibraries(user.id)
-    for (const [ownerId, snapshot] of Object.entries(libraries)) restoreLibrary(ownerId, snapshot)
+    const seen = new Map()
+    for (const [ownerId, snapshot] of Object.entries(libraries)) {
+      restoreLibrary(ownerId, snapshot)
+      const ids = new Set((Array.isArray(snapshot?.nodes) ? snapshot.nodes : []).map((node) => node?.id).filter(Boolean))
+      seen.set(ownerId, ids)
+    }
+    return seen
   }
 
   async function recoverLinkedDocument(user, docId) {
@@ -487,11 +493,24 @@ export async function createBotcamp(options = {}) {
     }
   }
 
-  async function persistLibraries(user, extraIds = []) {
+  async function persistLibraries(user, extraIds = [], seen = new Map()) {
     const ids = new Set(extraIds.filter((id) => typeof id === 'string' && id))
     for (const id of readableLibraryOwnerIds(user)) ids.add(id)
+    const remote = await store.readLibraries(user.id)
     const snapshots = {}
-    for (const id of ids) snapshots[id] = snapshotLibrary(id)
+    for (const id of ids) {
+      const local = snapshotLibrary(id)
+      const started = seen.get(id) || new Set()
+      const remoteNodes = Array.isArray(remote[id]?.nodes) ? remote[id].nodes : []
+      const localIds = new Set(local.nodes.map((node) => node.id))
+      const nodes = [...local.nodes]
+      for (const node of remoteNodes) {
+        if (!node?.id || localIds.has(node.id) || started.has(node.id)) continue
+        nodes.push(node)
+        localIds.add(node.id)
+      }
+      snapshots[id] = { seeded: local.seeded || remote[id]?.seeded === true, nodes }
+    }
     await store.writeLibraries(user.id, snapshots)
   }
 
@@ -542,7 +561,7 @@ export async function createBotcamp(options = {}) {
         const remembered = await store.readTranscript(user.id, sessionHint)
         adoptCompanyTranscript(view.chatOwnerId, sessionHint, remembered)
         if (endpoint === 'send') {
-          await hydrateLibraries(user)
+          const librarySeen = await hydrateLibraries(user)
           const result = await companySend(
             view.chatOwnerId,
             payload,
@@ -552,7 +571,7 @@ export async function createBotcamp(options = {}) {
           if (result.ok) {
             const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
             if (Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
-            await persistLibraries(user, [view.chatOwnerId])
+            await persistLibraries(user, [view.chatOwnerId], librarySeen)
           }
           sendJson(res, result.ok ? 200 : 400, result)
           return
@@ -894,10 +913,10 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (passwordWall(res, user)) return
-      await hydrateLibraries(user)
+      const librarySeen = await hydrateLibraries(user)
       if (body.endpoint === 'library/get') await recoverLinkedDocument(user, payload.id)
       const libraryResult = await handleLibraryControl(req, body.endpoint, payload, user)
-      await persistLibraries(user)
+      await persistLibraries(user, [], librarySeen)
       sendMediaResult(res, libraryResult)
       return
     }
