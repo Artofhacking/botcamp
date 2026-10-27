@@ -1303,6 +1303,65 @@ test('company reply stays visible when the next read has an empty local disk', a
   }
 })
 
+test('a progress document opens from the link on a fresh disk', async () => {
+  const fetchImpl = async () => new Response('ok', { status: 200 })
+  const ledger = createMemoryLedger()
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl, ledger })
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-doc-other-'))
+  const prevRoot = getDataRoot()
+  let otherServer
+  try {
+    const other = await createBotcamp({ ...ctx.options, dataDir: otherDir })
+    otherServer = createServer((req, res) => {
+      other.handle(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      }).catch(() => {
+        if (!res.writableEnded) {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+    })
+    await new Promise(resolve => otherServer.listen(0, '127.0.0.1', resolve))
+    const otherBase = `http://127.0.0.1:${otherServer.address().port}`
+    configureDataRoot(path.join(ctx.dataDir, 'media-store'))
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: '看一下进度' } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    const page = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    const blob = (page.json.value?.items || []).map(item => item.text || '').join('\n')
+    const id = blob.match(/doc:\/\/(doc_[a-f0-9]+)/)?.[1]
+    assert.ok(id)
+    configureDataRoot(path.join(otherDir, 'empty-library'))
+    const opened = await api(otherBase, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'library/get', payload: { id } },
+    })
+    assert.equal(opened.status, 200, JSON.stringify(opened.json))
+    assert.equal(opened.json.ok, true)
+    assert.equal(opened.json.node.id, id)
+    assert.equal(opened.json.node.kind, 'file')
+    assert.match(opened.json.node.content, /进度|自媒体号/)
+  } finally {
+    configureDataRoot(prevRoot)
+    if (otherServer) await new Promise(resolve => otherServer.close(resolve))
+    await rm(otherDir, { recursive: true, force: true })
+    await ctx.close()
+  }
+})
+
 test('workspace list returns host items with company sessions and does not wait on sync', async () => {
   let releaseSync
   const syncGate = new Promise((resolve) => { releaseSync = resolve })

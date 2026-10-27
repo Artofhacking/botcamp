@@ -11,8 +11,8 @@ import {
 } from './company.mjs'
 import { askKernelModel, withoutRelayBots } from './companyModel.mjs'
 import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stampModelsKey, stateRequestPayload } from './isolate.mjs'
-import { bindMediaDataDir, grantMediaView, handleMediaControl } from './mediaControl.mjs'
-import { handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset } from './library.mjs'
+import { bindMediaDataDir, grantMediaView, handleMediaControl, readableLibraryOwnerIds } from './mediaControl.mjs'
+import { ensureLinkedFile, handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset, restoreLibrary, snapshotLibrary } from './library.mjs'
 import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
@@ -463,6 +463,38 @@ export async function createBotcamp(options = {}) {
     return result
   }
 
+  async function hydrateLibraries(user) {
+    const libraries = await store.readLibraries(user.id)
+    for (const [ownerId, snapshot] of Object.entries(libraries)) restoreLibrary(ownerId, snapshot)
+  }
+
+  async function recoverLinkedDocument(user, docId) {
+    if (typeof docId !== 'string' || !/^doc_[a-f0-9]+$/.test(docId)) return
+    const view = viewerCompany(user)
+    const owners = readableLibraryOwnerIds(user)
+    const ownerId = view.chatOwnerId || owners[0]
+    if (!ownerId) return
+    if (owners.some((id) => snapshotLibrary(id).nodes.some((node) => node.id === docId))) return
+    const needle = `doc://${docId}`
+    for (const sessionId of companySessionIds(view.chatOwnerId, view.accounts)) {
+      const items = await store.readTranscript(user.id, sessionId)
+      const item = items.find((entry) => typeof entry?.text === 'string' && entry.text.includes(needle))
+      if (!item) continue
+      const label = item.text.match(new RegExp(`\\[([^\\]]+)\\]\\(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`))?.[1] || '进度'
+      const summary = item.text.replace(new RegExp(`\\n*\\[[^\\]]+\\]\\(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\s*$`), '').trim()
+      ensureLinkedFile(ownerId, { id: docId, name: label, content: summary ? `${summary}\n` : '' })
+      return
+    }
+  }
+
+  async function persistLibraries(user, extraIds = []) {
+    const ids = new Set(extraIds.filter((id) => typeof id === 'string' && id))
+    for (const id of readableLibraryOwnerIds(user)) ids.add(id)
+    const snapshots = {}
+    for (const id of ids) snapshots[id] = snapshotLibrary(id)
+    await store.writeLibraries(user.id, snapshots)
+  }
+
   async function handleBot(req, res, context, body) {
     const user = context.user
     if (passwordWall(res, user)) return
@@ -510,6 +542,7 @@ export async function createBotcamp(options = {}) {
         const remembered = await store.readTranscript(user.id, sessionHint)
         adoptCompanyTranscript(view.chatOwnerId, sessionHint, remembered)
         if (endpoint === 'send') {
+          await hydrateLibraries(user)
           const result = await companySend(
             view.chatOwnerId,
             payload,
@@ -519,6 +552,7 @@ export async function createBotcamp(options = {}) {
           if (result.ok) {
             const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
             if (Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
+            await persistLibraries(user, [view.chatOwnerId])
           }
           sendJson(res, result.ok ? 200 : 400, result)
           return
@@ -860,7 +894,11 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (passwordWall(res, user)) return
-      sendMediaResult(res, await handleLibraryControl(req, body.endpoint, payload, user))
+      await hydrateLibraries(user)
+      if (body.endpoint === 'library/get') await recoverLinkedDocument(user, payload.id)
+      const libraryResult = await handleLibraryControl(req, body.endpoint, payload, user)
+      await persistLibraries(user)
+      sendMediaResult(res, libraryResult)
       return
     }
     if (BOARD_CONTROL.has(body.endpoint)) {

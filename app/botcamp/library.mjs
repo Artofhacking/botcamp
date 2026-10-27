@@ -57,6 +57,37 @@ function saveTree(ownerId, tree) {
   })
 }
 
+/** This instance's copy of one owner's library, for the shared ledger. */
+export function snapshotLibrary(ownerId) {
+  return {
+    seeded: Boolean(kvGet(seededKey(ownerId))),
+    nodes: loadTree(ownerId).nodes,
+  }
+}
+
+/** Pull a library another instance already stored. Local edits with the same id stay. */
+export function restoreLibrary(ownerId, snapshot) {
+  if (!ownerId || !snapshot || typeof snapshot !== 'object') return false
+  const remote = Array.isArray(snapshot.nodes)
+    ? snapshot.nodes.filter((node) => node && typeof node.id === 'string')
+    : []
+  const local = loadTree(ownerId)
+  const byId = new Map(local.nodes.map((node) => [node.id, node]))
+  let changed = false
+  for (const node of remote) {
+    const prev = byId.get(node.id)
+    if (!prev || (node.updatedAt || '') > (prev.updatedAt || '')) {
+      byId.set(node.id, node)
+      changed = true
+    }
+  }
+  if (changed) saveTree(ownerId, { nodes: [...byId.values()] })
+  if ((snapshot.seeded || remote.length > 0) && !kvGet(seededKey(ownerId))) {
+    kvSet(seededKey(ownerId), { at: new Date().toISOString() })
+  }
+  return changed
+}
+
 function newId() {
   return `doc_${randomBytes(8).toString('hex')}`
 }
@@ -251,6 +282,41 @@ export function deleteLibraryNode(ownerId, id) {
   tree.nodes = tree.nodes.filter((node) => !drop.has(node.id))
   saveTree(ownerId, tree)
   return { ok: true }
+}
+
+/** Put back a file the chat already linked, using that same id. */
+export function ensureLinkedFile(ownerId, { id, name, content } = {}) {
+  if (typeof ownerId !== 'string' || !ownerId) return null
+  if (typeof id !== 'string' || !/^doc_[a-f0-9]+$/.test(id)) return null
+  maybeSeed(ownerId)
+  let tree = loadTree(ownerId)
+  const existing = tree.nodes.find((node) => node.id === id)
+  if (existing) return existing
+  let folder = tree.nodes.find((node) => node.kind === 'folder' && !node.parentId && node.name === '笔记')
+  if (!folder) {
+    const made = createNode(ownerId, { kind: 'folder', name: '笔记' })
+    if (made.error) return null
+    folder = made.node
+    tree = loadTree(ownerId)
+  }
+  const clean = sanitizeName(typeof name === 'string' && name.trim() ? name : '进度', 'file')
+  if (!clean) return null
+  const unique = uniqueName(tree.nodes, folder.id, clean)
+  if (!unique) return null
+  const now = new Date().toISOString()
+  const body = typeof content === 'string' ? content : ''
+  if (body.length > MAX_CONTENT) return null
+  tree.nodes.push({
+    id,
+    parentId: folder.id,
+    kind: 'file',
+    name: unique,
+    content: body,
+    createdAt: now,
+    updatedAt: now,
+  })
+  saveTree(ownerId, tree)
+  return tree.nodes.find((node) => node.id === id) || null
 }
 
 /** Bot keep: write a free markdown file and return an in-app link. */

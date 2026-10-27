@@ -616,6 +616,53 @@ export async function openStore(dataDir, options = {}) {
         return Array.isArray(items) ? items.map(item => ({ ...item })) : []
       })
     },
+    // Document libraries outlive this function's disk. They are not workspace files:
+    // a workspace sync replaces every file under the kernel key.
+    async readLibraries(userId) {
+      if (!ledger) return {}
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return {}
+        const stored = await ledger.loadFiles(libraryKernelKey(user.kernelKey))
+        const libraries = {}
+        for (const [rel, info] of Object.entries(stored || {})) {
+          if (!rel.endsWith('.json') || info?.dir || typeof info?.text !== 'string') continue
+          const ownerId = rel.slice(0, -'.json'.length)
+          if (!safeOwnerId(ownerId)) continue
+          try {
+            const parsed = JSON.parse(info.text)
+            if (parsed && typeof parsed === 'object') libraries[ownerId] = parsed
+          } catch { /* skip a damaged copy */ }
+        }
+        return libraries
+      })
+    },
+    async writeLibraries(userId, snapshots) {
+      if (!ledger || !snapshots || typeof snapshots !== 'object') return
+      await exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return
+        const key = libraryKernelKey(user.kernelKey)
+        const stored = await ledger.loadFiles(key)
+        const files = {}
+        let changed = false
+        for (const [rel, info] of Object.entries(stored || {})) {
+          if (info?.dir) files[rel] = { dir: true }
+          else files[rel] = { text: typeof info?.text === 'string' ? info.text : '' }
+        }
+        for (const [ownerId, snapshot] of Object.entries(snapshots)) {
+          if (!safeOwnerId(ownerId) || !snapshot || typeof snapshot !== 'object') continue
+          const rel = `${ownerId}.json`
+          const text = JSON.stringify({
+            seeded: snapshot.seeded === true,
+            nodes: Array.isArray(snapshot.nodes) ? snapshot.nodes : [],
+          })
+          if (files[rel]?.text !== text) changed = true
+          files[rel] = { text }
+        }
+        if (changed) await ledger.saveFiles(key, files)
+      })
+    },
     async appendItem(userId, sessionId, item) {
       if (typeof sessionId !== 'string' || !item || typeof item !== 'object') return
       await exclusive(async () => {
@@ -749,6 +796,14 @@ function verifySession(token, secret) {
 
 function safeKernelKey(kernelKey) {
   return typeof kernelKey === 'string' && /^u_[A-Za-z0-9_-]{8,}$/.test(kernelKey)
+}
+
+function libraryKernelKey(kernelKey) {
+  return `lib_${kernelKey}`
+}
+
+function safeOwnerId(ownerId) {
+  return typeof ownerId === 'string' && /^usr_[A-Za-z0-9_-]{8,}$/.test(ownerId)
 }
 
 async function readNamespace(file) {
