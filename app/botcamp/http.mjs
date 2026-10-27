@@ -8,7 +8,8 @@ import {
   mergeProjectRooms,
   viewerCompany,
 } from './company.mjs'
-import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
+import { askKernelModel, withoutRelayBots } from './companyModel.mjs'
+import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stampModelsKey, stateRequestPayload } from './isolate.mjs'
 import { bindMediaDataDir, grantMediaView, handleMediaControl } from './mediaControl.mjs'
 import { handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset } from './library.mjs'
 import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
@@ -426,6 +427,9 @@ export async function createBotcamp(options = {}) {
       value.rooms = built.rooms
       value.mainBotIds = ['co_chief']
       value.mainBotId = 'co_chief'
+      value.models = built.models
+      value.defaultModel = built.defaultModel
+      value.modelsKey = stampModelsKey(built.modelsKey, user.prefsVersion ?? 0)
     }
     await store.commitAccess(user.id, access)
     sendJson(res, 200, { ok: true, value })
@@ -472,7 +476,29 @@ export async function createBotcamp(options = {}) {
       const view = viewerCompany(user)
       const sessionHint = payload?.botId || payload?.sessionId
 
-      // Company-local sessions never hit the kernel (roster / chat / send).
+      function kernelSignal() {
+        const timeout = AbortSignal.timeout(20_000)
+        if (typeof AbortSignal.any === 'function') return AbortSignal.any([client.signal, timeout])
+        return client.signal.aborted ? client.signal : timeout
+      }
+
+      async function kernelValue(endpointName, endpointPayload) {
+        const upstream = await callKernel('/api/bot', {
+          method: 'POST',
+          body: JSON.stringify({ endpoint: endpointName, payload: endpointPayload }),
+          signal: kernelSignal(),
+          namespace: user.kernelKey,
+          sessionToken: readSessionToken(req),
+        })
+        const raw = await upstream.text()
+        let parsedKernel = null
+        try { parsedKernel = raw ? JSON.parse(raw) : null } catch { parsedKernel = null }
+        if (!upstream.ok || !parsedKernel || parsedKernel.ok === false) throw new Error('kernel')
+        return parsedKernel.value
+      }
+
+      // Company chats stay on this roster. Ordinary text is answered by the model
+      // behind a kernel bot that is not one of the three employees.
       if (
         (endpoint === 'chat' || endpoint === 'earlier' || endpoint === 'send')
         && isCompanySessionId(sessionHint)
@@ -480,7 +506,12 @@ export async function createBotcamp(options = {}) {
         claimCompanyAccess(access, view.chatOwnerId, view.accounts)
         await store.commitAccess(user.id, access)
         if (endpoint === 'send') {
-          const result = companySend(view.chatOwnerId, payload, view.accounts)
+          const result = await companySend(
+            view.chatOwnerId,
+            payload,
+            view.accounts,
+            turn => askKernelModel(kernelValue, turn),
+          )
           sendJson(res, result.ok ? 200 : 400, result)
           return
         }
@@ -593,6 +624,11 @@ export async function createBotcamp(options = {}) {
         const rollback = await accessFor(user.id)
         for (const id of reserved) rollback.release(id)
         await store.commitAccess(user.id, rollback)
+      }
+      // The model relay is not an employee. A namespace that only has it still
+      // opens the company roster, and a real kernel roster keeps its other bots.
+      if (endpoint === 'state' && parsed && typeof parsed === 'object' && parsed.ok !== false) {
+        parsed.value = withoutRelayBots(parsed.value)
       }
       // Empty / failed kernel state → company roster so login always shows employees.
       if (

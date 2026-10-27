@@ -1110,6 +1110,101 @@ test('a hung kernel state still answers with the company roster', async () => {
     assert.equal(state.json.value.mainBotId, 'co_chief')
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_writer'), true)
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_ops'), true)
+    assert.equal(state.json.value.defaultModel, 'deepseek-official/deepseek-flash')
+    assert.ok(state.json.value.models.some(model => model.name === 'DeepSeek-V4.1-Flash'))
+    assert.equal(state.json.value.bots.every(bot => bot.model === 'deepseek-official/deepseek-flash'), true)
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('company send stores a model reply and keeps the relay bot off the roster', async () => {
+  const chats = new Map()
+  let relay = null
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      return Response.json({
+        ok: true,
+        value: {
+          revision: 4,
+          bots: relay ? [relay] : [],
+          rooms: [],
+          models: [],
+          defaultModel: null,
+        },
+      })
+    }
+    if (body.endpoint === 'create-bot') {
+      assert.equal(body.payload?.name, 'botcamp-model')
+      assert.equal(body.payload?.model, 'deepseek-official/deepseek-flash')
+      relay = {
+        id: 'relay-1',
+        name: 'botcamp-model',
+        sessionId: 'sess-relay',
+        model: body.payload.model,
+        brief: body.payload.brief,
+      }
+      chats.set(relay.sessionId, [{ kind: 'bot', text: '先打个招呼。', time: 1 }])
+      return Response.json({ ok: true, value: relay })
+    }
+    if (body.endpoint === 'send') {
+      const sessionId = body.payload?.sessionId
+      const text = body.payload?.text
+      const items = chats.get(sessionId) ?? []
+      items.push({ kind: 'user', text, time: Date.now() })
+      items.push({ kind: 'bot', text: '我是主编，用的是 DeepSeek-V4.1-Flash。', time: Date.now() + 1 })
+      chats.set(sessionId, items)
+      return Response.json({ ok: true, value: true })
+    }
+    if (body.endpoint === 'chat') {
+      const sessionId = body.payload?.sessionId
+      return Response.json({ ok: true, value: { sessionId, items: chats.get(sessionId) ?? [], cursor: null } })
+    }
+    return Response.json({ ok: true, value: null })
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const noted = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: '记下来：只改标题' } },
+    })
+    assert.equal(noted.status, 200)
+    assert.equal(noted.json.ok, true)
+    assert.equal(relay, null)
+    const prompt = '用一句话介绍你自己'
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: prompt } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    const page = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    const user = page.json.value.items.find(item => item.kind === 'user' && item.text === prompt)
+    const last = page.json.value.items.at(-1)
+    assert.ok(user)
+    assert.equal(last.kind, 'bot')
+    assert.match(last.text, /DeepSeek-V4.1-Flash/)
+    assert.doesNotMatch(last.text, /收到。写稿和数据都在侧栏/)
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'state', payload: { since: -1, models: '' } },
+    })
+    assert.equal(state.json.value.companyMode, 'company-local')
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
+    assert.equal(state.json.value.bots.some(bot => bot.name === 'botcamp-model'), false)
+    assert.equal(state.json.value.defaultModel, 'deepseek-official/deepseek-flash')
   } finally {
     await ctx.close()
   }

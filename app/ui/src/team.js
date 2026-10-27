@@ -49,11 +49,30 @@ function createBus() {
 const setChanged = (source, value) => { if (JSON.stringify(source.getSnapshot()) !== JSON.stringify(value)) source.set(value) }
 
 const CHIEF_ID = 'co_chief'
+const COMPANY_MODEL_REF = 'deepseek-official/deepseek-flash'
+const COMPANY_MODELS = [
+  {
+    ref: COMPANY_MODEL_REF,
+    provider: 'deepseek-official',
+    providerName: 'DeepSeek',
+    id: 'deepseek-flash',
+    name: 'DeepSeek-V4.1-Flash',
+    input: ['text', 'image'],
+  },
+  {
+    ref: 'deepseek-official/deepseek-v4-pro',
+    provider: 'deepseek-official',
+    providerName: 'DeepSeek',
+    id: 'deepseek-v4-pro',
+    name: 'DeepSeek-V4-Pro',
+    input: ['text'],
+  },
+]
 const COMPANY_BOTS = [
   { id: CHIEF_ID, name: '主编', color: 'blue', avatar: { shape: 'star' } },
   { id: 'co_writer', name: '写稿', color: 'green', avatar: { shape: 'moon' } },
   { id: 'co_ops', name: '数据', color: 'orange', avatar: { shape: 'wave' } },
-].map(bot => ({ ...bot, sessionId: bot.id, parts: [bot.id], model: null, waiting: false, createdAt: 1 }))
+].map(bot => ({ ...bot, sessionId: bot.id, parts: [bot.id], model: COMPANY_MODEL_REF, waiting: false, createdAt: 1 }))
 
 // On screen before `state` returns, and still on screen if that list fails.
 const COMPANY_ROSTER = indexRoster({
@@ -69,8 +88,8 @@ const COMPANY_ROSTER = indexRoster({
   capabilities: [],
   capabilityStatuses: {},
   secretRequests: {},
-  models: [],
-  defaultModel: null,
+  models: COMPANY_MODELS,
+  defaultModel: COMPANY_MODEL_REF,
   modelsKey: '',
   prefs: {},
   companyMode: 'company-local',

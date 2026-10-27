@@ -7,6 +7,7 @@ import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { accountsVisibleTo, ensureMediaSeeded, primaryChatOwnerId } from './mediaControl.mjs'
 import { readableDocName } from './docName.mjs'
 import { keepMarkdown } from './library.mjs'
+import { COMPANY_MODEL_REF, COMPANY_MODELS } from './companyModel.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
 export const COMPANY_MODE = 'company-local'
@@ -69,7 +70,7 @@ function botShape(member) {
     avatar: member.avatar,
     sessionId: member.id,
     parts: [member.id],
-    model: null,
+    model: COMPANY_MODEL_REF,
     waiting: false,
     createdAt: 1,
   }
@@ -343,9 +344,9 @@ export function buildCompanyState(ownerId, user, accounts) {
     capabilities: [],
     capabilityStatuses: {},
     secretRequests: {},
-    models: [],
-    defaultModel: null,
-    modelsKey: `company:${COMPANY_MODE}`,
+    models: COMPANY_MODELS.map(model => ({ ...model, input: [...model.input] })),
+    defaultModel: COMPANY_MODEL_REF,
+    modelsKey: `company:${COMPANY_MODE}:deepseek-flash`,
     prefs: { ...(user?.prefs ?? {}) },
     activity: {},
     memoryNews: {},
@@ -368,7 +369,15 @@ export function companyChatPage(ownerId, payload, accounts) {
   return { ok: true, value: { sessionId, items, cursor: null } }
 }
 
-export function companySend(ownerId, payload, accounts) {
+function speakerFor(sessionId) {
+  if (sessionId === WRITER_ID) return EMPLOYEES.find(member => member.id === WRITER_ID)
+  if (sessionId === OPS_ID) return EMPLOYEES.find(member => member.id === OPS_ID)
+  return EMPLOYEES.find(member => member.id === CHIEF_ID)
+}
+
+const MODEL_MISSED = '模型这次没有答上来。'
+
+export async function companySend(ownerId, payload, accounts, complete) {
   const sessionId = payload?.botId || payload?.sessionId
   const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
   if (!isCompanySessionId(sessionId) || !text) {
@@ -380,7 +389,6 @@ export function companySend(ownerId, payload, accounts) {
   }
   const items = seedWelcome(ownerId, sessionId, visible)
   const now = Date.now()
-  items.push({ kind: 'user', text, time: now })
 
   let reply
   let docLink = null
@@ -395,6 +403,18 @@ export function companySend(ownerId, payload, accounts) {
       : accountHintFromText(text, visible)
     const note = statusNote(ownerId, hint, visible)
     reply = replyWithDoc(ownerId, note)
+  } else if (typeof complete === 'function') {
+    const speaker = speakerFor(sessionId)
+    try {
+      reply = await complete({ sessionId, text, name: speaker.name, brief: speaker.brief })
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    if (typeof reply !== 'string' || !reply.trim()) {
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    reply = reply.trim()
   } else if (roomAccountId) {
     const account = visible.find((a) => a.id === roomAccountId)
     const bundle = account ? loadMediaAccountBundle(account.id) : null
@@ -414,6 +434,7 @@ export function companySend(ownerId, payload, accounts) {
   const linked = reply.match(/doc:\/\/(doc_[a-f0-9]+)/)
   if (linked) docLink = { href: `doc://${linked[1]}` }
 
+  items.push({ kind: 'user', text, time: now })
   items.push({ kind: 'bot', text: reply, time: now + 1 })
   saveChat(ownerId, sessionId, items)
   return { ok: true, value: { sent: true, sessionId, docLink } }
