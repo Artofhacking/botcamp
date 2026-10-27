@@ -136,6 +136,24 @@ function saveChat(ownerId, sessionId, items) {
   })
 }
 
+function userTurns(items) {
+  return (Array.isArray(items) ? items : []).filter((item) => item?.kind === 'user').length
+}
+
+/** Keep a transcript another instance already stored when this disk does not have it yet. */
+export function adoptCompanyTranscript(ownerId, sessionId, items) {
+  if (!isCompanySessionId(sessionId) || !Array.isArray(items) || items.length === 0) return false
+  const local = loadChat(ownerId, sessionId)
+  const remoteUsers = userTurns(items)
+  const localUsers = userTurns(local)
+  const newer = remoteUsers > localUsers
+    || (remoteUsers === localUsers && items.length > local.length)
+    || (remoteUsers === localUsers && items.length === local.length && (Number(items.at(-1)?.time) || 0) > (Number(local.at(-1)?.time) || 0))
+  if (!newer && local.length > 0) return false
+  saveChat(ownerId, sessionId, items.map((item) => ({ ...item })))
+  return true
+}
+
 function managedLine(accounts) {
   const names = (Array.isArray(accounts) ? accounts : [])
     .map((account) => account?.display_name)

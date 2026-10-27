@@ -269,6 +269,14 @@ export async function openStore(dataDir, options = {}) {
     if (ledger) await ledger.saveNamespace(kernelKey, saved)
   }
 
+  // Another function instance may have written this namespace after this disk was cached.
+  async function pullNamespace(kernelKey) {
+    if (!ledger || !safeKernelKey(kernelKey)) return
+    const remote = await ledger.loadNamespace(kernelKey)
+    if (!remote || typeof remote !== 'object' || Array.isArray(remote)) return
+    await writeAtomic(path.join(namespaceDir, `${kernelKey}.json`), remote)
+  }
+
   function revokeSessions(userId, keepHash) {
     const kept = []
     for (const session of data.sessions) {
@@ -591,9 +599,21 @@ export async function openStore(dataDir, options = {}) {
       await exclusive(async () => {
         const user = data.users.find(entry => entry.id === userId)
         if (!user || !safeKernelKey(user.kernelKey)) return
+        await pullNamespace(user.kernelKey)
         const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
         saved.transcripts[sessionId] = { items: items.slice(-200) }
         await writeNamespace(user.kernelKey, saved)
+      })
+    },
+    async readTranscript(userId, sessionId) {
+      if (typeof sessionId !== 'string' || !sessionId) return []
+      return exclusive(async () => {
+        const user = data.users.find(entry => entry.id === userId)
+        if (!user || !safeKernelKey(user.kernelKey)) return []
+        await pullNamespace(user.kernelKey)
+        const saved = await readNamespace(path.join(namespaceDir, `${user.kernelKey}.json`))
+        const items = saved.transcripts[sessionId]?.items
+        return Array.isArray(items) ? items.map(item => ({ ...item })) : []
       })
     },
     async appendItem(userId, sessionId, item) {

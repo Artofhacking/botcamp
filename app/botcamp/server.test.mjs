@@ -7,6 +7,7 @@ import test from 'node:test'
 import { createBotcamp } from './http.mjs'
 import { createMemoryLedger } from './projectLedger.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
+import { configureDataRoot, getDataRoot } from '../../server/kv.mjs'
 
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
@@ -1206,6 +1207,98 @@ test('company send stores a model reply and keeps the relay bot off the roster',
     assert.equal(state.json.value.bots.some(bot => bot.name === 'botcamp-model'), false)
     assert.equal(state.json.value.defaultModel, 'qoder/deepseek-v4-flash')
   } finally {
+    await ctx.close()
+  }
+})
+
+test('company reply stays visible when the next read has an empty local disk', async () => {
+  const chats = new Map()
+  let relay = null
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      return Response.json({
+        ok: true,
+        value: { revision: 4, bots: relay ? [relay] : [], rooms: [], models: [], defaultModel: null },
+      })
+    }
+    if (body.endpoint === 'create-bot') {
+      relay = {
+        id: 'relay-1',
+        name: 'botcamp-model',
+        sessionId: 'sess-relay',
+        model: body.payload?.model,
+        brief: body.payload?.brief,
+      }
+      chats.set(relay.sessionId, [{ kind: 'bot', text: '先打个招呼。', time: 1 }])
+      return Response.json({ ok: true, value: relay })
+    }
+    if (body.endpoint === 'send') {
+      const sessionId = body.payload?.sessionId
+      const text = body.payload?.text
+      const items = chats.get(sessionId) ?? []
+      items.push({ kind: 'user', text, time: Date.now() })
+      items.push({ kind: 'bot', text: '第二台还能看见 qoder/deepseek-v4-flash。', time: Date.now() + 1 })
+      chats.set(sessionId, items)
+      return Response.json({ ok: true, value: true })
+    }
+    if (body.endpoint === 'chat') {
+      const sessionId = body.payload?.sessionId
+      return Response.json({ ok: true, value: { sessionId, items: chats.get(sessionId) ?? [], cursor: null } })
+    }
+    return Response.json({ ok: true, value: null })
+  }
+  const ledger = createMemoryLedger()
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl, ledger })
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-other-'))
+  const prevRoot = getDataRoot()
+  let otherServer
+  try {
+    const other = await createBotcamp({ ...ctx.options, dataDir: otherDir })
+    otherServer = createServer((req, res) => {
+      other.handle(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      }).catch(() => {
+        if (!res.writableEnded) {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+    })
+    await new Promise(resolve => otherServer.listen(0, '127.0.0.1', resolve))
+    const otherBase = `http://127.0.0.1:${otherServer.address().port}`
+    configureDataRoot(path.join(ctx.dataDir, 'media-store'))
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const prompt = '请回答第二台'
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: prompt } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    configureDataRoot(path.join(otherDir, 'empty-chat'))
+    const page = await api(otherBase, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    assert.equal(page.status, 200, JSON.stringify(page.json))
+    assert.equal(page.json.ok, true)
+    const user = page.json.value.items.find(item => item.kind === 'user' && item.text === prompt)
+    const last = page.json.value.items.at(-1)
+    assert.ok(user)
+    assert.equal(last.kind, 'bot')
+    assert.match(last.text, /第二台还能看见/)
+    assert.match(last.text, /qoder\/deepseek-v4-flash/)
+  } finally {
+    configureDataRoot(prevRoot)
+    if (otherServer) await new Promise(resolve => otherServer.close(resolve))
+    await rm(otherDir, { recursive: true, force: true })
     await ctx.close()
   }
 })

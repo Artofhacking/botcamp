@@ -1,4 +1,5 @@
 import {
+  adoptCompanyTranscript,
   buildCompanyState,
   claimCompanyAccess,
   companyChatPage,
@@ -505,6 +506,9 @@ export async function createBotcamp(options = {}) {
       ) {
         claimCompanyAccess(access, view.chatOwnerId, view.accounts)
         await store.commitAccess(user.id, access)
+        // Company lines live in the shared namespace. This instance's disk is a cache.
+        const remembered = await store.readTranscript(user.id, sessionHint)
+        adoptCompanyTranscript(view.chatOwnerId, sessionHint, remembered)
         if (endpoint === 'send') {
           const result = await companySend(
             view.chatOwnerId,
@@ -512,6 +516,10 @@ export async function createBotcamp(options = {}) {
             view.accounts,
             turn => askKernelModel(kernelValue, turn),
           )
+          if (result.ok) {
+            const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
+            if (Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
+          }
           sendJson(res, result.ok ? 200 : 400, result)
           return
         }
