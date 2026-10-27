@@ -1,14 +1,16 @@
 import { spawn } from 'node:child_process'
-import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const require = createRequire(import.meta.url)
-const viteBin = require.resolve('vite/bin/vite.js')
+const appRoot = fileURLToPath(new URL('..', import.meta.url))
+const viteBin = path.join(appRoot, 'node_modules', 'vite', 'bin', 'vite.js')
 const dev = process.argv[2] === 'dev'
 const args = [viteBin]
 if (dev) args.push('--host', '127.0.0.1', '--port', '5195', '--strictPort')
 else args.push('build')
 
 const child = spawn(process.execPath, args, {
+  cwd: appRoot,
   stdio: 'inherit',
   env: {
     ...process.env,
