@@ -346,7 +346,7 @@ export function buildCompanyState(ownerId, user, accounts) {
     secretRequests: {},
     models: COMPANY_MODELS.map(model => ({ ...model, input: [...model.input] })),
     defaultModel: COMPANY_MODEL_REF,
-    modelsKey: `company:${COMPANY_MODE}:deepseek-flash`,
+    modelsKey: `company:${COMPANY_MODE}:qoder`,
     prefs: { ...(user?.prefs ?? {}) },
     activity: {},
     memoryNews: {},

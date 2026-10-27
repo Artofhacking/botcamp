@@ -1110,9 +1110,9 @@ test('a hung kernel state still answers with the company roster', async () => {
     assert.equal(state.json.value.mainBotId, 'co_chief')
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_writer'), true)
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_ops'), true)
-    assert.equal(state.json.value.defaultModel, 'deepseek-official/deepseek-flash')
-    assert.ok(state.json.value.models.some(model => model.name === 'DeepSeek-V4.1-Flash'))
-    assert.equal(state.json.value.bots.every(bot => bot.model === 'deepseek-official/deepseek-flash'), true)
+    assert.equal(state.json.value.defaultModel, 'qoder/deepseek-v4-flash')
+    assert.ok(state.json.value.models.some(model => model.provider === 'qoder' && model.id === 'deepseek-v4-flash'))
+    assert.equal(state.json.value.bots.every(bot => bot.model === 'qoder/deepseek-v4-flash'), true)
   } finally {
     await ctx.close()
   }
@@ -1139,7 +1139,7 @@ test('company send stores a model reply and keeps the relay bot off the roster',
     }
     if (body.endpoint === 'create-bot') {
       assert.equal(body.payload?.name, 'botcamp-model')
-      assert.equal(body.payload?.model, 'deepseek-official/deepseek-flash')
+      assert.equal(body.payload?.model, 'qoder/deepseek-v4-flash')
       relay = {
         id: 'relay-1',
         name: 'botcamp-model',
@@ -1155,7 +1155,7 @@ test('company send stores a model reply and keeps the relay bot off the roster',
       const text = body.payload?.text
       const items = chats.get(sessionId) ?? []
       items.push({ kind: 'user', text, time: Date.now() })
-      items.push({ kind: 'bot', text: '我是主编，用的是 DeepSeek-V4.1-Flash。', time: Date.now() + 1 })
+      items.push({ kind: 'bot', text: '我是主编，用的是 qoder/deepseek-v4-flash。', time: Date.now() + 1 })
       chats.set(sessionId, items)
       return Response.json({ ok: true, value: true })
     }
@@ -1194,7 +1194,7 @@ test('company send stores a model reply and keeps the relay bot off the roster',
     const last = page.json.value.items.at(-1)
     assert.ok(user)
     assert.equal(last.kind, 'bot')
-    assert.match(last.text, /DeepSeek-V4.1-Flash/)
+    assert.match(last.text, /qoder\/deepseek-v4-flash/)
     assert.doesNotMatch(last.text, /收到。写稿和数据都在侧栏/)
     const state = await api(ctx.base, '/api/bot', {
       method: 'POST',
@@ -1204,7 +1204,7 @@ test('company send stores a model reply and keeps the relay bot off the roster',
     assert.equal(state.json.value.companyMode, 'company-local')
     assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
     assert.equal(state.json.value.bots.some(bot => bot.name === 'botcamp-model'), false)
-    assert.equal(state.json.value.defaultModel, 'deepseek-official/deepseek-flash')
+    assert.equal(state.json.value.defaultModel, 'qoder/deepseek-v4-flash')
   } finally {
     await ctx.close()
   }

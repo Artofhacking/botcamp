@@ -1,27 +1,18 @@
 /**
- * Company employees speak through DeepSeek official.
- * DeepSeek-V4.1-Flash is the model that completed a one-word reply.
+ * Company employees speak through the custom provider configured on the kernel.
  * The kernel bot that holds that model stays off the company roster.
  */
 
-export const COMPANY_MODEL_REF = 'deepseek-official/deepseek-flash'
+export const COMPANY_MODEL_REF = 'qoder/deepseek-v4-flash'
 export const COMPANY_RELAY_NAME = 'botcamp-model'
 
 export const COMPANY_MODELS = Object.freeze([
   Object.freeze({
     ref: COMPANY_MODEL_REF,
-    provider: 'deepseek-official',
-    providerName: 'DeepSeek',
-    id: 'deepseek-flash',
-    name: 'DeepSeek-V4.1-Flash',
-    input: Object.freeze(['text', 'image']),
-  }),
-  Object.freeze({
-    ref: 'deepseek-official/deepseek-v4-pro',
-    provider: 'deepseek-official',
-    providerName: 'DeepSeek',
-    id: 'deepseek-v4-pro',
-    name: 'DeepSeek-V4-Pro',
+    provider: 'qoder',
+    providerName: 'qoder',
+    id: 'deepseek-v4-flash',
+    name: 'deepseek-v4-flash',
     input: Object.freeze(['text']),
   }),
 ])
@@ -130,11 +121,8 @@ async function ensureRelay(kernel, brief) {
   const sessionId = typeof bot.sessionId === 'string' && bot.sessionId ? bot.sessionId : id
   if (!sessionId) throw new Error('no session')
   if (id && bot.model !== COMPANY_MODEL_REF) {
-    try {
-      await kernel('update-bot', { id, model: COMPANY_MODEL_REF })
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error
-    }
+    const updated = unwrapBot(await kernel('update-bot', { id, model: COMPANY_MODEL_REF }))
+    if (updated?.model && updated.model !== COMPANY_MODEL_REF) throw new Error('model')
   }
   return { id, sessionId, fresh }
 }

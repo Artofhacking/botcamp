@@ -49,22 +49,14 @@ function createBus() {
 const setChanged = (source, value) => { if (JSON.stringify(source.getSnapshot()) !== JSON.stringify(value)) source.set(value) }
 
 const CHIEF_ID = 'co_chief'
-const COMPANY_MODEL_REF = 'deepseek-official/deepseek-flash'
+const COMPANY_MODEL_REF = 'qoder/deepseek-v4-flash'
 const COMPANY_MODELS = [
   {
     ref: COMPANY_MODEL_REF,
-    provider: 'deepseek-official',
-    providerName: 'DeepSeek',
-    id: 'deepseek-flash',
-    name: 'DeepSeek-V4.1-Flash',
-    input: ['text', 'image'],
-  },
-  {
-    ref: 'deepseek-official/deepseek-v4-pro',
-    provider: 'deepseek-official',
-    providerName: 'DeepSeek',
-    id: 'deepseek-v4-pro',
-    name: 'DeepSeek-V4-Pro',
+    provider: 'qoder',
+    providerName: 'qoder',
+    id: 'deepseek-v4-flash',
+    name: 'deepseek-v4-flash',
     input: ['text'],
   },
 ]
