@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=http://127.0.0.1:5195 vite --host 127.0.0.1 --port 5195 --strictPort",
+    "dev:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=https://botcamp.demox.site vite --host 127.0.0.1 --port 5195 --strictPort",
     "build": "vite build",
     "build:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=https://botcamp.demox.site vite build",
     "preview": "vite preview --host 127.0.0.1",
