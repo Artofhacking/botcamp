@@ -4,7 +4,7 @@
 
 客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上网关已经接受 Bearer，并允许跨源。Rust 需要 stable，且 rustc 不低于 1.90。
 
-给使用的人下载安装包，不要让他们克隆仓库。说明页在 https://botcamp.demox.site/download/ 。Windows 安装包是 https://botcamp.demox.site/download/BotCamp-Windows-x64-setup.exe 。Apple 芯片的 Mac 应用是 https://botcamp.demox.site/download/BotCamp-mac-apple-silicon.zip ，Intel Mac 是 https://botcamp.demox.site/download/BotCamp-mac-intel.zip 。本机还要有 Google Chrome。浏览器开在这台电脑上，不在共享服务器上。0.1.1 起，打开应用会请求 https://botcamp.demox.site/download/latest.json 。清单里的版本更高时，Mac 下载对应的 zip，Windows 下载安装包并安装。0.1.3 把页面直接放进窗口。0.1.1 用 `tauri://localhost`，0.1.2 用本机地址，macOS 上都是白屏。Mac 第一次打开如果提示已损坏，在「系统设置 → 隐私与安全性」里点「仍要打开」。
+给使用的人下载安装包，不要让他们克隆仓库。说明页在 https://botcamp.demox.site/download/ 。Windows 安装包是 https://botcamp.demox.site/download/BotCamp-Windows-x64-setup.exe 。Apple 芯片的 Mac 应用是 https://botcamp.demox.site/download/BotCamp-mac-apple-silicon.zip ，Intel Mac 是 https://botcamp.demox.site/download/BotCamp-mac-intel.zip 。本机还要有 Google Chrome。浏览器开在这台电脑上，不在共享服务器上。0.1.1 起，打开应用会请求 https://botcamp.demox.site/download/latest.json 。清单里的版本更高时，Mac 下载对应的 zip，Windows 下载安装包并安装。0.1.4 把页面直接放进窗口，Finder 里的版本是 0.1.4 (0.1.4)。0.1.1 用 `tauri://localhost`，0.1.2 用本机地址，macOS 上都是白屏。Mac 第一次打开如果提示已损坏，在「系统设置 → 隐私与安全性」里点「仍要打开」。
 
 开发窗口仍要 Node.js 22、Rust stable（rustc 不低于 1.90），Mac 上还要 Xcode 命令行工具。Windows 安装包只能在 Windows 上打，Mac 安装包只能在 Mac 上打。
 
