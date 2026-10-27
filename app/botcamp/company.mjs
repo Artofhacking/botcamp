@@ -6,6 +6,7 @@ import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
 import { accountsVisibleTo, ensureMediaSeeded, primaryChatOwnerId } from './mediaControl.mjs'
 import { COMPANY_MODEL_REF, COMPANY_MODELS } from './companyModel.mjs'
+import { clipToolResult, hostsForAccounts, parseDesktopTool } from './desktopTurn.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
 export const COMPANY_MODE = 'company-local'
@@ -293,6 +294,7 @@ export function buildCompanyState(ownerId, user, accounts) {
     models: COMPANY_MODELS.map(model => ({ ...model, input: [...model.input] })),
     defaultModel: COMPANY_MODEL_REF,
     modelsKey: `company:${COMPANY_MODE}:qoder`,
+    accountHosts: hostsForAccounts(visible),
     prefs: { ...(user?.prefs ?? {}) },
     activity: {},
     memoryNews: {},
@@ -335,19 +337,29 @@ export async function companySend(ownerId, payload, accounts, complete) {
   }
   const items = seedWelcome(ownerId, sessionId, visible)
   const now = Date.now()
+  const desktop = payload?.desktop === true
+  const resume = desktop && payload?.resume === true
+  const hosts = hostsForAccounts(visible)
 
   if (typeof complete !== 'function') {
     return { ok: false, error: { message: MODEL_MISSED } }
   }
   const speaker = speakerFor(sessionId)
+  const ask = (extra) => complete({
+    sessionId,
+    text,
+    name: speaker.name,
+    brief: speaker.brief,
+    facts: accountFacts(visible),
+    desktop: extra.desktop,
+    hosts,
+    toolResult: extra.toolResult || '',
+  })
   let reply
   try {
-    reply = await complete({
-      sessionId,
-      text,
-      name: speaker.name,
-      brief: speaker.brief,
-      facts: accountFacts(visible),
+    reply = await ask({
+      desktop,
+      toolResult: resume ? clipToolResult(payload?.toolResult) : '',
     })
   } catch (error) {
     if (error?.name === 'AbortError') throw error
@@ -357,9 +369,38 @@ export async function companySend(ownerId, payload, accounts, complete) {
     return { ok: false, error: { message: MODEL_MISSED } }
   }
   reply = reply.trim()
+  // A website window has no local browser. Ask once for a normal answer.
+  if (!desktop && parseDesktopTool(reply)) {
+    try {
+      reply = await ask({
+        desktop: false,
+        toolResult: '当前窗口没有本机浏览器。请直接用文字回答，不要输出工具 JSON。',
+      })
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    if (typeof reply !== 'string' || !reply.trim() || parseDesktopTool(reply)) {
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    reply = reply.trim()
+  }
+  const tool = desktop ? parseDesktopTool(reply) : null
+  if (tool) {
+    if (!resume) {
+      items.push({ kind: 'user', text, time: now })
+      saveChat(ownerId, sessionId, items)
+    }
+    return { ok: true, value: { sent: true, sessionId, tool: { ...tool, hosts }, docLink: null } }
+  }
   let docLink = null
   const linked = reply.match(/doc:\/\/(doc_[a-f0-9]+)/)
   if (linked) docLink = { href: `doc://${linked[1]}` }
+  if (resume) {
+    items.push({ kind: 'bot', text: reply, time: now })
+    saveChat(ownerId, sessionId, items)
+    return { ok: true, value: { sent: true, sessionId, docLink } }
+  }
 
   items.push({ kind: 'user', text, time: now })
   items.push({ kind: 'bot', text: reply, time: now + 1 })
@@ -401,5 +442,6 @@ export function mergeProjectRooms(state, user, access) {
     ...state,
     bots: presentChiefName(state.bots),
     rooms,
+    accountHosts: hostsForAccounts(accounts),
   }
 }

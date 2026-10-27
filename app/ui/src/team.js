@@ -7,7 +7,10 @@ import { workPhrase } from '../../../ds-bot/src/client/cells.js'
 import { language } from '../../../ds-bot/src/client/i18n.js'
 import { toolState } from '../../../ds-bot/src/client/mark.js'
 import { noteLeft, setUnread, sharedMap, toggleReaction } from '../../../ds-bot/src/client/shared-map.js'
+import { createBotBrowsers } from '../../../ds-bot/src/client/bot-browsers.js'
 import { createSource, indexRoster } from '../../../ds-bot/src/client/sources.js'
+import { browserActions } from './desktop/actions.js'
+import { browserBotId, desktopCompanySend, runModelTool } from './desktop/turn.js'
 import { STORAGE, migrateStorage } from '../../../ds-bot/src/client/storage.js'
 import { teamActions } from '../../../ds-bot/src/client/team-actions.js'
 import { currentPart } from '../../../ds-bot/src/client/text.js'
@@ -96,7 +99,8 @@ export function createTeam() {
   // When each conversation was last left; a visit compares new entries against it.
   const seenStore = sharedMap(STORAGE.seen)
   let seenAt = seenStore.read()
-  const roster = createSource(COMPANY_ROSTER)
+  const desktopBridge = globalThis.dsBotApp?.browser ?? null
+  const roster = createSource(desktopBridge ? { ...COMPANY_ROSTER, browser: true } : COMPANY_ROSTER)
   const ui = createSource({ details: null, view: 'details', renaming: false, tab: null, newChat: null, exchange: null, menu: null, voice: null, palette: null, quote: null, settings: null, memory: null, toast: null, signIn: null, renameAgent: null, unread: unreadStore.read(), reactions: reactionStore.read(), visits: {} })
   const activity = createSource({})
   const work = createSource(NO_WORK)
@@ -106,8 +110,10 @@ export function createTeam() {
   const heldCards = createSource({})
   const turnClock = createSource({})
   const update = createSource({ available: false, phase: 'idle' })
-  const browserPages = createSource({})
-  const browserTabs = createSource({})
+  const browsers = desktopBridge ? createBotBrowsers({ bridge: desktopBridge, createSource }) : null
+  const browserPages = browsers?.pages ?? createSource({})
+  const browserTabs = browsers?.tabs ?? createSource({})
+  const browserHolds = browsers?.holds ?? createSource({})
   const layout = createSource({ wide: true })
   // The Session facts: the list (each one's latest entry and change, and which one fills
   // the main view), the status (running, a reply not yet seen) and what was just sent.
@@ -163,7 +169,7 @@ export function createTeam() {
   const pull = async () => {
     const order = ++pulls
     const known = roster.getSnapshot()
-    const value = await call('state', {
+    let value = await call('state', {
       since: heardServer ? known.revision : -1,
       models: heardServer ? (known.modelsKey ?? '') : '',
       locale: language(),
@@ -171,6 +177,10 @@ export function createTeam() {
     if (order < applied) return
     applied = order
     // An empty answer used to leave the sidebar on a listing retry. Keep the company.
+    if (value && typeof value === 'object') {
+      if (Array.isArray(value.accountHosts)) globalThis.__botcampAccountHosts = value.accountHosts
+      if (desktopBridge) value = { ...value, browser: true }
+    }
     if (!value?.unchanged && (!Array.isArray(value?.bots) || value.bots.length === 0)) return
     setChanged(activity, value.activity ?? {})
     setChanged(work, value.work ?? NO_WORK)
@@ -203,15 +213,29 @@ export function createTeam() {
   const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, heldCards, turnClock })
   const actions = {
     ...baseActions,
+    ...browserActions({ browsers, bridge: desktopBridge, ui }),
     reportError: (error, where) => {
       if (listsWorkspaceRetry(error)) return
       baseActions.reportError(error, where)
     },
     // Company-local sessions have no kernel feed; reload the page after send.
     send: async (sessionId, text) => {
-      const value = await baseActions.send(sessionId, text)
       const id = partFor(sessionId)
-      if (typeof id === 'string' && id.startsWith('co_')) chat.emit('hello', {})
+      const company = typeof id === 'string' && id.startsWith('co_')
+      const value = desktopBridge && company
+        ? await desktopCompanySend({
+          call,
+          sessionId: id,
+          text,
+          runTool: (tool) => runModelTool({
+            browsers,
+            bridge: desktopBridge,
+            botId: browserBotId(id),
+            tool,
+          }),
+        })
+        : await baseActions.send(sessionId, text)
+      if (company) chat.emit('hello', {})
       return value
     },
     // The full-pane overlays sit above the conversation, so opening one dismisses them.
@@ -335,6 +359,7 @@ export function createTeam() {
     useRegistry: use(registry),
     useBrowserPages: use(browserPages),
     useBrowserTabs: use(browserTabs),
+    useBrowserHolds: use(browserHolds),
     useSessions: use(sessions),
     useSessionStatus: use(status),
     useSessionRetainInfo: (id, selector) => useSelect(sessions, list => selector(list.byId[id])),

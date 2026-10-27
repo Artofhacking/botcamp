@@ -32,6 +32,7 @@ test('company state lists employees and project rooms without an account gate', 
     assert.ok(state.models.some((model) => model.provider === 'qoder' && model.id === 'deepseek-v4-flash' && model.ref === COMPANY_MODEL_REF))
     assert.equal(state.models.some((model) => model.provider === 'deepseek-official'), false)
     assert.equal(state.bots.every((bot) => bot.model === COMPANY_MODEL_REF), true)
+    assert.deepEqual(state.accountHosts, ['xiaoheihe.cn'])
     assert.ok(state.rooms.some((r) => /小稿/.test(r.name)))
     const room = state.rooms.find((r) => /小稿/.test(r.name))
     assert.ok(Array.isArray(room.members) && room.members.includes(CHIEF_ID), 'rooms must expose members for DS Bot UI')
@@ -163,6 +164,74 @@ test('an ordinary company message stores the model reply', async () => {
       },
     )
     assert.equal(ops.ok, true)
+  } finally {
+    configureDataRoot(prev)
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('a desktop tool request stays off the transcript until the model answers', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
+  const prev = getDataRoot()
+  try {
+    configureDataRoot(path.join(dir, 'media-store'))
+    seed()
+    const tool = '{"tool":"browser_open","url":"https://www.xiaoheihe.cn/"}'
+    const asked = []
+    const pending = await companySend(
+      PHOSA_OWNER_ID,
+      { botId: CHIEF_ID, text: '帮我看一下后台', desktop: true },
+      undefined,
+      async (turn) => {
+        asked.push(turn)
+        return tool
+      },
+    )
+    assert.equal(pending.ok, true)
+    assert.equal(pending.value.tool.tool, 'browser_open')
+    assert.deepEqual(pending.value.tool.hosts, ['xiaoheihe.cn'])
+    assert.match(modelTurnText(asked[0]), /用户原话：\n帮我看一下后台/)
+    assert.match(modelTurnText(asked[0]), /xiaoheihe\.cn/)
+    assert.equal(asked[0].desktop, true)
+    const stored = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.equal(stored.value.items.at(-1).kind, 'user')
+    assert.equal(stored.value.items.at(-1).text, '帮我看一下后台')
+    assert.equal(stored.value.items.some((item) => item.text === tool), false)
+
+    const done = await companySend(
+      PHOSA_OWNER_ID,
+      {
+        botId: CHIEF_ID,
+        text: '帮我看一下后台',
+        desktop: true,
+        resume: true,
+        toolResult: { text: '页面 创作者中心\nhttps://www.xiaoheihe.cn/\n粉丝 12' },
+      },
+      undefined,
+      async (turn) => {
+        assert.match(turn.toolResult, /粉丝 12/)
+        assert.match(modelTurnText(turn), /本机工具结果/)
+        return '后台现在粉丝 12。'
+      },
+    )
+    assert.equal(done.ok, true)
+    assert.equal(done.value.tool, undefined)
+    const after = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    const users = after.value.items.filter((item) => item.kind === 'user')
+    assert.equal(users.length, 1)
+    assert.equal(after.value.items.at(-1).text, '后台现在粉丝 12。')
+
+    const website = await companySend(
+      PHOSA_OWNER_ID,
+      { botId: CHIEF_ID, text: '普通窗口' },
+      undefined,
+      async (turn) => (turn.toolResult ? '直接说：这是网页。' : tool),
+    )
+    assert.equal(website.ok, true)
+    assert.equal(website.value.tool, undefined)
+    const webItems = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID }).value.items
+    assert.equal(webItems.at(-1).text, '直接说：这是网页。')
+    assert.equal(webItems.some((item) => item.text === tool), false)
   } finally {
     configureDataRoot(prev)
     await rm(dir, { recursive: true, force: true })

@@ -167,6 +167,9 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
           ? h('div', { className: 'dsb-account' },
             h('span', { className: 'dsb-account-mail', title: user.email }, user.email),
             h('span', { className: 'dsb-account-actions' },
+              globalThis.dsBotApp?.browser?.pickWorkspace
+                ? h('button', { type: 'button', title: '选择这台电脑上的工作区文件夹', onClick: () => { void globalThis.dsBotApp.browser.pickWorkspace() } }, '本机')
+                : null,
               user.role === 'admin' ? h('button', { type: 'button', onClick: onAdmin }, '用户') : null,
               h('button', { type: 'button', onClick: onPassword }, '密码'),
               h('button', { type: 'button', onClick: onLogout }, '退出')))

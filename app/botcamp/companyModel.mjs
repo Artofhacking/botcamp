@@ -3,6 +3,8 @@
  * The kernel bot that holds that model stays off the company roster.
  */
 
+import { desktopToolNote } from './desktopTurn.mjs'
+
 export const COMPANY_MODEL_REF = 'qoder/deepseek-v4-flash'
 export const COMPANY_RELAY_NAME = 'botcamp-model'
 
@@ -148,11 +150,15 @@ export function modelTurnText(turn) {
   const name = typeof turn?.name === 'string' ? turn.name.trim() : ''
   const brief = typeof turn?.brief === 'string' ? turn.brief.trim() : ''
   const facts = typeof turn?.facts === 'string' ? turn.facts.trim() : ''
-  if (!name && !brief && !facts) return text
+  const toolResult = typeof turn?.toolResult === 'string' ? turn.toolResult.trim() : ''
+  const desktopNote = turn?.desktop === true ? desktopToolNote(turn?.hosts) : ''
+  if (!name && !brief && !facts && !desktopNote && !toolResult) return text
   const who = [name ? `你是${name}。` : '', brief].filter(Boolean).join('')
   return [
     who,
     facts ? `账号事实：\n${facts}` : '',
+    desktopNote,
+    toolResult ? `本机工具结果：\n${toolResult}` : '',
     `用户原话：\n${text}`,
   ].filter(Boolean).join('\n\n')
 }
