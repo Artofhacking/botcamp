@@ -275,6 +275,62 @@ function wantsStatus(text) {
   return /进度|状态|漏斗|待你处理|怎么样了|概况|总览|帖子|稿件|看板/.test(text || '')
 }
 
+function wantsPlatform(text) {
+  return /哪个平台|什么平台|平台是哪|在哪[个家]?平台|什么站/.test(text || '')
+}
+
+function wantsFigures(text) {
+  return /什么数据|现在的?数据|当前数据|账号数据|看.*数据|截个图|截图/.test(text || '')
+}
+
+function wantsWhichAccount(text) {
+  return /账号是什么|什么账号|哪个账号/.test(text || '')
+}
+
+function platformName(account) {
+  if (account?.platform === 'xiaoheihe') return '小黑盒'
+  if (account?.platform === 'douyin') return '抖音'
+  return account?.platform || ''
+}
+
+function accountParts(account) {
+  const bundle = loadMediaAccountBundle(account?.id)
+  const funnel = bundle?.board?.post_funnel || {}
+  const followers = bundle?.board?.followers_latest?.followers
+  const parts = []
+  if (followers != null) parts.push(`粉丝 ${fmt(followers)}`)
+  for (const [key, count] of Object.entries(funnel)) {
+    if (count) parts.push(`${key} ${count}`)
+  }
+  return parts
+}
+
+function platformReply(accounts) {
+  if (!accounts.length) return '目前还没有自媒体号。'
+  return `${accounts.map((account) => `${account.display_name}在${platformName(account) || '未填平台'}`).join('。')}。`
+}
+
+function figuresReply(accounts) {
+  if (!accounts.length) return '目前还没有自媒体号。'
+  const lines = accounts.map((account) => {
+    const where = platformName(account)
+    const stats = accountParts(account)
+    const head = where ? `${account.display_name}（${where}）` : account.display_name
+    return `${head}：${stats.length ? stats.join('，') : '还没有记下数字'}`
+  })
+  return `现在的数是这些。\n${lines.join('\n')}`
+}
+
+function accountReply(accounts) {
+  if (!accounts.length) return '目前还没有自媒体号。'
+  return accounts.map((account) => {
+    const where = platformName(account)
+    return where
+      ? `你的账号是「${account.display_name}」，平台是${where}。`
+      : `你的账号是「${account.display_name}」。`
+  }).join('\n')
+}
+
 function replyWithDoc(ownerId, { title, body, summary }) {
   try {
     const kept = keepMarkdown(ownerId, { folderName: '笔记', name: title, content: body })
@@ -411,16 +467,23 @@ export async function companySend(ownerId, payload, accounts, complete) {
   let reply
   let docLink = null
   const roomAccountId = accountIdFromRoom(sessionId)
+  const hint = roomAccountId
+    ? (visible.find((a) => a.id === roomAccountId)?.display_name || null)
+    : accountHintFromText(text, visible)
+  const picked = pickAccounts(visible, hint)
   if (wantsRemember(text)) {
     const body = stripRemember(text) || text
     const keptTitle = readableDocName(body, '笔记')
     reply = replyWithDoc(ownerId, { title: keptTitle, body: `${body}\n`, summary: '记下了。' })
-  } else if (wantsStatus(text) || (sessionId === CHIEF_ID && /号/.test(text))) {
-    const hint = roomAccountId
-      ? (visible.find((a) => a.id === roomAccountId)?.display_name || null)
-      : accountHintFromText(text, visible)
+  } else if (wantsPlatform(text)) {
+    reply = platformReply(picked)
+  } else if (wantsFigures(text) && !wantsStatus(text)) {
+    reply = figuresReply(picked)
+  } else if (wantsStatus(text)) {
     const note = statusNote(ownerId, hint, visible)
     reply = replyWithDoc(ownerId, note)
+  } else if (wantsWhichAccount(text)) {
+    reply = accountReply(picked)
   } else if (typeof complete === 'function') {
     const speaker = speakerFor(sessionId)
     try {

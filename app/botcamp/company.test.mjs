@@ -92,6 +92,65 @@ test('chief send keeps a markdown note and links it', async () => {
   }
 })
 
+test('account questions are answered in the chat and do not file a progress note', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
+  const prev = getDataRoot()
+  try {
+    configureDataRoot(path.join(dir, 'media-store'))
+    seed()
+    let modelCalls = 0
+    const complete = async () => {
+      modelCalls += 1
+      return '2026-10-27 10:53:53（UTC+8）'
+    }
+    const platform = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我的账号是哪个平台' }, undefined, complete)
+    assert.equal(platform.ok, true)
+    assert.equal(platform.value.docLink, null)
+    let page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.match(page.value.items.at(-1).text, /小黑盒/)
+    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
+    assert.equal(modelCalls, 0)
+
+    const figures = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '现在什么数据' }, undefined, complete)
+    assert.equal(figures.ok, true)
+    assert.equal(figures.value.docLink, null)
+    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    const figureText = page.value.items.at(-1).text
+    assert.match(figureText, /粉丝/)
+    assert.match(figureText, /已发布|写稿中|选题/)
+    assert.doesNotMatch(figureText, /doc:\/\//)
+    assert.equal(modelCalls, 0)
+
+    const shot = await companySend(
+      PHOSA_OWNER_ID,
+      { botId: CHIEF_ID, text: '你能看看我的账号现在什么数据给我截个图吗' },
+      undefined,
+      complete,
+    )
+    assert.equal(shot.value.docLink, null)
+    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.match(page.value.items.at(-1).text, /粉丝/)
+    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
+
+    const who = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我的账号是什么' }, undefined, complete)
+    assert.equal(who.value.docLink, null)
+    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.match(page.value.items.at(-1).text, /小稿的AI日记/)
+    assert.match(page.value.items.at(-1).text, /小黑盒/)
+    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
+    assert.equal(modelCalls, 0)
+
+    const clock = await companySend(PHOSA_OWNER_ID, { botId: CHIEF_ID, text: '我说现在' }, undefined, complete)
+    assert.equal(modelCalls, 1)
+    page = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.match(page.value.items.at(-1).text, /UTC\+8/)
+    assert.doesNotMatch(page.value.items.at(-1).text, /doc:\/\//)
+  } finally {
+    configureDataRoot(prev)
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
 test('an ordinary company message stores the model reply', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-'))
   const prev = getDataRoot()
