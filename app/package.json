@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=https://botcamp.demox.site vite --host 127.0.0.1 --port 5195 --strictPort",
+    "dev:client": "node scripts/client-vite.mjs dev",
     "build": "vite build",
-    "build:client": "VITE_BOTCAMP_CLIENT=1 VITE_BOTCAMP_API=https://botcamp.demox.site vite build",
+    "build:client": "node scripts/client-vite.mjs build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test botcamp/server.test.mjs botcamp/access.test.mjs botcamp/company.test.mjs botcamp/desktopTurn.test.mjs botcamp/library.test.mjs botcamp/whiteboard.test.mjs botcamp/projectLedger.test.mjs ui/stay.test.mjs ui/session.test.mjs ui/desktop.test.mjs ../functions/bot/handler.test.mjs"
   },

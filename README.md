@@ -4,9 +4,9 @@
 
 客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上网关已经接受 Bearer，并允许跨源。Rust 需要 stable，且 rustc 不低于 1.90。
 
-Mac 上先测开发窗口。需要 Node.js 22、Rust stable，以及 Xcode 命令行工具（`xcode-select --install`）。不要运行 `build:windows`，那个安装包只能在 Windows 上打。
+给使用的人下载安装包，不要让他们克隆仓库。页面在 https://botcamp.demox.site/download/ ：Windows 安装包、Mac Apple 芯片、Mac Intel。装好后用自己的线上账号登录。本机还要有 Google Chrome。浏览器开在这台电脑上，不在共享服务器上。
 
-还要本机的 Google Chrome 或 Chromium。浏览器开在这台电脑上，不在共享服务器上。
+开发窗口仍要 Node.js 22、Rust stable（rustc 不低于 1.90），Mac 上还要 Xcode 命令行工具。Windows 安装包只能在 Windows 上打，Mac 安装包只能在 Mac 上打。
 
 ```bash
 git checkout cursor/ds-bot-0-2-2-284f
@@ -15,7 +15,7 @@ npm --prefix client ci
 npm --prefix client run dev
 ```
 
-窗口标题是 BotCamp。开发窗口和安装包都请求 https://botcamp.demox.site ，登录用自己的线上账号。Chrome 由这个窗口在本机拉起。
+窗口标题是 BotCamp。开发窗口和安装包都请求 https://botcamp.demox.site 。Chrome 由这个窗口在本机拉起。
 
 在 Mac 上打出应用：
 
