@@ -16,23 +16,31 @@ if (!root) { console.error('usage: node desktop/fix-payload.mjs <path-to-dsh-des
 const appAi = join(root, 'dsh-desktop-next', 'node_modules', '@deepseek-ai')
 if (!existsSync(appAi)) { console.error('application node_modules missing:', appAi); process.exit(1) }
 
-const targets = [
-  join(root, 'node_modules', '@deepseek-ai'),
-  join(root, 'dsh-community-market', 'node_modules', '@deepseek-ai'),
-]
+const rootAi = join(root, 'node_modules', '@deepseek-ai')
+const marketAi = join(root, 'dsh-community-market', 'node_modules', '@deepseek-ai')
 
-let filled = 0
-for (const dir of targets) {
-  mkdirSync(dir, { recursive: true })
-  for (const name of readdirSync(appAi)) {
-    const target = join(dir, name)
-    if (existsSync(target)) continue
+function fill(target, source) {
+  if (!existsSync(source)) return 0
+  mkdirSync(target, { recursive: true })
+  let linked = 0
+  for (const name of readdirSync(source)) {
+    const dest = join(target, name)
+    if (existsSync(dest)) continue
     try {
-      symlinkSync(join(appAi, name), target, process.platform === 'win32' ? 'junction' : 'dir')
-      filled += 1
+      symlinkSync(join(source, name), dest, process.platform === 'win32' ? 'junction' : 'dir')
+      linked += 1
     } catch (error) {
-      console.warn(`could not link ${name} into ${dir}:`, error.message)
+      console.warn(`could not link ${name} into ${target}:`, error.message)
     }
   }
+  return linked
 }
-console.log(`linked ${filled} package(s) across ${targets.length} node_modules roots`)
+
+// yarn hoists most packages to the workspace root, but the payload collector looks
+// inside the workspace that owns each dependency, so fill in both directions.
+let filled = 0
+filled += fill(appAi, rootAi)
+filled += fill(rootAi, appAi)
+filled += fill(marketAi, appAi)
+filled += fill(rootAi, marketAi)
+console.log(`linked ${filled} package(s) so every workspace sees the same tree`)
