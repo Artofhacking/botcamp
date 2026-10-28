@@ -7,7 +7,7 @@
  *
  * Usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>
  */
-import { existsSync, mkdirSync, readdirSync, symlinkSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.argv[2]
@@ -26,6 +26,9 @@ function fill(target, source) {
   for (const name of readdirSync(source)) {
     const dest = join(target, name)
     if (existsSync(dest)) continue
+    // A link left over from an earlier run can be dangling: existsSync is false but
+    // creating it again fails with EEXIST, so clear it first.
+    try { lstatSync(dest); rmSync(dest, { recursive: true, force: true }) } catch { /* nothing there */ }
     try {
       symlinkSync(join(source, name), dest, process.platform === 'win32' ? 'junction' : 'dir')
       linked += 1
