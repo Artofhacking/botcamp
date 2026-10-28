@@ -10,7 +10,7 @@
  * Only Node built-ins. Works on macOS, Linux and Windows (Windows ships OpenSSH).
  */
 import { createHash } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, hostname, platform } from 'node:os'
 import { join } from 'node:path'
@@ -40,9 +40,25 @@ function writeConfig(data) {
   mkdirSync(join(CONFIG, '..'), { recursive: true })
   writeFileSync(CONFIG, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 })
 }
+/** Stable per-machine identity: the hardware/OS UUID when it is readable. */
+function machineUuid() {
+  try {
+    if (process.platform === 'darwin') {
+      const out = execFileSync('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], { encoding: 'utf8' })
+      const m = /"IOPlatformUUID"\s*=\s*"([^"]+)"/.exec(out)
+      if (m) return m[1]
+    } else if (process.platform === 'win32') {
+      const out = execFileSync('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'], { encoding: 'utf8' })
+      const m = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)
+      if (m) return m[1]
+    } else {
+      return readFileSync('/etc/machine-id', 'utf8').trim()
+    }
+  } catch { /* fall back to host identity */ }
+  return `${hostname()}|${process.env.USER || process.env.USERNAME || ''}`
+}
 function deviceId() {
-  const seed = `${hostname()}|${platform()}|${process.env.USER || process.env.USERNAME || ''}`
-  return createHash('sha256').update(seed).digest('hex').slice(0, 16)
+  return createHash('sha256').update(machineUuid()).digest('hex').slice(0, 16)
 }
 async function post(path, body, headers = {}) {
   const res = await fetch(GATEWAY + path, {
@@ -72,6 +88,30 @@ async function login() {
   const registered = await post('/botcamp/api/devices/register', device, { authorization: `Bearer ${token}` })
   writeConfig({ email, device, slot: registered.slot, secret: registered.device_secret })
   console.log(`已注册设备 ${registered.slot}（${device.name}）`)
+}
+
+async function pair() {
+  const device = {
+    device_id: deviceId(),
+    name: hostname(),
+    platform: `${platform()} ${process.arch}`,
+  }
+  const started = await post('/botcamp/api/devices/pair/start', device)
+  console.log(`打开这个地址确认绑定：${started.url}`)
+  console.log(`配对码：${started.code}`)
+  for (;;) {
+    await sleep((started.interval || 2) * 1000)
+    const result = await post('/botcamp/api/devices/pair/poll', { code: started.code })
+    if (result.status === 'approved') {
+      writeConfig({ device, slot: result.slot, secret: result.device_secret })
+      console.log(`已绑定设备 ${result.slot}`)
+      return
+    }
+    if (result.status === 'expired') {
+      console.error('配对码已过期，请重新运行 botcamp-agent pair')
+      process.exit(1)
+    }
+  }
 }
 
 function hostArgs() {
@@ -171,9 +211,9 @@ function logout() {
 }
 
 const command = process.argv[2]
-const actions = { login, up, status, logout }
+const actions = { login, pair, up, status, logout }
 if (!actions[command]) {
-  console.log('用法: botcamp-agent <login|up|status|logout>')
+  console.log('用法: botcamp-agent <login|pair|up|status|logout>')
   process.exit(1)
 }
 actions[command]()
