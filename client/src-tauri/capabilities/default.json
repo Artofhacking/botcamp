@@ -2,5 +2,16 @@
   "identifier": "default",
   "description": "BotCamp window",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "https://botcamp.demox.site",
+      "https://botcamp.demox.site/",
+      "https://botcamp.demox.site/*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "allow-desktop-browser"
+  ]
 }

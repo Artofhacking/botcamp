@@ -12,3 +12,4 @@ data/
 .env
 .env.*
 !.env.example
+app/ui/public/download/DSH-Desktop-2.0.18-zhubian-arm64.zip

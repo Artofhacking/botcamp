@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url'
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { PHOSA_OWNER_ID } from '../../scripts/seed-ids.mjs'
 import { isRawTimestampName, readableDocName } from './docName.mjs'
-import { mediaOwnerIdFor } from './mediaControl.mjs'
+import {
+  libraryWriteOwnerId,
+  mediaOwnerIdFor,
+  ownerNamespaces,
+  readableLibraryOwnerIds,
+} from './mediaControl.mjs'
 
 const MAX_NAME = 80
 const MAX_CONTENT = 200_000
@@ -50,6 +55,37 @@ function saveTree(ownerId, tree) {
     nodes: tree.nodes,
     updated_at: new Date().toISOString(),
   })
+}
+
+/** This instance's copy of one owner's library, for the shared ledger. */
+export function snapshotLibrary(ownerId) {
+  return {
+    seeded: Boolean(kvGet(seededKey(ownerId))),
+    nodes: loadTree(ownerId).nodes,
+  }
+}
+
+/** Pull a library another instance already stored. Local edits with the same id stay. */
+export function restoreLibrary(ownerId, snapshot) {
+  if (!ownerId || !snapshot || typeof snapshot !== 'object') return false
+  const remote = Array.isArray(snapshot.nodes)
+    ? snapshot.nodes.filter((node) => node && typeof node.id === 'string')
+    : []
+  const local = loadTree(ownerId)
+  const byId = new Map(local.nodes.map((node) => [node.id, node]))
+  let changed = false
+  for (const node of remote) {
+    const prev = byId.get(node.id)
+    if (!prev || (node.updatedAt || '') > (prev.updatedAt || '')) {
+      byId.set(node.id, node)
+      changed = true
+    }
+  }
+  if (changed) saveTree(ownerId, { nodes: [...byId.values()] })
+  if ((snapshot.seeded || remote.length > 0) && !kvGet(seededKey(ownerId))) {
+    kvSet(seededKey(ownerId), { at: new Date().toISOString() })
+  }
+  return changed
 }
 
 function newId() {
@@ -246,6 +282,41 @@ export function deleteLibraryNode(ownerId, id) {
   tree.nodes = tree.nodes.filter((node) => !drop.has(node.id))
   saveTree(ownerId, tree)
   return { ok: true }
+}
+
+/** Put back a file the chat already linked, using that same id. */
+export function ensureLinkedFile(ownerId, { id, name, content } = {}) {
+  if (typeof ownerId !== 'string' || !ownerId) return null
+  if (typeof id !== 'string' || !/^doc_[a-f0-9]+$/.test(id)) return null
+  maybeSeed(ownerId)
+  let tree = loadTree(ownerId)
+  const existing = tree.nodes.find((node) => node.id === id)
+  if (existing) return existing
+  let folder = tree.nodes.find((node) => node.kind === 'folder' && !node.parentId && node.name === '笔记')
+  if (!folder) {
+    const made = createNode(ownerId, { kind: 'folder', name: '笔记' })
+    if (made.error) return null
+    folder = made.node
+    tree = loadTree(ownerId)
+  }
+  const clean = sanitizeName(typeof name === 'string' && name.trim() ? name : '进度', 'file')
+  if (!clean) return null
+  const unique = uniqueName(tree.nodes, folder.id, clean)
+  if (!unique) return null
+  const now = new Date().toISOString()
+  const body = typeof content === 'string' ? content : ''
+  if (body.length > MAX_CONTENT) return null
+  tree.nodes.push({
+    id,
+    parentId: folder.id,
+    kind: 'file',
+    name: unique,
+    content: body,
+    createdAt: now,
+    updatedAt: now,
+  })
+  saveTree(ownerId, tree)
+  return tree.nodes.find((node) => node.id === id) || null
 }
 
 /** Bot keep: write a free markdown file and return an in-app link. */
@@ -475,38 +546,55 @@ export async function materializeMarkdownMedia(ownerId, markdown, origin) {
   return { markdown: unmaskCode(next, blocks) }
 }
 
+function nodeIn(ownerIds, id) {
+  for (const ownerId of ownerIds) {
+    const node = getLibraryNode(ownerId, id)
+    if (node) return { ownerId, node }
+  }
+  return null
+}
+
 export async function handleLibraryControl(req, endpoint, payload, user) {
-  const ownerId = mediaOwnerIdFor(user)
-  if (!ownerId) return fail(401, '请先登录')
+  const writeOwnerId = libraryWriteOwnerId(user)
+  if (!writeOwnerId && !mediaOwnerIdFor(user)) return fail(401, '请先登录')
   const body = payload && typeof payload === 'object' ? payload : {}
   if (endpoint === 'library/asset') {
     const bytes = decodeBase64(body.data)
     const video = normalizeMediaType(body.contentType).startsWith('video/')
     if (!bytes) return fail(400, video ? '视频数据无效。' : '图片数据无效。')
-    const saved = saveAssetBytes(ownerId, bytes, body.contentType)
+    const saved = saveAssetBytes(writeOwnerId, bytes, body.contentType)
     if (saved.error) return fail(400, saved.error)
     return { status: 200, body: { ok: true, id: saved.id, url: assetPublicUrl(requestOrigin(req), saved.id), contentType: saved.contentType } }
   }
-  return handleLibraryDocument(req, endpoint, body, ownerId)
+  return handleLibraryDocument(req, endpoint, body, user, writeOwnerId)
 }
 
-async function handleLibraryDocument(req, endpoint, body, ownerId) {
+async function handleLibraryDocument(req, endpoint, body, user, writeOwnerId) {
   const prepared = async (content) => {
     if (content === undefined) return {}
-    return materializeMarkdownMedia(ownerId, content, requestOrigin(req))
+    return materializeMarkdownMedia(writeOwnerId, content, requestOrigin(req))
   }
   if (endpoint === 'library/list') {
-    return { status: 200, body: { ok: true, ...listLibrary(ownerId) } }
+    const nodes = []
+    const seen = new Set()
+    for (const ownerId of readableLibraryOwnerIds(user)) {
+      for (const node of listLibrary(ownerId).nodes) {
+        if (seen.has(node.id)) continue
+        seen.add(node.id)
+        nodes.push(node)
+      }
+    }
+    return { status: 200, body: { ok: true, nodes } }
   }
   if (endpoint === 'library/get') {
-    const node = getLibraryNode(ownerId, body.id)
-    if (!node) return fail(404, '找不到文档。')
-    return { status: 200, body: { ok: true, node } }
+    const found = nodeIn(readableLibraryOwnerIds(user), body.id)
+    if (!found) return fail(404, '找不到文档。')
+    return { status: 200, body: { ok: true, node: found.node } }
   }
   if (endpoint === 'library/create') {
     const images = body.kind === 'file' ? await prepared(body.content ?? '') : {}
     if (images.error) return fail(400, images.error)
-    const made = createLibraryNode(ownerId, {
+    const made = createLibraryNode(writeOwnerId, {
       parentId: body.parentId ?? null,
       kind: body.kind,
       name: body.name,
@@ -516,9 +604,14 @@ async function handleLibraryDocument(req, endpoint, body, ownerId) {
     return { status: 200, body: { ok: true, node: made.node } }
   }
   if (endpoint === 'library/update') {
+    const owned = nodeIn(ownerNamespaces(user), body.id)
+    if (!owned) {
+      if (nodeIn(readableLibraryOwnerIds(user), body.id)) return fail(403, '无权修改这份文档。')
+      return fail(404, '找不到文档。')
+    }
     const images = body.content === undefined ? {} : await prepared(body.content)
     if (images.error) return fail(400, images.error)
-    const updated = updateLibraryNode(ownerId, {
+    const updated = updateLibraryNode(owned.ownerId, {
       id: body.id,
       name: body.name,
       content: images.markdown,
@@ -528,7 +621,12 @@ async function handleLibraryDocument(req, endpoint, body, ownerId) {
     return { status: 200, body: { ok: true, node: updated.node } }
   }
   if (endpoint === 'library/delete') {
-    const removed = deleteLibraryNode(ownerId, body.id)
+    const owned = nodeIn(ownerNamespaces(user), body.id)
+    if (!owned) {
+      if (nodeIn(readableLibraryOwnerIds(user), body.id)) return fail(403, '无权修改这份文档。')
+      return fail(404, '找不到文档。')
+    }
+    const removed = deleteLibraryNode(owned.ownerId, body.id)
     if (removed.error) return fail(404, removed.error)
     return { status: 200, body: { ok: true } }
   }

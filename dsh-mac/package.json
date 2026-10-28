@@ -1,0 +1,17 @@
+{
+  "name": "dsh-desktop",
+  "version": "2.0.19",
+  "private": true,
+  "description": "DSH Desktop with 主编, persistent chat, and this app's browser.",
+  "license": "MIT",
+  "author": "Anywhere Labs",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.25.11"
+  }
+}

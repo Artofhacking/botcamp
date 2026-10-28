@@ -9,6 +9,7 @@ import { allThemes, themeCss } from '../../../ds-bot/src/client/themes.js'
 import { Chat } from './chat.js'
 import { LibraryPanel } from './library.js'
 import { parseDocHref } from './libraryApi.js'
+import { landingSession } from './land.js'
 import { createTeam } from './team.js'
 
 function DocsFab({ open, onClick }) {
@@ -102,12 +103,17 @@ export function App({ user, onLogout, onAdmin, onPassword, onUser }) {
   const roster = hooks.useRoster(value => value)
   useTheme(hooks.useRoster(value => value.prefs))
 
+  const detailsId = hooks.useUi(state => state.details)
   useEffect(() => {
-    if (!roster?.ready || shown) return
-    const chief = (roster.bots || []).find((b) => b.name === '主编' || b.name === '总负责人' || b.id === 'co_chief')
-      || (roster.bots || [])[0]
-    if (chief?.id) actions.landOn(chief.id)
-  }, [roster?.ready, roster?.bots, shown, actions])
+    if (!roster?.ready) return
+    const next = landingSession(roster, shown)
+    if (next && next !== shown) actions.landOn(next)
+  }, [roster, shown, actions])
+  useEffect(() => {
+    if (!roster?.ready || !detailsId) return
+    if (roster.byId?.[detailsId] || roster.roomsById?.[detailsId]) return
+    actions.closePanel()
+  }, [roster, detailsId, actions])
 
   useEffect(() => {
     const onLink = (event) => {

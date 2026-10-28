@@ -7,6 +7,7 @@ import test from 'node:test'
 import { createBotcamp } from './http.mjs'
 import { createMemoryLedger } from './projectLedger.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
+import { configureDataRoot, getDataRoot } from '../../server/kv.mjs'
 
 const ADMIN_EMAIL = 'admin@example.com'
 const ADMIN_PASSWORD = 'admin-password-1'
@@ -1098,11 +1099,22 @@ test('a hung kernel state still answers with the company roster', async () => {
   const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
   try {
     const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const started = Date.now()
     const state = await api(ctx.base, '/api/bot', {
       method: 'POST',
       cookie: cookieHeader(login.setCookie),
       body: { endpoint: 'state', payload: { since: -1, models: '' } },
     })
+    assert.ok(Date.now() - started < 800, `state waited ${Date.now() - started}ms`)
+    const update = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie: cookieHeader(login.setCookie),
+      body: { endpoint: 'update-check', payload: { fresh: false } },
+    })
+    assert.equal(update.status, 200)
+    assert.equal(update.json.ok, true)
+    assert.equal(update.json.value.available, false)
+    assert.equal(botCalls(ctx.calls, 'update-check').length, 0)
     assert.equal(state.status, 200)
     assert.equal(state.json.ok, true)
     assert.equal(state.json.value.companyMode, 'company-local')
@@ -1110,7 +1122,257 @@ test('a hung kernel state still answers with the company roster', async () => {
     assert.equal(state.json.value.mainBotId, 'co_chief')
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_writer'), true)
     assert.equal(state.json.value.bots.some(bot => bot.id === 'co_ops'), true)
+    assert.equal(state.json.value.defaultModel, 'qoder/deepseek-v4-flash')
+    assert.ok(state.json.value.models.some(model => model.provider === 'qoder' && model.id === 'deepseek-v4-flash'))
+    assert.equal(state.json.value.bots.every(bot => bot.model === 'qoder/deepseek-v4-flash'), true)
   } finally {
+    await ctx.close()
+  }
+})
+
+test('company send stores a model reply and keeps the relay bot off the roster', async () => {
+  const chats = new Map()
+  let relay = null
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      return Response.json({
+        ok: true,
+        value: {
+          revision: 4,
+          bots: relay ? [relay] : [],
+          rooms: [],
+          models: [],
+          defaultModel: null,
+        },
+      })
+    }
+    if (body.endpoint === 'create-bot') {
+      assert.equal(body.payload?.name, 'botcamp-model')
+      assert.equal(body.payload?.model, 'qoder/deepseek-v4-flash')
+      relay = {
+        id: 'relay-1',
+        name: 'botcamp-model',
+        sessionId: 'sess-relay',
+        model: body.payload.model,
+        brief: body.payload.brief,
+      }
+      chats.set(relay.sessionId, [{ kind: 'bot', text: '先打个招呼。', time: 1 }])
+      return Response.json({ ok: true, value: relay })
+    }
+    if (body.endpoint === 'send') {
+      const sessionId = body.payload?.sessionId
+      const text = body.payload?.text
+      const items = chats.get(sessionId) ?? []
+      items.push({ kind: 'user', text, time: Date.now() })
+      items.push({ kind: 'bot', text: '我是主编，用的是 qoder/deepseek-v4-flash。', time: Date.now() + 1 })
+      chats.set(sessionId, items)
+      return Response.json({ ok: true, value: true })
+    }
+    if (body.endpoint === 'chat') {
+      const sessionId = body.payload?.sessionId
+      return Response.json({ ok: true, value: { sessionId, items: chats.get(sessionId) ?? [], cursor: null } })
+    }
+    return Response.json({ ok: true, value: null })
+  }
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl })
+  try {
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const noted = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: '记下来：只改标题' } },
+    })
+    assert.equal(noted.status, 200)
+    assert.equal(noted.json.ok, true)
+    assert.equal(relay?.model, 'qoder/deepseek-v4-flash')
+    const notedPage = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    const notedLast = notedPage.json.value.items.at(-1)
+    assert.equal(notedLast.kind, 'bot')
+    assert.match(notedLast.text, /qoder\/deepseek-v4-flash/)
+    assert.doesNotMatch(notedLast.text, /doc:\/\//)
+    assert.equal(notedPage.json.value.items.some(item => item.kind === 'user' && item.text === '记下来：只改标题'), true)
+    const prompt = '用一句话介绍你自己'
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: prompt } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    const page = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    const user = page.json.value.items.find(item => item.kind === 'user' && item.text === prompt)
+    const last = page.json.value.items.at(-1)
+    assert.ok(user)
+    assert.equal(last.kind, 'bot')
+    assert.match(last.text, /qoder\/deepseek-v4-flash/)
+    assert.doesNotMatch(last.text, /收到。写稿和数据都在侧栏/)
+    const state = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'state', payload: { since: -1, models: '' } },
+    })
+    assert.equal(state.json.value.companyMode, 'company-local')
+    assert.deepEqual(state.json.value.bots.map(bot => bot.name), ['主编', '写稿', '数据'])
+    assert.equal(state.json.value.bots.some(bot => bot.name === 'botcamp-model'), false)
+    assert.equal(state.json.value.defaultModel, 'qoder/deepseek-v4-flash')
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('company reply stays visible when the next read has an empty local disk', async () => {
+  const chats = new Map()
+  let relay = null
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url)
+    if (!href.includes('/api/bot')) return new Response('ok', { status: 200 })
+    const body = JSON.parse(init.body ?? '{}')
+    if (body.endpoint === 'state') {
+      return Response.json({
+        ok: true,
+        value: { revision: 4, bots: relay ? [relay] : [], rooms: [], models: [], defaultModel: null },
+      })
+    }
+    if (body.endpoint === 'create-bot') {
+      relay = {
+        id: 'relay-1',
+        name: 'botcamp-model',
+        sessionId: 'sess-relay',
+        model: body.payload?.model,
+        brief: body.payload?.brief,
+      }
+      chats.set(relay.sessionId, [{ kind: 'bot', text: '先打个招呼。', time: 1 }])
+      return Response.json({ ok: true, value: relay })
+    }
+    if (body.endpoint === 'send') {
+      const sessionId = body.payload?.sessionId
+      const text = body.payload?.text
+      const items = chats.get(sessionId) ?? []
+      items.push({ kind: 'user', text, time: Date.now() })
+      items.push({ kind: 'bot', text: '第二台还能看见 qoder/deepseek-v4-flash。', time: Date.now() + 1 })
+      chats.set(sessionId, items)
+      return Response.json({ ok: true, value: true })
+    }
+    if (body.endpoint === 'chat') {
+      const sessionId = body.payload?.sessionId
+      return Response.json({ ok: true, value: { sessionId, items: chats.get(sessionId) ?? [], cursor: null } })
+    }
+    return Response.json({ ok: true, value: null })
+  }
+  const ledger = createMemoryLedger()
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl, ledger })
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-co-other-'))
+  const prevRoot = getDataRoot()
+  let otherServer
+  try {
+    const other = await createBotcamp({ ...ctx.options, dataDir: otherDir })
+    otherServer = createServer((req, res) => {
+      other.handle(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      }).catch(() => {
+        if (!res.writableEnded) {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+    })
+    await new Promise(resolve => otherServer.listen(0, '127.0.0.1', resolve))
+    const otherBase = `http://127.0.0.1:${otherServer.address().port}`
+    configureDataRoot(path.join(ctx.dataDir, 'media-store'))
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const prompt = '请回答第二台'
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'send', payload: { botId: 'co_chief', text: prompt } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    configureDataRoot(path.join(otherDir, 'empty-chat'))
+    const page = await api(otherBase, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'chat', payload: { botId: 'co_chief' } },
+    })
+    assert.equal(page.status, 200, JSON.stringify(page.json))
+    assert.equal(page.json.ok, true)
+    const user = page.json.value.items.find(item => item.kind === 'user' && item.text === prompt)
+    const last = page.json.value.items.at(-1)
+    assert.ok(user)
+    assert.equal(last.kind, 'bot')
+    assert.match(last.text, /第二台还能看见/)
+    assert.match(last.text, /qoder\/deepseek-v4-flash/)
+  } finally {
+    configureDataRoot(prevRoot)
+    if (otherServer) await new Promise(resolve => otherServer.close(resolve))
+    await rm(otherDir, { recursive: true, force: true })
+    await ctx.close()
+  }
+})
+
+test('a progress document opens from the link on a fresh disk', async () => {
+  const fetchImpl = async () => new Response('ok', { status: 200 })
+  const ledger = createMemoryLedger()
+  const ctx = await start({ BOTCAMP_ADMIN_EMAIL: ADMIN_EMAIL, BOTCAMP_ADMIN_PASSWORD: ADMIN_PASSWORD }, { fetchImpl, ledger })
+  const otherDir = await mkdtemp(path.join(tmpdir(), 'botcamp-doc-other-'))
+  const prevRoot = getDataRoot()
+  let otherServer
+  try {
+    const other = await createBotcamp({ ...ctx.options, dataDir: otherDir })
+    otherServer = createServer((req, res) => {
+      other.handle(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      }).catch(() => {
+        if (!res.writableEnded) {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+    })
+    await new Promise(resolve => otherServer.listen(0, '127.0.0.1', resolve))
+    const otherBase = `http://127.0.0.1:${otherServer.address().port}`
+    configureDataRoot(path.join(ctx.dataDir, 'media-store'))
+    const login = await api(ctx.base, '/api/auth/login', { method: 'POST', body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const cookie = cookieHeader(login.setCookie)
+    const sent = await api(ctx.base, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'library/create', payload: { kind: 'file', name: '进度备忘', content: '小稿进度备忘\n' } },
+    })
+    assert.equal(sent.status, 200)
+    assert.equal(sent.json.ok, true)
+    const id = sent.json.node?.id
+    assert.match(id, /^doc_[a-f0-9]+$/)
+    configureDataRoot(path.join(otherDir, 'empty-library'))
+    const opened = await api(otherBase, '/api/bot', {
+      method: 'POST',
+      cookie,
+      body: { endpoint: 'library/get', payload: { id } },
+    })
+    assert.equal(opened.status, 200, JSON.stringify(opened.json))
+    assert.equal(opened.json.ok, true)
+    assert.equal(opened.json.node.id, id)
+    assert.equal(opened.json.node.kind, 'file')
+    assert.match(opened.json.node.content, /进度|自媒体号/)
+  } finally {
+    configureDataRoot(prevRoot)
+    if (otherServer) await new Promise(resolve => otherServer.close(resolve))
+    await rm(otherDir, { recursive: true, force: true })
     await ctx.close()
   }
 })
@@ -1148,7 +1410,7 @@ test('workspace list returns host items with company sessions and does not wait 
     assert.ok(item.sessionIds.includes('co_chief'))
     assert.ok(item.sessionIds.includes('co_writer'))
     assert.ok(item.sessionIds.includes('co_ops'))
-    assert.ok(item.sessionIds.includes('co_room_mac_01JHEYBOXXIAOGUAO0001'))
+    assert.equal(item.sessionIds.includes('co_room_mac_01JHEYBOXXIAOGUAO0001'), false)
     assert.deepEqual(listed.json.value.workspaces[0].sessionIds, item.sessionIds)
   } finally {
     releaseSync()

@@ -96,13 +96,40 @@ function vditorAssets() {
   }
 }
 
+// The installed window inlines this page. A content policy written for
+// tauri://localhost would block the script, so the client build drops it.
+function desktopModuleScripts() {
+  return {
+    name: 'desktop-module-scripts',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        if (process.env.VITE_BOTCAMP_CLIENT !== '1') return html
+        return html
+          .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n?/, '')
+          .replaceAll(' crossorigin', '')
+          .replace('<div id="root"></div>', '<div id="root">正在打开 BotCamp…</div>')
+      },
+    },
+  }
+}
+
 export default defineConfig({
   root: fileURLToPath(new URL('./ui', import.meta.url)),
   base: './',
-  plugins: [ownPrimitives, vditorAssets(), kernelProxy()],
+  // The download zips live in public/ for the website. The desktop bundle must not embed them.
+  publicDir: process.env.VITE_BOTCAMP_CLIENT === '1' ? false : 'public',
+  plugins: [ownPrimitives, vditorAssets(), kernelProxy(), desktopModuleScripts()],
   resolve: { dedupe: ['react', 'react-dom'] },
   optimizeDeps: { esbuildOptions: { plugins: [vditorDepRewrite] } },
   server: { host: '127.0.0.1', port: 5173 },
   preview: { host: '127.0.0.1', port: 4173 },
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2048 },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 2048,
+    rollupOptions: process.env.VITE_BOTCAMP_CLIENT === '1'
+      ? { output: { inlineDynamicImports: true } }
+      : undefined,
+  },
 })

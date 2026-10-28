@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { feedRetryDelay } from './src/api.js'
-import { earlierBanner, visiblePending } from './src/chatSync.js'
+import { acceptFeedItem, earlierBanner, visiblePending } from './src/chatSync.js'
+import { hideWorkspaceRetry } from './src/hideRetry.js'
+import { landingSession } from './src/land.js'
 import { generateInitialPassword, issueNote, passwordToShow } from './src/initialPassword.js'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -56,6 +58,18 @@ test('a sent message already on the page is not drawn again', () => {
   assert.equal(visiblePending(twice, [{ kind: 'user', text: '好', time: 3 }]).length, 1)
 })
 
+test('a user bubble stays when the feed event is a different conversation', () => {
+  const thread = { botId: 'co_chief', part: 'co_chief', sessionId: 'co_chief' }
+  const pending = [{ kind: 'user', text: '你好', time: 1 }]
+  const other = { botId: 'co_chief', sessionId: 'session-other', item: { kind: 'user', text: '你好', time: 2 } }
+  assert.equal(acceptFeedItem(other, thread), false)
+  assert.deepEqual(visiblePending(pending, []).map(entry => entry.text), ['你好'])
+  const same = { botId: 'bot-1', sessionId: 'part-9', item: { kind: 'user', text: '你好', time: 3 } }
+  assert.equal(acceptFeedItem(same, { botId: 'bot-1', part: 'part-9', sessionId: null }), true)
+  assert.equal(acceptFeedItem(same, { botId: 'bot-1', part: 'part-1', sessionId: 'part-1' }), false)
+  assert.deepEqual(visiblePending(pending, [same.item]).map(entry => entry.text), [])
+})
+
 test('refreshing the latest page does not say it is loading earlier messages', () => {
   assert.equal(earlierBanner({ loadingEarlier: false, failed: false, cursor: 'p1' }), 'more')
   assert.equal(earlierBanner({ loadingEarlier: true, failed: false, cursor: 'p1' }), 'loading')
@@ -72,6 +86,63 @@ test('opening an account sends a generated password and shows the one the server
   assert.equal(passwordToShow({ password: 'short' }, draft), draft)
   assert.match(issueNote('a@example.com', { mustChangePassword: true }), /第一次登录必须修改/)
   assert.match(issueNote('a@example.com', {}), /可以自己修改/)
+})
+
+test('workspace listing retry is not painted in flight or on failure', () => {
+  const styles = readFileSync(`${root}/ds-bot/src/client/styles.js`, 'utf8')
+  const sidebar = readFileSync(`${root}/ds-bot/src/client/sidebar.js`, 'utf8')
+  const team = read('./src/team.js')
+  assert.match(styles, /html body \[class\*="_heroWorkspaceRow"\]\{display:none!important\}/)
+  assert.equal(sidebar.includes("t('Setting up your Main Bot…')"), false)
+  assert.match(team, /name: '主编'/)
+  assert.match(team, /name: '写稿'/)
+  assert.match(team, /name: '数据'/)
+  assert.match(team, /heardServer \? known\.revision : -1/)
+  const hidden = []
+  const row = {
+    textContent: 'Retry listing workspace',
+    children: [],
+    style: { setProperty(prop, value) { hidden.push([prop, value]) } },
+  }
+  const rootNode = {
+    textContent: '主编 Retry listing workspace',
+    querySelectorAll: () => [row],
+  }
+  hideWorkspaceRetry(rootNode)
+  assert.deepEqual(hidden, [['display', 'none']])
+  hidden.length = 0
+  hideWorkspaceRetry({ textContent: '主编 写稿 数据', querySelectorAll: () => [] })
+  assert.deepEqual(hidden, [])
+  const plus = readFileSync(`${root}/ds-bot/src/client/composer.js`, 'utf8')
+  const fn = plus.slice(plus.indexOf('export function ComposerPlus'))
+  const memoAt = fn.indexOf('const place = useMemo(')
+  const returnAt = fn.indexOf('if (sessionId === undefined || target === undefined) return null')
+  assert.ok(memoAt > 0 && returnAt > memoAt)
+})
+
+test('an open conversation that is not on the roster lands on 主编', () => {
+  const kernel = {
+    byId: {
+      'sess-chief': { id: 'bot-chief' },
+      'bot-chief': { id: 'bot-chief' },
+      'sess-writer': { id: 'bot-writer' },
+    },
+    roomsById: {},
+    bots: [
+      { id: 'bot-chief', name: '主编', sessionId: 'sess-chief' },
+      { id: 'bot-writer', name: '写稿', sessionId: 'sess-writer' },
+      { id: 'bot-ops', name: '数据', sessionId: 'sess-ops' },
+    ],
+  }
+  assert.equal(landingSession(kernel, 'co_chief'), 'sess-chief')
+  assert.equal(landingSession(kernel, 'sess-writer'), 'sess-writer')
+  const company = {
+    byId: { co_chief: { id: 'co_chief' } },
+    roomsById: { co_room_mac: { id: 'co_room_mac' } },
+    bots: [{ id: 'co_chief', name: '主编', sessionId: 'co_chief' }],
+  }
+  assert.equal(landingSession(company, 'co_chief'), 'co_chief')
+  assert.equal(landingSession(company, 'co_room_mac'), 'co_room_mac')
 })
 
 test('a feed that ends immediately waits several seconds', () => {

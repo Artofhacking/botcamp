@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-desktop-browser"
+description = "This computer's browser and cookie import"
+commands.allow = [
+  "desktop_browser_navigate",
+  "desktop_browser_eval",
+  "desktop_browser_command",
+  "desktop_browser_cookies",
+]

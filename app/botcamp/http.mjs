@@ -1,4 +1,5 @@
 import {
+  adoptCompanyTranscript,
   buildCompanyState,
   claimCompanyAccess,
   companyChatPage,
@@ -6,10 +7,12 @@ import {
   companySessionIds,
   isCompanySessionId,
   mergeProjectRooms,
+  viewerCompany,
 } from './company.mjs'
-import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stateRequestPayload } from './isolate.mjs'
-import { bindMediaDataDir, handleMediaControl, mediaOwnerIdFor } from './mediaControl.mjs'
-import { handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset } from './library.mjs'
+import { askKernelModel, withoutRelayBots } from './companyModel.mjs'
+import { CROSS_MESSAGE, QUOTA_MESSAGE, claimCreated, createAccess, decide, feedBlockAllowed, feedMessageItem, localValue, mergePrefs, releaseDeleted, rewriteValue, stampModelsKey, stateRequestPayload } from './isolate.mjs'
+import { bindMediaDataDir, grantMediaView, handleMediaControl, readableLibraryOwnerIds } from './mediaControl.mjs'
+import { ensureLinkedFile, handleLibraryControl, LIBRARY_CONTROL, matchLibraryAssetPath, readLibraryAsset, restoreLibrary, snapshotLibrary } from './library.mjs'
 import { handleWhiteboardControl, WHITEBOARD_CONTROL } from './whiteboard.mjs'
 import { usageRequestPayload } from './scope.mjs'
 import { defaultDataDir, defaultQuota, openStore } from './store.mjs'
@@ -414,13 +417,20 @@ export async function createBotcamp(options = {}) {
   }
 
   async function replyCompanyState(res, user, access) {
-    const ownerId = mediaOwnerIdFor(user)
-    claimCompanyAccess(access, ownerId)
-    const value = rewriteValue('state', buildCompanyState(ownerId, user), user, access, {})
-    // filterState rebuilds mainBotIds from user.mainBotIds; force chief as the landing DM.
+    const view = viewerCompany(user)
+    claimCompanyAccess(access, view.chatOwnerId, view.accounts)
+    const built = buildCompanyState(view.chatOwnerId, user, view.accounts)
+    const value = rewriteValue('state', built, user, access, {})
+    // Employee ids are shared. The first login to claim co_chief must not hide
+    // 主编 / 写稿 / 数据 from everyone else. Rooms stay the ones this viewer may see.
     if (value && typeof value === 'object' && !value.unchanged) {
+      value.bots = built.bots
+      value.rooms = built.rooms
       value.mainBotIds = ['co_chief']
       value.mainBotId = 'co_chief'
+      value.models = built.models
+      value.defaultModel = built.defaultModel
+      value.modelsKey = stampModelsKey(built.modelsKey, user.prefsVersion ?? 0)
     }
     await store.commitAccess(user.id, access)
     sendJson(res, 200, { ok: true, value })
@@ -440,8 +450,9 @@ export async function createBotcamp(options = {}) {
     return empty
   }
 
-  function stampWorkspaceSessions(result, ownerId) {
-    const sessionIds = companySessionIds(ownerId)
+  function stampWorkspaceSessions(result, user) {
+    const view = viewerCompany(user)
+    const sessionIds = companySessionIds(view.chatOwnerId, view.accounts)
     const lists = [result?.value?.items, result?.value?.workspaces]
     for (const list of lists) {
       if (!Array.isArray(list)) continue
@@ -450,6 +461,57 @@ export async function createBotcamp(options = {}) {
       }
     }
     return result
+  }
+
+  async function hydrateLibraries(user) {
+    const libraries = await store.readLibraries(user.id)
+    const seen = new Map()
+    for (const [ownerId, snapshot] of Object.entries(libraries)) {
+      restoreLibrary(ownerId, snapshot)
+      const ids = new Set((Array.isArray(snapshot?.nodes) ? snapshot.nodes : []).map((node) => node?.id).filter(Boolean))
+      seen.set(ownerId, ids)
+    }
+    return seen
+  }
+
+  async function recoverLinkedDocument(user, docId) {
+    if (typeof docId !== 'string' || !/^doc_[a-f0-9]+$/.test(docId)) return
+    const view = viewerCompany(user)
+    const owners = readableLibraryOwnerIds(user)
+    const ownerId = view.chatOwnerId || owners[0]
+    if (!ownerId) return
+    if (owners.some((id) => snapshotLibrary(id).nodes.some((node) => node.id === docId))) return
+    const needle = `doc://${docId}`
+    for (const sessionId of companySessionIds(view.chatOwnerId, view.accounts)) {
+      const items = await store.readTranscript(user.id, sessionId)
+      const item = items.find((entry) => typeof entry?.text === 'string' && entry.text.includes(needle))
+      if (!item) continue
+      const label = item.text.match(new RegExp(`\\[([^\\]]+)\\]\\(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`))?.[1] || '进度'
+      const summary = item.text.replace(new RegExp(`\\n*\\[[^\\]]+\\]\\(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\s*$`), '').trim()
+      ensureLinkedFile(ownerId, { id: docId, name: label, content: summary ? `${summary}\n` : '' })
+      return
+    }
+  }
+
+  async function persistLibraries(user, extraIds = [], seen = new Map()) {
+    const ids = new Set(extraIds.filter((id) => typeof id === 'string' && id))
+    for (const id of readableLibraryOwnerIds(user)) ids.add(id)
+    const remote = await store.readLibraries(user.id)
+    const snapshots = {}
+    for (const id of ids) {
+      const local = snapshotLibrary(id)
+      const started = seen.get(id) || new Set()
+      const remoteNodes = Array.isArray(remote[id]?.nodes) ? remote[id].nodes : []
+      const localIds = new Set(local.nodes.map((node) => node.id))
+      const nodes = [...local.nodes]
+      for (const node of remoteNodes) {
+        if (!node?.id || localIds.has(node.id) || started.has(node.id)) continue
+        nodes.push(node)
+        localIds.add(node.id)
+      }
+      snapshots[id] = { seeded: local.seeded || remote[id]?.seeded === true, nodes }
+    }
+    await store.writeLibraries(user.id, snapshots)
   }
 
   async function handleBot(req, res, context, body) {
@@ -463,22 +525,64 @@ export async function createBotcamp(options = {}) {
       const endpoint = body.endpoint
       const payload = body.payload ?? null
       const access = createAccess(user.id, context.resources)
-      const ownerId = mediaOwnerIdFor(user)
+      const view = viewerCompany(user)
       const sessionHint = payload?.botId || payload?.sessionId
 
-      // Company-local sessions never hit the kernel (roster / chat / send).
+      // A hosted shell cannot install the kernel's plugin update. Leaving this
+      // on the kernel holds an instance for several seconds, and the edge then
+      // answers other calls — including state — with HTTP 503.
+      if (endpoint === 'update-check') {
+        sendJson(res, 200, { ok: true, value: { available: false, phase: 'idle', name: 'ds-bot' } })
+        return
+      }
+
+      function kernelSignal() {
+        const timeout = AbortSignal.timeout(20_000)
+        if (typeof AbortSignal.any === 'function') return AbortSignal.any([client.signal, timeout])
+        return client.signal.aborted ? client.signal : timeout
+      }
+
+      async function kernelValue(endpointName, endpointPayload) {
+        const upstream = await callKernel('/api/bot', {
+          method: 'POST',
+          body: JSON.stringify({ endpoint: endpointName, payload: endpointPayload }),
+          signal: kernelSignal(),
+          namespace: user.kernelKey,
+          sessionToken: readSessionToken(req),
+        })
+        const raw = await upstream.text()
+        let parsedKernel = null
+        try { parsedKernel = raw ? JSON.parse(raw) : null } catch { parsedKernel = null }
+        if (!upstream.ok || !parsedKernel || parsedKernel.ok === false) throw new Error('kernel')
+        return parsedKernel.value
+      }
+
+      // Company chats stay on this roster. Ordinary text is answered by the model
+      // behind a kernel bot that is not one of the three employees.
       if (
         (endpoint === 'chat' || endpoint === 'earlier' || endpoint === 'send')
         && isCompanySessionId(sessionHint)
       ) {
-        claimCompanyAccess(access, ownerId)
+        claimCompanyAccess(access, view.chatOwnerId, view.accounts)
         await store.commitAccess(user.id, access)
+        // Company lines live in the shared namespace. This instance's disk is a cache.
+        const remembered = await store.readTranscript(user.id, sessionHint)
+        adoptCompanyTranscript(view.chatOwnerId, sessionHint, remembered)
         if (endpoint === 'send') {
-          const result = companySend(ownerId, payload)
+          const librarySeen = await hydrateLibraries(user)
+          const result = await companySend(
+            view.chatOwnerId,
+            payload,
+            view.accounts,
+            turn => askKernelModel(kernelValue, turn),
+          )
+          const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
+          if (page.ok && Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
+          if (result.ok) await persistLibraries(user, [view.chatOwnerId], librarySeen)
           sendJson(res, result.ok ? 200 : 400, result)
           return
         }
-        sendJson(res, 200, companyChatPage(ownerId, payload))
+        sendJson(res, 200, companyChatPage(view.chatOwnerId, payload, view.accounts))
         return
       }
 
@@ -497,7 +601,7 @@ export async function createBotcamp(options = {}) {
           return
         }
         const result = await store.exclusive(() => runWorkspace({ root, workspaceId: user.kernelKey, endpoint, payload }))
-        if (listing) stampWorkspaceSessions(result, ownerId)
+        if (listing) stampWorkspaceSessions(result, user)
         // The host retries "Retry listing workspace…" until this answer arrives.
         // Remote file sync must not hold that answer.
         if (listing) {
@@ -554,7 +658,9 @@ export async function createBotcamp(options = {}) {
       const kernelAbort = new AbortController()
       const stopKernel = () => kernelAbort.abort()
       // A hung kernel used to leave the roster empty, so the host kept listing workspaces.
-      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 1200) : null
+      // The page polls state about every 1.5s. Waiting longer than a short beat
+      // keeps this instance busy and the edge returns 503 to the next call.
+      const kernelTimer = endpoint === 'state' ? setTimeout(stopKernel, 300) : null
       if (client.signal.aborted) stopKernel()
       else client.signal.addEventListener('abort', stopKernel, { once: true })
       try {
@@ -588,6 +694,11 @@ export async function createBotcamp(options = {}) {
         for (const id of reserved) rollback.release(id)
         await store.commitAccess(user.id, rollback)
       }
+      // The model relay is not an employee. A namespace that only has it still
+      // opens the company roster, and a real kernel roster keeps its other bots.
+      if (endpoint === 'state' && parsed && typeof parsed === 'object' && parsed.ok !== false) {
+        parsed.value = withoutRelayBots(parsed.value)
+      }
       // Empty / failed kernel state → company roster so login always shows employees.
       if (
         endpoint === 'state'
@@ -613,7 +724,7 @@ export async function createBotcamp(options = {}) {
         }
         parsed.value = rewriteValue(endpoint, parsed.value, user, after, context.settings)
         if (endpoint === 'state' && parsed.ok !== false && parsed.value && !parsed.value.unchanged) {
-          parsed.value = mergeProjectRooms(parsed.value, ownerId, after)
+          parsed.value = mergeProjectRooms(parsed.value, user, after)
         }
         // Foreign / unowned kernel bots are stripped by filterState — fall back after filter.
         if (endpoint === 'state' && parsed.ok !== false && stateNeedsCompany(parsed.value, payload)) {
@@ -737,6 +848,7 @@ export async function createBotcamp(options = {}) {
   const CONTROL = new Set([
     'auth/me', 'auth/login', 'auth/logout', 'auth/signup', 'auth/password',
     'admin/list', 'admin/create', 'admin/update', 'admin/delete',
+    'media/grant',
     ...MEDIA_CONTROL,
     ...DOCS_CONTROL,
     ...BOARD_CONTROL,
@@ -769,6 +881,32 @@ export async function createBotcamp(options = {}) {
     if (body.endpoint === 'auth/signup') return handleAuth(jsonRequest(req, 'POST', '/api/auth/signup', payload), res, '/api/auth/signup')
     if (body.endpoint === 'auth/password') return handleAuth(jsonRequest(req, 'POST', '/api/auth/password', payload), res, '/api/auth/password')
 
+    if (body.endpoint === 'media/grant') {
+      const user = await currentUser(req)
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: { code: 'auth/required', message: '请先登录' } })
+        return
+      }
+      if (passwordWall(res, user)) return
+      const granteeEmail = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
+      let granteeUserId = typeof payload.userId === 'string' ? payload.userId.trim() : ''
+      if (!granteeUserId && granteeEmail) {
+        const users = await store.listUsers()
+        const found = users.find((entry) => entry.email === granteeEmail)
+        if (found) granteeUserId = found.id
+      }
+      const granted = grantMediaView(user, {
+        accountId: payload.accountId,
+        granteeUserId,
+        granteeEmail,
+      })
+      if (granted.error) {
+        sendJson(res, granted.status ?? 403, { ok: false, error: { message: granted.error } })
+        return
+      }
+      sendJson(res, 200, { ok: true, accountId: granted.accountId, grants: granted.grants })
+      return
+    }
     if (MEDIA_CONTROL.has(body.endpoint)) {
       // demo-users / login 公开；其余用 media session（Bearer/cookie）或 botcamp 会话。
       const user = await currentUser(req)
@@ -783,7 +921,11 @@ export async function createBotcamp(options = {}) {
         return
       }
       if (passwordWall(res, user)) return
-      sendMediaResult(res, await handleLibraryControl(req, body.endpoint, payload, user))
+      const librarySeen = await hydrateLibraries(user)
+      if (body.endpoint === 'library/get') await recoverLinkedDocument(user, payload.id)
+      const libraryResult = await handleLibraryControl(req, body.endpoint, payload, user)
+      await persistLibraries(user, [], librarySeen)
+      sendMediaResult(res, libraryResult)
       return
     }
     if (BOARD_CONTROL.has(body.endpoint)) {

@@ -1,8 +1,8 @@
-import { createElement as h, Fragment, useEffect, useRef, useState } from 'react'
+import { createElement as h, Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChatsIcon, ClockIcon, MicIcon, PaperclipIcon, PeopleIcon, PlusIcon, WaveIcon } from './icons.js'
 import { BotMark } from './mark.js'
-import { useLinger } from './motion.js'
+import { useLinger, useViewport, viewBottom } from './motion.js'
 import { t } from './i18n.js'
 
 // -------------------------------------------------------------------------
@@ -112,6 +112,7 @@ export function ComposerPlus({ sessionId, inputActions, useRoster, actions }) {
   const [shown, leaving] = useLinger(open, 120)
   const button = useRef(null)
   const menu = useRef(null)
+  const tick = useViewport()
   useEffect(() => {
     if (!open) return undefined
     const onDown = (event) => { if (![button.current, menu.current].some(node => node?.contains(event.target))) setOpen(null) }
@@ -120,14 +121,22 @@ export function ComposerPlus({ sessionId, inputActions, useRoster, actions }) {
     window.addEventListener('keydown', onKey, true)
     return () => { window.removeEventListener('mousedown', onDown, true); window.removeEventListener('keydown', onKey, true) }
   }, [open])
+  // Anchored to the "+" each render: the visible viewport can move (on-screen
+  // keyboard) while the menu is open. This stays above the return: the shell
+  // paints a session before its roster row exists, and skipping the hook on
+  // the next render crashes the page (React error #300).
+  const place = useMemo(() => {
+    if (!shown || !button.current) return null
+    const rect = button.current.getBoundingClientRect()
+    return { left: rect.left, bottom: viewBottom() - rect.top + 8 }
+  }, [shown, open, tick])
   const target = roster.byId?.[sessionId]?.id ?? roster.roomsById?.[sessionId]?.id
   if (sessionId === undefined || target === undefined) return null
   const fileInput = () => button.current?.closest('[data-composer-card]')?.querySelector('input[type=file]')
   const toggle = () => {
     if (open) { setOpen(null); return }
-    const rect = button.current.getBoundingClientRect()
     // Files go through the composer's own file input; a composer without one takes none.
-    setOpen({ left: rect.left, bottom: window.innerHeight - rect.top + 8, files: Boolean(fileInput()) })
+    setOpen({ files: Boolean(fileInput()) })
   }
   const attach = () => {
     setOpen(null)
@@ -151,7 +160,7 @@ export function ComposerPlus({ sessionId, inputActions, useRoster, actions }) {
     }, h(PlusIcon)),
     shown ? createPortal(h('div', {
       ref: menu, className: 'bt-menu bt-menu-up bt-plus-menu', role: 'menu', 'aria-label': t('Add'),
-      style: { left: shown.left, bottom: shown.bottom }, 'data-leaving': leaving || undefined,
+      style: place ?? {}, 'data-leaving': leaving || undefined,
     },
     shown.files ? h('button', { type: 'button', role: 'menuitem', onClick: attach }, h(PaperclipIcon), h('span', { className: 'bt-menu-label' }, t('Add files'))) : null,
     canReference ? h('button', { type: 'button', role: 'menuitem', onMouseDown: keepComposerFocus, onClick: reference }, h(ChatsIcon), h('span', { className: 'bt-menu-label' }, t('Reference a chat'))) : null,

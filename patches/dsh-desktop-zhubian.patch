@@ -1,0 +1,1145 @@
+From e62ffc5f31bddf789d0823a9d18264968250ffc4 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Wed, 28 Oct 2026 03:31:18 +0000
+Subject: [PATCH] =?UTF-8?q?Add=20=E4=B8=BB=E7=BC=96=20to=20DSH=20Desktop?=
+ =?UTF-8?q?=20with=20ledger=20chat=20and=20local=20tools.?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The stable client keeps the shared transcript, and browser and workspace actions stay inside this app. The MIT license notice is unchanged.
+---
+ dsh-plugin-desktop/src/chief/contract.ts      |   9 +
+ .../src/chief/electron-browser.ts             |  82 ++++++
+ dsh-plugin-desktop/src/chief/ledger.ts        |  87 +++++++
+ dsh-plugin-desktop/src/chief/policy.ts        |  45 ++++
+ dsh-plugin-desktop/src/chief/service.ts       |  53 ++++
+ dsh-plugin-desktop/src/chief/turn.ts          | 122 +++++++++
+ dsh-plugin-desktop/src/chief/workspace.ts     |  93 +++++++
+ dsh-plugin-desktop/src/client/chief-panel.ts  | 237 ++++++++++++++++++
+ dsh-plugin-desktop/src/client/index.ts        |   5 +
+ .../src/electron-shell-generation.ts          |  17 ++
+ dsh-plugin-desktop/src/preload.ts             |  20 ++
+ dsh-plugin-desktop/tests/chief.spec.ts        | 182 ++++++++++++++
+ dsh-plugin-desktop/tests/preload.spec.ts      |  19 ++
+ 13 files changed, 971 insertions(+)
+ create mode 100644 dsh-plugin-desktop/src/chief/contract.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/electron-browser.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/ledger.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/policy.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/service.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/turn.ts
+ create mode 100644 dsh-plugin-desktop/src/chief/workspace.ts
+ create mode 100644 dsh-plugin-desktop/src/client/chief-panel.ts
+ create mode 100644 dsh-plugin-desktop/tests/chief.spec.ts
+
+diff --git a/dsh-plugin-desktop/src/chief/contract.ts b/dsh-plugin-desktop/src/chief/contract.ts
+new file mode 100644
+index 0000000..1e415b4
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/contract.ts
+@@ -0,0 +1,9 @@
++/** IPC between the Desktop page and the 主编 browser / workspace tools. */
++
++export const CHIEF_CHANNEL = 'dsh-desktop:chief'
++
++export const CHIEF_LEDGER_URL = 'https://botcamp.demox.site/api/bot'
++
++export const CHIEF_SESSION_ID = 'co_chief'
++
++export const CHIEF_SESSION_KEY = 'dsh.chief.session'
+diff --git a/dsh-plugin-desktop/src/chief/electron-browser.ts b/dsh-plugin-desktop/src/chief/electron-browser.ts
+new file mode 100644
+index 0000000..a1f6674
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/electron-browser.ts
+@@ -0,0 +1,82 @@
++/** Electron window owned by DSH Desktop. Site cookies stay in this app's session. */
++
++import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron'
++import { hostAllowed, pageBrief } from './policy.ts'
++import type { ChiefBrowser } from './service.ts'
++
++const PAGE_SCRIPT = `({ title: document.title || '', url: location.href, text: (document.body && document.body.innerText || '').slice(0, 5000) })`
++
++async function readPage(win: BrowserWindow): Promise<string> {
++  try {
++    const page: unknown = await win.webContents.executeJavaScript(PAGE_SCRIPT, true)
++    return pageBrief(page)
++  } catch {
++    return '页面没有读到。'
++  }
++}
++
++/** Open and read pages in a Desktop window, not in an external browser. */
++export function createElectronChiefBrowser(options: {
++  BrowserWindow: new (options: BrowserWindowConstructorOptions) => BrowserWindow
++}): ChiefBrowser {
++  let window: BrowserWindow | undefined
++  let hosts: readonly string[] = []
++
++  const current = (): BrowserWindow | undefined => (
++    window !== undefined && !window.isDestroyed() ? window : undefined
++  )
++
++  const ensure = (): BrowserWindow => {
++    const existing = current()
++    if (existing) return existing
++    const created = new options.BrowserWindow({
++      width: 960,
++      height: 720,
++      title: '主编浏览器',
++      show: false,
++      autoHideMenuBar: true,
++      backgroundColor: '#202124',
++      webPreferences: {
++        partition: 'persist:dsh-chief-browser',
++        contextIsolation: true,
++        nodeIntegration: false,
++        sandbox: true,
++        webviewTag: false,
++      },
++    })
++    created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
++    const guard = (event: { preventDefault(): void }, target: string): void => {
++      if (!hostAllowed(target, hosts)) event.preventDefault()
++    }
++    created.webContents.on('will-navigate', guard)
++    created.webContents.on('will-redirect', guard)
++    window = created
++    return created
++  }
++
++  return {
++    async open(url: string, nextHosts: readonly string[]): Promise<string> {
++      hosts = nextHosts
++      if (!hostAllowed(url, hosts)) return '没有打开。这个地址不属于当前用户自己的账号站点。'
++      const win = ensure()
++      win.setTitle('主编浏览器')
++      try {
++        await win.loadURL(url)
++      } catch {
++        return '页面没有打开。'
++      }
++      win.show()
++      return readPage(win)
++    },
++    async read(): Promise<string> {
++      const win = current()
++      if (!win) return '这台电脑上还没有打开的页面。'
++      return readPage(win)
++    },
++    close(): void {
++      const win = current()
++      window = undefined
++      if (win) win.destroy()
++    },
++  }
++}
+diff --git a/dsh-plugin-desktop/src/chief/ledger.ts b/dsh-plugin-desktop/src/chief/ledger.ts
+new file mode 100644
+index 0000000..472c6d3
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/ledger.ts
+@@ -0,0 +1,87 @@
++/** Read and write 主编 on the shared project ledger. This module never deletes a transcript. */
++
++import { CHIEF_LEDGER_URL, CHIEF_SESSION_ID } from './contract.ts'
++
++const ENDPOINTS = new Set(['auth/login', 'chat', 'send'])
++
++export interface LedgerResult {
++  readonly status: number
++  readonly data: {
++    readonly ok?: boolean
++    readonly token?: string
++    readonly error?: { readonly message?: string }
++    readonly value?: { readonly items?: unknown; readonly tool?: unknown }
++  }
++}
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++/** Drop a token that could not be a session, without echoing it. */
++export function cleanToken(value: unknown): string {
++  if (typeof value !== 'string') return ''
++  const token = value.trim()
++  if (token.length === 0 || token.length > 400 || /[\s\u0000-\u001f]/u.test(token)) return ''
++  return token
++}
++
++function ledgerPayload(endpoint: string, payload: unknown): unknown {
++  if (endpoint === 'chat' || endpoint === 'send') {
++    const body = isRecord(payload) ? { ...payload } : {}
++    body.sessionId = CHIEF_SESSION_ID
++    body.botId = CHIEF_SESSION_ID
++    return body
++  }
++  if (endpoint === 'auth/login') {
++    const body = isRecord(payload) ? payload : {}
++    const email = typeof body.email === 'string' ? body.email.trim() : ''
++    const password = typeof body.password === 'string' ? body.password : ''
++    if (!email || email.length > 200 || password.length === 0 || password.length > 200) {
++      throw new Error('需要邮箱和密码。')
++    }
++    return { email, password }
++  }
++  return null
++}
++
++/**
++ * POST one allowed ledger call.
++ * Network failures use a fixed message so a token in a lower-level error cannot surface.
++ */
++export async function postLedger(
++  endpoint: string,
++  payload: unknown,
++  token: string,
++  fetchImpl: typeof fetch = fetch,
++): Promise<LedgerResult> {
++  if (!ENDPOINTS.has(endpoint)) throw new Error('没有这个接口。')
++  const body = ledgerPayload(endpoint, payload)
++  const encoded = JSON.stringify({ endpoint, payload: body })
++  if (encoded.length > 20_000) throw new Error('这条消息太长了。')
++  const headers = new Headers({
++    'content-type': 'application/json',
++    'x-botcamp-client': '1',
++  })
++  const session = cleanToken(token)
++  if (session) headers.set('authorization', `Bearer ${session}`)
++  let response: Response
++  try {
++    response = await fetchImpl(CHIEF_LEDGER_URL, {
++      method: 'POST',
++      headers,
++      body: encoded,
++      cache: 'no-store',
++    })
++  } catch {
++    throw new Error('账本暂时没有连上。')
++  }
++  let data: LedgerResult['data'] = {}
++  try {
++    const parsed: unknown = await response.json()
++    if (isRecord(parsed)) data = parsed as LedgerResult['data']
++  } catch {
++    data = {}
++  }
++  return { status: response.status, data }
++}
+diff --git a/dsh-plugin-desktop/src/chief/policy.ts b/dsh-plugin-desktop/src/chief/policy.ts
+new file mode 100644
+index 0000000..a26d412
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/policy.ts
+@@ -0,0 +1,45 @@
++/** Host and page checks for 主编's own browser. Cookies never leave this machine. */
++
++const PRIVATE_HOST = /^(?:localhost|.*\.localhost|metadata\.google\.internal)$/u
++const PRIVATE_ADDR = /^(?:127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0|\[)/u
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++/** Hosts the ledger attached to a tool call. Anything else is dropped. */
++export function allowedHosts(value: unknown): string[] {
++  if (!Array.isArray(value)) return []
++  const hosts: string[] = []
++  for (const item of value) {
++    if (typeof item !== 'string') continue
++    const host = item.trim().toLowerCase().replace(/\.$/u, '')
++    if (!/^[a-z0-9.-]{1,253}$/u.test(host) || PRIVATE_HOST.test(host)) continue
++    hosts.push(host)
++    if (hosts.length >= 32) break
++  }
++  return hosts
++}
++
++/** https pages on the signed-in user's own sites only. */
++export function hostAllowed(url: string, hosts: readonly string[]): boolean {
++  let parsed: URL
++  try { parsed = new URL(url) } catch { return false }
++  if (parsed.protocol !== 'https:') return false
++  const name = parsed.hostname.toLowerCase().replace(/\.$/u, '')
++  if (!name || PRIVATE_HOST.test(name) || PRIVATE_ADDR.test(name)) return false
++  return hosts.some(host => name === host || name.endsWith(`.${host}`))
++}
++
++/** Text the model can use after this app reads a page it opened. */
++export function pageBrief(page: unknown): string {
++  const record = isRecord(page) ? page : {}
++  const url = typeof record.url === 'string' ? record.url : ''
++  const title = typeof record.title === 'string' ? record.title : ''
++  const text = typeof record.text === 'string' ? record.text.trim() : ''
++  const body = text.slice(0, 5000)
++  if (!body) {
++    return `打开了 ${url || '页面'}${title ? `（${title}）` : ''}。页面上没有读到正文。创作者后台需要这个号自己的登录 cookie。`
++  }
++  return [`页面 ${title}`.trim(), url, body].filter(Boolean).join('\n')
++}
+diff --git a/dsh-plugin-desktop/src/chief/service.ts b/dsh-plugin-desktop/src/chief/service.ts
+new file mode 100644
+index 0000000..8746356
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/service.ts
+@@ -0,0 +1,53 @@
++/** Main-process 主编 calls: the ledger, this app's browser, and the chosen workspace. */
++
++import { postLedger, type LedgerResult } from './ledger.ts'
++import { allowedHosts } from './policy.ts'
++import { listWorkspace, readWorkspace, rememberWorkspace } from './workspace.ts'
++
++export interface ChiefBrowser {
++  open(url: string, hosts: readonly string[]): Promise<string>
++  read(): Promise<string>
++  close(): void
++}
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++/** Desktop-owned tools used by the 主编 panel. */
++export function createChiefService(options: {
++  browser: ChiefBrowser
++  userDataDir: string
++  fetchImpl?: typeof fetch
++}): {
++  handle(request: unknown): Promise<LedgerResult | string>
++  close(): void
++} {
++  const fetchImpl = options.fetchImpl ?? fetch
++  return {
++    close: () => { options.browser.close() },
++    async handle(request: unknown): Promise<LedgerResult | string> {
++      if (!isRecord(request) || typeof request.op !== 'string') throw new Error('没有这个接口。')
++      if (request.op === 'ledger') {
++        const endpoint = typeof request.endpoint === 'string' ? request.endpoint : ''
++        const token = typeof request.token === 'string' ? request.token : ''
++        return postLedger(endpoint, request.payload, token, fetchImpl)
++      }
++      if (request.op === 'browser_open') {
++        const url = typeof request.url === 'string' ? request.url : ''
++        return options.browser.open(url, allowedHosts(request.hosts))
++      }
++      if (request.op === 'browser_read') return options.browser.read()
++      if (request.op === 'computer_list') return listWorkspace(options.userDataDir)
++      if (request.op === 'computer_read') {
++        const path = typeof request.path === 'string' ? request.path : ''
++        return readWorkspace(options.userDataDir, path)
++      }
++      if (request.op === 'computer_choose') {
++        const root = typeof request.root === 'string' ? request.root : ''
++        return rememberWorkspace(options.userDataDir, root)
++      }
++      throw new Error('没有这个接口。')
++    },
++  }
++}
+diff --git a/dsh-plugin-desktop/src/chief/turn.ts b/dsh-plugin-desktop/src/chief/turn.ts
+new file mode 100644
+index 0000000..d8fda9c
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/turn.ts
+@@ -0,0 +1,122 @@
++/** One 主编 send, including browser and workspace tools on this machine. */
++
++import { allowedHosts } from './policy.ts'
++import type { LedgerResult } from './ledger.ts'
++
++export interface ChiefLine {
++  readonly kind: 'user' | 'bot'
++  readonly text: string
++}
++
++export interface ChiefTool {
++  readonly tool: string
++  readonly url: string
++  readonly path: string
++  readonly hosts: readonly string[]
++}
++
++export class ChiefTurnError extends Error {
++  readonly status: number
++  readonly reachedLedger: boolean
++
++  constructor(message: string, status: number, reachedLedger: boolean) {
++    super(message)
++    this.name = 'ChiefTurnError'
++    this.status = status
++    this.reachedLedger = reachedLedger
++  }
++}
++
++const STEPS = 3
++const STOP = '本机工具已经用过了。请根据已有结果直接回答，不要再要工具。'
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++function lineFrom(item: unknown): ChiefLine | null {
++  if (!isRecord(item) || typeof item.text !== 'string' || item.text.length === 0) return null
++  return { kind: item.kind === 'user' ? 'user' : 'bot', text: item.text }
++}
++
++/**
++ * Keep the lines already on screen unless the ledger actually returned a page.
++ * A missed refresh must not wipe the conversation.
++ */
++export function transcriptFromLedger(previous: readonly ChiefLine[], result: LedgerResult): ChiefLine[] {
++  if (result.status === 401) return [...previous]
++  const items = result.data.value?.items
++  if (!Array.isArray(items)) return [...previous]
++  const lines: ChiefLine[] = []
++  for (const item of items) {
++    const line = lineFrom(item)
++    if (line) lines.push(line)
++  }
++  return lines
++}
++
++function toolFrom(result: LedgerResult): ChiefTool | null {
++  const value = result.data.value
++  if (!isRecord(value) || !isRecord(value.tool) || typeof value.tool.tool !== 'string') return null
++  return {
++    tool: value.tool.tool,
++    url: typeof value.tool.url === 'string' ? value.tool.url : '',
++    path: typeof value.tool.path === 'string' ? value.tool.path : '',
++    hosts: allowedHosts(value.tool.hosts),
++  }
++}
++
++function assertAccepted(result: LedgerResult): void {
++  if (result.status === 401) throw new ChiefTurnError('需要登录', 401, true)
++  if (result.data.ok === false) {
++    const message = result.data.error?.message
++    throw new ChiefTurnError(
++      typeof message === 'string' && message ? message : '模型这次没有答上来。',
++      result.status,
++      true,
++    )
++  }
++  if (result.status < 200 || result.status >= 300) {
++    throw new ChiefTurnError('账本暂时没有连上。', result.status, true)
++  }
++}
++
++/** Ask 主编. Tool JSON is run here and is not stored by this function. */
++export async function sendChiefTurn(options: {
++  text: string
++  ledger: (payload: Record<string, unknown>) => Promise<LedgerResult>
++  runTool: (tool: ChiefTool) => Promise<string>
++}): Promise<void> {
++  const text = options.text.trim()
++  if (!text) throw new ChiefTurnError('写一句再发送。', 0, false)
++  let payload: Record<string, unknown> = {
++    sessionId: 'co_chief',
++    botId: 'co_chief',
++    text,
++    desktop: true,
++  }
++  for (let step = 0; step < STEPS; step += 1) {
++    const result = await options.ledger(payload)
++    const tool = toolFrom(result)
++    if (!tool) {
++      assertAccepted(result)
++      return
++    }
++    const observed = String(await options.runTool(tool)).slice(0, 6000)
++    payload = {
++      sessionId: 'co_chief',
++      botId: 'co_chief',
++      text,
++      desktop: true,
++      resume: true,
++      toolResult: { text: observed },
++    }
++  }
++  const last = await options.ledger({
++    ...payload,
++    resume: true,
++    toolResult: { text: STOP },
++  })
++  if (toolFrom(last)) throw new ChiefTurnError('模型这次没有答上来。', last.status, true)
++  assertAccepted(last)
++}
+diff --git a/dsh-plugin-desktop/src/chief/workspace.ts b/dsh-plugin-desktop/src/chief/workspace.ts
+new file mode 100644
+index 0000000..3fef9fd
+--- /dev/null
++++ b/dsh-plugin-desktop/src/chief/workspace.ts
+@@ -0,0 +1,93 @@
++/** List and read a folder the person picked inside this Desktop app. */
++
++import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
++import { isAbsolute, join, relative, resolve, sep } from 'node:path'
++
++const ROOT_FILE = 'chief-workspace.txt'
++const SKIP = new Set(['node_modules', '.git'])
++const MAX_FILES = 200
++const MAX_DEPTH = 4
++const MAX_BYTES = 1_000_000
++
++function rootFile(userDataDir: string): string {
++  return join(userDataDir, ROOT_FILE)
++}
++
++/** Remember one absolute directory. The path stays on this computer. */
++export function rememberWorkspace(userDataDir: string, root: string): string {
++  if (typeof root !== 'string' || root.includes('\0') || !isAbsolute(root)) {
++    throw new Error('工作区路径无效。')
++  }
++  if (!statSync(root).isDirectory()) throw new Error('工作区需要是一个文件夹。')
++  const real = realpathSync(root)
++  mkdirSync(userDataDir, { recursive: true })
++  writeFileSync(rootFile(userDataDir), real, { encoding: 'utf8', mode: 0o600 })
++  return real
++}
++
++/** @returns the chosen folder, or null when none has been chosen. */
++export function readWorkspaceRoot(userDataDir: string): string | null {
++  try {
++    const text = readFileSync(rootFile(userDataDir), 'utf8').trim()
++    if (!text || text.includes('\0') || !isAbsolute(text) || !statSync(text).isDirectory()) return null
++    return realpathSync(text)
++  } catch {
++    return null
++  }
++}
++
++/** Resolve a relative file and refuse anything outside the chosen folder. */
++export function resolveInside(root: string, relPath: string): string {
++  if (typeof relPath !== 'string') throw new Error('没有这份文件。')
++  const rel = relPath.trim().replaceAll('\\', '/')
++  const parts = rel.split('/')
++  if (!rel || rel.startsWith('/') || parts.some(part => part === '' || part === '.' || part === '..')) {
++    throw new Error('没有这份文件。')
++  }
++  const rootReal = realpathSync(root)
++  const full = resolve(rootReal, ...parts)
++  let real = full
++  try { real = realpathSync(full) } catch { throw new Error('没有这份文件。') }
++  const diff = relative(rootReal, real)
++  if (diff === '' || diff.startsWith('..') || isAbsolute(diff)) throw new Error('没有这份文件。')
++  return real
++}
++
++/** Relative paths under the chosen folder, one per line. */
++export function listWorkspace(userDataDir: string): string {
++  const root = readWorkspaceRoot(userDataDir)
++  if (!root) return '还没有选择这台电脑上的工作区。'
++  const files: string[] = []
++  const walk = (dir: string, depth: number): void => {
++    if (files.length >= MAX_FILES || depth > MAX_DEPTH) return
++    let entries: ReturnType<typeof readdirSync>
++    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
++    for (const entry of entries) {
++      if (files.length >= MAX_FILES || SKIP.has(entry.name)) continue
++      const full = join(dir, entry.name)
++      let info: ReturnType<typeof lstatSync>
++      try { info = lstatSync(full) } catch { continue }
++      if (info.isSymbolicLink()) continue
++      if (info.isDirectory()) walk(full, depth + 1)
++      else if (info.isFile()) files.push(relative(root, full).split(sep).join('/'))
++    }
++  }
++  walk(root, 0)
++  files.sort()
++  if (files.length === 0) return '这个工作区里没有读到文件。'
++  return files.join('\n')
++}
++
++/** UTF-8 text of one relative file, clipped. Missing and escaping paths do not throw past the caller. */
++export function readWorkspace(userDataDir: string, relPath: string): string {
++  const root = readWorkspaceRoot(userDataDir)
++  if (!root) return '还没有选择这台电脑上的工作区。'
++  let full: string
++  try { full = resolveInside(root, relPath) } catch (error) {
++    return error instanceof Error ? error.message : '没有这份文件。'
++  }
++  let info: ReturnType<typeof statSync>
++  try { info = statSync(full) } catch { return '没有这份文件。' }
++  if (!info.isFile() || info.size > MAX_BYTES) return '这份文件太大或不是文本。'
++  return readFileSync(full, 'utf8').slice(0, 8000)
++}
+diff --git a/dsh-plugin-desktop/src/client/chief-panel.ts b/dsh-plugin-desktop/src/client/chief-panel.ts
+new file mode 100644
+index 0000000..396fb5c
+--- /dev/null
++++ b/dsh-plugin-desktop/src/client/chief-panel.ts
+@@ -0,0 +1,237 @@
++/** 主编 inside DSH Desktop. The transcript is reloaded from the shared ledger. */
++
++import { CHIEF_SESSION_ID, CHIEF_SESSION_KEY } from '../chief/contract.ts'
++import type { LedgerResult } from '../chief/ledger.ts'
++import {
++  ChiefTurnError,
++  sendChiefTurn,
++  transcriptFromLedger,
++  type ChiefLine,
++  type ChiefTool,
++} from '../chief/turn.ts'
++
++interface DshChiefBridge {
++  ledger(endpoint: string, payload: unknown, token: string): Promise<LedgerResult>
++  browser: {
++    open(url: string, hosts: readonly string[]): Promise<string>
++    read(): Promise<string>
++  }
++  computer: {
++    list(): Promise<string>
++    read(path: string): Promise<string>
++    choose(root: string): Promise<string>
++  }
++}
++
++interface DirectoryPicker {
++  pick(): Promise<string | null>
++}
++
++declare global {
++  interface Window {
++    dshChief?: DshChiefBridge
++    __DSH_DIRECTORY_PICKER__?: DirectoryPicker
++  }
++}
++
++const CSS = `
++#dsh-chief-root { position: fixed; left: 16px; bottom: 16px; z-index: 2147483000; font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; color: #f3f4f6; }
++#dsh-chief-root * { box-sizing: border-box; }
++#dsh-chief-open { border: 0; border-radius: 999px; padding: 8px 14px; background: #2563eb; color: white; cursor: pointer; }
++#dsh-chief-panel { display: flex; flex-direction: column; width: min(420px, calc(100vw - 32px)); height: min(560px, calc(100vh - 88px)); margin-bottom: 8px; padding: 12px; background: #1c1e22; border: 1px solid #34383f; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
++#dsh-chief-panel[hidden] { display: none; }
++#dsh-chief-panel header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
++#dsh-chief-panel header strong { font-size: 16px; }
++#dsh-chief-log { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
++.dsh-chief-line { max-width: 90%; padding: 8px 10px; border-radius: 10px; white-space: pre-wrap; word-break: break-word; }
++.dsh-chief-line[data-kind="user"] { align-self: flex-end; background: #243044; }
++.dsh-chief-line[data-kind="bot"] { align-self: flex-start; background: #2a2d33; }
++#dsh-chief-panel form, #dsh-chief-login { display: flex; gap: 8px; margin-top: 8px; }
++#dsh-chief-login { flex-direction: column; }
++#dsh-chief-login[hidden] { display: none; }
++#dsh-chief-panel input, #dsh-chief-panel textarea { width: 100%; border: 1px solid #3a3f47; border-radius: 8px; padding: 8px; background: #111317; color: inherit; }
++#dsh-chief-panel textarea { min-height: 64px; resize: vertical; }
++#dsh-chief-panel button { border: 0; border-radius: 8px; padding: 8px 10px; background: #2f343c; color: inherit; cursor: pointer; }
++#dsh-chief-send { background: #2563eb; color: white; }
++#dsh-chief-status { min-height: 1.2em; margin: 6px 0 0; color: #c5cad3; font-size: 12px; }
++`
++
++function readToken(): string {
++  try { return localStorage.getItem(CHIEF_SESSION_KEY) ?? '' } catch { return '' }
++}
++
++function saveToken(token: string): void {
++  localStorage.setItem(CHIEF_SESSION_KEY, token)
++}
++
++function el<K extends keyof HTMLElementTagNameMap>(
++  name: K,
++  attrs: Record<string, string> = {},
++  text = '',
++): HTMLElementTagNameMap[K] {
++  const node = document.createElement(name)
++  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value)
++  if (text) node.textContent = text
++  return node
++}
++
++/** Mount the 主编 button. Reloading the window reads the ledger again. */
++export function installChiefPanel(): () => void {
++  if (typeof document === 'undefined') return () => {}
++  document.getElementById('dsh-chief-root')?.remove()
++  document.getElementById('dsh-chief-style')?.remove()
++  const style = el('style', { id: 'dsh-chief-style' })
++  style.textContent = CSS
++  document.head.appendChild(style)
++
++  const root = el('div', { id: 'dsh-chief-root' })
++  const panel = el('section', { id: 'dsh-chief-panel', hidden: '' })
++  panel.setAttribute('aria-label', '主编')
++  const header = el('header')
++  header.append(el('strong', {}, '主编'), el('button', { type: 'button', id: 'dsh-chief-refresh' }, '刷新'))
++  const log = el('div', { id: 'dsh-chief-log' })
++  const login = el('form', { id: 'dsh-chief-login', hidden: '' })
++  const email = el('input', { type: 'email', name: 'email', autocomplete: 'username', placeholder: '邮箱' })
++  const password = el('input', { type: 'password', name: 'password', autocomplete: 'current-password', placeholder: '密码' })
++  login.append(email, password, el('button', { type: 'submit' }, '登录'))
++  const composer = el('form', { id: 'dsh-chief-composer' })
++  const input = el('textarea', { id: 'dsh-chief-input', placeholder: '发给主编' })
++  const send = el('button', { type: 'submit', id: 'dsh-chief-send' }, '发送')
++  composer.append(input, send)
++  const tools = el('div')
++  const choose = el('button', { type: 'button', id: 'dsh-chief-workspace' }, '选择工作区')
++  tools.append(choose)
++  const status = el('p', { id: 'dsh-chief-status' })
++  panel.append(header, log, login, composer, tools, status)
++  const open = el('button', { type: 'button', id: 'dsh-chief-open' }, '主编')
++  root.append(panel, open)
++  document.body.appendChild(root)
++
++  let lines: ChiefLine[] = []
++  let busy = false
++
++  const paint = (next: readonly ChiefLine[]): void => {
++    lines = [...next]
++    log.replaceChildren()
++    if (lines.length === 0) {
++      log.append(el('p', { class: 'dsh-chief-line', 'data-kind': 'bot' }, '对话会显示在这里。'))
++      return
++    }
++    for (const line of lines) {
++      const row = el('p', { class: 'dsh-chief-line', 'data-kind': line.kind })
++      row.textContent = line.text
++      log.append(row)
++    }
++    log.scrollTop = log.scrollHeight
++  }
++
++  const bridge = (): DshChiefBridge | null => window.dshChief ?? null
++
++  const refresh = async (): Promise<void> => {
++    const desktop = bridge()
++    if (!desktop) {
++      status.textContent = '主编需要从这个桌面窗口打开。'
++      return
++    }
++    const result = await desktop.ledger('chat', { sessionId: CHIEF_SESSION_ID, botId: CHIEF_SESSION_ID }, readToken())
++    if (result.status === 401) {
++      login.hidden = false
++      status.textContent = '登录后，这段对话记在共享账本上。'
++      return
++    }
++    login.hidden = true
++    if (!Array.isArray(result.data.value?.items)) return
++    paint(transcriptFromLedger(lines, result))
++  }
++
++  const runTool = async (tool: ChiefTool): Promise<string> => {
++    const desktop = bridge()
++    if (!desktop) return '这个窗口没有本机浏览器。'
++    if (tool.tool === 'browser_open') {
++      status.textContent = '正在使用这个应用自己的浏览器…'
++      return desktop.browser.open(tool.url, tool.hosts)
++    }
++    if (tool.tool === 'browser_read') {
++      status.textContent = '正在读取这个应用打开的页面…'
++      return desktop.browser.read()
++    }
++    if (tool.tool === 'computer_list') {
++      status.textContent = '正在列出这台电脑上的工作区…'
++      return desktop.computer.list()
++    }
++    if (tool.tool === 'computer_read') {
++      status.textContent = '正在读取这台电脑上的文件…'
++      return desktop.computer.read(tool.path)
++    }
++    return '没有这个本机工具。'
++  }
++
++  open.addEventListener('click', () => {
++    panel.hidden = !panel.hidden
++    if (!panel.hidden) void refresh().catch(() => { status.textContent = '账本暂时没有连上。' })
++  })
++  header.querySelector('#dsh-chief-refresh')?.addEventListener('click', () => {
++    void refresh().catch(() => { status.textContent = '账本暂时没有连上。' })
++  })
++  login.addEventListener('submit', event => {
++    event.preventDefault()
++    const desktop = bridge()
++    if (!desktop || busy) return
++    busy = true
++    void desktop.ledger('auth/login', { email: email.value, password: password.value }, '').then(result => {
++      const token = result.data.token
++      if (result.status === 200 && typeof token === 'string' && token.length >= 20) {
++        saveToken(token)
++        password.value = ''
++        login.hidden = true
++        status.textContent = '已登录。'
++        return refresh()
++      }
++      status.textContent = '登录没有成功。'
++      return undefined
++    }).catch(() => { status.textContent = '账本暂时没有连上。' }).finally(() => { busy = false })
++  })
++  composer.addEventListener('submit', event => {
++    event.preventDefault()
++    const desktop = bridge()
++    const text = input.value
++    if (!desktop || busy || !text.trim()) return
++    busy = true
++    send.disabled = true
++    void sendChiefTurn({
++      text,
++      ledger: payload => desktop.ledger('send', payload, readToken()),
++      runTool,
++    }).then(() => {
++      input.value = ''
++      status.textContent = ''
++    }).catch((error: unknown) => {
++      if (error instanceof ChiefTurnError && error.status !== 401 && error.reachedLedger) input.value = ''
++      status.textContent = error instanceof Error ? error.message.slice(0, 200) : '没有发送。'
++      if (error instanceof ChiefTurnError && error.status === 401) login.hidden = false
++    }).finally(() => {
++      busy = false
++      send.disabled = false
++      void refresh().catch(() => {})
++    })
++  })
++  choose.addEventListener('click', () => {
++    const desktop = bridge()
++    const picker = window.__DSH_DIRECTORY_PICKER__
++    if (!desktop || !picker) {
++      status.textContent = '这个窗口还不能选择文件夹。'
++      return
++    }
++    void picker.pick().then(path => {
++      if (!path) return undefined
++      return desktop.computer.choose(path)
++    }).then(chosen => {
++      if (typeof chosen === 'string') status.textContent = '已选择工作区。'
++    }).catch(() => { status.textContent = '工作区没有选上。' })
++  })
++
++  return () => {
++    root.remove()
++    style.remove()
++  }
++}
+diff --git a/dsh-plugin-desktop/src/client/index.ts b/dsh-plugin-desktop/src/client/index.ts
+index 2c7aa66..70c93c7 100644
+--- a/dsh-plugin-desktop/src/client/index.ts
++++ b/dsh-plugin-desktop/src/client/index.ts
+@@ -24,6 +24,7 @@ import { applyDesktopSettings } from './desktop-settings.ts'
+ import { installDesktopDirectoryPickerBridge } from './directory-picker.ts'
+ import { parseDesktopClientEnvironment } from './environment.ts'
+ import { applyExtendedShell } from './extended-shell.ts'
++import { installChiefPanel } from './chief-panel.ts'
+ import { installDesktopLaunchWorkspaceBridge } from './launch-workspace.ts'
+ import { DESKTOP_SETTINGS_FORMS_SERVICE } from './settings-bridge.ts'
+ import { installSidebarFooterStyles } from './sidebar-footer-styles.ts'
+@@ -148,6 +149,10 @@ export function apply(ctx: ClientContext): void {
+     () => installSidebarFooterStyles(),
+     'dsh-plugin-desktop: sidebar footer stacking styles',
+   )
++  ctx.effect(
++    () => installChiefPanel(),
++    'dsh-plugin-desktop: 主编',
++  )
+   ctx.effect(
+     () => startRendererBootReporter(ctx.loader),
+     'dsh-plugin-desktop: renderer boot health report',
+diff --git a/dsh-plugin-desktop/src/electron-shell-generation.ts b/dsh-plugin-desktop/src/electron-shell-generation.ts
+index d53fb33..aaf8d3e 100644
+--- a/dsh-plugin-desktop/src/electron-shell-generation.ts
++++ b/dsh-plugin-desktop/src/electron-shell-generation.ts
+@@ -25,6 +25,9 @@ import {
+   desktopOpenWorkspaceScript,
+   type DesktopOpenWorkspaceDelivery,
+ } from './launch-workspace-contract.ts'
++import { createElectronChiefBrowser } from './chief/electron-browser.ts'
++import { CHIEF_CHANNEL } from './chief/contract.ts'
++import { createChiefService } from './chief/service.ts'
+ import { DESKTOP_RENDERER_ACTION_CHANNEL } from './renderer-actions-contract.ts'
+ import { DESKTOP_NATIVE_DIRECTORY_PICKER_CHANNEL } from './directory-picker-contract.ts'
+ import { createDesktopRendererActionDispatcher } from './renderer-actions-dispatch.ts'
+@@ -395,6 +398,18 @@ export class ElectronShellGeneration {
+         spec.applySetupSettings === undefined ? undefined : settings => spec.applySetupSettings!(settings))
+     })
+ 
++    const chief = createChiefService({
++      browser: createElectronChiefBrowser({ BrowserWindow }),
++      userDataDir: app.getPath('userData'),
++    })
++    renderer.ipc.handle(CHIEF_CHANNEL, async (event, request: unknown) => {
++      if (this.released || event.sender !== renderer || event.senderFrame !== renderer.mainFrame
++        || !sameOriginFrame(event.senderFrame.url, origin)) {
++        throw new Error('dsh-plugin-desktop: untrusted 主编 sender')
++      }
++      return chief.handle(request)
++    })
++
+     let stateWriteTimer: ReturnType<typeof setTimeout> | undefined
+     const persistWindowState = (): void => {
+       if (stateWriteTimer !== undefined) {
+@@ -653,7 +668,9 @@ export class ElectronShellGeneration {
+         renderer.ipc.removeHandler(DESKTOP_RENDERER_ACTION_CHANNEL)
+         if (platform.platform === 'darwin') renderer.ipc.removeHandler(DESKTOP_NATIVE_DIRECTORY_PICKER_CHANNEL)
+         renderer.ipc.removeHandler(SETUP_ONBOARDING_CHANNEL)
++        renderer.ipc.removeHandler(CHIEF_CHANNEL)
+       }
++      chief.close()
+       if (isolated) {
+         chrome.off('before-input-event', handleZoomShortcut)
+         chrome.off('render-process-gone', rendererGone)
+diff --git a/dsh-plugin-desktop/src/preload.ts b/dsh-plugin-desktop/src/preload.ts
+index 95958e9..272d4bd 100644
+--- a/dsh-plugin-desktop/src/preload.ts
++++ b/dsh-plugin-desktop/src/preload.ts
+@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
+ import { SETUP_ONBOARDING_CHANNEL } from './setup-onboarding-bridge.ts'
+ import { DESKTOP_HOST_PATHS_BRIDGE } from './file-path-bridge-contract.ts'
+ import { DESKTOP_NATIVE_DIRECTORY_PICKER_CHANNEL } from './directory-picker-contract.ts'
++import { CHIEF_CHANNEL } from './chief/contract.ts'
+ import {
+   DESKTOP_RENDERER_ACTION_CHANNEL,
+   DESKTOP_RENDERER_ACTIONS_BRIDGE,
+@@ -39,8 +40,27 @@ if (process.platform === 'darwin') {
+ // without `updates` or `browser` keeps upstream update badges and the embedded
+ // browser tab on their Web fallbacks, and turns on the DeepSeek account entry whose
+ // Platform sign-in the Host hands to the native shell (src/platform-login.ts).
++// 主编 uses `dshChief` instead, so this marker stays exactly version 1.
+ contextBridge.exposeInMainWorld('dshDesktop', Object.freeze({ protocolVersion: 1 }))
+ 
++contextBridge.exposeInMainWorld('dshChief', Object.freeze({
++  protocolVersion: 1,
++  ledger: (endpoint: string, payload: unknown, token: string) => ipcRenderer.invoke(CHIEF_CHANNEL, {
++    op: 'ledger', endpoint, payload, token,
++  }),
++  browser: Object.freeze({
++    open: (url: string, hosts: readonly string[]) => ipcRenderer.invoke(CHIEF_CHANNEL, {
++      op: 'browser_open', url, hosts: [...hosts],
++    }),
++    read: () => ipcRenderer.invoke(CHIEF_CHANNEL, { op: 'browser_read' }),
++  }),
++  computer: Object.freeze({
++    list: () => ipcRenderer.invoke(CHIEF_CHANNEL, { op: 'computer_list' }),
++    read: (path: string) => ipcRenderer.invoke(CHIEF_CHANNEL, { op: 'computer_read', path }),
++    choose: (root: string) => ipcRenderer.invoke(CHIEF_CHANNEL, { op: 'computer_choose', root }),
++  }),
++}))
++
+ contextBridge.exposeInMainWorld('dshDesktopSetup', {
+   read: () => ipcRenderer.invoke(SETUP_ONBOARDING_CHANNEL, { action: 'read' }),
+   dismissAccount: (profile: string) => ipcRenderer.invoke(SETUP_ONBOARDING_CHANNEL, { action: 'dismiss-account', profile }),
+diff --git a/dsh-plugin-desktop/tests/chief.spec.ts b/dsh-plugin-desktop/tests/chief.spec.ts
+new file mode 100644
+index 0000000..1e5ebb7
+--- /dev/null
++++ b/dsh-plugin-desktop/tests/chief.spec.ts
+@@ -0,0 +1,182 @@
++import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { describe, expect, it } from 'vitest'
++import { CHIEF_LEDGER_URL } from '../src/chief/contract.ts'
++import { createElectronChiefBrowser } from '../src/chief/electron-browser.ts'
++import { postLedger } from '../src/chief/ledger.ts'
++import { hostAllowed } from '../src/chief/policy.ts'
++import { createChiefService, type ChiefBrowser } from '../src/chief/service.ts'
++import { sendChiefTurn, transcriptFromLedger, ChiefTurnError } from '../src/chief/turn.ts'
++import { readWorkspace } from '../src/chief/workspace.ts'
++
++function fakeBrowser(): ChiefBrowser & { calls: Array<{ url: string; hosts: readonly string[] }> } {
++  const calls: Array<{ url: string; hosts: readonly string[] }> = []
++  return {
++    calls,
++    async open(url, hosts) {
++      calls.push({ url, hosts })
++      return hostAllowed(url, hosts) ? '打开了页面' : '没有打开。这个地址不属于当前用户自己的账号站点。'
++    },
++    async read() { return '当前页' },
++    close() {},
++  }
++}
++
++describe('主编 ledger and desktop tools', () => {
++  it('allows only the signed-in site over https', () => {
++    expect(hostAllowed('https://www.xiaoheihe.cn/creator', ['xiaoheihe.cn'])).toBe(true)
++    expect(hostAllowed('http://www.xiaoheihe.cn/', ['xiaoheihe.cn'])).toBe(false)
++    expect(hostAllowed('https://evil.example/', ['xiaoheihe.cn'])).toBe(false)
++    expect(hostAllowed('https://127.0.0.1/', ['127.0.0.1'])).toBe(false)
++  })
++
++  it('posts 主编 chat to the shared ledger and refuses other endpoints', async () => {
++    const seen: Array<{ url: string; body: string; authorization: string | null }> = []
++    const fetchImpl: typeof fetch = async (input, init) => {
++      const headers = new Headers(init?.headers)
++      seen.push({
++        url: String(input),
++        body: String(init?.body),
++        authorization: headers.get('authorization'),
++      })
++      return new Response(JSON.stringify({ ok: true, value: { items: [{ kind: 'user', text: '还在' }] } }), { status: 200 })
++    }
++    const result = await postLedger('chat', { sessionId: 'other', botId: 'other' }, '', fetchImpl)
++    expect(seen[0]?.url).toBe(CHIEF_LEDGER_URL)
++    expect(seen[0]?.body).toContain('"sessionId":"co_chief"')
++    expect(seen[0]?.body).not.toContain('other')
++    expect(seen[0]?.authorization).toBeNull()
++    expect(result.data.value?.items).toEqual([{ kind: 'user', text: '还在' }])
++    await expect(postLedger('delete', {}, '', fetchImpl)).rejects.toThrow('没有这个接口。')
++    expect(seen).toHaveLength(1)
++  })
++
++  it('hides a token when the ledger cannot be reached', async () => {
++    const sample = 'sample-session-token'
++    const fetchImpl: typeof fetch = async () => { throw new Error(`down ${sample}`) }
++    const service = createChiefService({ browser: fakeBrowser(), userDataDir: '/tmp/unused', fetchImpl })
++    await expect(service.handle({ op: 'ledger', endpoint: 'chat', payload: {}, token: sample }))
++      .rejects.toThrow('账本暂时没有连上。')
++    try {
++      await service.handle({ op: 'ledger', endpoint: 'send', payload: { text: '你好' }, token: sample })
++    } catch (error) {
++      expect(error instanceof Error && error.message.includes(sample)).toBe(false)
++    }
++  })
++
++  it('keeps the visible transcript when a refresh does not return items', () => {
++    const previous = [{ kind: 'user' as const, text: '还在' }]
++    expect(transcriptFromLedger(previous, { status: 500, data: {} })).toEqual(previous)
++    expect(transcriptFromLedger(previous, { status: 401, data: {} })).toEqual(previous)
++    expect(transcriptFromLedger(previous, {
++      status: 200,
++      data: { value: { items: [{ kind: 'user', text: '还在' }, { kind: 'bot', text: '我是主编。' }] } },
++    })).toEqual([
++      { kind: 'user', text: '还在' },
++      { kind: 'bot', text: '我是主编。' },
++    ])
++  })
++
++  it('runs a desktop tool and then asks for a reply without clearing the send', async () => {
++    const calls: Record<string, unknown>[] = []
++    await sendChiefTurn({
++      text: '看看后台',
++      ledger: async payload => {
++        calls.push(payload)
++        if (calls.length === 1) {
++          return {
++            status: 200,
++            data: { ok: true, value: { tool: { tool: 'browser_open', url: 'https://www.xiaoheihe.cn/', hosts: ['xiaoheihe.cn'] } } },
++          }
++        }
++        return { status: 200, data: { ok: true, value: {} } }
++      },
++      runTool: async () => '页面 后台',
++    })
++    expect(calls[0]).toMatchObject({ desktop: true, text: '看看后台', sessionId: 'co_chief' })
++    expect(calls[0]).not.toHaveProperty('resume')
++    expect(calls[1]).toMatchObject({ resume: true, desktop: true, toolResult: { text: '页面 后台' } })
++  })
++
++  it('leaves a failed model send marked on the ledger instead of dropping it', async () => {
++    let calls = 0
++    await expect(sendChiefTurn({
++      text: '用一句话介绍你自己',
++      ledger: async () => {
++        calls += 1
++        return { status: 200, data: { ok: false, error: { message: '模型这次没有答上来。' } } }
++      },
++      runTool: async () => 'unused',
++    })).rejects.toBeInstanceOf(ChiefTurnError)
++    expect(calls).toBe(1)
++  })
++
++  it('reads only files inside the chosen workspace', async () => {
++    const parent = mkdtempSync(join(tmpdir(), 'dsh-chief-'))
++    const root = join(parent, 'work')
++    const userData = join(parent, 'user')
++    try {
++      mkdirSync(root)
++      mkdirSync(userData)
++      writeFileSync(join(root, '标题.md'), '正文')
++      writeFileSync(join(parent, 'secret.txt'), 'outside-marker')
++      symlinkSync(join(parent, 'secret.txt'), join(root, 'link.txt'))
++      const service = createChiefService({ browser: fakeBrowser(), userDataDir: userData })
++      const chosen = await service.handle({ op: 'computer_choose', root })
++      expect(chosen).toBe(root)
++      const listing = await service.handle({ op: 'computer_list' })
++      expect(listing).toContain('标题.md')
++      expect(listing).not.toContain('secret.txt')
++      expect(listing).not.toContain('link.txt')
++      expect(await service.handle({ op: 'computer_read', path: '标题.md' })).toBe('正文')
++      const escaped = await service.handle({ op: 'computer_read', path: '../secret.txt' })
++      expect(escaped).toBe('没有这份文件。')
++      expect(String(escaped)).not.toContain('outside-marker')
++      expect(readWorkspace(userData, 'link.txt')).not.toContain('outside-marker')
++    } finally {
++      rmSync(parent, { recursive: true, force: true })
++    }
++  })
++
++  it('opens an allowed page in the desktop browser and blocks any other host', async () => {
++    const loads: string[] = []
++    const guards: Array<(event: { preventDefault(): void }, url: string) => void> = []
++    class FakeWindow {
++      destroyed = false
++      shown = false
++      webContents = {
++        setWindowOpenHandler() {},
++        on(name: string, listener: (event: { preventDefault(): void }, url: string) => void) {
++          if (name === 'will-navigate') guards.push(listener)
++        },
++        async executeJavaScript() {
++          return { title: '后台', url: 'https://www.xiaoheihe.cn/', text: '可见正文' }
++        },
++      }
++      constructor(_options: object) {}
++      isDestroyed(): boolean { return this.destroyed }
++      setTitle(): void {}
++      show(): void { this.shown = true }
++      destroy(): void { this.destroyed = true }
++      async loadURL(url: string): Promise<void> { loads.push(url) }
++    }
++    const browser = createElectronChiefBrowser({
++      BrowserWindow: FakeWindow as unknown as new (options: object) => FakeWindow,
++    })
++    const opened = await browser.open('https://www.xiaoheihe.cn/creator', ['xiaoheihe.cn'])
++    expect(opened).toContain('可见正文')
++    expect(loads).toEqual(['https://www.xiaoheihe.cn/creator'])
++    const blocked = await browser.open('https://evil.example/phish', ['xiaoheihe.cn'])
++    expect(blocked).toContain('没有打开')
++    expect(loads).toEqual(['https://www.xiaoheihe.cn/creator'])
++    const guard = guards[0]
++    expect(guard).toEqual(expect.any(Function))
++    let prevented = false
++    guard?.({ preventDefault() { prevented = true } }, 'https://evil.example/')
++    expect(prevented).toBe(true)
++    prevented = false
++    guard?.({ preventDefault() { prevented = true } }, 'https://www.xiaoheihe.cn/next')
++    expect(prevented).toBe(false)
++  })
++})
+diff --git a/dsh-plugin-desktop/tests/preload.spec.ts b/dsh-plugin-desktop/tests/preload.spec.ts
+index 24ffd24..81691fb 100644
+--- a/dsh-plugin-desktop/tests/preload.spec.ts
++++ b/dsh-plugin-desktop/tests/preload.spec.ts
+@@ -9,6 +9,7 @@ import {
+   DESKTOP_RENDERER_ACTIONS_BRIDGE,
+   type DesktopRendererActionsBridge,
+ } from '../src/renderer-actions-contract.ts'
++import { CHIEF_CHANNEL } from '../src/chief/contract.ts'
+ import { SETUP_ONBOARDING_CHANNEL } from '../src/setup-onboarding-bridge.ts'
+ 
+ const electron = vi.hoisted(() => {
+@@ -81,6 +82,24 @@ describe('Desktop renderer preload bridges', () => {
+ 
+     expect(electron.exposed.get('dshDesktop')).toEqual({ protocolVersion: 1 })
+ 
++    const chief = electron.exposed.get('dshChief') as {
++      protocolVersion: number
++      ledger(endpoint: string, payload: unknown, token: string): Promise<unknown>
++      browser: { open(url: string, hosts: readonly string[]): Promise<unknown> }
++      computer: { list(): Promise<unknown> }
++    }
++    expect(chief.protocolVersion).toBe(1)
++    await chief.ledger('chat', { sessionId: 'co_chief' }, '')
++    await chief.browser.open('https://www.xiaoheihe.cn/', ['xiaoheihe.cn'])
++    await chief.computer.list()
++    expect(electron.ipcRenderer.invoke).toHaveBeenCalledWith(CHIEF_CHANNEL, {
++      op: 'ledger', endpoint: 'chat', payload: { sessionId: 'co_chief' }, token: '',
++    })
++    expect(electron.ipcRenderer.invoke).toHaveBeenCalledWith(CHIEF_CHANNEL, {
++      op: 'browser_open', url: 'https://www.xiaoheihe.cn/', hosts: ['xiaoheihe.cn'],
++    })
++    expect(electron.ipcRenderer.invoke).toHaveBeenCalledWith(CHIEF_CHANNEL, { op: 'computer_list' })
++
+     const setup = electron.exposed.get('dshDesktopSetup') as {
+       read(): Promise<unknown>
+       dismissAccount(profile: string): Promise<unknown>
+-- 
+2.43.0
+

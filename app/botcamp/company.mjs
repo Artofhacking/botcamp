@@ -4,9 +4,9 @@
  */
 import { kvGet, kvSet } from '../../server/kv.mjs'
 import { loadMediaAccountBundle } from '../../server/accountStore.mjs'
-import { ensureMediaSeeded } from './mediaControl.mjs'
-import { readableDocName } from './docName.mjs'
-import { keepMarkdown } from './library.mjs'
+import { accountsVisibleTo, ensureMediaSeeded, primaryChatOwnerId } from './mediaControl.mjs'
+import { COMPANY_MODEL_REF, COMPANY_MODELS } from './companyModel.mjs'
+import { clipToolResult, hostsForAccounts, parseDesktopTool } from './desktopTurn.mjs'
 import { DEFAULT_TEAM } from './team.mjs'
 
 export const COMPANY_MODE = 'company-local'
@@ -69,7 +69,7 @@ function botShape(member) {
     avatar: member.avatar,
     sessionId: member.id,
     parts: [member.id],
-    model: null,
+    model: COMPANY_MODEL_REF,
     waiting: false,
     createdAt: 1,
   }
@@ -135,15 +135,49 @@ function saveChat(ownerId, sessionId, items) {
   })
 }
 
+function userTurns(items) {
+  return (Array.isArray(items) ? items : []).filter((item) => item?.kind === 'user').length
+}
+
+/** Keep a transcript another instance already stored when this disk does not have it yet. */
+export function adoptCompanyTranscript(ownerId, sessionId, items) {
+  if (!isCompanySessionId(sessionId) || !Array.isArray(items) || items.length === 0) return false
+  const local = loadChat(ownerId, sessionId)
+  const remoteUsers = userTurns(items)
+  const localUsers = userTurns(local)
+  const newer = remoteUsers > localUsers
+    || (remoteUsers === localUsers && items.length > local.length)
+    || (remoteUsers === localUsers && items.length === local.length && (Number(items.at(-1)?.time) || 0) > (Number(local.at(-1)?.time) || 0))
+  if (!newer && local.length > 0) return false
+  saveChat(ownerId, sessionId, items.map((item) => ({ ...item })))
+  return true
+}
+
+function managedLine(accounts) {
+  const names = (Array.isArray(accounts) ? accounts : [])
+    .map((account) => account?.display_name)
+    .filter(Boolean)
+    .join('、') || '（尚无账号）'
+  return `目前在管：${names}。`
+}
+
 function seedWelcome(ownerId, sessionId, accounts) {
   const items = loadChat(ownerId, sessionId)
-  if (items.length > 0) return items
-  const names = accounts.map((a) => a.display_name).join('、') || '（尚无账号）'
+  if (items.length > 0) {
+    if (sessionId !== CHIEF_ID) return items
+    const first = items[0]
+    if (first?.kind !== 'bot' || typeof first.text !== 'string' || !first.text.includes('目前在管：')) return items
+    const next = first.text.replace(/目前在管：[^\n]*。/, managedLine(accounts))
+    if (next === first.text) return items
+    const updated = [{ ...first, text: next }, ...items.slice(1)]
+    saveChat(ownerId, sessionId, updated)
+    return updated
+  }
   let text
   if (sessionId === CHIEF_ID) {
     text = [
       '我是主编，也是总负责人。进门不用先选号——写稿和数据都在侧栏。',
-      `目前在管：${names}。`,
+      managedLine(accounts),
       '问进度，或说「记下来」，我会写成文档。链接在这条对话里，点开就能看、能改。',
     ].join('\n')
   } else if (sessionId === WRITER_ID) {
@@ -171,102 +205,31 @@ function fmt(n) {
   return Number(n).toLocaleString('zh-CN')
 }
 
-function pickAccounts(ownerId, accountHint) {
-  ensureMediaSeeded()
-  const accounts = listOwnerAccounts(ownerId)
-  if (!accountHint) return accounts
-  const hint = String(accountHint).toLowerCase()
-  const match = accounts.filter((a) =>
-    a.display_name.toLowerCase().includes(hint)
-    || a.id.toLowerCase().includes(hint)
-    || (a.handle && String(a.handle).toLowerCase().includes(hint)))
-  return match.length ? match : accounts
+function platformLabel(account) {
+  if (account?.platform === 'xiaoheihe') return '小黑盒'
+  return account?.platform || ''
 }
 
-/** Free-form markdown note. Not a schema and not a required outline. */
-export function statusNote(ownerId, accountHint) {
-  const picked = pickAccounts(ownerId, accountHint)
-  if (picked.length === 0) {
-    return { title: '进度', summary: '目前还没有自媒体号。', body: '目前还没有自媒体号。\n' }
-  }
-  const lines = []
-  const bits = []
-  for (const account of picked) {
-    const bundle = loadMediaAccountBundle(account.id)
-    lines.push(account.display_name)
-    lines.push('')
-    if (!bundle) {
-      lines.push('暂时读不到这份记录。')
-      lines.push('')
-      continue
-    }
-    const funnel = bundle.board?.post_funnel || {}
-    const followers = bundle.board?.followers_latest?.followers
+/** Facts for the model instructions. Every turn gets them; nothing here picks a reply. */
+export function accountFacts(accounts) {
+  if (!Array.isArray(accounts) || accounts.length === 0) return '目前没有自媒体号。'
+  return accounts.map((account) => {
+    const bundle = loadMediaAccountBundle(account?.id)
+    const funnel = bundle?.board?.post_funnel || {}
+    const followers = bundle?.board?.followers_latest?.followers
     const parts = []
     if (followers != null) parts.push(`粉丝 ${fmt(followers)}`)
     for (const [key, count] of Object.entries(funnel)) {
       if (count) parts.push(`${key} ${count}`)
     }
-    if (parts.length) {
-      lines.push(`${parts.join('，')}。`)
-      bits.push(`${account.display_name}：${parts.join('，')}`)
-    }
-    const titles = []
-    for (const post of bundle.posts || []) {
-      if (post?.title) titles.push(`- ${post.title}${post.status ? `（${post.status}）` : ''}`)
-    }
-    for (const manuscript of bundle.manuscripts || []) {
-      if (manuscript?.title && (manuscript.status === '写稿中' || manuscript.status === '待确认')) {
-        titles.push(`- ${manuscript.title}（${manuscript.status}）`)
-      }
-    }
-    if (titles.length) lines.push(...titles.slice(0, 12))
-    lines.push('')
-  }
-  const title = picked.length === 1 ? `${picked[0].display_name} 进度` : '全部号进度'
-  return { title, summary: bits.join('\n') || '记了一笔进度。', body: `${lines.join('\n').trim()}\n` }
+    const where = platformLabel(account)
+    const head = where ? `${account.display_name}，平台 ${where}` : account.display_name
+    return parts.length ? `${head}。${parts.join('，')}。` : `${head}。`
+  }).join('\n')
 }
 
-function wantsRemember(text) {
-  return /记下来|记住|留档|写进文档|存成文档|帮我记/.test(text || '')
-}
-
-function stripRemember(text) {
-  return String(text || '')
-    .replace(/^(请)?(帮我)?(把这句|把这段|把)?(话)?(记下来|记住|保存一下|保存|留档|写进文档|存成文档)[了]?[：:，,\s]*/, '')
-    .trim()
-}
-
-function wantsStatus(text) {
-  return /进度|状态|漏斗|待你处理|怎么样了|概况|总览|帖子|稿件|看板/.test(text || '')
-}
-
-function replyWithDoc(ownerId, { title, body, summary }) {
-  try {
-    const kept = keepMarkdown(ownerId, { folderName: '笔记', name: title, content: body })
-    if (!kept.link) return `${summary || '记下了。'}\n\n（文档没写成：${kept.error || '请稍后再试。'}）`
-    return [summary, `[${kept.link.label}](${kept.link.href})`].filter(Boolean).join('\n\n')
-  } catch {
-    return `${summary || '记下了。'}\n\n（文档没写成，请稍后再试。）`
-  }
-}
-
-function accountHintFromText(text, accounts) {
-  const raw = String(text || '')
-  if (/全部|所有号|全盘|整体/.test(raw)) return null
-  for (const a of accounts) {
-    if (a.display_name && raw.includes(a.display_name)) return a.display_name
-    if (a.handle && raw.includes(a.handle)) return a.handle
-  }
-  if (/小稿/.test(raw)) {
-    const hit = accounts.find((a) => /小稿/.test(a.display_name || ''))
-    if (hit) return hit.display_name
-  }
-  return null
-}
-
-export function claimCompanyAccess(access, ownerId) {
-  for (const id of companySessionIds(ownerId)) {
+export function claimCompanyAccess(access, ownerId, accounts) {
+  for (const id of companySessionIds(ownerId, accounts)) {
     if (id.startsWith('co_room_')) {
       access.claim(id, 'room')
       access.claim(id, 'session', id)
@@ -278,21 +241,40 @@ export function claimCompanyAccess(access, ownerId) {
 }
 
 /** Sessions the host must see on the workspace, or it keeps listing. */
-export function companySessionIds(ownerId) {
+export function companySessionIds(ownerId, accounts) {
   ensureMediaSeeded()
+  const visible = Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
   const ids = EMPLOYEES.map((member) => member.id)
-  for (const account of listOwnerAccounts(ownerId)) ids.push(roomIdForAccount(account.id))
+  for (const account of visible) ids.push(roomIdForAccount(account.id))
   return ids
 }
 
-export function buildCompanyState(ownerId, user) {
+export function viewerCompany(user) {
+  return {
+    chatOwnerId: primaryChatOwnerId(user),
+    accounts: accountsVisibleTo(user),
+  }
+}
+
+function visibleAccounts(ownerId, accounts) {
+  return Array.isArray(accounts) ? accounts : listOwnerAccounts(ownerId)
+}
+
+function sessionVisible(sessionId, accounts) {
+  if (sessionId === CHIEF_ID || sessionId === WRITER_ID || sessionId === OPS_ID) return true
+  const accountId = accountIdFromRoom(sessionId)
+  if (!accountId) return false
+  return accounts.some((account) => account.id === accountId)
+}
+
+export function buildCompanyState(ownerId, user, accounts) {
   ensureMediaSeeded()
-  const accounts = listOwnerAccounts(ownerId)
+  const visible = visibleAccounts(ownerId, accounts)
   const bots = EMPLOYEES.map(botShape)
-  const rooms = accounts.map(roomShape)
+  const rooms = visible.map(roomShape)
   // Warm welcome threads so the company feels occupied on first open.
-  for (const bot of bots) seedWelcome(ownerId, bot.id, accounts)
-  for (const room of rooms) seedWelcome(ownerId, room.id, accounts)
+  for (const bot of bots) seedWelcome(ownerId, bot.id, visible)
+  for (const room of rooms) seedWelcome(ownerId, room.id, visible)
   const mainBotIds = [CHIEF_ID]
   return {
     // Stable so a later poll does not look like a new roster and retrigger listing.
@@ -309,9 +291,10 @@ export function buildCompanyState(ownerId, user) {
     capabilities: [],
     capabilityStatuses: {},
     secretRequests: {},
-    models: [],
-    defaultModel: null,
-    modelsKey: `company:${COMPANY_MODE}`,
+    models: COMPANY_MODELS.map(model => ({ ...model, input: [...model.input] })),
+    defaultModel: COMPANY_MODEL_REF,
+    modelsKey: `company:${COMPANY_MODE}:qoder`,
+    accountHosts: hostsForAccounts(visible),
     prefs: { ...(user?.prefs ?? {}) },
     activity: {},
     memoryNews: {},
@@ -321,59 +304,100 @@ export function buildCompanyState(ownerId, user) {
   }
 }
 
-export function companyChatPage(ownerId, payload) {
+export function companyChatPage(ownerId, payload, accounts) {
   const sessionId = payload?.botId || payload?.sessionId
   if (!isCompanySessionId(sessionId)) {
     return { ok: false, error: { message: '不是公司会话。' } }
   }
-  const accounts = listOwnerAccounts(ownerId)
-  const items = seedWelcome(ownerId, sessionId, accounts)
+  const visible = visibleAccounts(ownerId, accounts)
+  if (!sessionVisible(sessionId, visible)) {
+    return { ok: false, error: { message: '无法打开这个对话。' } }
+  }
+  const items = seedWelcome(ownerId, sessionId, visible)
   return { ok: true, value: { sessionId, items, cursor: null } }
 }
 
-export function companySend(ownerId, payload) {
+function speakerFor(sessionId) {
+  if (sessionId === WRITER_ID) return EMPLOYEES.find(member => member.id === WRITER_ID)
+  if (sessionId === OPS_ID) return EMPLOYEES.find(member => member.id === OPS_ID)
+  return EMPLOYEES.find(member => member.id === CHIEF_ID)
+}
+
+const MODEL_MISSED = '模型这次没有答上来。'
+
+export async function companySend(ownerId, payload, accounts, complete) {
   const sessionId = payload?.botId || payload?.sessionId
   const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
   if (!isCompanySessionId(sessionId) || !text) {
     return { ok: false, error: { message: '无法发送。' } }
   }
-  const accounts = listOwnerAccounts(ownerId)
-  const items = seedWelcome(ownerId, sessionId, accounts)
-  const now = Date.now()
-  items.push({ kind: 'user', text, time: now })
-
-  let reply
-  let docLink = null
-  const roomAccountId = accountIdFromRoom(sessionId)
-  if (wantsRemember(text)) {
-    const body = stripRemember(text) || text
-    const keptTitle = readableDocName(body, '笔记')
-    reply = replyWithDoc(ownerId, { title: keptTitle, body: `${body}\n`, summary: '记下了。' })
-  } else if (wantsStatus(text) || (sessionId === CHIEF_ID && /号/.test(text))) {
-    const hint = roomAccountId
-      ? (accounts.find((a) => a.id === roomAccountId)?.display_name || null)
-      : accountHintFromText(text, accounts)
-    const note = statusNote(ownerId, hint)
-    reply = replyWithDoc(ownerId, note)
-  } else if (roomAccountId) {
-    const account = accounts.find((a) => a.id === roomAccountId)
-    const bundle = account ? loadMediaAccountBundle(account.id) : null
-    const writing = (bundle?.board?.writing || []).slice(0, 3).map((p) => p.title).join('、') || '暂无进行中帖子'
-    reply = [
-      `收到。这个项目群跟进「${account?.display_name || '本号'}」。`,
-      `写稿这边：${writing}。`,
-      '要留下进度，直接说「本号进度」。',
-    ].join('\n')
-  } else if (sessionId === WRITER_ID) {
-    reply = '好。改标题、补脚本找我。要留底就说「记下来」。全号进度可以问主编。'
-  } else if (sessionId === OPS_ID) {
-    reply = '好。排期、发布和数字我跟。要总览，跟主编说「全部号进度」。'
-  } else {
-    reply = '收到。写稿和数据都在侧栏。要留底就说「记下来」，要进度就说「全部号进度」。'
+  const visible = visibleAccounts(ownerId, accounts)
+  if (!sessionVisible(sessionId, visible)) {
+    return { ok: false, error: { message: '无法打开这个对话。' } }
   }
+  const items = seedWelcome(ownerId, sessionId, visible)
+  const now = Date.now()
+  const desktop = payload?.desktop === true
+  const resume = desktop && payload?.resume === true
+  const hosts = hostsForAccounts(visible)
+
+  // Written before the model runs. A late or missing reply must not drop the line.
+  if (!resume) {
+    items.push({ kind: 'user', text, time: now })
+    saveChat(ownerId, sessionId, items)
+  }
+
+  if (typeof complete !== 'function') {
+    return { ok: false, error: { message: MODEL_MISSED } }
+  }
+  const speaker = speakerFor(sessionId)
+  const ask = (extra) => complete({
+    sessionId,
+    text,
+    name: speaker.name,
+    brief: speaker.brief,
+    facts: accountFacts(visible),
+    desktop: extra.desktop,
+    hosts,
+    toolResult: extra.toolResult || '',
+  })
+  let reply
+  try {
+    reply = await ask({
+      desktop,
+      toolResult: resume ? clipToolResult(payload?.toolResult) : '',
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    return { ok: false, error: { message: MODEL_MISSED } }
+  }
+  if (typeof reply !== 'string' || !reply.trim()) {
+    return { ok: false, error: { message: MODEL_MISSED } }
+  }
+  reply = reply.trim()
+  // A website window has no local browser. Ask once for a normal answer.
+  if (!desktop && parseDesktopTool(reply)) {
+    try {
+      reply = await ask({
+        desktop: false,
+        toolResult: '当前窗口没有本机浏览器。请直接用文字回答，不要输出工具 JSON。',
+      })
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    if (typeof reply !== 'string' || !reply.trim() || parseDesktopTool(reply)) {
+      return { ok: false, error: { message: MODEL_MISSED } }
+    }
+    reply = reply.trim()
+  }
+  const tool = desktop ? parseDesktopTool(reply) : null
+  if (tool) {
+    return { ok: true, value: { sent: true, sessionId, tool: { ...tool, hosts }, docLink: null } }
+  }
+  let docLink = null
   const linked = reply.match(/doc:\/\/(doc_[a-f0-9]+)/)
   if (linked) docLink = { href: `doc://${linked[1]}` }
-
   items.push({ kind: 'bot', text: reply, time: now + 1 })
   saveChat(ownerId, sessionId, items)
   return { ok: true, value: { sent: true, sessionId, docLink } }
@@ -396,9 +420,9 @@ export function presentChiefName(bots) {
   })
 }
 
-export function mergeProjectRooms(state, ownerId, access) {
+export function mergeProjectRooms(state, user, access) {
   if (!state || typeof state !== 'object' || state.unchanged) return state
-  const accounts = listOwnerAccounts(ownerId)
+  const accounts = user && typeof user === 'object' ? accountsVisibleTo(user) : []
   const rooms = Array.isArray(state.rooms) ? [...state.rooms] : []
   const have = new Set(rooms.map((r) => r.id))
   for (const account of accounts) {
@@ -413,5 +437,6 @@ export function mergeProjectRooms(state, ownerId, access) {
     ...state,
     bots: presentChiefName(state.bots),
     rooms,
+    accountHosts: hostsForAccounts(accounts),
   }
 }
