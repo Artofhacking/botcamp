@@ -34,6 +34,9 @@ rootPkg.devDependencies = rootPkg.devDependencies || {}
 for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt']) {
   rootPkg.devDependencies[name] = peerVersion
 }
+// cordis-plugin-include keeps its own 1.x version line.
+rootPkg.devDependencies['@deepseek-ai/cordis-plugin-include'] =
+  pkg.dependencies['@deepseek-ai/cordis-plugin-include'] || '1.0.10'
 writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n')
 
 // 2) data directory: ~/.dsh -> ~/.botcamp
