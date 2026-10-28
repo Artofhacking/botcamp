@@ -26,15 +26,22 @@ pkg.build.publish = { provider: 'generic', url: 'https://camp.aigc.sx.cn/botcamp
 pkg.dependencies['ds-bot'] = '0.2.3'
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 
-// 1b) peers the payload collector needs beside the workspaces
+// 1b) peers the payload collector cannot resolve without an explicit entry
+pkg.dependencies['@deepseek-ai/dsh-scope'] = peerVersionOf(pkg)
+pkg.dependencies['@deepseek-ai/dsh-system-prompt'] = peerVersionOf(pkg)
+pkg.dependencies['@deepseek-ai/dsh-user-approval'] = peerVersionOf(pkg)
+pkg.dependencies['@deepseek-ai/cordis-plugin-include'] =
+  pkg.dependencies['@deepseek-ai/cordis-plugin-include'] || '1.0.10'
+
+// 1c) the same packages at the workspace root
 const rootPkgPath = join(root, 'package.json')
 const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf8'))
-const peerVersion = pkg.dependencies['@deepseek-ai/dsh-agent'] || '0.2.1-rc.4'
+function peerVersionOf(manifest) { return manifest.dependencies['@deepseek-ai/dsh-agent'] || '0.2.1-rc.4' }
+const peerVersion = peerVersionOf(pkg)
 rootPkg.devDependencies = rootPkg.devDependencies || {}
-for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt']) {
+for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-user-approval']) {
   rootPkg.devDependencies[name] = peerVersion
 }
-// cordis-plugin-include keeps its own 1.x version line.
 rootPkg.devDependencies['@deepseek-ai/cordis-plugin-include'] =
   pkg.dependencies['@deepseek-ai/cordis-plugin-include'] || '1.0.10'
 writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n')
