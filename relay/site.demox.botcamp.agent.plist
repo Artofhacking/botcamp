@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>site.demox.botcamp.agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/phosa/.nvm/versions/node/v22.22.0/bin/node</string>
+    <string>/Users/phosa/.botcamp/agent/botcamp-agent.mjs</string>
+    <string>up</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>/Users/phosa</string>
+    <key>PATH</key><string>/Users/phosa/.nvm/versions/node/v22.22.0/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/phosa/.botcamp/agent.log</string>
+  <key>StandardErrorPath</key><string>/Users/phosa/.botcamp/agent.log</string>
+</dict>
+</plist>

@@ -16,6 +16,16 @@ import { homedir, hostname, platform } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 
+// Optional KEY=VALUE file (same one relay.sh used) so launchd/systemd can start us without a shell.
+try {
+  const envFile = join(homedir(), '.botcamp', 'relay.env')
+  const lines = readFileSync(envFile, 'utf8').split('\n')
+  for (const line of lines) {
+    const m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim())
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2]
+  }
+} catch { /* no env file */ }
+
 const GATEWAY = process.env.BOTCAMP_GATEWAY || 'https://camp.aigc.sx.cn'
 const CONFIG = process.env.BOTCAMP_AGENT_CONFIG || join(homedir(), '.botcamp', 'agent.json')
 const SSH_KEY = process.env.BOTCAMP_SSH_KEY || ''
@@ -124,8 +134,22 @@ async function up() {
       const beat = await post('/botcamp/api/devices/heartbeat', { token }, { authorization: `Bearer ${cfg.secret}` })
       const slot = beat.slot || cfg.slot
       console.log(`[${new Date().toISOString()}] 心跳 ok，槽位 ${slot}`)
+      // Free a listener left behind by a previous run; sshd keeps it until it notices.
+      // Await it: running this after the tunnel binds would kill our own listener.
+      await new Promise((resolve) => {
+        const clean = spawn('ssh', [...(SSH_KEY ? ['-i', SSH_KEY] : []), '-o', 'StrictHostKeyChecking=no',
+          SSH_HOST, `fuser -k ${REMOTE_BASE + slot - 1}/tcp >/dev/null 2>&1 || true`], { stdio: 'ignore' })
+        clean.on('exit', resolve)
+        clean.on('error', resolve)
+      })
+
       const ssh = spawn('ssh', sshArgs(slot), { stdio: 'inherit' })
+      // Keep the device online while the tunnel stays up.
+      const timer = setInterval(() => {
+        post('/botcamp/api/devices/heartbeat', { token }, { authorization: `Bearer ${cfg.secret}` }).catch(() => {})
+      }, 60_000)
       await new Promise((resolve) => ssh.on('exit', resolve))
+      clearInterval(timer)
       console.log('隧道断开，5 秒后重连')
     } catch (error) {
       console.error('心跳失败：', error.message)
