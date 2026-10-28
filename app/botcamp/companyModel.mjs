@@ -57,11 +57,7 @@ function pageItems(page) {
   return []
 }
 
-/** Bot text that follows the user's own line. Earlier greetings stay out of the reply. */
-export function modelReplyAfter(items, prompt) {
-  if (!Array.isArray(items)) return ''
-  const wanted = typeof prompt === 'string' ? prompt.trim() : ''
-  if (!wanted) return ''
+function replyAfterLine(items, wanted) {
   let at = -1
   for (let i = items.length - 1; i >= 0; i -= 1) {
     if (isUser(items[i]) && itemText(items[i]).trim() === wanted) {
@@ -78,6 +74,22 @@ export function modelReplyAfter(items, prompt) {
     if (text) parts.push(text)
   }
   return parts.join('\n').trim()
+}
+
+/** Bot text that follows the user's own line. Earlier greetings stay out of the reply. */
+export function modelReplyAfter(items, prompt) {
+  if (!Array.isArray(items)) return ''
+  const wanted = typeof prompt === 'string' ? prompt.trim() : ''
+  if (!wanted) return ''
+  const exact = replyAfterLine(items, wanted)
+  if (exact) return exact
+  // The kernel sometimes stores the spoken line, not the whole instruction.
+  const marker = '用户原话：\n'
+  const at = wanted.lastIndexOf(marker)
+  if (at < 0) return ''
+  const spoken = wanted.slice(at + marker.length).trim()
+  if (!spoken || spoken === wanted) return ''
+  return replyAfterLine(items, spoken)
 }
 
 export function withoutRelayBots(value) {

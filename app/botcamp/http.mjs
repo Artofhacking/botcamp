@@ -576,11 +576,9 @@ export async function createBotcamp(options = {}) {
             view.accounts,
             turn => askKernelModel(kernelValue, turn),
           )
-          if (result.ok) {
-            const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
-            if (Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
-            await persistLibraries(user, [view.chatOwnerId], librarySeen)
-          }
+          const page = companyChatPage(view.chatOwnerId, payload, view.accounts)
+          if (page.ok && Array.isArray(page.value?.items)) await store.rememberPage(user.id, sessionHint, page.value.items)
+          if (result.ok) await persistLibraries(user, [view.chatOwnerId], librarySeen)
           sendJson(res, result.ok ? 200 : 400, result)
           return
         }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>下载 BotCamp</title>
+<title>打开 DSH Desktop</title>
 <style>
   body { font: 16px/1.55 system-ui, sans-serif; max-width: 40rem; margin: 2.5rem auto; padding: 0 1.25rem; color: #1a1a1a; }
   a { color: #0b57d0; }
@@ -12,30 +12,22 @@
 </style>
 </head>
 <body>
-<h1>下载 BotCamp</h1>
-<p>装好后用 <code>phosa@qq.com</code> 登录。浏览器开在你自己的电脑上。本机需要已经安装 Google Chrome。</p>
-<p>这一版是 0.1.4。在 Finder 里查看简介，版本应写成 0.1.4 (0.1.4)。窗口标题会写成 BotCamp 0.1.4。如果简介仍是 0.1.0 (0.1.0)，那是浏览器留着的旧压缩包，用下面的链接重新下载。</p>
-<ul>
-  <li><a href="./BotCamp-Windows-x64-setup.exe?v=0.1.4">Windows 安装包</a></li>
-  <li><a href="./BotCamp-mac-apple-silicon.zip?v=0.1.4">Mac（Apple 芯片）</a>，macOS 11 或更新。</li>
-  <li><a href="./BotCamp-mac-intel.zip?v=0.1.4">Mac（Intel）</a>，macOS 11 或更新。</li>
-</ul>
-<h2>Windows</h2>
+<h1>用已经装好的 DSH Desktop</h1>
+<p>主编在 DSH Desktop 里。不要再装 BotCamp 这个单独的应用。浏览器和这台电脑上的文件用的是 DSH 自己的，不另开一套。</p>
+<h2>Mac 上已经有 DSH</h2>
 <ol>
-  <li>打开安装包。如果提示未知发布者，选「更多信息」，再选「仍要运行」。</li>
-  <li>装好这一版之后，以后打开会自己检查新版本。</li>
+  <li>按 Command-空格，输入 <code>DSH</code>，打开 <strong>DSH Desktop</strong>。名字也可能是 DeepSeek Harness。</li>
+  <li>或者打开「访达 → 应用程序」，双击同一个应用。</li>
+  <li>侧栏点「主编」。账号仍是 <code>phosa@qq.com</code>。</li>
 </ol>
-<h2>Mac</h2>
+<h2>Mac 上还没有 DSH</h2>
+<p>需要安装的是 DSH Desktop，不是 BotCamp 的压缩包。当前社区安装包是 Apple 芯片（M 系列）的 DMG。Intel Mac 还没有对应的安装包。</p>
 <ol>
-  <li>打开 zip，把里面的 BotCamp 拖进「应用程序」。</li>
-  <li>第一次打开：在「应用程序」里按住 Control 点 BotCamp，选「打开」。</li>
-  <li>如果窗口只写着「已损坏，无法打开。你应该将它移到废纸篓」，打开「系统设置 → 隐私与安全性」，点「仍要打开」。</li>
+  <li>从 <a href="https://dshdesktop.cn">dshdesktop.cn</a> 下载 macOS 的 DMG。</li>
+  <li>打开 DMG，把 DSH Desktop 拖进「应用程序」。</li>
+  <li>第一次如果被拦住：在「应用程序」里按住 Control 点 DSH Desktop，选「打开」。也可以到「系统设置 → 隐私与安全性」里点「仍要打开」。</li>
+  <li>打开之后，侧栏点「主编」，用 <code>phosa@qq.com</code> 登录。</li>
 </ol>
-<h2>登录之后</h2>
-<ol>
-  <li>用 <code>phosa@qq.com</code> 和原来的密码登录。</li>
-  <li>点「主编」，再点「查看对话详情」，打开「浏览器」。</li>
-  <li>点「导入 cookie」，选「从文件导入…」，选小黑盒账号「小稿的AI日记」的 <code>cookies.txt</code>、JSON，或 Playwright storageState。不是小黑盒域名的 cookie 会被丢掉，内容只留在这台电脑的 Chrome 里。</li>
-</ol>
+<p>发出去的话写在账号的共享账本上。刷新之后还在，并且会等到模型的回复。</p>
 </body>
 </html>

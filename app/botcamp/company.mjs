@@ -341,6 +341,12 @@ export async function companySend(ownerId, payload, accounts, complete) {
   const resume = desktop && payload?.resume === true
   const hosts = hostsForAccounts(visible)
 
+  // Written before the model runs. A late or missing reply must not drop the line.
+  if (!resume) {
+    items.push({ kind: 'user', text, time: now })
+    saveChat(ownerId, sessionId, items)
+  }
+
   if (typeof complete !== 'function') {
     return { ok: false, error: { message: MODEL_MISSED } }
   }
@@ -387,22 +393,11 @@ export async function companySend(ownerId, payload, accounts, complete) {
   }
   const tool = desktop ? parseDesktopTool(reply) : null
   if (tool) {
-    if (!resume) {
-      items.push({ kind: 'user', text, time: now })
-      saveChat(ownerId, sessionId, items)
-    }
     return { ok: true, value: { sent: true, sessionId, tool: { ...tool, hosts }, docLink: null } }
   }
   let docLink = null
   const linked = reply.match(/doc:\/\/(doc_[a-f0-9]+)/)
   if (linked) docLink = { href: `doc://${linked[1]}` }
-  if (resume) {
-    items.push({ kind: 'bot', text: reply, time: now })
-    saveChat(ownerId, sessionId, items)
-    return { ok: true, value: { sent: true, sessionId, docLink } }
-  }
-
-  items.push({ kind: 'user', text, time: now })
   items.push({ kind: 'bot', text: reply, time: now + 1 })
   saveChat(ownerId, sessionId, items)
   return { ok: true, value: { sent: true, sessionId, docLink } }

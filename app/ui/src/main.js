@@ -18,12 +18,10 @@ import { CONVERSATION_CSS, SHELL_CSS, installStyles } from '../../../ds-bot/src/
 import { USAGE_CSS } from '../../../ds-bot/src/client/usage-page.js'
 import { WIDGET_CSS } from '../../../ds-bot/src/client/widget-cell.js'
 import { createLocale } from './locale.js'
-import { installDesktopBridge } from './desktop/bridge.js'
 import { clientMode, detectPlatform, installClientFetch } from './session.js'
 import { Gate } from './gate.js'
 import './app.css'
 
-installDesktopBridge()
 installLocale(createLocale(navigator.language))
 document.documentElement.lang = navigator.language
 if (clientMode()) {

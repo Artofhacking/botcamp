@@ -97,6 +97,7 @@ function useChat(botId, part, feed) {
       await actions.send(sessionId, text)
     } catch (error) {
       setPending(list => list.filter(item => item !== entry))
+      await load().catch(() => {})
       throw error
     }
     // The host has the line now. Reload so the bubble is the stored one, and

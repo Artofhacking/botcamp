@@ -1,10 +1,10 @@
 # BotCamp
 
-用户安装客户端使用。壳是 Tauri，窗口里仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的界面（`app/ui`，Apache-2.0）。Mac 和 Windows 用同一套代码。Android 和 iOS 以后也沿用这个壳。网站不再作为产品入口。
+主编在已经装好的 DSH Desktop 里，不另发 BotCamp 安装包。窗口用的是 DSH 自己的浏览器和这台电脑上的工作区。界面仍是 [DeepSeek Bot](https://github.com/Fei2411/DeepSeek-Bot) 的视图（`app/ui`，Apache-2.0）。
 
-客户端登录请求带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。打包后的客户端默认请求 `https://botcamp.demox.site`。线上网关已经接受 Bearer，并允许跨源。Rust 需要 stable，且 rustc 不低于 1.90。
+已经装了的话：按 Command-空格，输入 DSH，打开 DSH Desktop（访达里是「应用程序」中的同一个应用）。侧栏点「主编」。还没装的话，安装 DSH Desktop 的 macOS DMG（见 https://botcamp.demox.site/download/ ），不要下 BotCamp 的 zip。Apple 芯片可以用社区 DMG；Intel Mac 目前没有对应安装包。
 
-给使用的人下载安装包，不要让他们克隆仓库。说明页在 https://botcamp.demox.site/download/ 。Windows 安装包是 https://botcamp.demox.site/download/BotCamp-Windows-x64-setup.exe 。Apple 芯片的 Mac 应用是 https://botcamp.demox.site/download/BotCamp-mac-apple-silicon.zip ，Intel Mac 是 https://botcamp.demox.site/download/BotCamp-mac-intel.zip 。本机还要有 Google Chrome。浏览器开在这台电脑上，不在共享服务器上。0.1.1 起，打开应用会请求 https://botcamp.demox.site/download/latest.json 。清单里的版本更高时，Mac 下载对应的 zip，Windows 下载安装包并安装。0.1.4 把页面直接放进窗口，Finder 里的版本是 0.1.4 (0.1.4)。0.1.1 用 `tauri://localhost`，0.1.2 用本机地址，macOS 上都是白屏。Mac 第一次打开如果提示已损坏，在「系统设置 → 隐私与安全性」里点「仍要打开」。
+登录请求在桌面客户端里带 `x-botcamp-client: 1`，响应里的 `token` 存在本机，之后用 `Authorization: Bearer`。只靠 cookie 的登录响应不带这个字段。接口还是 `POST /api/bot` 和 `GET /api/bot/feed`。线上网关已经接受 Bearer，并允许跨源。对话写在项目账本上，刷新之后还在。
 
 开发窗口仍要 Node.js 22、Rust stable（rustc 不低于 1.90），Mac 上还要 Xcode 命令行工具。Windows 安装包只能在 Windows 上打，Mac 安装包只能在 Mac 上打。
 
@@ -15,7 +15,7 @@ npm --prefix client ci
 npm --prefix client run dev
 ```
 
-窗口标题是 BotCamp。开发窗口和安装包都请求 https://botcamp.demox.site 。Chrome 由这个窗口在本机拉起。
+开发窗口请求 https://botcamp.demox.site 。使用的人打开 DSH Desktop。
 
 在 Mac 上打出应用：
 

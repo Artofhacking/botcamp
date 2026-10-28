@@ -51,8 +51,8 @@ export async function runModelTool({ browsers, bridge, botId, tool }) {
       return { text: '这台电脑上还没有打开的页面。' }
     }
   }
-  if (tool.tool === 'computer_list') return { text: bridge.workspaceList() }
-  if (tool.tool === 'computer_read') return { text: bridge.workspaceRead(tool.path) }
+  if (tool.tool === 'computer_list') return { text: String(await bridge.workspaceList()) }
+  if (tool.tool === 'computer_read') return { text: String(await bridge.workspaceRead(tool.path)) }
   return { text: '没有这个本机工具。' }
 }
 

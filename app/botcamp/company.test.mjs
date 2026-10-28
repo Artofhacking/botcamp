@@ -122,8 +122,10 @@ test('an ordinary company message stores the model reply', async () => {
     )
     assert.equal(failed.ok, false)
     assert.match(failed.error.message, /模型这次没有答上来/)
-    const unchanged = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
-    assert.equal(unchanged.value.items.length, before.value.items.length)
+    const kept = companyChatPage(PHOSA_OWNER_ID, { botId: CHIEF_ID })
+    assert.equal(kept.value.items.length, before.value.items.length + 1)
+    assert.equal(kept.value.items.at(-1).kind, 'user')
+    assert.equal(kept.value.items.at(-1).text, '用一句话介绍你自己')
 
     const sent = await companySend(
       PHOSA_OWNER_ID,
@@ -247,6 +249,12 @@ test('model reply is the bot line after the user line, and the relay stays off t
   ], prompt)
   assert.equal(reply, 'pong')
   assert.equal(modelReplyAfter([{ kind: 'bot', text: 'pong' }], prompt), '')
+  const spoken = '用一句话介绍你自己'
+  const wrapped = `你是主编。\n\n用户原话：\n${spoken}`
+  assert.equal(modelReplyAfter([
+    { kind: 'user', text: spoken },
+    { kind: 'bot', text: '我是主编。' },
+  ], wrapped), '我是主编。')
   const stripped = withoutRelayBots({
     bots: [
       { id: 'relay', name: COMPANY_RELAY_NAME },

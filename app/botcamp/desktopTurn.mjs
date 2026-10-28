@@ -57,7 +57,7 @@ export function parseDesktopTool(reply) {
 export function desktopToolNote(hosts) {
   const where = Array.isArray(hosts) && hosts.length > 0 ? hosts.join('、') : '（还没有绑定这个用户的站点）'
   return [
-    '用户正在自己的 BotCamp 桌面客户端里。浏览器和本机工作区只在这台电脑上。',
+    '用户正在自己的 DSH 桌面版里。浏览器和本机工作区只在这个窗口里。',
     '要不要打开页面由你判断。需要时只回复一行 JSON，不要加别的字：',
     `{"tool":"browser_open","url":"https://..."} 打开这个用户自己的创作者后台，域名只限 ${where}。`,
     '{"tool":"browser_read"} 读取当前页上看得见的文字。',

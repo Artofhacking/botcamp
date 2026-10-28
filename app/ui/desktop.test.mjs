@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { withComputer } from './src/desktop/computer.js'
 import { cookiePreview, cookiesForHosts, parseCookieExport } from './src/desktop/cookies.js'
-import { browserBotId, pageBrief } from './src/desktop/turn.js'
+import { dshBrowser } from './src/desktop/host.js'
+import { browserBotId, pageBrief, runModelTool } from './src/desktop/turn.js'
 
 test('cookie files, JSON, and Playwright storageState stay scoped to the account', () => {
   const netscape = parseCookieExport([
@@ -33,6 +35,42 @@ test('cookie files, JSON, and Playwright storageState stay scoped to the account
   )
   assert.equal(kept.every((cookie) => cookie.domain.includes('xiaoheihe')), true)
   assert.equal(dropped.some((row) => row.name === 'other' && row.reason === 'not this account'), true)
+})
+
+test('主编 uses DSH Desktop browser and computer, not a Tauri bridge', async () => {
+  globalThis.dsBotApp = { browser: { views: { navigate() {} }, workspaceList() { return 'tauri-files' } } }
+  delete globalThis.dshDesktop
+  assert.equal(dshBrowser(), null)
+
+  const browser = {
+    acquire(key) { return Promise.resolve({ lease: key, partition: 'persist' }) },
+    release() { return Promise.resolve() },
+    onOpenRequested() { return () => {} },
+  }
+  globalThis.dshDesktop = {
+    protocolVersion: 1,
+    browser,
+    computer: {
+      list() { return Promise.resolve({ entries: [{ path: '稿/标题.md' }] }) },
+      read(file) { return Promise.resolve({ text: `正文 ${file}` }) },
+    },
+  }
+  assert.equal(dshBrowser(), browser)
+  const bridge = withComputer(browser, async () => { throw new Error('host') })
+  assert.match(await bridge.workspaceList(), /稿\/标题\.md/)
+  assert.match(await bridge.workspaceRead('稿/标题.md'), /正文 稿\/标题\.md/)
+  assert.match(await bridge.workspaceRead('../secret'), /路径不在本机工作区里/)
+  const listed = await runModelTool({
+    browsers: null,
+    bridge,
+    botId: 'co_chief',
+    tool: { tool: 'computer_list' },
+  })
+  assert.match(listed.text, /稿\/标题\.md/)
+  assert.equal(listed.text.includes('tauri-files'), false)
+
+  delete globalThis.dshDesktop
+  delete globalThis.dsBotApp
 })
 
 test('主编 owns the room browser, and an empty page does not invent figures', () => {

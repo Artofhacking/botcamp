@@ -10,6 +10,8 @@ import { noteLeft, setUnread, sharedMap, toggleReaction } from '../../../ds-bot/
 import { createBotBrowsers } from '../../../ds-bot/src/client/bot-browsers.js'
 import { createSource, indexRoster } from '../../../ds-bot/src/client/sources.js'
 import { browserActions } from './desktop/actions.js'
+import { withComputer } from './desktop/computer.js'
+import { dshBrowser } from './desktop/host.js'
 import { browserBotId, desktopCompanySend, runModelTool } from './desktop/turn.js'
 import { STORAGE, migrateStorage } from '../../../ds-bot/src/client/storage.js'
 import { teamActions } from '../../../ds-bot/src/client/team-actions.js'
@@ -99,7 +101,7 @@ export function createTeam() {
   // When each conversation was last left; a visit compares new entries against it.
   const seenStore = sharedMap(STORAGE.seen)
   let seenAt = seenStore.read()
-  const desktopBridge = globalThis.dsBotApp?.browser ?? null
+  const desktopBridge = withComputer(dshBrowser(), call)
   const roster = createSource(desktopBridge ? { ...COMPANY_ROSTER, browser: true } : COMPANY_ROSTER)
   const ui = createSource({ details: null, view: 'details', renaming: false, tab: null, newChat: null, exchange: null, menu: null, voice: null, palette: null, quote: null, settings: null, memory: null, toast: null, signIn: null, renameAgent: null, unread: unreadStore.read(), reactions: reactionStore.read(), visits: {} })
   const activity = createSource({})

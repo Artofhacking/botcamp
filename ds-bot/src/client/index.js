@@ -21,6 +21,8 @@ import { installHeaderNavigation } from './header-navigation.js'
 import { AssistantCell, TriggerCell, TurnProcessCell, Nothing, TurnTailCell, ToolCell } from './cells.js'
 import { Overlays } from './overlays.js'
 import { createBotBrowsers, serveBrowserReads } from './bot-browsers.js'
+import { withComputer } from '../../../app/ui/src/desktop/computer.js'
+import { browserBotId, desktopCompanySend, runModelTool } from '../../../app/ui/src/desktop/turn.js'
 import { BROWSER_CSS } from './browser-pane.js'
 import { SECRET_CSS, SecretDock } from './secret-card.js'
 import { MODEL_CSS, ModelChoiceDock, DeepSeekSignIn } from './model-menu.js'
@@ -163,7 +165,8 @@ export function apply(ctx) {
     if (value.unchanged || (value.revision === current.revision && value.modelsKey === current.modelsKey)) return
     // On a browser with no visit record yet, everything already there counts as seen.
     if (Object.keys(seenAt).length === 0) leaveVisits([...value.bots, ...value.rooms].map(entry => entry.id))
-    roster.set(indexRoster(value))
+    const hosted = window.dshDesktop?.protocolVersion === 1 && window.dshDesktop.browser
+    roster.set(indexRoster(hosted ? { ...value, browser: true } : value))
     try {
       const ids = (value.agents ?? []).flatMap(agent => agent.sessions ?? [])
       localStorage.setItem(STORAGE.agentSessions, JSON.stringify(ids))
@@ -375,8 +378,29 @@ export function apply(ctx) {
   }
   const mainView = () => Object.values(ctx.sessions.list.getSnapshot().byId ?? {}).find(session => (session?.retainedBy?.mainView ?? 0) > 0)?.id
   const show = listedOpener({ list: ctx.sessions.list, refresh: () => Promise.resolve(ctx.sessions.refresh?.()).catch(quietly('refresh sessions')), open: (target) => { expected = target; ctx.uiWorkspace.openSession(target) }, current: mainView })
+  const baseActions = teamActions({ call, after, partFor, roster, ui, live, cards, heldCards, turnClock })
+  const hostedComputer = window.dshDesktop?.protocolVersion === 1 ? withComputer(bridge, call) : null
   const actions = {
-    ...teamActions({ call, after, partFor, roster, ui, live, cards, heldCards, turnClock }),
+    ...baseActions,
+    // 主编 runs tools in this DSH window. A plain browser has no bridge, so the send stays text.
+    send: async (sessionId, text) => {
+      const id = partFor(sessionId)
+      const company = roster.getSnapshot().companyMode === 'company-local' && typeof id === 'string' && id.startsWith('co_')
+      if (company && browsers && hostedComputer) {
+        return desktopCompanySend({
+          call,
+          sessionId: id,
+          text,
+          runTool: (tool) => runModelTool({
+            browsers,
+            bridge: hostedComputer,
+            botId: browserBotId(id),
+            tool,
+          }),
+        })
+      }
+      return baseActions.send(sessionId, text)
+    },
     // The full-pane overlays sit above the conversation, so opening one must dismiss them
     // or the click appears to do nothing.
     isAgentSession: id => isAgentSessionId(id),
