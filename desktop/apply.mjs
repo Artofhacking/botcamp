@@ -31,7 +31,7 @@ const rootPkgPath = join(root, 'package.json')
 const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf8'))
 const peerVersion = pkg.dependencies['@deepseek-ai/dsh-agent'] || '0.2.1-rc.4'
 rootPkg.devDependencies = rootPkg.devDependencies || {}
-for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/cordis-plugin-include']) {
+for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt']) {
   rootPkg.devDependencies[name] = peerVersion
 }
 writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n')
