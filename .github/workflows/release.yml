@@ -27,6 +27,7 @@ jobs:
         with:
           repository: anywhere-labs/dsh-desktop
           path: dsh-desktop
+          submodules: recursive
 
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
