@@ -26,6 +26,16 @@ pkg.build.publish = { provider: 'generic', url: 'https://camp.aigc.sx.cn/botcamp
 pkg.dependencies['ds-bot'] = '0.2.3'
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 
+// 1b) peers the payload collector needs beside the workspaces
+const rootPkgPath = join(root, 'package.json')
+const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf8'))
+const peerVersion = pkg.dependencies['@deepseek-ai/dsh-agent'] || '0.2.1-rc.4'
+rootPkg.devDependencies = rootPkg.devDependencies || {}
+for (const name of ['@deepseek-ai/dsh-scope', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/cordis-plugin-include']) {
+  rootPkg.devDependencies[name] = peerVersion
+}
+writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n')
+
 // 2) data directory: ~/.dsh -> ~/.botcamp
 const dir = readFileSync(dirPath, 'utf8')
 const nextDir = dir.replace("join(userHome, '.dsh')", "join(userHome, '.botcamp')")
