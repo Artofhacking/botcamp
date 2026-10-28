@@ -1,0 +1,80 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            script: dist:mac-smoke
+            artifact: mac
+          - os: windows-latest
+            script: dist:win
+            artifact: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout BotCamp (patches)
+        uses: actions/checkout@v4
+        with: { path: botcamp }
+
+      - name: Checkout DSH Desktop upstream
+        uses: actions/checkout@v4
+        with:
+          repository: anywhere-labs/dsh-desktop
+          path: dsh-desktop
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Apply BotCamp branding
+        run: node botcamp/desktop/apply.mjs dsh-desktop
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: dsh-desktop
+        run: yarn install --immutable || yarn install
+        env:
+          YARN_NETWORK_CONCURRENCY: 8
+
+      - name: Build
+        working-directory: dsh-desktop
+        run: yarn workspace dsh-desktop-next ${{ matrix.script }}
+
+      - name: Zip macOS app
+        if: matrix.artifact == 'mac'
+        shell: bash
+        run: |
+          cd dsh-desktop/dsh-desktop-next/dist/mac-smoke/mac-universal 2>/dev/null || cd dsh-desktop/dsh-desktop-next/dist
+          APP=$(ls -d *.app | head -1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "BotCamp-${GITHUB_REF_NAME}-universal.zip"
+
+      - name: Install coscmd
+        run: python -m pip install --quiet coscmd
+
+      - name: Upload to COS
+        shell: bash
+        env:
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+        run: |
+          if [ -z "$COS_SECRET_ID" ]; then echo "COS secrets missing; skipping upload"; exit 0; fi
+          coscmd config -a "$COS_SECRET_ID" -s "$COS_SECRET_KEY" -b botcamp-1307257815 -r ap-guangzhou
+          find dsh-desktop/dsh-desktop-next/dist -type f \( -name '*.zip' -o -name '*.dmg' -o -name '*.exe' \) -print0 |
+            xargs -0 -r -I{} coscmd upload {} "botcamp/artifacts/${GITHUB_REF_NAME}/${{ matrix.artifact }}/$(basename {})"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: botcamp-${{ matrix.artifact }}
+          path: |
+            dsh-desktop/dsh-desktop-next/dist/**/*.app
+            dsh-desktop/dsh-desktop-next/dist/**/*.zip
+            dsh-desktop/dsh-desktop-next/dist/**/*.exe
+            dsh-desktop/dsh-desktop-next/dist/**/*.dmg
+          if-no-files-found: warn

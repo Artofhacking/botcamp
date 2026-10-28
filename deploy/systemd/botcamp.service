@@ -1,0 +1,19 @@
+[Unit]
+Description=BotCamp accounts + metered model gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/botcamp
+EnvironmentFile=/etc/botcamp/botcamp.env
+ExecStart=/usr/bin/python3 /opt/botcamp/app.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/opt/botcamp/data
+
+[Install]
+WantedBy=multi-user.target
