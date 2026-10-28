@@ -18,7 +18,6 @@ for (const p of [pkgPath, dirPath, verifyPath]) {
 
 // 1) product identity + update feed + bundle ds-bot
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-pkg.name = 'botcamp-desktop'
 pkg.build.appId = 'site.demox.botcamp'
 pkg.build.productName = 'BotCamp'
 pkg.build.mac.target = ['dir']
