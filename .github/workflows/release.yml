@@ -45,6 +45,9 @@ jobs:
           YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
           YARN_NETWORK_CONCURRENCY: 8
 
+      - name: Align workspace package copies
+        run: node botcamp/desktop/fix-payload.mjs dsh-desktop
+
       - name: Build
         working-directory: dsh-desktop
         run: yarn workspace dsh-desktop-next ${{ matrix.script }}
