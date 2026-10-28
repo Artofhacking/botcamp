@@ -1,0 +1,58 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            script: dist:mac-smoke
+            artifact: mac
+          - os: windows-latest
+            script: dist:win
+            artifact: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout BotCamp (patches)
+        uses: actions/checkout@v4
+        with: { path: botcamp }
+
+      - name: Checkout DSH Desktop upstream
+        uses: actions/checkout@v4
+        with:
+          repository: anywhere-labs/dsh-desktop
+          path: dsh-desktop
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Apply BotCamp branding
+        run: node botcamp/desktop/apply.mjs dsh-desktop
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: dsh-desktop
+        run: yarn install --immutable || yarn install
+        env:
+          YARN_NETWORK_CONCURRENCY: 8
+
+      - name: Build
+        working-directory: dsh-desktop
+        run: yarn workspace dsh-desktop-next ${{ matrix.script }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: botcamp-${{ matrix.artifact }}
+          path: |
+            dsh-desktop/dsh-desktop-next/dist/**/*.app
+            dsh-desktop/dsh-desktop-next/dist/**/*.zip
+            dsh-desktop/dsh-desktop-next/dist/**/*.exe
+            dsh-desktop/dsh-desktop-next/dist/**/*.dmg
+          if-no-files-found: warn
