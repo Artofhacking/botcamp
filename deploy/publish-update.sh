@@ -5,7 +5,7 @@ set -euo pipefail
 VER=${1:?用法: publish-update.sh <version> <artifact-dir>}
 SRC=${2:?用法: publish-update.sh <version> <artifact-dir>}
 ROOT=/opt/botcamp/updates/mac
-BUCKET=demox-sites-1490780430
+BUCKET=botcamp-1307257815
 BASE="https://${BUCKET}.cos.ap-guangzhou.myqcloud.com/botcamp/updates/mac"
 mkdir -p "$ROOT"
 
@@ -24,7 +24,7 @@ cfg = CosConfig(Region='ap-guangzhou', SecretId=os.environ['SECRET_ID'], SecretK
 cli = CosS3Client(cfg)
 local, key = sys.argv[1], sys.argv[2]
 with open(local, 'rb') as f:
-    r = cli.put_object(Bucket=os.environ.get('BUCKET','demox-sites-1490780430'), Body=f, Key=key, EnableMD5=False)
+    r = cli.put_object(Bucket=os.environ.get('BUCKET','botcamp-1307257815'), Body=f, Key=key, EnableMD5=False)
 print('uploaded', key, r.get('ETag'))
 PY
 
