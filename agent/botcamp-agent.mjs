@@ -124,7 +124,8 @@ function hostArgs() {
 function startHost() {
   const child = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', hostArgs(), {
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: process.env,
+    // The host must read the BotCamp data directory, not the default ~/.dsh.
+    env: { ...process.env, DSH_HOME: join(homedir(), '.botcamp') },
   })
   let token = ''
   const scan = (buf) => {
