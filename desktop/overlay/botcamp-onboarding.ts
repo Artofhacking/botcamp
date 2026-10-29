@@ -14,7 +14,7 @@ import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 
 const GATEWAY = (process.env.BOTCAMP_GATEWAY ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
-const CONFIG = join(homedir(), '.botcamp', 'agent.json')
+const configPath = (): string => join(process.env.BOTCAMP_HOME || join(homedir(), '.botcamp'), 'agent.json')
 const AGENT = join(process.resourcesPath ?? '', 'botcamp-agent.mjs')
 
 let relay: ChildProcess | undefined
@@ -83,7 +83,7 @@ function startRelay(): void {
 }
 
 export async function botcampEnsureDevice(): Promise<void> {
-  if (!existsSync(CONFIG)) {
+  if (!existsSync(configPath())) {
     const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
     const started = await post<{ code: string, url: string }>('/botcamp/api/devices/pair/start', device).catch(() => undefined)
     if (!started) return
@@ -96,7 +96,7 @@ export async function botcampEnsureDevice(): Promise<void> {
     try {
       const approved = await waitForApproval(started.code)
       mkdirSync(join(homedir(), '.botcamp'), { recursive: true })
-      writeFileSync(CONFIG, JSON.stringify({ device, slot: approved.slot, secret: approved.secret }, null, 2), { mode: 0o600 })
+      writeFileSync(configPath(), JSON.stringify({ device, slot: approved.slot, secret: approved.secret }, null, 2), { mode: 0o600 })
     } catch {
       // Timeout or offline: let the app open; the user can pair from the settings later.
     } finally {

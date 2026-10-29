@@ -16,9 +16,11 @@ import { homedir, hostname, platform } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 
+const BOTCAMP_HOME = process.env.BOTCAMP_HOME || join(homedir(), '.botcamp')
+
 // Optional KEY=VALUE file (same one relay.sh used) so launchd/systemd can start us without a shell.
 try {
-  const envFile = join(homedir(), '.botcamp', 'relay.env')
+  const envFile = join(BOTCAMP_HOME, 'relay.env')
   const lines = readFileSync(envFile, 'utf8').split('\n')
   for (const line of lines) {
     const m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim())
@@ -27,7 +29,7 @@ try {
 } catch { /* no env file */ }
 
 const GATEWAY = process.env.BOTCAMP_GATEWAY || 'https://camp.aigc.sx.cn'
-const CONFIG = process.env.BOTCAMP_AGENT_CONFIG || join(homedir(), '.botcamp', 'agent.json')
+const CONFIG = process.env.BOTCAMP_AGENT_CONFIG || join(BOTCAMP_HOME, 'agent.json')
 const SSH_KEY = process.env.BOTCAMP_SSH_KEY || ''
 const SSH_HOST = process.env.BOTCAMP_SSH_HOST || 'root@server.aigc.sx.cn'
 const HOST_PORT = Number(process.env.BOTCAMP_HOST_PORT || 8765)
@@ -125,7 +127,7 @@ function startHost() {
   const child = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', hostArgs(), {
     stdio: ['ignore', 'pipe', 'pipe'],
     // The host must read the BotCamp data directory, not the default ~/.dsh.
-    env: { ...process.env, DSH_HOME: join(homedir(), '.botcamp') },
+    env: { ...process.env, DSH_HOME: BOTCAMP_HOME },
   })
   let token = ''
   const scan = (buf) => {

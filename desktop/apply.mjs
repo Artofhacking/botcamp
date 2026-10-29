@@ -105,6 +105,75 @@ const nextDir = dir.replace("join(userHome, '.dsh')", "join(userHome, '.botcamp'
 if (nextDir === dir) console.warn('data-directory.ts: pattern already applied or changed')
 writeFileSync(dirPath, nextDir)
 
+// 2b) BotCamp environment namespace: user-facing variables are BOTCAMP_*.
+// DSH_* survives only as the embedded engine's private child-process handoff.
+const envRenames = [
+  ['DSH_DESKTOP_NEXT_HOME', 'BOTCAMP_HOME'],
+  ['DSH_NEXT_PREFERENCES', 'BOTCAMP_PREFERENCES'],
+  ['DSH_NEXT_TRUSTED_HOSTS', 'BOTCAMP_TRUSTED_HOSTS'],
+  ['DSH_NEXT_NATIVE_TOKEN', 'BOTCAMP_NATIVE_TOKEN'],
+  ['DSH_NEXT_SYSTEM_PROXY', 'BOTCAMP_SYSTEM_PROXY'],
+]
+for (const relative of [
+  'src/desktop-contract.ts', 'src/data-directory.ts', 'src/client/settings.tsx',
+  'src/desktop-runtime.ts', 'src/host/index.ts', 'src/system-proxy.ts', 'scripts/verify-window-controls.mjs',
+]) {
+  const file = join(root, 'dsh-desktop-next', relative)
+  let text = readFileSync(file, 'utf8')
+  for (const [from, to] of envRenames) text = text.replaceAll(from, to)
+  writeFileSync(file, text)
+}
+const envProfilesPath = join(root, 'dsh-desktop-next/src/profiles.ts')
+let profilesSource = readFileSync(envProfilesPath, 'utf8')
+profilesSource = profilesSource.replaceAll('process.env.DSH_TELEMETRY_DISABLED', 'process.env.BOTCAMP_TELEMETRY_DISABLED')
+writeFileSync(envProfilesPath, profilesSource)
+
+const runtimePath = join(root, 'dsh-desktop-next/src/desktop-runtime.ts')
+let runtimeSource = readFileSync(runtimePath, 'utf8')
+runtimeSource = runtimeSource.replace(
+  `      { ...process.env, DSH_HOME: actualHome, BOTCAMP_NATIVE_TOKEN: token,`,
+  `      { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('DSH_'))), DSH_HOME: actualHome, DSH_PROFILE: profile, DSH_PROFILE_DIR: join(actualHome, 'profiles', profile), BOTCAMP_NATIVE_TOKEN: token,`,
+)
+runtimeSource = runtimeSource.replace(
+  "...(this.safeMode ? { DSH_TELEMETRY_DISABLED: '1' } : {})",
+  `...(process.env.BOTCAMP_TELEMETRY_DISABLED !== undefined
+          ? { DSH_TELEMETRY_DISABLED: process.env.BOTCAMP_TELEMETRY_DISABLED }
+          : {}),
+        ...(this.safeMode ? { BOTCAMP_TELEMETRY_DISABLED: '1', DSH_TELEMETRY_DISABLED: '1' } : {})`,
+)
+writeFileSync(runtimePath, runtimeSource)
+
+const mainSourcePath = join(root, 'dsh-desktop-next/src/main.ts')
+let mainSource = readFileSync(mainSourcePath, 'utf8')
+const mainAnchor = `const root = dirname(NEXT_PACKAGE)
+// Read once: an in-app relaunch inherits this process's environment, not later user variables.`
+const mainPatched = `const root = dirname(NEXT_PACKAGE)
+// BotCamp never consumes the DSH product's environment. The embedded Host gets
+// DSH_HOME explicitly from desktop-runtime.ts; every user-facing setting is BOTCAMP_*.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith('DSH_') || key === 'ELECTRON_RUN_AS_NODE') delete process.env[key]
+}
+// Read once: an in-app relaunch inherits this process's environment, not later user variables.`
+if (!mainSource.includes('BotCamp never consumes')) mainSource = mainSource.replace(mainAnchor, mainPatched)
+const homeAnchor = `const home = dataLocation.home
+let dataSource = dataLocation.source`
+const homePatched = `const home = dataLocation.home
+// BotCamp's own home is authoritative for every child; DSH_HOME is only the
+// embedded engine's private handoff to the Host and agent.
+process.env.BOTCAMP_HOME = home
+process.env.DSH_HOME = home
+let dataSource = dataLocation.source`
+if (!mainSource.includes("BotCamp's own home")) mainSource = mainSource.replace(homeAnchor, homePatched)
+mainSource = mainSource.replace('Forgetting the choice lets DSH_DESKTOP_NEXT_HOME or the default apply again.', 'Forgetting the choice lets BOTCAMP_HOME or the default apply again.')
+mainSource = mainSource.replace('`~/.dsh` is the default', '`~/.botcamp` is the default')
+writeFileSync(mainSourcePath, mainSource)
+
+const dataDirText = readFileSync(dirPath, 'utf8').replace('`~/.dsh` is the default', '`~/.botcamp` is the default')
+writeFileSync(dirPath, dataDirText)
+const settingsPath = join(root, 'dsh-desktop-next/src/client/settings.tsx')
+const settingsText = readFileSync(settingsPath, 'utf8').replace('`BOTCAMP_HOME`, which wins over `~/.dsh`.', '`BOTCAMP_HOME`, which wins over `~/.botcamp`.')
+writeFileSync(settingsPath, settingsText)
+
 // 3) packaging check must follow the product name
 const verify = readFileSync(verifyPath, 'utf8')
 const nextVerify = verify.replace(

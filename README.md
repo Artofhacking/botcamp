@@ -70,6 +70,19 @@ payload，并把 `ds-bot` / `@botcamp/dsh-library` 写进 desktop profile 的
 桌面端 **Plugins → Add plugin** 安装 tarball。
 详见 `desktop/plugins/botcamp-library/README.md`。
 
+## 环境变量
+
+BotCamp 对外只使用 `BOTCAMP_*`，不读取外部 `DSH_*`：
+
+- `BOTCAMP_HOME`：数据目录，默认 `~/.botcamp`
+- `BOTCAMP_GATEWAY`：网关地址，默认 `https://camp.aigc.sx.cn`
+- `BOTCAMP_LIBRARY_ROOT`：文档库根，默认 `~/BotCamp/library`
+- `BOTCAMP_AGENT_CONFIG` / `BOTCAMP_SSH_HOST` / `BOTCAMP_SSH_KEY` / `BOTCAMP_HOST_PORT`：中继 agent
+- `BOTCAMP_TELEMETRY_DISABLED=1`：关闭内嵌引擎遥测
+
+`DSH_*` 只作为内嵌 DSH 引擎子进程的内部协议保留；app 启动时会清掉外部继承的
+`DSH_HOME` / `DSH_DESKTOP_NEXT_HOME` / `DSH_NEXT_*`，所以从 DSH 终端启动也不会串数据。
+
 ## 部署
 
 ```bash
