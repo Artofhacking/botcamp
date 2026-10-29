@@ -12,3 +12,8 @@ data/
 .env
 .env.*
 !.env.example
+
+# mobile build output
+mobile/.next/
+mobile/out/
+mobile/node_modules/

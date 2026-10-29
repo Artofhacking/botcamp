@@ -17,6 +17,7 @@ RATE_IN = float(os.environ.get("BOTCAMP_RATE_IN", "0.14"))    # per 1M input tok
 RATE_OUT = float(os.environ.get("BOTCAMP_RATE_OUT", "0.28"))  # per 1M output tokens
 
 PREFIX = "/botcamp"
+PUBLIC_URL = os.environ.get("BOTCAMP_PUBLIC_URL", "https://camp.aigc.sx.cn").rstrip("/")
 
 def read_version():
     try:
@@ -82,6 +83,15 @@ def init_db():
           stream INTEGER DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS usage_user_ts ON usage(user_id, ts);
+        CREATE TABLE IF NOT EXISTS pair_codes(
+          code TEXT PRIMARY KEY,
+          device_id TEXT NOT NULL,
+          name TEXT DEFAULT '',
+          platform TEXT DEFAULT '',
+          status TEXT DEFAULT 'pending',
+          slot INTEGER,
+          created_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS devices(
           slot INTEGER PRIMARY KEY,
           secret_hash TEXT DEFAULT '',
@@ -226,6 +236,26 @@ async function connect(slot){
 load()
 </script></body></html>"""
 
+PAIR_HTML = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>绑定设备</title>
+<style>body{margin:0;min-height:100vh;background:#0b0b0d;color:#e8e8ee;font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center}
+.card{width:min(92vw,380px);background:#141418;border:1px solid #26262e;border-radius:14px;padding:24px;text-align:center}
+code{display:block;font-size:26px;letter-spacing:3px;margin:14px 0;color:#6c8cff}
+button{width:100%;border:0;border-radius:10px;padding:12px;background:#6c8cff;color:#fff;font:inherit;cursor:pointer}
+p{color:#8b8b98;font-size:13px;margin:6px 0}</style></head><body>
+<div class="card"><h2 style="font-size:17px;margin:0">绑定这台电脑</h2>
+<p>请在即将登录的电脑上确认下面这串码</p><code id="c"></code>
+<button id="ok">是我本人，绑定</button><p id="m"></p></div>
+<script>
+const code=new URLSearchParams(location.search).get('code')||''
+document.querySelector('#c').textContent=code
+document.querySelector('#ok').onclick=async()=>{
+  const r=await fetch('/botcamp/api/devices/pair/approve',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code})})
+  const d=await r.json()
+  document.querySelector('#m').textContent=r.ok?'已绑定，可以回到电脑上继续':(d.error||'失败')
+}
+</script></body></html>"""
+
 ADMIN_HTML = r"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BotCamp 控制台</title>
@@ -238,7 +268,11 @@ h1{font-size:16px;margin:0;font-weight:600}main{max-width:1180px;margin:0 auto;p
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 input,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#1b1b21;color:var(--tx);padding:8px 12px}
 button{cursor:pointer;background:var(--acc);border-color:var(--acc);color:#fff}
-button.ghost{background:transparent;color:var(--mut);border-color:var(--line)}
+button.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20}
+.modalbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;width:min(92vw,560px);max-height:70vh;overflow:auto}
+.devrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.devrow button{margin-left:auto}
+.ghost{background:transparent;color:var(--mut);border-color:var(--line)}
 button.danger{background:transparent;border-color:#5a2b2b;color:var(--bad)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{color:var(--mut);font-weight:500}td.num{text-align:right;font-variant-numeric:tabular-nums}
@@ -286,8 +320,16 @@ async function load(){
     <td><b>${u.email}</b><div class="mut" style="font-size:12px">${u.name||''} ${u.note?'· '+u.note:''}</div></td>
     <td><span class="pill ${u.status==='active'?'on':'off'}">${u.status==='active'?'正常':'停用'}</span></td>
     <td class="num">${fmt(u.requests)}</td><td class="num">${fmt(u.prompt_tokens)}</td><td class="num">${fmt(u.completion_tokens)}</td>
-    <td class="num">${money(u.cost)}</td><td><button class="ghost" data-desk="${u.id}" data-on="${u.can_desk?1:0}">${u.can_desk?'已开通':'未开通'}</button></td><td>${(u.models||[]).map(m=>`<span class="pill" title="${m.requests} 次请求 · 输入 ${fmt(m.prompt_tokens)} / 输出 ${fmt(m.completion_tokens)}">${m.model} · ${fmt(m.total_tokens)}</span>`).join(" ")||"<span class=mut>—</span>"}</td><td class="mut">${u.last_seen||'—'}</td>
+    <td class="num">${money(u.cost)}</td><td><button class="ghost" data-desk="${u.id}" data-on="${u.can_desk?1:0}">${u.can_desk?'已开通':'未开通'}</button>
+        <button class="ghost" data-devices="${u.id}" data-email="${u.email}">设备</button></td><td>${(u.models||[]).map(m=>`<span class="pill" title="${m.requests} 次请求 · 输入 ${fmt(m.prompt_tokens)} / 输出 ${fmt(m.completion_tokens)}">${m.model} · ${fmt(m.total_tokens)}</span>`).join(" ")||"<span class=mut>—</span>"}</td><td class="mut">${u.last_seen||'—'}</td>
     <td><button class="danger" data-toggle="${u.id}" data-status="${u.status}">${u.status==='active'?'停用':'启用'}</button></td></tr>`).join('');
+  document.querySelectorAll('[data-devices]').forEach(b=>b.onclick=async()=>{
+    const r=await fetch(API+'/admin/users/'+b.dataset.devices+'/devices');const d=await r.json();
+    const rows=(d.devices||[]).map(x=>`<div class="devrow">${x.slot} · ${x.name||'-'} · ${x.platform||'-'} ·
+      ${x.online?'<span style="color:#3fbf7f">在线</span>':'离线'} · ${x.last_seen}
+      <button class="ghost" onclick="unbind(${b.dataset.devices},'${x.slot}')">解绑</button></div>`).join('')||'<p>没有设备</p>';
+    modal(b.dataset.email, rows);
+  });
   document.querySelectorAll('[data-desk]').forEach(b=>b.onclick=async()=>{
     await api('/admin/users/'+b.dataset.desk+'/desk',{method:'POST',body:JSON.stringify({enabled:b.dataset.on!=='1'})});
     toast('已更新');load();
@@ -368,7 +410,19 @@ class Handler(BaseHTTPRequestHandler):
             return None
         h = token_hash(token)
         with db() as c:
-            return c.execute("SELECT * FROM users WHERE token_hash=? AND status='active'", (h,)).fetchone()
+            row = c.execute("SELECT * FROM users WHERE token_hash=? AND status='active'", (h,)).fetchone()
+            if row is not None:
+                return row
+            # Long-lived inference key used by a paired device.
+            return c.execute("SELECT * FROM users WHERE llm_token=? AND status='active'", (token,)).fetchone()
+
+    def ensure_llm_token(self, conn, uid):
+        row = conn.execute("SELECT llm_token FROM users WHERE id=?", (uid,)).fetchone()
+        if row is not None and row["llm_token"]:
+            return row["llm_token"]
+        token = "bc-" + secrets.token_urlsafe(24)
+        conn.execute("UPDATE users SET llm_token=? WHERE id=?", (token, uid))
+        return token
 
     def body_json(self, limit=8_000_000):
         try:
@@ -400,6 +454,8 @@ class Handler(BaseHTTPRequestHandler):
                 rows = c.execute("SELECT slot, name, platform, updated_at FROM devices WHERE user_id=? ORDER BY slot", (data.get("uid"),)).fetchall()
             return self.send_json({"devices": [{"slot": f"d{r['slot']}", "name": r["name"], "platform": r["platform"],
                                                 "online": now() - r["updated_at"] < 180, "last_seen": iso(r["updated_at"])} for r in rows]})
+        if path == PREFIX + "/pair":
+            return self.send_html(PAIR_HTML)
         if path == PREFIX + "/relay/devices":
             return self.send_html(RELAY_DEVICES_HTML)
         if path == PREFIX + "/relay":
@@ -424,6 +480,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True})
         if path == PREFIX + "/api/admin/me":
             return self.send_json({"admin": True, "version": VERSION}) if self.is_admin() else self.send_json({"error": "unauthorized"}, 401)
+        mdev = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/devices", path)
+        if mdev:
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            uid = int(mdev.group(1))
+            with db() as c:
+                rows = c.execute("SELECT * FROM devices WHERE user_id=? ORDER BY slot", (uid,)).fetchall()
+            return self.send_json({"devices": [{"slot": f"d{r['slot']}", "name": r["name"], "platform": r["platform"],
+                                                "online": now() - r["updated_at"] < 180,
+                                                "last_seen": iso(r["updated_at"])} for r in rows]})
         if path == PREFIX + "/api/admin/users":
             if not self.is_admin():
                 return self.send_json({"error": "unauthorized"}, 401)
@@ -476,8 +542,67 @@ class Handler(BaseHTTPRequestHandler):
                 dev = c.execute("SELECT slot FROM devices WHERE secret_hash=?", (token_hash(auth),)).fetchone()
                 if dev is None:
                     return self.send_json({"error": "unknown device"}, 401)
-                c.execute("UPDATE devices SET token=?, updated_at=?, online=1 WHERE slot=?", (token or None, now(), dev["slot"]))
+                c.execute("UPDATE devices SET token=COALESCE(NULLIF(?, ''), token), updated_at=?, online=1 WHERE slot=?", (token, now(), dev["slot"]))
             return self.send_json({"ok": True, "slot": dev["slot"]})
+        if path == PREFIX + "/api/devices/pair/start":
+            body = self.body_json()
+            device_id = str(body.get("device_id") or "").strip()
+            if not device_id:
+                return self.send_json({"error": "device_id required"}, 400)
+            code = "-".join(secrets.token_hex(2).upper() for _ in range(2))
+            with db() as c:
+                c.execute("DELETE FROM pair_codes WHERE created_at < ?", (now() - 900,))
+                c.execute("INSERT OR REPLACE INTO pair_codes(code,device_id,name,platform,status,created_at) VALUES(?,?,?,?,'pending',?)",
+                          (code, device_id, str(body.get("name") or "")[:60], str(body.get("platform") or "")[:30], now()))
+            return self.send_json({"ok": True, "code": code, "url": f"{PUBLIC_URL}/botcamp/pair?code={code}", "expires_in": 900, "interval": 2})
+        if path == PREFIX + "/api/devices/pair/poll":
+            body = self.body_json()
+            code = str(body.get("code") or "").upper()
+            with db() as c:
+                row = c.execute("SELECT * FROM pair_codes WHERE code=?", (code,)).fetchone()
+                if row is None or now() - row["created_at"] > 900:
+                    return self.send_json({"status": "expired"}, 410)
+                if row["status"] != "approved":
+                    return self.send_json({"status": "pending"})
+                dev = c.execute("SELECT slot, secret_hash, user_id FROM devices WHERE device_id=?", (row["device_id"],)).fetchone()
+                c.execute("DELETE FROM pair_codes WHERE code=?", (code,))
+            if dev is None:
+                return self.send_json({"status": "expired"}, 410)
+            secret = secrets.token_urlsafe(32)
+            with db() as c:
+                c.execute("UPDATE devices SET secret_hash=?, updated_at=? WHERE slot=?", (token_hash(secret), now(), dev["slot"]))
+            with db() as c:
+                llm_token = self.ensure_llm_token(c, dev["user_id"])
+            return self.send_json({"status": "approved", "slot": f"d{dev['slot']}", "device_secret": secret, "llm_token": llm_token})
+        if path == PREFIX + "/api/devices/pair/approve":
+            tok = self.cookies().get("botcamp_relay", "")
+            data = unsign(tok) if tok else None
+            if not data:
+                return self.send_json({"error": "login required"}, 401)
+            body = self.body_json()
+            code = str(body.get("code") or "").upper()
+            with db() as c:
+                user = c.execute("SELECT id, can_desk FROM users WHERE id=? AND status='active'", (data.get("uid"),)).fetchone()
+                row = c.execute("SELECT * FROM pair_codes WHERE code=?", (code,)).fetchone()
+                if user is None or not user["can_desk"]:
+                    return self.send_json({"error": "该账号未开通桌面访问权限"}, 403)
+                if row is None or now() - row["created_at"] > 900:
+                    return self.send_json({"error": "配对码已过期"}, 410)
+                existing = c.execute("SELECT slot, user_id FROM devices WHERE device_id=?", (row["device_id"],)).fetchone()
+                if existing is None:
+                    used = {r["slot"] for r in c.execute("SELECT slot FROM devices")}
+                    slot = next((i for i in range(1, 11) if i not in used), None)
+                    if slot is None:
+                        return self.send_json({"error": "设备槽位已满"}, 507)
+                    c.execute("INSERT INTO devices(slot,device_id,user_id,name,platform,updated_at) VALUES(?,?,?,?,?,?)",
+                              (slot, row["device_id"], user["id"], row["name"], row["platform"], now()))
+                else:
+                    slot = existing["slot"]
+                    c.execute("UPDATE devices SET user_id=?, name=?, platform=?, updated_at=? WHERE slot=?",
+                              (user["id"], row["name"], row["platform"], now(), slot))
+                self.ensure_llm_token(c, user["id"])
+                c.execute("UPDATE pair_codes SET status='approved', slot=? WHERE code=?", (slot, code))
+            return self.send_json({"ok": True, "slot": f"d{slot}"})
         if path == PREFIX + "/api/relay/register":
             return self.send_json({"error": "deprecated: devices register with a user login now"}, 410)
             body = self.body_json()
@@ -603,7 +728,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": "账号或密码错误"}, 401)
             token = secrets.token_urlsafe(32)
             c.execute("UPDATE users SET token_hash=?, last_login_at=? WHERE id=?", (token_hash(token), now(), u["id"]))
-        return self.send_json({"token": token, "user": {"email": email, "name": u["name"]}})
+        with db() as c:
+            llm_token = self.ensure_llm_token(c, u["id"])
+        return self.send_json({"token": token, "llm_token": llm_token, "user": {"email": email, "name": u["name"]}})
 
     def admin_login(self):
         d = self.body_json()
