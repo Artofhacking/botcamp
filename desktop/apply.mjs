@@ -3,10 +3,12 @@
  * Apply BotCamp branding to a checkout of anywhere-labs/dsh-desktop.
  * Usage: node desktop/apply.mjs <path-to-dsh-desktop>
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const root = process.argv[2]
+const here = dirname(fileURLToPath(import.meta.url))
 if (!root) { console.error('usage: node desktop/apply.mjs <path-to-dsh-desktop>'); process.exit(1) }
 
 const pkgPath = join(root, 'dsh-desktop-next/package.json')
@@ -60,5 +62,30 @@ const nextVerify = verify.replace(
 )
 if (nextVerify === verify) console.warn('verify-packaged.ts: pattern already applied or changed')
 writeFileSync(verifyPath, nextVerify)
+
+// 4) first-run pairing overlay + the agent it keeps running
+const src = join(root, 'dsh-desktop-next', 'src')
+mkdirSync(src, { recursive: true })
+copyFileSync(join(here, 'overlay', 'botcamp-onboarding.ts'), join(src, 'botcamp-onboarding.ts'))
+
+const mainPath = join(src, 'main.ts')
+let main = readFileSync(mainPath, 'utf8')
+if (!main.includes('botcamp-onboarding.ts')) {
+  const lines = main.split('\n')
+  const lastImport = lines.reduce((last, line, index) => (line.startsWith('import ') ? index : last), 0)
+  lines.splice(lastImport + 1, 0, "import { botcampEnsureDevice, stopBotcampRelay } from './botcamp-onboarding.ts'")
+  main = lines.join('\n')
+  main = main.replace('await app.whenReady()', 'await app.whenReady()\n  await botcampEnsureDevice().catch(() => {})')
+  main = main.replace("app.once('will-quit', () => { desktopShortcuts?.dispose() })",
+    "app.once('will-quit', () => { stopBotcampRelay(); desktopShortcuts?.dispose() })")
+  writeFileSync(mainPath, main)
+  console.log('main.ts: pairing hook installed')
+}
+
+const resources = join(root, 'dsh-desktop-next', 'resources')
+mkdirSync(resources, { recursive: true })
+copyFileSync(join(here, '..', 'agent', 'botcamp-agent.mjs'), join(resources, 'botcamp-agent.mjs'))
+pkg.build.extraResources = [{ from: 'resources/botcamp-agent.mjs', to: 'botcamp-agent.mjs' }]
+writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 
 console.log('applied BotCamp branding to', root)
