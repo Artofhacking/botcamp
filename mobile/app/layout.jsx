@@ -1,4 +1,11 @@
-export const metadata = { title: 'BotCamp', viewport: 'width=device-width, initial-scale=1, viewport-fit=cover' }
+import './globals.css'
+export const metadata = {
+  title: 'BotCamp',
+  manifest: '/m/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'BotCamp' },
+  icons: { icon: '/m/icon-192.png', apple: '/m/icon-192.png' },
+}
+export const viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#0b0b0d' }
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
