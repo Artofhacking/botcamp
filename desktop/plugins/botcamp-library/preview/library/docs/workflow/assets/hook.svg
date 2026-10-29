@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+    <radialGradient id="r" cx="0.8" cy="0.15" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#g)"/>
+  <rect width="1200" height="700" fill="url(#r)"/>
+  <circle cx="78%" cy="30%" r="260" fill="#f59e0b" fill-opacity="0.10"/>
+  <circle cx="78%" cy="30%" r="160" fill="#f59e0b" fill-opacity="0.12"/>
+  <g stroke="#f59e0b" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round">
+    <path d="M120 520 L220 470 L320 540 L420 420 L520 480 L620 360 L720 440 L820 320"/>
+  </g>
+  <text x="0.92" y="0.3" text-anchor="end" fill="#f59e0b" fill-opacity="0.95" font-family="Helvetica Neue,Arial" font-size="240" font-weight="700">3s</text>
+  <text x="84" y="434" fill="#ffffff" fill-opacity="0.96" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="77" font-weight="700" letter-spacing="-0.02em">THE FIRST 3 SECONDS</text>
+  <text x="84" y="525" fill="#ffffff" fill-opacity="0.62" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="24" letter-spacing="0.18em">HOOK / RETENTION</text>
+</svg>

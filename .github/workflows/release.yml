@@ -34,6 +34,8 @@ jobs:
 
       - name: Apply BotCamp branding
         run: node botcamp/desktop/apply.mjs dsh-desktop
+        env:
+          BOTCAMP_DESKTOP_VERSION: ${{ startsWith(github.ref_name, 'v') && github.ref_name || '' }}
 
       - name: Enable corepack
         run: corepack enable

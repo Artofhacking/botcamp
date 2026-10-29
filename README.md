@@ -43,6 +43,33 @@
 | POST | `/botcamp/api/relay/go` | 选择设备 → 返回 `/desk/dN/?token=…` |
 | GET | `/desk/dN/…` | 经 nginx 鉴权 + 隧道到达本机 host |
 
+## 文档库（BotCamp Library）
+
+`desktop/plugins/botcamp-library/` 是从
+[`@s1lencewill/dsh-markdown-reader`](https://github.com/s1lencewill/dsh-markdown-reader)
+（BSD-3-Clause）fork 出来的只读文档库，做了四件事：
+
+- **Notion 式阅读页**：封面 / 图标 / 标题 / 708px 版心 / 图片 / 视频。
+- **文库首页**：扫描 `~/BotCamp/library/docs/`，按 frontmatter 出卡片、搜索、封面。
+- **视频**：`:::video` 块 + `/md-reader/raw` 的 range 流式播放，可拖进度条。
+- **同一份阅读器上手机**：宿主在 `/library/` 提供独立页面，手机通过
+  `/desk/dN/library/` 打开，共用同一套客户端和库。
+
+库根默认 `~/BotCamp/library/`，可用 `BOTCAMP_LIBRARY_ROOT` 覆盖。目录约定：
+
+```
+library/
+  docs/<slug>/index.md      # 终稿，一文一文件夹
+  docs/<slug>/assets/       # 该篇自带图片/视频
+  media/                    # 可复用的原始素材
+```
+
+桌面构建由 `desktop/apply.mjs` 把这个包作为 `@botcamp/dsh-library` 依赖带进
+payload，并把 `ds-bot` / `@botcamp/dsh-library` 写进 desktop profile 的
+`dsh.profile.bundles`（已有 profile 也会补齐）；本地试用可以 `npm pack` 后在
+桌面端 **Plugins → Add plugin** 安装 tarball。
+详见 `desktop/plugins/botcamp-library/README.md`。
+
 ## 部署
 
 ```bash

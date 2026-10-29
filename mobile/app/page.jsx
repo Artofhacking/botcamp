@@ -132,6 +132,11 @@ export default function Page() {
     return (
       <main className="pad">
         <header className="head"><h1>团队</h1><button className="link" onClick={loadDevices}>切换设备</button></header>
+        <button className="card row" onClick={() => setView('library')}>
+          <span className="avatar">📚</span>
+          <span className="grow left"><span>文档库</span><span className="muted small">终稿、图片和视频</span></span>
+          <span className="chev">›</span>
+        </button>
         {bots.length === 0 && <p className="muted">这个设备上还没有 bot。</p>}
         {bots.map((b) => (
           <button key={b.id} className="card row" onClick={() => openBot(b)}>
@@ -141,6 +146,21 @@ export default function Page() {
           </button>
         ))}
         {err && <p className="error">{err}</p>}
+      </main>
+    )
+  }
+
+  if (view === 'library') {
+    return (
+      <main className="chat">
+        <header className="head sticky">
+          <button className="link" onClick={() => setView('bots')}>‹</button>
+          <h1>文档库</h1>
+          <span style={{ width: 32 }} />
+        </header>
+        {dev
+          ? <iframe title="BotCamp 文档库" className="library-frame" src={`${GATEWAY}/desk/${dev}/library/`} />
+          : <p className="muted pad">先连接一台设备。</p>}
       </main>
     )
   }

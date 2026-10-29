@@ -1,0 +1,49 @@
+{
+  "name": "@botcamp/dsh-library",
+  "description": "BotCamp 文档库：Notion 式 Markdown 阅读、文库首页、图片与视频；只读、无版本管理。派生自 @s1lencewill/dsh-markdown-reader（BSD-3-Clause）。",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.cjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "vendor",
+    "standalone",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.7-rc.2"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "botcamp",
+    "dsh-plugin",
+    "markdown",
+    "library",
+    "notion"
+  ],
+  "license": "BSD-3-Clause"
+}

@@ -1,0 +1,8 @@
+# BotCamp Library bundle patch: inserts the library row into the BotCamp
+# desktop profile roster. The package carries both halves:
+#   - Node: ./lib/index.js (library-gated routes + vendor assets + prompt)
+#   - Browser: ./lib/client.cjs (Notion-style library + reader)
+# Install into the Electron-managed profile with desktop/install-library.mjs.
+- insert:
+    - id: ui-botcamp-library
+      name: '@botcamp/dsh-library'

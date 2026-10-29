@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BotCamp Library · preview</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+    #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #888; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="boot">正在加载 BotCamp 文档库…</div>
+  <script src="/react.js"></script>
+  <script src="/react-dom.js"></script>
+  <script>
+    window.__ModuleLoader__ = {
+      load({ id, factory }) {
+        const req = (name) => {
+          if (name === 'react') return window.React
+          if (name === 'react-dom/client' || name === 'react-dom') return window.ReactDOM
+          throw new Error('unknown module: ' + name)
+        }
+        window.__botcampLibraryApi = factory(req)
+      }
+    }
+  </script>
+  <script src="/client.js"></script>
+  <script>
+    (async () => {
+      const boot = document.getElementById('boot')
+      try {
+        const wait = () => new Promise((resolve, reject) => {
+          let n = 0
+          const timer = setInterval(() => {
+            if (window.__botcampLibraryApi) { clearInterval(timer); resolve() }
+            if (++n > 200) { clearInterval(timer); reject(new Error('plugin did not register')) }
+          }, 20)
+        })
+        await wait()
+        const api = window.__botcampLibraryApi
+        const ctx = {
+          effect(fn) { const dispose = fn(); return typeof dispose === 'function' ? dispose : () => {} },
+          sessions: {
+            list: {
+              getSnapshot: () => ({ sessions: [] }),
+              subscribe: () => () => {},
+            },
+          },
+        }
+        api.apply(ctx)
+        boot.remove()
+        setTimeout(() => {
+          const button = document.querySelector('.mr-float-btn')
+          if (button) button.click()
+        }, 250)
+      } catch (error) {
+        boot.textContent = '预览加载失败：' + (error && error.message ? error.message : error)
+        console.error(error)
+      }
+    })()
+  </script>
+</body>
+</html>

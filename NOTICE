@@ -8,3 +8,9 @@ Copyright 2026 Fei2411 and the DS Bot contributors):
 See ds-bot/LICENSE and ds-bot/NOTICE. app/ui/src/primitives.js replaces the
 Harness Markdown primitive with react-markdown, the same stand-in that
 project uses for its own window.
+
+
+BotCamp Library (desktop/plugins/botcamp-library) is derived from
+@s1lencewill/dsh-markdown-reader 0.4.2 (BSD-3-Clause, Copyright 2026
+s1lencewill, https://github.com/s1lencewill/dsh-markdown-reader).
+See desktop/plugins/botcamp-library/LICENSE and NOTICE.

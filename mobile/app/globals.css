@@ -36,3 +36,5 @@ h1 { font-size:18px; margin:0 }
   border-radius:12px; padding:10px 12px; font:inherit }
 .composer button { background:var(--acc); color:#fff; border-radius:12px; padding:0 18px; flex:none }
 .composer button:disabled { background:#2a2a33; color:#777 }
+
+.library-frame { flex:1; width:100%; border:0; background:#fff; }

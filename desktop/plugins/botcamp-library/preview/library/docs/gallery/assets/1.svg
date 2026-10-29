@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <circle cx="700" cy="80" r="160" fill="#ffffff" fill-opacity="0.08"/>
+  <rect x="80" y="80" width="640" height="320" rx="18" fill="#ffffff" fill-opacity="0.10"/>
+  <rect x="120" y="120" width="560" height="240" rx="10" fill="#ffffff" fill-opacity="0.10"/>
+  <text x="120" y="520" fill="#ffffff" fill-opacity="0.9" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="46" font-weight="700">BEFORE</text>
+  <text x="120" y="570" fill="#ffffff" fill-opacity="0.6" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="22" letter-spacing="0.08em">MORE IS LESS</text>
+</svg>

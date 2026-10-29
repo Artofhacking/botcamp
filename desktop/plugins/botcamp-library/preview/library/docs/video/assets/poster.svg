@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <radialGradient id="r" cx="0.8" cy="0.15" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#g)"/>
+  <rect width="1600" height="900" fill="url(#r)"/>
+  <g stroke="#93c5fd" stroke-opacity="0.18" stroke-width="1">
+    <path d="M0 180h1600M0 360h1600M0 540h1600M0 720h1600"/>
+  </g>
+  <text x="112" y="558" fill="#ffffff" fill-opacity="0.96" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="99" font-weight="700" letter-spacing="-0.02em">3 MINUTES</text>
+  <text x="112" y="675" fill="#ffffff" fill-opacity="0.62" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="31" letter-spacing="0.18em">BOT CAMP · VIDEO</text>
+</svg>

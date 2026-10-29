@@ -17,3 +17,6 @@ data/
 mobile/.next/
 mobile/out/
 mobile/node_modules/
+
+# packed plugin artifacts
+desktop/plugins/botcamp-library/*.tgz

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <radialGradient id="r" cx="0.8" cy="0.15" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#g)"/>
+  <rect width="1600" height="900" fill="url(#r)"/>
+  <circle cx="50%" cy="52%" r="120" fill="#ffffff" fill-opacity="0.10"/>
+  <circle cx="50%" cy="52%" r="86" fill="#ffffff" fill-opacity="0.12"/>
+  <path d="M50% 52% l0 0" />
+  <polygon points="620,320 740,390 620,460" fill="#ffffff" fill-opacity="0.92"/>
+  <g stroke="#93c5fd" stroke-opacity="0.22" stroke-width="1">
+    <path d="M0 180h1600M0 360h1600M0 540h1600M0 720h1600"/>
+  </g>
+  <text x="112" y="558" fill="#ffffff" fill-opacity="0.96" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="99" font-weight="700" letter-spacing="-0.02em">3 MINUTES</text>
+  <text x="112" y="675" fill="#ffffff" fill-opacity="0.62" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif" font-size="31" letter-spacing="0.18em">BOT CAMP · VIDEO</text>
+</svg>
