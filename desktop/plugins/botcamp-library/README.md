@@ -4,11 +4,12 @@ BotCamp 的文档库插件，派生自
 [`@s1lencewill/dsh-markdown-reader`](https://github.com/s1lencewill/dsh-markdown-reader)
 （BSD-3-Clause，见 `LICENSE` / `NOTICE`）。
 
-它只做三件事：
+它做四件事：
 
 1. 扫描一个固定的库根目录，列出 Markdown 终稿（标题、摘要、封面、标签）。
-2. 用一个 Notion 式的只读阅读页打开它（Markdown、图片、视频、代码、表格）。
-3. 把库根、列表、文档和媒体通过宿主路由提供给桌面/手机客户端。
+2. 用一个 Notion 式的阅读页打开它（Markdown、图片、视频、代码、表格）。
+3. 提供一个完整工作区：文件树、新建、编辑/保存（Vditor）、重命名、删除到 `.trash`、搜索、图片上传。
+4. 把库根、列表、文档、媒体和工作区通过宿主路由提供给桌面/手机客户端。
 
 ## 与上游的差异
 
@@ -18,7 +19,7 @@ BotCamp 的文档库插件，派生自
 | 入口 | 路径输入 + 最近文件 | 文库首页（封面/搜索/最近） |
 | 版式 | 文档阅读器（左侧大纲、宽版心） | Notion 式居中页（封面/图标/标题/708px） |
 | 媒体 | 图片 | 图片 + 视频（range） |
-| 版本 | 外部文件变更提示 | 保持只读；不做版本管理 |
+| 版本 | 外部文件变更提示 | 读 + 工作区写；不做版本管理 |
 | 品牌 | dsh-markdown-reader | BotCamp |
 
 ## 库根
@@ -47,6 +48,19 @@ updated: 2026-10-29
 ```
 
 没有 frontmatter 时，标题取第一个 H1，封面取同目录的 `cover.*`。
+
+## 工作区
+
+`/library/` 是完整工作区（桌面浮层「打开完整工作区」和手机 iframe 都指向它）：
+
+- 左侧文件树：按 `docs/<slug>` 分组，支持标题/路径搜索。
+- 新建：在 `docs/` 下创建 `<slug>/index.md` 和 `assets/`，slug 冲突自动加 `-2`。
+- 编辑：Vditor 分屏编辑（源码 + 预览），`Cmd/Ctrl+S` 保存；图片可上传到该篇 `assets/`。
+- 重命名：改文件夹 slug 并更新 frontmatter `title`。
+- 删除：移到库根 `.trash/`，不直接 rm。
+- 写接口：`POST /md-reader/create|write|rename|delete|upload`；全部走固定库根和路径门禁，写入使用临时文件 + rename。
+
+Vditor 以 MIT 协议随包分发（`standalone/vditor/LICENSE`）；上游 reader 仍是 BSD-3-Clause。
 
 ## 开发与预览
 
@@ -119,7 +133,7 @@ https://camp.aigc.sx.cn/desk/dN/library/
 
 ## 已知边界
 
-- 只读：没有写路由、没有版本管理；留档靠复制文档。
+- 没有版本管理；工作区直接写 Markdown，删除会移到 `.trash/`；留旧版靠复制文档。
 - 视频按 range 流式播放；不做转码、不做缩略图队列。若手机拖动进度条卡顿，
   在 nginx 的 `/desk/dN/` location 加 `proxy_buffering off;`（range 请求不要被缓冲）。
 - 库根可以指向任何目录，但必须是宿主可读的本地路径。

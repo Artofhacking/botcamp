@@ -106,7 +106,7 @@ updated: 2026-10-29
     const envelope = JSON.parse(res.body.toString('utf8'))
     assert.equal(envelope.ok, true)
     assert.equal(envelope.value.root, library)
-    assert.equal(envelope.value.readonly, true)
+    assert.equal(envelope.value.readonly, false)
   })
 
   await t.test('list returns frontmatter cards and the cover', async () => {
@@ -135,6 +135,64 @@ updated: 2026-10-29
     const envelope = JSON.parse(res.body.toString('utf8'))
     assert.equal(envelope.ok, true)
     assert.match(envelope.value.content, /一条口播视频的完整生产包/)
+  })
+
+  await t.test('workspace creates, writes, uploads, renames and trashes a doc', async () => {
+    const jsonHeaders = { 'content-type': 'application/json' }
+    const createdRes = await request(route, {
+      method: 'POST', url: '/md-reader/create', headers: jsonHeaders,
+      body: JSON.stringify({ title: '测试新建文档' }),
+    })
+    assert.equal(createdRes.status, 200)
+    const created = JSON.parse(createdRes.body.toString('utf8')).value
+    assert.match(created.path, /^docs\/测试新建文档\/index\.md$/)
+    const createdFile = join(library, created.path)
+    assert.match((await stat(createdFile)).size > 0 ? 'yes' : 'no', /yes/)
+
+    const writeRes = await request(route, {
+      method: 'POST', url: '/md-reader/write', headers: jsonHeaders,
+      body: JSON.stringify({ path: created.path, content: '# 测试新建文档\n\n工作区写入。\n' }),
+    })
+    assert.equal(writeRes.status, 200)
+    const readRes = await request(route, {
+      method: 'POST', url: '/md-reader/read', headers: jsonHeaders,
+      body: JSON.stringify({ path: created.path }),
+    })
+    assert.match(JSON.parse(readRes.body.toString('utf8')).value.content, /工作区写入/)
+
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlGQAAAAASUVORK5CYII='
+    const uploadRes = await request(route, {
+      method: 'POST', url: '/md-reader/upload', headers: jsonHeaders,
+      body: JSON.stringify({ path: created.path, name: 'pixel.png', data: `data:image/png;base64,${png}` }),
+    })
+    assert.equal(uploadRes.status, 200)
+    const uploaded = JSON.parse(uploadRes.body.toString('utf8')).value
+    assert.match(uploaded.path, /^assets\/pixel\.png$/)
+    const rawRes = await request(route, { url: `/md-reader/raw?path=${encodeURIComponent(`docs/测试新建文档/${uploaded.path}`)}` })
+    assert.equal(rawRes.status, 200)
+    assert.equal(rawRes.headers['content-type'], 'image/png')
+
+    const renameRes = await request(route, {
+      method: 'POST', url: '/md-reader/rename', headers: jsonHeaders,
+      body: JSON.stringify({ path: created.path, title: '测试改名文档' }),
+    })
+    assert.equal(renameRes.status, 200)
+    const renamed = JSON.parse(renameRes.body.toString('utf8')).value
+    assert.match(renamed.path, /^docs\/测试改名文档\/index\.md$/)
+
+    const treeRes = await request(route, { url: '/md-reader/tree' })
+    assert.equal(treeRes.status, 200)
+    const tree = JSON.parse(treeRes.body.toString('utf8')).value
+    assert.equal(tree.docs.some((doc) => doc.path === renamed.path), true)
+
+    const deleteRes = await request(route, {
+      method: 'POST', url: '/md-reader/delete', headers: jsonHeaders,
+      body: JSON.stringify({ path: renamed.path }),
+    })
+    assert.equal(deleteRes.status, 200)
+    const after = await request(route, { url: '/md-reader/tree' })
+    const afterTree = JSON.parse(after.body.toString('utf8')).value
+    assert.equal(afterTree.docs.some((doc) => doc.path === renamed.path), false)
   })
 
   await t.test('raw media answers a byte range for video seeking', async () => {

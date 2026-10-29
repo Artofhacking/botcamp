@@ -1,7 +1,7 @@
 {
   "name": "@botcamp/dsh-library",
-  "description": "BotCamp 文档库：Notion 式 Markdown 阅读、文库首页、图片与视频；只读、无版本管理。派生自 @s1lencewill/dsh-markdown-reader（BSD-3-Clause）。",
-  "version": "0.1.0",
+  "description": "BotCamp 文档库：Notion 式阅读 + 完整工作区（新建/编辑/保存/重命名/删除/搜索/图片上传）；Markdown 本地文件、无版本管理。派生自 @s1lencewill/dsh-markdown-reader（BSD-3-Clause）。",
+  "version": "0.2.0",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

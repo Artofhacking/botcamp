@@ -1,6 +1,6 @@
 /**
  * BotCamp Library — host half. Derived from @s1lencewill/dsh-markdown-reader
- * (BSD-3-Clause); the read routes are library-gated and read-only.
+ * (BSD-3-Clause); every route is library-gated; the workspace adds atomic writes.
  * routes (/md-reader/read, /md-reader/stat, /md-reader/raw) plus the vendored-asset route
  * (/md-reader/assets/*, KaTeX + optional Mermaid drop-in) on the shared
  * webserver, and an agent announcement through the system-prompt section
@@ -11,14 +11,15 @@
  * canonicalizes the requested project root with realpath and requires it to
  * be a registered workspace (or a directory inside one); the resolved file
  * is realpathed again and prefix-checked, so `..` and symlink escapes are
- * rejected. The reader is strictly read-only: there is no write route.
+ * rejected. Read routes are read-only; write routes are limited to docs/ and use
+ * temp-file + rename, and deletions go to the hidden .trash/ folder.
  *
  * Zero build, zero runtime dependencies: pure Node ESM.
  * @module @botcamp/dsh-library
  */
 
 import { createReadStream } from 'node:fs'
-import { mkdir, open, readdir, realpath, readFile, stat } from 'node:fs/promises'
+import { mkdir, open, readdir, realpath, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -30,7 +31,7 @@ export const inject = ['webServer', 'systemPrompt']
 const SECTION_ORDER = 220
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
-export const MARKDOWN_READER_GUIDANCE = '本机已安装 BotCamp 文档库插件（BotCamp Library）：库根目录下的 .md 终稿可在 Notion 式阅读页中打开，支持 GFM（表格/任务列表/删除线）、大纲、阅读进度、相对路径图片、视频（range 播放）、代码复制与表格滚动。库根默认 ~/BotCamp/library，只读、不做版本管理；入口是 BotCamp 客户端里的「文档库」，也可以用 Ctrl+Shift+M 打开。用户提到「文档库 / 阅读 / 打开某篇终稿」时即指本插件。'
+export const MARKDOWN_READER_GUIDANCE = '本机已安装 BotCamp 文档库插件（BotCamp Library）：库根目录下的 .md 终稿可在 Notion 式阅读页中打开，支持 GFM（表格/任务列表/删除线）、大纲、阅读进度、相对路径图片、视频（range 播放）、代码复制与表格滚动。库根默认 ~/BotCamp/library，可新建/编辑/重命名/移入回收站，不做版本管理；入口是 BotCamp 客户端里的「文档库」，也可以用 Ctrl+Shift+M 打开。用户提到「文档库 / 阅读 / 打开某篇终稿」时即指本插件。'
 
 // ---------------------------------------------------------------------------
 // Error envelope (PanelError-shaped so clients can share the same decoding).
@@ -488,6 +489,292 @@ async function handleStat(gate, payload, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Write layer (create / edit / rename / trash). The reader used to be read-only;
+// the workspace page needs a small, root-gated file API. Every write is atomic
+// (temp file + rename), never accepts a path outside docs/, and keeps deletions
+// recoverable in the hidden .trash/ folder.
+// ---------------------------------------------------------------------------
+
+/** Maximum Markdown file size accepted by /md-reader/write. */
+const MAX_WRITE_BYTES = 4 * 1024 * 1024
+
+/** Normalize a client path and reject empty / dot / traversal segments. */
+function normalizeRelPath(value) {
+  if (typeof value !== 'string') return null
+  const rel = value.replaceAll('\\', '/').replace(/^\/+/, '')
+  if (rel === '' || rel.includes('\0')) return null
+  const parts = rel.split('/')
+  if (parts.some((part) => part === '' || part === '.' || part === '..')) return null
+  return rel
+}
+
+/** Whether a relative path is a Markdown document under docs/. */
+function isDocumentPath(rel) {
+  return rel.startsWith('docs/') && MD_EXT.has(extname(rel).toLowerCase())
+}
+
+/** Turn a title into a safe folder name (Unicode letters are preserved). */
+function slugFromTitle(title) {
+  const base = String(title ?? '')
+    .trim()
+    .replace(/[\\/:*?"<>|#%{}[\]]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 64)
+  return base || `doc-${Date.now()}`
+}
+
+/** Find a free docs/<slug> folder, appending -2, -3, ... on collision. */
+async function uniqueDocSlug(docsDir, base) {
+  for (let attempt = 1; attempt < 1000; attempt += 1) {
+    const slug = attempt === 1 ? base : `${base}-${attempt}`
+    try {
+      await stat(join(docsDir, slug))
+    } catch {
+      return slug
+    }
+  }
+  return `${base}-${Date.now()}`
+}
+
+/** GET /md-reader/tree: docs and media for the workspace sidebar. */
+async function handleTree(gate, root, res) {
+  await mkdir(join(root, 'docs'), { recursive: true }).catch(() => {})
+  await mkdir(join(root, 'media'), { recursive: true }).catch(() => {})
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docs = await collectDocs(gated.canonical)
+  const media = []
+  const walkMedia = async (dir, depth) => {
+    if (depth > 6 || media.length >= 500) return
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      const absolute = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await walkMedia(absolute, depth + 1)
+        continue
+      }
+      if (!entry.isFile() || media.length >= 500) continue
+      let info
+      try { info = await stat(absolute) } catch { continue }
+      media.push({
+        path: relative(gated.canonical, absolute).replaceAll('\\', '/'),
+        name: entry.name,
+        size: info.size,
+        mtime: info.mtimeMs,
+      })
+    }
+  }
+  await walkMedia(join(gated.canonical, 'media'), 0)
+  json(res, { ok: true, value: { root: gated.canonical, docs, media } })
+}
+
+/** POST /md-reader/create: create docs/<slug>/index.md plus assets/. */
+async function handleCreate(gate, root, payload, res) {
+  const title = (strField(payload, 'title') ?? '').trim() || '未命名文档'
+  if (title.length > 120) {
+    json(res, FAIL('invalid-title', 'title is too long'), 400)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  await mkdir(docsDir, { recursive: true })
+  const requestedSlug = strField(payload, 'slug')
+  const base = slugFromTitle(requestedSlug || title)
+  const slug = await uniqueDocSlug(docsDir, base)
+  const dir = join(docsDir, slug)
+  await mkdir(join(dir, 'assets'), { recursive: true })
+  const date = new Date().toISOString().slice(0, 10)
+  const heading = title.replace(/\r?\n/g, ' ')
+  const content = `---\ntitle: ${JSON.stringify(heading)}\nicon: 📄\ncreated: ${date}\nupdated: ${date}\n---\n\n# ${heading}\n\n`
+  try {
+    await writeFile(join(dir, 'index.md'), content, { flag: 'wx', mode: 0o600 })
+  } catch {
+    json(res, FAIL('create-failed', 'document already exists or could not be created'), 409)
+    return
+  }
+  json(res, { ok: true, value: { path: `docs/${slug}/index.md`, slug, title: heading } })
+}
+
+/** POST /md-reader/write: atomically replace one Markdown document. */
+async function handleWrite(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  const content = typeof payload?.content === 'string' ? payload.content : null
+  if (rel === null || !isDocumentPath(rel)) {
+    json(res, FAIL('invalid-path', 'path must be a Markdown file under docs/'), 400)
+    return
+  }
+  if (content === null || Buffer.byteLength(content, 'utf8') > MAX_WRITE_BYTES) {
+    json(res, FAIL('invalid-content', 'content is missing or too large'), 413)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const dir = dirname(resolved.real)
+  const tmp = join(dir, `.${basename(resolved.real)}.${process.pid}.${Date.now()}.tmp`)
+  try {
+    await writeFile(tmp, content, { mode: 0o600 })
+    await rename(tmp, resolved.real)
+    const info = await stat(resolved.real)
+    json(res, { ok: true, value: { path: rel, mtime: info.mtimeMs, size: info.size } })
+  } catch {
+    await unlink(tmp).catch(() => {})
+    json(res, FAIL('write-failed', 'document could not be written'), 500)
+  }
+}
+
+/** POST /md-reader/rename: rename a document folder and update its title. */
+async function handleRename(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  const title = (strField(payload, 'title') ?? '').trim()
+  if (rel === null || !isDocumentPath(rel) || title === '' || title.length > 120) {
+    json(res, FAIL('invalid-request', 'path and title are required'), 400)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  const docDir = dirname(resolved.real)
+  if (!isPathInside(docsDir, docDir) || docDir === docsDir) {
+    json(res, FAIL('invalid-path', 'only a document folder can be renamed'), 400)
+    return
+  }
+  const slug = slugFromTitle(title)
+  const target = join(docsDir, slug)
+  if (target === docDir) {
+    json(res, { ok: true, value: { path: rel } })
+    return
+  }
+  try {
+    await stat(target)
+    json(res, FAIL('already-exists', 'a document with that name already exists'), 409)
+    return
+  } catch { /* free */ }
+  try {
+    await rename(docDir, target)
+    const file = join(target, basename(resolved.real))
+    const text = await readFile(file, 'utf8').catch(() => '')
+    if (text !== '') {
+      const next = /^title:.*$/m.test(text)
+        ? text.replace(/^title:.*$/m, `title: ${JSON.stringify(title)}`)
+        : `---\ntitle: ${JSON.stringify(title)}\n---\n\n${text}`
+      await writeFile(file, next, { mode: 0o600 })
+    }
+    json(res, { ok: true, value: { path: `docs/${slug}/${basename(resolved.real)}` } })
+  } catch {
+    json(res, FAIL('rename-failed', 'document could not be renamed'), 500)
+  }
+}
+
+/** Allowed image extensions for the workspace upload route. */
+const UPLOAD_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'])
+
+/** POST /md-reader/upload: save one base64 image into the document's assets/. */
+async function handleUpload(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  if (rel === null || !isDocumentPath(rel)) {
+    json(res, FAIL('invalid-path', 'path must be a Markdown file under docs/'), 400)
+    return
+  }
+  const name = basename(String(strField(payload, 'name') ?? 'image.png'))
+  const ext = extname(name).toLowerCase()
+  if (!UPLOAD_EXT.has(ext)) {
+    json(res, FAIL('unsupported-type', 'only image files can be uploaded'), 415)
+    return
+  }
+  const raw = typeof payload?.data === 'string' ? payload.data : ''
+  const comma = raw.indexOf(',')
+  const base64 = raw.startsWith('data:') && comma !== -1 ? raw.slice(comma + 1) : raw
+  let buffer
+  try { buffer = Buffer.from(base64, 'base64') } catch { buffer = null }
+  if (buffer === null || buffer.length === 0) {
+    json(res, FAIL('invalid-content', 'image data is missing'), 400)
+    return
+  }
+  if (buffer.length > 20 * 1024 * 1024) {
+    json(res, FAIL('too-large', 'image is larger than 20MB'), 413)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const assets = join(dirname(resolved.real), 'assets')
+  await mkdir(assets, { recursive: true })
+  const stem = basename(name, ext).replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-|-$/g, '') || 'image'
+  let file = `${stem}${ext}`
+  for (let attempt = 1; attempt < 1000; attempt += 1) {
+    try { await stat(join(assets, file)); file = `${stem}-${attempt}${ext}` } catch { break }
+  }
+  try {
+    await writeFile(join(assets, file), buffer, { flag: 'wx' })
+    json(res, { ok: true, value: { path: `assets/${file}`, size: buffer.length } })
+  } catch {
+    json(res, FAIL('upload-failed', 'image could not be saved'), 500)
+  }
+}
+
+/** POST /md-reader/delete: move a document folder into library/.trash/. */
+async function handleDelete(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  if (rel === null || !isDocumentPath(rel)) {
+    json(res, FAIL('invalid-path', 'path must be a Markdown file under docs/'), 400)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  const docDir = dirname(resolved.real)
+  if (!isPathInside(docsDir, docDir) || docDir === docsDir) {
+    json(res, FAIL('invalid-path', 'only a document folder can be deleted'), 400)
+    return
+  }
+  const trash = join(root, '.trash')
+  await mkdir(trash, { recursive: true })
+  const target = join(trash, `${Date.now()}-${basename(docDir)}`)
+  try {
+    await rename(docDir, target)
+    json(res, { ok: true, value: { trash: target } })
+  } catch {
+    json(res, FAIL('delete-failed', 'document could not be moved to trash'), 500)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Library index (frontmatter + first H1 + cover discovery).
 // ---------------------------------------------------------------------------
 
@@ -615,8 +902,8 @@ function handleConfig(root, res) {
     value: {
       root,
       title: 'BotCamp 文档库',
-      readonly: true,
-      version: 1,
+      readonly: false,
+      version: 2,
     },
   })
 }
@@ -652,8 +939,13 @@ async function serveStandalone(req, res) {
     res.end()
     return
   }
-  const rel = url.pathname.replace(/^\/library\/?/, '') || 'index.html'
-  if (rel !== 'index.html' && rel !== 'client.js' && rel !== 'react.js' && rel !== 'react-dom.js') {
+  let rel = url.pathname.replace(/^\/library\/?/, '')
+  if (rel === 'reader' || rel.startsWith('reader/')) rel = rel.slice(6).replace(/^\/+/, '') || 'index.html'
+  else if (rel === '' || rel === 'index.html') rel = 'workspace.html'
+  const allowed = rel === 'workspace.js' || rel === 'workspace.html' || rel === 'index.html'
+    || rel === 'react.js' || rel === 'react-dom.js' || rel === 'client.js'
+    || rel.startsWith('vditor/')
+  if (!allowed) {
     res.writeHead(404)
     res.end()
     return
@@ -661,13 +953,22 @@ async function serveStandalone(req, res) {
   const file = rel === 'client.js'
     ? fileURLToPath(new URL('../lib/client.cjs', import.meta.url))
     : join(STANDALONE_DIR, rel)
+  if (!isPathInside(STANDALONE_DIR, file) && rel !== 'client.js') {
+    res.writeHead(404)
+    res.end()
+    return
+  }
+  const ext = extname(file).toLowerCase()
+  const mime = ext === '.html' ? 'text/html; charset=utf-8'
+    : ext === '.js' ? 'text/javascript; charset=utf-8'
+      : ext === '.css' ? 'text/css; charset=utf-8'
+        : ASSET_MIME[ext] ?? 'application/octet-stream'
   try {
     const body = await readFile(file)
-    const mime = rel.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8'
     res.writeHead(200, {
       'content-type': mime,
       'content-length': body.length,
-      'cache-control': 'no-store',
+      'cache-control': rel.startsWith('vditor/') ? 'public, max-age=86400' : 'no-store',
       'x-content-type-options': 'nosniff',
     })
     if (req.method === 'HEAD') res.end()
@@ -696,6 +997,10 @@ function registerRoutes(ctx, gate, libraryRoot) {
       }
       if (req.method === 'GET' && url.pathname === '/md-reader/list') {
         await handleList(gate, libraryRoot, res)
+        return
+      }
+      if (req.method === 'GET' && url.pathname === '/md-reader/tree') {
+        await handleTree(gate, libraryRoot, res)
         return
       }
       if (url.pathname === '/md-reader/raw') {
@@ -731,6 +1036,26 @@ function registerRoutes(ctx, gate, libraryRoot) {
     }
     if (pathname === '/md-reader/stat') {
       await handleStat(gate, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/create') {
+      await handleCreate(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/write') {
+      await handleWrite(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/rename') {
+      await handleRename(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/delete') {
+      await handleDelete(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/upload') {
+      await handleUpload(gate, libraryRoot, payload, res)
       return
     }
     res.writeHead(404)

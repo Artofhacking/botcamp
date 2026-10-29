@@ -3358,6 +3358,10 @@ function ReaderApp({ onReady }) {
       `${doc.readingMinutes} ${t('minute')} · ${t('updatedAt')} ${formatFileTime(doc.mtime)}`,
     ),
     h('span', { style: { flex: 1 } }),
+    h('a', {
+      className: 'mr-btn', href: `${DESK_PREFIX}/library/`, target: '_blank', rel: 'noopener',
+      title: '打开完整工作区：新建、编辑、重命名、删除',
+    }, '工作区'),
     status === 'ready' && h('button', {
       type: 'button', className: 'mr-btn',
       title: `${t('print')} (Ctrl/Cmd+P)`,
@@ -3464,6 +3468,10 @@ function ReaderApp({ onReady }) {
         h('div', { className: 'mr-library-head' },
           h('div', { className: 'mr-library-title' }, t('pickerTitle')),
           h('div', { className: 'mr-library-sub' }, t('librarySub')),
+          h('a', {
+            className: 'mr-btn', href: `${DESK_PREFIX}/library/`, target: '_blank', rel: 'noopener',
+            style: { marginBottom: '14px' }, title: '打开完整工作区：新建、编辑、重命名、删除',
+          }, '打开完整工作区 →'),
           h('input', {
             className: 'mr-library-search',
             value: library.query,

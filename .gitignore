@@ -20,3 +20,7 @@ mobile/node_modules/
 
 # packed plugin artifacts
 desktop/plugins/botcamp-library/*.tgz
+
+# Vendored Vditor build (needed by the workspace page)
+!desktop/plugins/botcamp-library/standalone/vditor/dist/
+!desktop/plugins/botcamp-library/standalone/vditor/dist/**

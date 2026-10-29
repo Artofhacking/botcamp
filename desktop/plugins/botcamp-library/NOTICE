@@ -8,7 +8,12 @@ Changes for BotCamp:
 - fixed, app-configured library root instead of arbitrary workspaces
 - library index (frontmatter, covers, search) and Notion-style reading shell
 - video/media range streaming
-- BotCamp branding and read-only/no-version defaults
+- a file-backed workspace: create/edit/save/rename/delete-to-trash/search/image upload
+- BotCamp branding and no-version defaults
 
 The upstream BSD-3-Clause text is kept verbatim in LICENSE. This NOTICE must
 travel with every redistribution.
+
+
+The workspace editor vendors Vditor 4.0.1 (MIT), Copyright (c) 2019-present B3log
+open source, b3log.org. Its license text is in standalone/vditor/LICENSE.
