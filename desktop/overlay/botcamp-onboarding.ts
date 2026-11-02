@@ -104,30 +104,84 @@ async function waitForApproval(code: string): Promise<{ slot: string, secret: st
  * agent.json. Marking onboarding complete also stops the first-run flow from
  * resetting the patch on the next launch.
  */
+function profileRoots(): string[] {
+  const roots = [join(botcampHome(), 'profiles')]
+  const accounts = join(botcampHome(), 'accounts')
+  try {
+    for (const account of readdirSync(accounts)) roots.push(join(accounts, account, 'profiles'))
+  } catch { /* no accounts yet */ }
+  return roots
+}
+
 function configureProfiles(): void {
   try {
     const config = JSON.parse(readFileSync(configPath(), 'utf8')) as { llm_token?: unknown }
     if (typeof config.llm_token === 'string' && config.llm_token) process.env.BOTCAMP_LLM_KEY = config.llm_token
     if (!process.env.BOTCAMP_LLM_KEY) return
-    for (const name of readdirSync(join(botcampHome(), 'profiles'))) {
-      const directory = join(botcampHome(), 'profiles', name)
-      const patchPath = join(directory, 'cordis.patch.yml')
-      if (existsSync(patchPath)) {
-        const text = readFileSync(patchPath, 'utf8')
-        if (!text.includes('dsh-llm-pi-ai')) {
-          const head = text.trim()
-          writeFileSync(patchPath, head === '' || head === '[]' ? MODEL_PATCH : `${text.trimEnd()}\n${MODEL_PATCH}`)
+    for (const root of profileRoots()) {
+      let names: string[]
+      try { names = readdirSync(root) } catch { continue }
+      for (const name of names) {
+        const directory = join(root, name)
+        const patchPath = join(directory, 'cordis.patch.yml')
+        if (existsSync(patchPath)) {
+          const text = readFileSync(patchPath, 'utf8')
+          if (!text.includes('dsh-llm-pi-ai')) {
+            const head = text.trim()
+            writeFileSync(patchPath, head === '' || head === '[]' ? MODEL_PATCH : `${text.trimEnd()}\n${MODEL_PATCH}`)
+          }
         }
-      }
-      const manifestPath = join(directory, 'package.json')
-      if (existsSync(manifestPath)) {
-        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dsh?: Record<string, unknown> }
-        manifest.dsh = manifest.dsh ?? {}
-        manifest.dsh.desktopNextOnboarding = { version: 1, outcome: 'completed' }
-        writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+        const manifestPath = join(directory, 'package.json')
+        if (existsSync(manifestPath)) {
+          const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dsh?: Record<string, unknown> }
+          manifest.dsh = manifest.dsh ?? {}
+          manifest.dsh.desktopNextOnboarding = { version: 1, outcome: 'completed' }
+          writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+        }
       }
     }
   } catch { /* not paired yet, or a profile is unreadable: the app still opens */ }
+}
+
+/** A fresh account must land in the team, not in the account-interview flow. */
+function seedOnboarding(): void {
+  const accounts = join(botcampHome(), 'accounts')
+  let names: string[]
+  try { names = readdirSync(accounts) } catch { return }
+  for (const account of names) {
+    const bot = join(accounts, account, 'bot')
+    const file = join(bot, 'onboarding.json')
+    if (existsSync(file)) continue
+    try {
+      mkdirSync(bot, { recursive: true })
+      writeFileSync(file, JSON.stringify({
+        version: 1,
+        complete: true,
+        platform: '',
+        account: '',
+        accountId: '',
+        audience: '',
+        goal: '',
+        resources: '',
+        intervention: 40,
+        completedAt: Date.now(),
+      }, null, 2) + '\n', { mode: 0o600 })
+    } catch { /* the next retry can seed it */ }
+  }
+}
+
+let provisionTimer: NodeJS.Timeout | undefined
+function startProvisioning(): void {
+  if (provisionTimer !== undefined) return
+  const provision = () => { configureProfiles(); seedOnboarding() }
+  provision()
+  provisionTimer = setInterval(provision, 1500)
+  provisionTimer.unref?.()
+  const stop = setTimeout(() => {
+    if (provisionTimer !== undefined) clearInterval(provisionTimer)
+    provisionTimer = undefined
+  }, 60_000)
+  stop.unref?.()
 }
 
 /**
@@ -174,6 +228,8 @@ export async function botcampEnsureDevice(): Promise<void> {
     }
   }
   configureProfiles()
+  seedOnboarding()
+  startProvisioning()
   startRelay()
 }
 

@@ -297,14 +297,44 @@ code{display:block;font:600 28px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace
 </style></head><body>
 <div class="card"><div class="brand" style="justify-content:center"><span class="mark"></span><h1>绑定这台电脑</h1></div>
 <p class="sub">请在即将登录的电脑上确认下面这串码</p><code id="c"></code>
-<button id="ok">是我本人，绑定</button><p id="m" class="sub" style="margin:14px 0 0"></p></div>
+<p class="sub" id="hint">登录 BotCamp 账号后确认绑定</p>
+<label>邮箱</label><input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+<label>密码</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+<button id="ok">登录并绑定</button><p id="m" class="sub" style="margin:14px 0 0"></p></div>
 <script>
 const code=new URLSearchParams(location.search).get('code')||''
 document.querySelector('#c').textContent=code
-document.querySelector('#ok').onclick=async()=>{
-  const r=await fetch('/botcamp/api/devices/pair/approve',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code})})
-  const d=await r.json()
-  document.querySelector('#m').textContent=r.ok?'已绑定，可以回到电脑上继续':(d.error||'失败')
+const $ = (s) => document.querySelector(s)
+async function login() {
+  const r = await fetch('/botcamp/api/relay/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: $('#email').value.trim(), password: $('#password').value }),
+  })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(d.error || '登录失败')
+}
+async function approve() {
+  const r = await fetch('/botcamp/api/devices/pair/approve', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }),
+  })
+  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }
+}
+$('#ok').onclick = async () => {
+  const button = $('#ok'); const message = $('#m'); button.disabled = true; message.textContent = ''
+  try {
+    let result = await approve()
+    if (result.status === 401) {
+      message.textContent = '请先登录 BotCamp 账号'
+      await login()
+      result = await approve()
+    }
+    if (!result.ok) throw new Error(result.data.error || '绑定失败')
+    message.textContent = '已绑定，可以回到电脑上继续'
+    button.textContent = '已绑定'
+  } catch (error) {
+    message.textContent = error.message || String(error)
+    button.disabled = false
+  }
 }
 </script></body></html>"""
 
@@ -562,7 +592,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"devices": [{"slot": f"d{r['slot']}", "name": r["name"], "platform": r["platform"],
                                                 "online": now() - r["updated_at"] < 180, "last_seen": iso(r["updated_at"])} for r in rows]})
         if path == PREFIX + "/pair":
-            return self.redirect(SITE_ORIGIN + "/login/")
+            return self.send_html(PAIR_HTML)
         if path == PREFIX + "/relay/devices":
             return self.redirect(SITE_ORIGIN + "/desk/")
         if path == PREFIX + "/relay":
