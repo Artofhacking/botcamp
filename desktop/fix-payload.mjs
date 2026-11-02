@@ -67,5 +67,21 @@ for (const client of [
   }
 }
 
+// The directly opened right-sidebar browser and every Bot browser share the same
+// storage profile, so a login in one is immediately available in the other.
+for (const client of [
+  join(root, 'node_modules', '@deepseek-ai', 'dsh-client-ui-sidebar-browser', 'lib', 'client.js'),
+  join(root, 'dsh-desktop-next', 'node_modules', '@deepseek-ai', 'dsh-client-ui-sidebar-browser', 'lib', 'client.js'),
+]) {
+  if (!existsSync(client)) continue
+  let text = readFileSync(client, 'utf8')
+  const old = 'return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;'
+  if (text.includes(old)) {
+    text = text.replace(old, "return 'botcamp:team';")
+    writeFileSync(client, text)
+    console.log('shared direct sidebar browser profile:', client)
+  }
+}
+
 const branded = rebrandTree(root, { log: (line) => console.log(line) })
 console.log(`rebranded ${branded.words} DSH mention(s) in ${branded.files} file(s)`)
