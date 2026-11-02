@@ -23,6 +23,7 @@
   <h1>BotCamp</h1>
   <p class="version" id="version">正在获取最新版本…</p>
   <a class="primary" id="download" href="https://camp.aigc.sx.cn/botcamp/updates/mac/BotCamp-latest.dmg">下载 macOS 版</a>
+  <a class="ghost" id="windows" href="https://camp.aigc.sx.cn/botcamp/updates/win/BotCamp-2.0.45-x64-Setup.exe">下载 Windows 版</a>
   <a class="ghost" href="/login/">登录</a>
 </main>
 <script>
@@ -32,6 +33,7 @@
   }
   const versionNode = document.getElementById('version')
   const downloadNode = document.getElementById('download')
+  const windowsNode = document.getElementById('windows')
   const render = (release) => {
     const version = release && release.version ? String(release.version) : fallback.version
     const url = release && release.url
@@ -40,6 +42,11 @@
     versionNode.textContent = '最新版本 ' + version
     downloadNode.textContent = '下载 macOS 版 ' + version
     downloadNode.href = url
+    const windowsUrl = release && release.windowsUrl
+      ? String(release.windowsUrl)
+      : 'https://camp.aigc.sx.cn/botcamp/updates/win/BotCamp-' + version + '-x64-Setup.exe'
+    windowsNode.textContent = '下载 Windows 版 ' + version
+    windowsNode.href = windowsUrl
   }
   fetch('https://camp.aigc.sx.cn/botcamp/updates/mac/version.json?t=' + Date.now(), { cache: 'no-store' })
     .then((response) => { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json() })
