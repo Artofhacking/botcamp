@@ -1,0 +1,57 @@
+name: build-win
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout BotCamp (patches)
+        uses: actions/checkout@v4
+        with: { path: botcamp }
+
+      - name: Checkout DSH Desktop upstream
+        uses: actions/checkout@v4
+        with:
+          repository: anywhere-labs/dsh-desktop
+          path: dsh-desktop
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Apply BotCamp branding
+        working-directory: dsh-desktop
+        run: node ../botcamp/desktop/apply.mjs .
+        env:
+          BOTCAMP_DESKTOP_VERSION: 2.0.45
+
+      - name: Enable corepack
+        working-directory: dsh-desktop
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: dsh-desktop
+        run: yarn install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+          YARN_NETWORK_CONCURRENCY: 8
+
+      - name: Align workspace package copies
+        run: node botcamp/desktop/fix-payload.mjs dsh-desktop
+
+      - name: Build Windows installer
+        working-directory: dsh-desktop
+        continue-on-error: true
+        run: yarn workspace dsh-desktop-next dist:win
+
+      - name: Upload Windows artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: botcamp-win-2.0.45
+          path: |
+            dsh-desktop/dsh-desktop-next/dist/**/*.exe
+            dsh-desktop/dsh-desktop-next/dist/**/*.blockmap
+          if-no-files-found: warn

@@ -64,6 +64,8 @@ pkg.build.appId = 'site.demox.botcamp'
 pkg.build.productName = 'BotCamp'
 pkg.build.mac.target = ['dir']
 pkg.build.mac.artifactName = 'BotCamp-${version}-${arch}.${ext}'
+pkg.build.win = pkg.build.win ?? {}
+pkg.build.win.artifactName = 'BotCamp-${version}-${arch}.${ext}'
 pkg.build.publish = { provider: 'generic', url: 'https://camp.aigc.sx.cn/botcamp/updates/mac' }
 pkg.dependencies['ds-bot'] = '0.2.3'
 
