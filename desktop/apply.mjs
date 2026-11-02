@@ -268,6 +268,72 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 console.log('applied BotCamp branding to', root)
 console.log('bundled @botcamp/dsh-library from desktop/plugins/botcamp-library')
 
+
+// 4b) BotCamp update service: use our version feed and installers on both
+// desktop platforms. Windows uses the normal NSIS installer in silent mode
+// after the running app exits, then relaunches the installed executable.
+const updaterRoot = join(root, 'dsh-plugin-desktop', 'src')
+const updatePlatform = process.platform === 'win32' ? 'win' : 'mac'
+const checkerPath = join(updaterRoot, 'update-checker.ts')
+let checker = readFileSync(checkerPath, 'utf8')
+checker = checker.replace(
+  "export const DESKTOP_VERSION_ENDPOINT = 'https://www.dshdesktop.cn/api/desktop/version'",
+  `export const DESKTOP_VERSION_ENDPOINT = 'https://camp.aigc.sx.cn/botcamp/updates/${updatePlatform}/version.json'`,
+)
+writeFileSync(checkerPath, checker)
+
+const downloadPath = join(updaterRoot, 'update-download.ts')
+let download = readFileSync(downloadPath, 'utf8')
+download = download.replace(
+  "win32: 'https://www.dshdesktop.cn/api/downloads/windows'",
+  process.platform === 'win32'
+    ? "win32: 'https://camp.aigc.sx.cn/botcamp/updates/win/BotCamp-latest.exe'"
+    : "darwin: 'https://camp.aigc.sx.cn/botcamp/updates/mac/BotCamp-latest.dmg'",
+)
+download = download.replace(
+  "const product = parseCanonicalChannelVersion(version, 'next') !== null ? 'DSH-NEXT' : channel === 'beta' ? 'DSH-Desktop-Beta' : 'DSH-Desktop'",
+  "const product = 'BotCamp'",
+)
+writeFileSync(downloadPath, download)
+
+const updatesPath = join(root, 'dsh-desktop-next', 'src', 'updates.ts')
+let updates = readFileSync(updatesPath, 'utf8')
+updates = updates.replaceAll("channel: 'next'", "channel: 'stable'")
+writeFileSync(updatesPath, updates)
+
+const installerPath = join(root, 'dsh-desktop-next', 'src', 'update-installer.ts')
+let installer = readFileSync(installerPath, 'utf8')
+installer = installer.replace(
+  "info.ProductName !== 'BotCamp' || info.ProductVersion !== version",
+  "info.ProductName !== 'BotCamp' || info.ProductVersion !== version",
+)
+const oldWinLaunch = `    if (this.options.platform !== 'win32' || !this.prepared) throw new Error('No prepared update installer')
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(this.prepared!.path, ['--updated', '--force-run'], { detached: true, stdio: 'ignore', shell: false, windowsHide: false })
+      child.once('error', reject)
+      child.once('spawn', () => { child.off('error', reject); child.on('error', this.options.log); child.unref(); resolve() })
+    })`
+const newWinLaunch = `    if (this.options.platform !== 'win32' || !this.prepared) throw new Error('No prepared update installer')
+    await new Promise<void>((resolve, reject) => {
+      const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'"
+      const script = [
+        "Wait-Process -Id " + process.pid + " -ErrorAction SilentlyContinue",
+        "Start-Process -FilePath " + quote(this.prepared!.path) + " -ArgumentList '/S' -Wait",
+        "Start-Process -FilePath " + quote(this.options.executable),
+      ].join('; ')
+      const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script], {
+        detached: true, stdio: 'ignore', shell: false, windowsHide: true,
+      })
+      child.once('error', reject)
+      child.once('spawn', () => { child.off('error', reject); child.on('error', this.options.log); child.unref(); resolve() })
+    })`
+if (process.platform === 'win32') {
+  if (!installer.includes(oldWinLaunch)) throw new Error('update-installer: Windows launch block not found')
+  installer = installer.replace(oldWinLaunch, newWinLaunch)
+}
+writeFileSync(installerPath, installer)
+console.log('updater: BotCamp feed + Windows silent installer handoff')
+
 // 5) product copy: no user-visible surface calls itself DSH. Client plugins are
 // reinstalled after this pass, so fix-payload.mjs runs the same rewrite again on
 // the installed tree; internal DSH_* / X-DSH-* protocol names survive both.
