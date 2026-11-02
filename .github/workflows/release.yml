@@ -54,6 +54,14 @@ jobs:
         working-directory: dsh-desktop
         run: yarn workspace dsh-desktop-next ${{ matrix.script }}
 
+      - name: Apply BotCamp app icon
+        if: matrix.artifact == 'mac'
+        shell: bash
+        run: |
+          APP=$(find dsh-desktop/dsh-desktop-next/dist -maxdepth 5 -name 'BotCamp.app' -print -quit)
+          if [ -z "$APP" ]; then echo 'BotCamp.app not found'; exit 1; fi
+          node botcamp/desktop/fix-app-icon.mjs "$APP"
+
       - name: Zip macOS app
         if: matrix.artifact == 'mac'
         shell: bash

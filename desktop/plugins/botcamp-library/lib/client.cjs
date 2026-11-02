@@ -1,4 +1,5 @@
 'use strict'
+;(() => {
 /* ============================================================================
  * BotCamp Library — browser half (single-file bundle)
  * Derived from @s1lencewill/dsh-markdown-reader (BSD-3-Clause).
@@ -1907,6 +1908,7 @@ const ICONS = {
   refresh: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.8 1.8v2.9h-2.9"/></svg>',
   folder: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5h3l1.5 2h6.5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>',
   palette: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13h1a1.5 1.5 0 0 0 0-3h-.7a1.7 1.7 0 0 1 0-3.4H9A3.5 3.5 0 0 0 8 1.5z"/><circle cx="5" cy="5.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="11" cy="3.6" r="0.9" fill="currentColor" stroke="none"/><circle cx="13.4" cy="7.4" r="0.9" fill="currentColor" stroke="none"/></svg>',
+  sidebar: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M10 2.5v11"/></svg>',
 }
 
 /** Keep body-mounted overlays below native desktop controls and drag strips. */
@@ -2101,14 +2103,7 @@ pre.mr-mermaid-fallback::before {
 }
 .mr-mermaid-render { text-align: center; padding: 16px; margin: 0 0 16px; border-radius: 8px; overflow-x: auto; background: var(--mr-bg); }
 .mr-mermaid-render svg { max-width: 100%; height: auto; }
-.mr-float-btn {
-  position: fixed; right: 16px; bottom: 16px; width: 42px; height: 42px;
-  border-radius: 50%; border: 1px solid var(--mr-border, #ddd0b3);
-  background: var(--mr-bg-2, #efe7d3); color: var(--mr-text-2, #6e6453);
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  z-index: 150; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-}
-.mr-float-btn:hover { color: var(--mr-accent, #0969da); border-color: var(--mr-accent, #0969da); }
+
 .mr-picker { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--mr-bg); }
 .mr-picker-card { width: 460px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 12px; }
 .mr-picker-title { font-size: 15px; font-weight: 600; }
@@ -3552,12 +3547,6 @@ function ReaderApp({ onReady }) {
   })()
 
   return h('div', { id: 'mr-root' },
-    activeRoot !== '' && !open && h('button', {
-      type: 'button',
-      className: 'mr-float-btn',
-      title: `${t('floatTitle')} (Ctrl+Shift+M)`,
-      onClick: () => { openLastRecent() },
-    }, h('span', { dangerouslySetInnerHTML: { __html: ICONS.book } })),
     h('div', {
       className: `mr-overlay${open ? '' : ' mr-hidden'}`,
       ref: overlayRef,
@@ -3777,9 +3766,99 @@ function installThemeObserver(alive) {
   return () => { observer.disconnect() }
 }
 
+/**
+ * Central policy for the BotCamp shell:
+ * - no Agent creation entry points;
+ * - Bot creation always uses the centrally selected model/workspace, so
+ *   their pickers are not exposed;
+ * - model and workspace configuration are hidden from settings.
+ * The shell is React-rendered, so re-apply after every DOM mutation.
+ */
+function installUiPolicy(alive) {
+  const guard = alive ?? (() => true)
+  const AGENT_CREATE_RE = /^(添加|新建|创建)?\s*(Agent|Agents|智能体)$/i
+  const hidden = new WeakSet()
+  const hide = (element) => {
+    if (!(element instanceof HTMLElement) || hidden.has(element)) return
+    hidden.add(element)
+    element.setAttribute('data-botcamp-policy-hidden', '')
+  }
+  const apply = () => {
+    if (!guard()) return
+    // Bot creation: model and working-folder fields use central defaults.
+    for (const field of document.querySelectorAll('.bt-field')) {
+      const label = field.querySelector('.bt-field-label')
+      const name = label === null ? '' : (label.textContent ?? '').trim()
+      if (name === '模型' || name === '工作文件夹' || name === '工作目录' || name === '工作区') hide(field)
+    }
+    // Any remaining model/workspace trigger in a settings/detail surface.
+    for (const trigger of document.querySelectorAll('.bt-model-trigger')) {
+      const label = trigger.getAttribute('aria-label') ?? ''
+      if (/^(模型|工作文件夹|工作目录|总工作区)[:：]/u.test(label)) {
+        const surface = trigger.closest('.bt-field, .bt-set-row, .bt-set-card')
+        hide(surface ?? trigger)
+      }
+    }
+    // Settings sections that allow per-account model/workspace choices.
+    for (const section of document.querySelectorAll('section.bt-set-section')) {
+      const heading = section.querySelector('h3')
+      const name = heading === null ? '' : (heading.textContent ?? '').trim()
+      if (name === '位置' || name === '工作区' || name === '模型' || name === '模型管理') hide(section)
+    }
+    // Fallback: the workspace row and its hint.
+    for (const copy of document.querySelectorAll('.bt-set-copy')) {
+      const text = (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
+      if (text.startsWith('总工作区') || text.startsWith('工作文件夹')) {
+        const row = copy.closest('.bt-set-row')
+        hide(row ?? copy)
+      }
+    }
+    // Model/workspace pages in the settings navigation.
+    for (const item of document.querySelectorAll('.bt-settings-item')) {
+      const text = (item.textContent ?? '').replace(/\s+/g, ' ').trim()
+      if (text === '模型' || text === '模型管理' || text === '工作区' || text === '工作文件夹') hide(item)
+    }
+    // No Agent creation anywhere in the shell.
+    for (const item of document.querySelectorAll('button.bt-option, [role="menuitem"], .bt-settings-item')) {
+      const text = (item.textContent ?? '').replace(/\s+/g, ' ').trim()
+      if (AGENT_CREATE_RE.test(text)) hide(item)
+    }
+  }
+  let frame = 0
+  const schedule = () => {
+    if (!guard() || frame !== 0) return
+    frame = requestAnimationFrame(() => { frame = 0; apply() })
+  }
+  const onClick = (event) => {
+    if (!guard()) return
+    const target = event.target instanceof Element ? event.target.closest('button, [role="menuitem"], .bt-option, .bt-settings-item') : null
+    if (target === null) return
+    const text = (target.textContent ?? '').replace(/\s+/g, ' ').trim()
+    if (AGENT_CREATE_RE.test(text)) {
+      event.preventDefault()
+      event.stopPropagation()
+      hide(target)
+    }
+  }
+  const style = document.createElement('style')
+  style.id = 'botcamp-policy-style'
+  style.textContent = '[data-botcamp-policy-hidden]{display:none!important}'
+  document.head.appendChild(style)
+  apply()
+  const observer = new MutationObserver(schedule)
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
+  document.addEventListener('click', onClick, true)
+  return () => {
+    observer.disconnect()
+    document.removeEventListener('click', onClick, true)
+    if (frame !== 0) cancelAnimationFrame(frame)
+    style.remove()
+  }
+}
+
 /** The dual-face plugin exports the client runner consumes. */
 const api = {
-  inject: ['sessions'],
+  inject: ['sessions', 'slots', 'sidebarRightTabs', 'sidebarRight'],
   apply(ctx) {
     // The loader hands us the module-table require through the factory; react
     // comes from the shell's shared modules. ReactLib is module-scope so the
@@ -3834,6 +3913,330 @@ const api = {
         root.render(ReactLib.createElement(ReaderApp, {
           onReady: (ref) => { if (alive()) handleRef = ref },
         }))
+
+        // The document library is a tab type in the native RIGHT sidebar,
+        // alongside the browser and workspace files. It opens inside the right
+        // dock; it never replaces the main conversation.
+        const LIBRARY_TAB_ID = '@botcamp/dsh-library'
+        const LibraryGuideIcon = ({ size = 20 }) => h('span', {
+          style: { display: 'inline-flex', width: size, height: size, alignItems: 'center', justifyContent: 'center', color: '#8a6d3b' },
+          dangerouslySetInnerHTML: { __html: ICONS.book },
+        })
+        const LibraryRightTitle = () => h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px' } },
+          h('span', { style: { display: 'inline-flex', width: '14px', height: '14px' }, dangerouslySetInnerHTML: { __html: ICONS.book } }),
+          h('span', null, '文档库'),
+        )
+        const LibraryRightPanel = ({ useTabInfo }) => {
+          const info = typeof useTabInfo === 'function' ? useTabInfo() : null
+          const requested = info?.tab?.navigation?.params?.path
+          const fallback = typeof window.__botcampLastDocPath === 'string' ? window.__botcampLastDocPath : ''
+          const candidate = typeof requested === 'string' && requested.startsWith('docs/') ? requested : fallback
+          const docPath = typeof candidate === 'string' && candidate.startsWith('docs/') ? candidate : ''
+          const base = /^https?:$/u.test(location.protocol) ? location.origin : 'http://127.0.0.1:8765'
+          return h('iframe', {
+            src: `${base}/library/?embed=right${docPath === '' ? '' : `&path=${encodeURIComponent(docPath)}`}`,
+            title: 'BotCamp 文档库',
+            allow: 'clipboard-read; clipboard-write; fullscreen',
+            style: { width: '100%', height: '100%', border: 0, display: 'block', background: '#fff' },
+          })
+        }
+        ctx.effect(() => ctx.sidebarRightTabs.register({
+          id: LIBRARY_TAB_ID,
+          kind: 'library',
+          title: () => '文档库',
+          guide: [{
+            id: 'library',
+            order: 20,
+            title: () => '文档库',
+            description: () => '浏览、编辑和新建团队文档',
+            icon: LibraryGuideIcon,
+          }],
+        }), 'botcamp-library: right sidebar tab type')
+        ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
+          name: 'sidebar.right.pane.tab',
+          key: LIBRARY_TAB_ID,
+        }, LibraryRightPanel)), 'botcamp-library: right sidebar tab body')
+        ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
+          name: 'sidebar.right.pane.tab.title',
+          key: LIBRARY_TAB_ID,
+        }, LibraryRightTitle)), 'botcamp-library: right sidebar tab title')
+
+        // Platform-level first-run interview. The onboarding is a conversation
+        // with 主编, not a form or a table: one question at a time, one reply box.
+        const ONBOARDING_ROUTE = `${DESK_PREFIX}/md-reader/onboarding`
+        const installOnboarding = async () => {
+          if (document.getElementById('botcamp-onboarding-overlay') !== null) return
+          let status
+          try {
+            const response = await fetch(ONBOARDING_ROUTE, { cache: 'no-store' })
+            if (!response.ok) return
+            status = await response.json()
+          } catch (error) {
+            console.warn('[botcamp-library] onboarding status unavailable:', error)
+            return
+          }
+          if (status?.value?.complete === true) return
+
+          const style = document.createElement('style')
+          style.id = 'botcamp-onboarding-style'
+          style.textContent = [
+            '#botcamp-onboarding-overlay{position:fixed;inset:0;z-index:2147483600;background:rgba(10,10,12,.56);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}',
+            '#botcamp-onboarding-overlay .bo-chat{width:min(520px,100%);height:min(680px,calc(100vh - 48px));background:#fff;color:#17171a;border:1px solid rgba(20,20,20,.12);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden}',
+            '#botcamp-onboarding-overlay .bo-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #ececf0;flex:none}',
+            '#botcamp-onboarding-overlay .bo-avatar{width:34px;height:34px;border-radius:50%;background:#17171a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}',
+            '#botcamp-onboarding-overlay .bo-head b{display:block;font-size:14px}',
+            '#botcamp-onboarding-overlay .bo-head small{display:block;color:#8a8a91;font-size:11px;margin-top:2px}',
+            '#botcamp-onboarding-overlay .bo-messages{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px;background:#fafafa}',
+            '#botcamp-onboarding-overlay .bo-msg{max-width:86%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}',
+            '#botcamp-onboarding-overlay .bo-msg.bot{align-self:flex-start;background:#fff;border:1px solid #e8e8ed;color:#17171a;border-bottom-left-radius:5px}',
+            '#botcamp-onboarding-overlay .bo-msg.me{align-self:flex-end;background:#17171a;color:#fff;border-bottom-right-radius:5px}',
+            '#botcamp-onboarding-overlay .bo-msg.note{align-self:center;background:transparent;color:#8a8a91;font-size:11px;padding:2px 8px;text-align:center}',
+            '#botcamp-onboarding-overlay .bo-chips{display:flex;gap:6px;flex-wrap:wrap;align-self:flex-start;margin-top:-4px}',
+            '#botcamp-onboarding-overlay .bo-chip{border:1px solid #d9d9df;border-radius:999px;background:#fff;color:#3c3c43;font:inherit;font-size:12px;padding:5px 10px;cursor:pointer}',
+            '#botcamp-onboarding-overlay .bo-chip:hover{background:#f2f2f4}',
+            '#botcamp-onboarding-overlay .bo-composer{display:flex;gap:8px;padding:12px;border-top:1px solid #ececf0;flex:none;background:#fff}',
+            '#botcamp-onboarding-overlay .bo-input{flex:1;min-width:0;border:1px solid #d9d9df;border-radius:11px;background:#fbfbfc;color:#17171a;font:inherit;font-size:14px;padding:10px 12px;outline:none}',
+            '#botcamp-onboarding-overlay .bo-input:focus{border-color:#17171a;background:#fff}',
+            '#botcamp-onboarding-overlay .bo-send{border:0;border-radius:11px;background:#17171a;color:#fff;font:inherit;font-size:13px;font-weight:600;padding:0 14px;cursor:pointer}',
+            '#botcamp-onboarding-overlay .bo-send:disabled{opacity:.5;cursor:default}',
+            '#botcamp-onboarding-overlay .bo-error{color:#b42318;font-size:12px;padding:0 18px 8px}',
+            '@media(max-width:560px){#botcamp-onboarding-overlay{padding:0}#botcamp-onboarding-overlay .bo-chat{width:100%;height:100%;border-radius:0;border:0}}',
+          ].join('')
+          document.head.appendChild(style)
+          const overlay = document.createElement('div')
+          overlay.id = 'botcamp-onboarding-overlay'
+          overlay.innerHTML = `<div class="bo-chat" role="dialog" aria-modal="true" aria-labelledby="bo-title"><header class="bo-head"><span class="bo-avatar">主</span><div><b id="bo-title">主编</b><small>账号初始化</small></div></header><div class="bo-messages" id="bo-messages"></div><div class="bo-error" id="bo-error" hidden></div><form class="bo-composer" id="bo-form"><input class="bo-input" id="bo-input" placeholder="直接回复主编…" autocomplete="off"><button class="bo-send" id="bo-send" type="submit">发送</button></form></div>`
+          document.body.appendChild(overlay)
+          const messages = overlay.querySelector('#bo-messages')
+          const form = overlay.querySelector('#bo-form')
+          const input = overlay.querySelector('#bo-input')
+          const send = overlay.querySelector('#bo-send')
+          const error = overlay.querySelector('#bo-error')
+          const steps = [
+            { key: 'platform', question: '先不填表，我问你几个关键问题。这个号主要做哪个平台？直接说平台名就行，比如小黑盒、小红书、公众号。', placeholder: '例如：小黑盒' },
+            { key: 'account', question: '把账号主页链接或账号 ID 发我。公开查不到的内容，我再问你。', placeholder: '主页链接 / 账号 ID' },
+            { key: 'audience', question: '这个号主要给谁看？一句话就够。', placeholder: '例如：刚工作的年轻人；不确定就回“跳过”' },
+            { key: 'goal', question: '你现在最想解决什么？例如先稳定更新、冷启动、涨粉或转化。', placeholder: '你现在最想解决的问题' },
+            { key: 'resources', question: '每周能投入多少时间？有什么限制，比如不出镜、没预算？', placeholder: '例如：每周 5 小时，不出镜' },
+            { key: 'intervention', question: '最后一个：你希望我多主动？0 到 100，直接回数字。40 是默认，关键缺口必提醒，但不会一直插话。', placeholder: '40' },
+          ]
+          let index = 0
+          const draft = { platform: '', account: '', audience: '', goal: '', resources: '', intervention: 40 }
+          const add = (role, text) => {
+            const node = document.createElement('div')
+            node.className = `bo-msg ${role}`
+            node.textContent = text
+            messages.appendChild(node)
+            messages.scrollTop = messages.scrollHeight
+            return node
+          }
+          const ask = () => {
+            const step = steps[index]
+            if (step === undefined) return
+            add('bot', step.question)
+            input.placeholder = step.placeholder
+            if (step.key === 'platform') {
+              const chips = document.createElement('div')
+              chips.className = 'bo-chips'
+              for (const name of ['小黑盒', '小红书', '公众号', '抖音', '视频号', '其他']) {
+                const chip = document.createElement('button')
+                chip.type = 'button'; chip.className = 'bo-chip'; chip.textContent = name
+                chip.addEventListener('click', () => { input.value = name; input.focus() })
+                chips.appendChild(chip)
+              }
+              messages.appendChild(chips)
+              messages.scrollTop = messages.scrollHeight
+            }
+          }
+          const finish = async () => {
+            add('bot', `资料齐了。我会先公开查「${draft.account}」，查不到就直接说查不到；然后按 ${draft.intervention}/100 的干预度，给你一个最低成本的启动方案。`)
+            send.disabled = true
+            input.disabled = true
+            try {
+              const response = await fetch(ONBOARDING_ROUTE, {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(draft),
+              })
+              const data = await response.json()
+              if (!response.ok || data?.ok !== true) throw new Error(data?.error?.message || '初始化失败')
+              add('note', '初始化完成，资料只保存在本机')
+              const close = document.createElement('button')
+              close.type = 'button'; close.className = 'bo-send'; close.textContent = '进入 BotCamp'
+              close.style.cssText = 'align-self:center;padding:9px 16px'
+              close.addEventListener('click', () => overlay.remove())
+              messages.appendChild(close)
+              messages.scrollTop = messages.scrollHeight
+              form.remove()
+            } catch (err) {
+              error.textContent = err instanceof Error ? err.message : '初始化失败，请重试'
+              error.hidden = false
+              send.disabled = false; input.disabled = false
+            }
+          }
+          form.addEventListener('submit', (event) => {
+            event.preventDefault()
+            const value = input.value.trim()
+            const step = steps[index]
+            if (step === undefined) return
+            if (value === '' && (step.key === 'platform' || step.key === 'account')) {
+              add('bot', step.key === 'platform' ? '这个得说一个，先从小黑盒、小红书、公众号里选一个也行。' : '账号链接或 ID 得给我一个，不然我没法查。')
+              return
+            }
+            const answer = value === '' || value === '跳过' ? '' : value
+            if (step.key === 'intervention') {
+              const n = Number(answer)
+              if (!Number.isFinite(n) || n < 0 || n > 100) {
+                add('bot', '回一个 0 到 100 的数字就行，比如 40。')
+                input.value = ''
+                return
+              }
+              draft[step.key] = Math.round(n)
+            } else {
+              draft[step.key] = answer
+            }
+            add('me', answer === '' ? '跳过' : answer)
+            input.value = ''
+            error.hidden = true
+            index += 1
+            if (index >= steps.length) void finish()
+            else ask()
+          })
+          add('bot', '我是主编。先了解你的账号，再决定团队怎么开工。')
+          ask()
+          input.focus()
+        }
+        // Onboarding is a conversation with 主编 in the real chat; no modal.
+
+        // A new account gets the Bot's browser panel opened for it, so account
+        // research and later login/authorization work can be handed to the user
+        // in a visible page instead of a hidden headless browser.
+        const installOnboardingBrowser = async () => {
+          const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+          for (let attempt = 0; attempt < 12; attempt += 1) {
+            try {
+              const response = await fetch(ONBOARDING_ROUTE, { cache: 'no-store' })
+              if (response.ok) {
+                const status = await response.json()
+                if (status?.value?.complete === true) return
+              }
+            } catch {
+              // The host may still be starting; retry below.
+            }
+            const details = document.querySelector('[aria-label="查看对话详情"]')
+            if (details !== null) {
+              details.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+              await wait(350)
+              const browserTab = Array.from(document.querySelectorAll('button[role="tab"]'))
+                .find((node) => (node.textContent ?? '').trim() === '浏览器')
+              if (browserTab !== undefined) {
+                browserTab.click()
+                await wait(350)
+                const open = Array.from(document.querySelectorAll('button'))
+                  .find((node) => (node.textContent ?? '').trim() === '打开浏览器')
+                if (open !== undefined) open.click()
+                return
+              }
+            }
+            await wait(1_000)
+          }
+        }
+        void installOnboardingBrowser()
+
+        // A floating book icon at the top-right opens the native right sidebar
+        // on the document library. It disappears while that sidebar is open.
+        const fabStyle = document.createElement('style')
+        fabStyle.id = 'botcamp-library-fab-style'
+        fabStyle.textContent = [
+          '#botcamp-docs-fab{position:fixed;top:12px;right:16px;z-index:2147483000;width:36px;height:36px;border:1px solid var(--bt-line-2,rgba(20,20,20,.15));border-radius:50%;background:var(--bt-sidebar,#f7f7f7);color:var(--bt-ink,#141414);box-shadow:0 4px 14px rgba(20,20,20,.16);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}',
+          '#botcamp-docs-fab:hover{background:var(--bt-card,#fff)}',
+          '#botcamp-docs-fab[hidden]{display:none!important}',
+          '#botcamp-docs-fab .bt-fab-icon{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center}',
+          '#botcamp-docs-fab .bt-fab-icon svg{width:18px;height:18px;display:block}',
+        ].join('')
+        document.head.appendChild(fabStyle)
+        // The right-Sidebar start page is a launcher for many tools. Keep only
+        // the document library entry there; files, terminal, browser and the
+        // "more tools" card remain available through their own tabs.
+        const guideStyle = document.createElement('style')
+        guideStyle.id = 'botcamp-library-guide-style'
+        guideStyle.textContent = [
+          '.dv8TfG_panel [data-sidebar-right-guide-entry]:not([data-sidebar-right-guide-entry="library"]){display:none!important}',
+          '.dv8TfG_panel [class*="moreAnchor"]{display:none!important}',
+        ].join('')
+        document.head.appendChild(guideStyle)
+        disposers.push(() => guideStyle.remove())
+        const docsFab = document.createElement('button')
+        docsFab.id = 'botcamp-docs-fab'
+        docsFab.type = 'button'
+        docsFab.setAttribute('aria-label', '打开右侧边栏')
+        docsFab.title = '打开右侧边栏'
+        docsFab.innerHTML = `<span class="bt-fab-icon" aria-hidden="true">${ICONS.sidebar}</span>`
+        docsFab.addEventListener('click', () => {
+          docsFab.hidden = true
+          try {
+            if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
+          } catch (error) {
+            console.warn('[botcamp-library] open right sidebar failed:', error)
+            docsFab.hidden = false
+          }
+        })
+        document.body.append(docsFab)
+        const syncDocsFab = () => {
+          if (!alive()) return
+          const panel = document.querySelector('.dv8TfG_panel[data-sidebar-right-open="true"]')
+          docsFab.hidden = panel !== null
+        }
+        syncDocsFab()
+        const fabWatch = new MutationObserver(syncDocsFab)
+        fabWatch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-sidebar-right-open', 'style', 'class'] })
+        disposers.push(() => {
+          fabWatch.disconnect()
+          fabStyle.remove()
+          docsFab.remove()
+        })
+
+        const openDocumentDeepLink = (path) => {
+          if (!alive() || typeof path !== 'string' || !path.startsWith('docs/')) return
+          try {
+            window.__botcampLastDocPath = path
+            const open = () => {
+              try { ctx.sidebarRight.openTab('library', { params: { path } }) } catch (error) {
+                console.warn('[botcamp-library] deep link open failed:', error)
+              }
+            }
+            open()
+            // The first open may create the tab before its body exists. Repeat
+            // once the tab is mounted so a cold start still carries the path.
+            setTimeout(() => { if (alive()) open() }, 350)
+            setTimeout(() => { if (alive()) open() }, 1200)
+          } catch (error) {
+            console.warn('[botcamp-library] deep link open failed:', error)
+          }
+        }
+        const onDocumentDeepLink = (event) => {
+          const path = event?.detail?.path
+          if (typeof path === 'string') {
+            try { delete window.__botcampPendingDoc } catch {}
+            openDocumentDeepLink(path)
+          }
+        }
+        window.addEventListener('botcamp:open-document', onDocumentDeepLink)
+        disposers.push(() => window.removeEventListener('botcamp:open-document', onDocumentDeepLink))
+        const onDocumentLinkClick = (event) => {
+          const target = event.target instanceof Element ? event.target.closest('a[href^="botcamp:"]') : null
+          if (target === null) return
+          event.preventDefault()
+          event.stopPropagation()
+          let path = ''
+          try { path = new URL(target.getAttribute('href')).searchParams.get('path') || '' } catch {}
+          if (path !== '') openDocumentDeepLink(path)
+        }
+        document.addEventListener('click', onDocumentLinkClick, true)
+        disposers.push(() => document.removeEventListener('click', onDocumentLinkClick, true))
+        if (typeof window.__botcampPendingDoc === 'string' && window.__botcampPendingDoc !== '') {
+          const pending = window.__botcampPendingDoc
+          try { delete window.__botcampPendingDoc } catch {}
+          openDocumentDeepLink(pending)
+        }
 
         // Self-healing watchdogs: a skin switch / in-place UI rebuild can
         // detach the mount or the style tags from the DOM even when this
@@ -3928,6 +4331,7 @@ const api = {
         disposers.push(installPanelTracking(alive))
         disposers.push(installPanelButtonObserver(alive))
         disposers.push(installThemeObserver(alive))
+        disposers.push(installUiPolicy(alive))
         try {
           window.botcampLibrary = {
             __mrGen: generation,
@@ -4059,3 +4463,4 @@ if (typeof module !== 'undefined' && module.exports) {
     pickWorkspaceRoot,
   }
 }
+})()

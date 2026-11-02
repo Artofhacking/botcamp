@@ -9,6 +9,7 @@
 import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { rebrandTree } from './rebrand.mjs'
 
 const root = process.argv[2]
 const here = dirname(fileURLToPath(import.meta.url))
@@ -241,8 +242,32 @@ if (!main.includes('botcamp-onboarding.ts')) {
 const resources = join(root, 'dsh-desktop-next', 'resources')
 mkdirSync(resources, { recursive: true })
 copyFileSync(join(here, '..', 'agent', 'botcamp-agent.mjs'), join(resources, 'botcamp-agent.mjs'))
+// Product icon: one green BotCamp mark for every desktop target.
+copyFileSync(join(here, 'assets', 'icon.icns'), join(resources, 'icon.icns'))
+copyFileSync(join(here, 'assets', 'icon.ico'), join(resources, 'icon.ico'))
+copyFileSync(join(here, 'assets', 'icon.png'), join(resources, 'icon.png'))
+pkg.build.mac.icon = 'resources/icon.icns'
+pkg.build.win.icon = 'resources/icon.ico'
+pkg.build.linux.icon = 'resources/icon.png'
+// Desktop icon assets used by notifications, tray fallbacks, and the bundle.
+const appAssets = join(root, 'dsh-desktop-next', 'assets')
+mkdirSync(appAssets, { recursive: true })
+for (const name of ['tray-iconTemplate.png', 'tray-iconTemplate@2x.png', 'tray-icon-blue.png', 'tray-icon-blue@1.25x.png', 'tray-icon-blue@1.5x.png', 'tray-icon-blue@2x.png']) {
+  copyFileSync(join(here, 'assets', name), join(appAssets, name))
+}
+const buildAssets = join(root, 'dsh-desktop-next', 'build')
+mkdirSync(buildAssets, { recursive: true })
+for (const name of ['app-icon-mac.png', 'app-icon.png', 'app-icon.ico']) {
+  copyFileSync(join(here, 'assets', name === 'app-icon.ico' ? 'icon.ico' : 'app-icon.png'), join(buildAssets, name))
+}
 pkg.build.extraResources = [{ from: 'resources/botcamp-agent.mjs', to: 'botcamp-agent.mjs' }]
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 
 console.log('applied BotCamp branding to', root)
 console.log('bundled @botcamp/dsh-library from desktop/plugins/botcamp-library')
+
+// 5) product copy: no user-visible surface calls itself DSH. Client plugins are
+// reinstalled after this pass, so fix-payload.mjs runs the same rewrite again on
+// the installed tree; internal DSH_* / X-DSH-* protocol names survive both.
+const branded = rebrandTree(root, { log: (line) => console.log(line) })
+console.log(`rebranded ${branded.words} DSH mention(s) in ${branded.files} file(s)`)

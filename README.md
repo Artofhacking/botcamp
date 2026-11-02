@@ -47,13 +47,15 @@
 
 `desktop/plugins/botcamp-library/` 是从
 [`@s1lencewill/dsh-markdown-reader`](https://github.com/s1lencewill/dsh-markdown-reader)
-（BSD-3-Clause）fork 出来的只读文档库，做了四件事：
+（BSD-3-Clause）fork 出来的文档库，做了五件事：
 
 - **Notion 式阅读页**：封面 / 图标 / 标题 / 708px 版心 / 图片 / 视频。
 - **文库首页**：扫描 `~/BotCamp/library/docs/`，按 frontmatter 出卡片、搜索、封面。
 - **视频**：`:::video` 块 + `/md-reader/raw` 的 range 流式播放，可拖进度条。
-- **同一份阅读器上手机**：宿主在 `/library/` 提供独立页面，手机通过
-  `/desk/dN/library/` 打开，共用同一套客户端和库。
+- **完整工作区**：`/library/` 左侧文件树、新建、Vditor 编辑/保存、重命名、
+  删除到 `.trash/`、搜索、图片上传；`Cmd/Ctrl+S` 保存，不做版本管理。
+- **同一份工作区上手机**：宿主在 `/library/` 提供独立页面，手机通过
+  `/desk/dN/library/` 打开，共用同一套工作区和库。
 
 库根默认 `~/BotCamp/library/`，可用 `BOTCAMP_LIBRARY_ROOT` 覆盖。目录约定：
 
@@ -82,6 +84,23 @@ BotCamp 对外只使用 `BOTCAMP_*`，不读取外部 `DSH_*`：
 
 `DSH_*` 只作为内嵌 DSH 引擎子进程的内部协议保留；app 启动时会清掉外部继承的
 `DSH_HOME` / `DSH_DESKTOP_NEXT_HOME` / `DSH_NEXT_*`，所以从 DSH 终端启动也不会串数据。
+
+## 界面文案
+
+BotCamp 是内嵌 DSH 引擎的白标产品：用户能读到的文字里不再出现 “DSH”。
+`desktop/rebrand.mjs` 在构建期改写桌面外壳与恢复助手所在工作区的源码
+（`dsh-desktop-next/src`、`dsh-plugin-desktop/src`、`dsh-plugin-desktop-beta/src`）
+和已安装的 client 插件 bundle（`lib/client.js`、`locale/*.json`），把 “DSH Desktop”
+与裸词 “DSH” 换成 “BotCamp”；`apply.mjs` 和 `fix-payload.mjs` 都会调用它，后者在
+`yarn install` 之后跑，保证被重装的插件也覆盖到。错误提示（如“DSH 进程在本轮完成前退出”）
+同属这批文案，改后显示为“BotCamp 进程在本轮完成前退出”。
+
+内部协议名不动：`DSH_HOME` / `DSH_PROFILE` / `DSH_*`、`X-DSH-*` 请求头、`DSH-NEXT`
+更新通道、`@deepseek-ai/*` 包名仍是内嵌引擎的私有约定（见上一节）。只想看会改哪些文件时：
+
+```bash
+node desktop/rebrand.mjs <path-to-dsh-desktop> --check
+```
 
 ## 部署
 

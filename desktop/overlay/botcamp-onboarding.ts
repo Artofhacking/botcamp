@@ -9,13 +9,40 @@
 import { BrowserWindow } from 'electron'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 
 const GATEWAY = (process.env.BOTCAMP_GATEWAY ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
-const configPath = (): string => join(process.env.BOTCAMP_HOME || join(homedir(), '.botcamp'), 'agent.json')
+const botcampHome = (): string => process.env.BOTCAMP_HOME || join(homedir(), '.botcamp')
+const configPath = (): string => join(botcampHome(), 'agent.json')
 const AGENT = join(process.resourcesPath ?? '', 'botcamp-agent.mjs')
+
+/** The model layer the profile needs to talk to the BotCamp gateway. */
+const MODEL_PATCH = `- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      botcamp:
+        api: openai-completions
+        baseURL: https://camp.aigc.sx.cn/botcamp/v1
+        apiKeyEnv: BOTCAMP_LLM_KEY
+        models:
+          - id: deepseek-v4.1-flash
+            name: DeepSeek V4.1 Flash
+            contextWindow: 1000000
+            maxTokens: 384000
+            input: [ text, image ]
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: botcamp
+    model: deepseek-v4.1-flash
+- id: locale
+  name: "@deepseek-ai/dsh-client-locale"
+  config:
+    preference: zh
+`
 
 let relay: ChildProcess | undefined
 
@@ -59,22 +86,59 @@ p{color:#8b8b98;margin:4px 0;font-size:13px}a{color:#6c8cff;word-break:break-all
 <p>用手机或浏览器打开下面的地址并登录确认</p><b>${code}</b><a>${url}</a>
 <p id="s" style="margin-top:18px">等待确认…</p></div></body></html>`)}`
 
-async function waitForApproval(code: string): Promise<{ slot: string, secret: string }> {
+async function waitForApproval(code: string): Promise<{ slot: string, secret: string, llmToken?: string }> {
   for (;;) {
     await sleep(2000)
-    const result = await post<{ status: string, slot?: string, device_secret?: string }>('/botcamp/api/devices/pair/poll', { code })
+    const result = await post<{ status: string, slot?: string, device_secret?: string, llm_token?: string }>('/botcamp/api/devices/pair/poll', { code })
     if (result.status === 'approved' && result.slot && result.device_secret) {
-      return { slot: result.slot, secret: result.device_secret }
+      return { slot: result.slot, secret: result.device_secret, ...result.llm_token ? { llmToken: result.llm_token } : {} }
     }
     if (result.status === 'expired') throw new Error('pairing code expired')
   }
 }
 
-/** Start (or restart) the relay agent bundled with the app. */
+/**
+ * Point every existing profile at the BotCamp gateway and export the paired
+ * inference key. Without this the host starts with no model at all: the profile
+ * patch is empty on a fresh install, and BOTCAMP_LLM_KEY is only known to
+ * agent.json. Marking onboarding complete also stops the first-run flow from
+ * resetting the patch on the next launch.
+ */
+function configureProfiles(): void {
+  try {
+    const config = JSON.parse(readFileSync(configPath(), 'utf8')) as { llm_token?: unknown }
+    if (typeof config.llm_token === 'string' && config.llm_token) process.env.BOTCAMP_LLM_KEY = config.llm_token
+    if (!process.env.BOTCAMP_LLM_KEY) return
+    for (const name of readdirSync(join(botcampHome(), 'profiles'))) {
+      const directory = join(botcampHome(), 'profiles', name)
+      const patchPath = join(directory, 'cordis.patch.yml')
+      if (existsSync(patchPath)) {
+        const text = readFileSync(patchPath, 'utf8')
+        if (!text.includes('dsh-llm-pi-ai')) {
+          const head = text.trim()
+          writeFileSync(patchPath, head === '' || head === '[]' ? MODEL_PATCH : `${text.trimEnd()}\n${MODEL_PATCH}`)
+        }
+      }
+      const manifestPath = join(directory, 'package.json')
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dsh?: Record<string, unknown> }
+        manifest.dsh = manifest.dsh ?? {}
+        manifest.dsh.desktopNextOnboarding = { version: 1, outcome: 'completed' }
+        writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+      }
+    }
+  } catch { /* not paired yet, or a profile is unreadable: the app still opens */ }
+}
+
+/**
+ * Start (or restart) the relay agent bundled with the app. The desktop shell
+ * owns the Host on this machine, so the agent attaches to it instead of
+ * starting a second one on the same port.
+ */
 function startRelay(): void {
   if (relay && relay.exitCode === null) return
   if (!existsSync(AGENT)) return
-  relay = spawn(process.execPath, [AGENT, 'up'], {
+  relay = spawn(process.execPath, [AGENT, 'up', '--attach'], {
     detached: false,
     stdio: 'ignore',
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
@@ -83,6 +147,7 @@ function startRelay(): void {
 }
 
 export async function botcampEnsureDevice(): Promise<void> {
+  configureProfiles()
   if (!existsSync(configPath())) {
     const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
     const started = await post<{ code: string, url: string }>('/botcamp/api/devices/pair/start', device).catch(() => undefined)
@@ -95,14 +160,20 @@ export async function botcampEnsureDevice(): Promise<void> {
     void window.loadURL(PAGE(started.code, started.url))
     try {
       const approved = await waitForApproval(started.code)
-      mkdirSync(join(homedir(), '.botcamp'), { recursive: true })
-      writeFileSync(configPath(), JSON.stringify({ device, slot: approved.slot, secret: approved.secret }, null, 2), { mode: 0o600 })
+      mkdirSync(botcampHome(), { recursive: true })
+      writeFileSync(configPath(), JSON.stringify({
+        device,
+        slot: approved.slot,
+        secret: approved.secret,
+        ...approved.llmToken ? { llm_token: approved.llmToken } : {},
+      }, null, 2), { mode: 0o600 })
     } catch {
       // Timeout or offline: let the app open; the user can pair from the settings later.
     } finally {
       if (!window.isDestroyed()) window.close()
     }
   }
+  configureProfiles()
   startRelay()
 }
 

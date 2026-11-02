@@ -42,5 +42,23 @@ sha512: $SHA
 releaseDate: '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'
 YML
 
-[ -n "$DMG" ] && echo "DMG 请单独上传: $DMG -> botcamp/downloads/mac/$(basename "$DMG")"
+if [ -n "$DMG" ]; then
+  # The BotCamp updater consumes this fixed DMG plus version.json. Keeping the
+  # latest file fixed lets the landing page and updater share one URL.
+  cp "$DMG" "$ROOT/BotCamp-latest.dmg"
+  ln -f "$ROOT/BotCamp-latest.dmg" "$ROOT/BotCamp-$VER.dmg"
+  DMG_SHA=$(openssl dgst -sha256 -binary "$DMG" | xxd -p -c 256)
+  cat > "$ROOT/version.json" <<JSON
+{"version":"$VER","channel":"stable","sha256":{"mac":"$DMG_SHA"},"url":"https://camp.aigc.sx.cn/botcamp/updates/mac/BotCamp-$VER.dmg"}
+JSON
+  echo "DMG 已发布: $ROOT/BotCamp-latest.dmg"
+else
+  echo "警告: 没有 .dmg，应用内直接更新和下载页不会更新"
+fi
 echo "已发布 $VER"; cat "$ROOT/latest-mac.yml"
+
+# COS 只保留最新两个版本的安装包（zip/dmg），避免历史包无限堆积。
+if [ -f /etc/botcamp/cos.env ]; then
+  set -a; . /etc/botcamp/cos.env; set +a
+fi
+python3 "$(dirname "$0")/prune-cos-releases.py" || echo "警告: COS 历史安装包清理失败，请手动检查" 

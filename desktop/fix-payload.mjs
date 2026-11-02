@@ -8,10 +8,12 @@
  * Usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>
  */
 import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { rebrandTree } from './rebrand.mjs'
 
-const root = process.argv[2]
-if (!root) { console.error('usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>'); process.exit(1) }
+// Absolute, so every symlink target below resolves from the link's own directory.
+const root = resolve(process.argv[2] ?? '')
+if (process.argv[2] === undefined) { console.error('usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>'); process.exit(1) }
 
 const appAi = join(root, 'dsh-desktop-next', 'node_modules', '@deepseek-ai')
 if (!existsSync(appAi)) { console.error('application node_modules missing:', appAi); process.exit(1) }
@@ -47,3 +49,8 @@ filled += fill(rootAi, appAi)
 filled += fill(marketAi, appAi)
 filled += fill(rootAi, marketAi)
 console.log(`linked ${filled} package(s) so every workspace sees the same tree`)
+
+// Every surface a person reads says BotCamp. Runs after the links exist, so the
+// shell sources and every hoisted client plugin are patched exactly once.
+const branded = rebrandTree(root, { log: (line) => console.log(line) })
+console.log(`rebranded ${branded.words} DSH mention(s) in ${branded.files} file(s)`)

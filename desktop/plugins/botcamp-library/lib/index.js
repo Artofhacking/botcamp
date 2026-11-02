@@ -18,7 +18,7 @@
  * @module @botcamp/dsh-library
  */
 
-import { createReadStream } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, open, readdir, realpath, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join, relative } from 'node:path'
@@ -31,13 +31,228 @@ export const inject = ['webServer', 'systemPrompt']
 const SECTION_ORDER = 220
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
-export const MARKDOWN_READER_GUIDANCE = '本机已安装 BotCamp 文档库插件（BotCamp Library）：库根目录下的 .md 终稿可在 Notion 式阅读页中打开，支持 GFM（表格/任务列表/删除线）、大纲、阅读进度、相对路径图片、视频（range 播放）、代码复制与表格滚动。库根默认 ~/BotCamp/library，可新建/编辑/重命名/移入回收站，不做版本管理；入口是 BotCamp 客户端里的「文档库」，也可以用 Ctrl+Shift+M 打开。用户提到「文档库 / 阅读 / 打开某篇终稿」时即指本插件。'
+export const MARKDOWN_READER_GUIDANCE = `本机已安装 BotCamp 文档库插件（BotCamp Library）。团队规范以 docs/团队规范/index.md 为准；文档在当前登录账号的 workspace/docs 下，可以在 BotCamp 的「文档库」里阅读、创建、编辑、重命名、删除（删除进 .trash，不做版本管理）。
+
+【硬性规范】
+1. 文档库是团队唯一的持久知识库，聊天记录不是知识库。账号定位、受众、选题、脚本、视觉规范、数据复盘、SOP、交付物等长期内容必须写进 docs/，不能只留在聊天里。
+2. 一篇文档只讲一个主题；一个主题只保留一个 canonical 文档。有新结论时原地更新，不另建“最终版/最终版2”，不做版本历史。
+3. 禁止 frontmatter，禁止 YAML 头；只写最终稿，不把过程稿、废弃方案留在文档里。
+4. 文档路径就是真实文件系统名称；新文档默认 docs/<slug>/index.md，短文档也可以 docs/<name>.md。
+5. 图片/视频放在该文档的 assets/ 下；跨文档原始素材放 media/。正文用相对路径引用，图片居中，视频不自动播放。
+6. 不把密码、API Key、Cookie、私信内容、客户隐私写进文档。
+
+【如何使用文档库】
+1. 正式产出前先读 docs/团队规范/index.md；需要模板时读 docs/团队规范/文档模板.md。
+2. 先查重：已有同主题文档就更新，不重复新建。
+3. 新建文档：
+   curl -sS -X POST http://127.0.0.1:8765/md-reader/create -H 'content-type: application/json' -d '{"title":"标题","parent":"docs"}'
+   响应里有 value.path 和 value.link。
+4. 新建文件夹：
+   curl -sS -X POST http://127.0.0.1:8765/md-reader/mkdir -H 'content-type: application/json' -d '{"name":"文件夹名","parent":"docs"}'
+5. 写入/更新正文（path 为 docs/.../index.md）：
+   curl -sS -X POST http://127.0.0.1:8765/md-reader/write -H 'content-type: application/json' -d '{"path":"docs/.../index.md","content":"# 标题\n\n正文"}'
+6. 回复用户时，必须使用接口返回的 value.link 作为 Markdown 链接：[打开文档](value.link)。不能只给路径，不能手写或猜测链接。
+7. 链接格式为 botcamp://doc?path=<URL 编码后的 path>。只有文档真实存在时才给链接；创建失败或找不到文档时，明确说明失败原因，不要假装成功。
+
+用户提到「文档库 / 阅读 / 打开某篇文档 / 保存成文档 / 团队规范」时即指本插件。`
 
 // ---------------------------------------------------------------------------
 // Error envelope (PanelError-shaped so clients can share the same decoding).
 // ---------------------------------------------------------------------------
 
 /** One structured error. */
+
+/** Public account research cache: 5 minutes, process-local, no credentials. */
+const researchCache = new Map()
+const RESEARCH_TTL_MS = 5 * 60_000
+const CHROME_CANDIDATES = [
+  process.env.BOTCAMP_CHROME_PATH,
+  '/Users/phosa/Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+].filter(Boolean)
+
+
+/** Successful name -> public user id lookups. IDs are public, never credentials. */
+const NAME_CACHE_FILE = join(homedir(), '.botcamp', 'library-research-names.json')
+function readNameCache() {
+  try {
+    return JSON.parse(readFileSync(NAME_CACHE_FILE, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+function writeNameCache(key, id) {
+  try {
+    const cache = readNameCache()
+    cache[key] = { id, at: Date.now() }
+    writeFileSync(NAME_CACHE_FILE, JSON.stringify(cache, null, 2))
+  } catch {
+    // A cache write must never fail the research request.
+  }
+}
+function cachedNameId(key) {
+  const entry = readNameCache()[key]
+  return entry !== undefined && typeof entry.id === 'string' && Date.now() - Number(entry.at ?? 0) < 30 * 24 * 60 * 60_000 ? entry.id : null
+}
+
+function extractHeyboxId(account) {
+  const text = String(account ?? '')
+  const fromUrl = text.match(/\/app\/user\/profile\/(\d+)/) ?? text.match(/[?&]user_id=(\d+)/)
+  if (fromUrl !== null) return fromUrl[1]
+  const bare = text.trim().match(/^\d{4,}$/)
+  return bare === null ? null : bare[0]
+}
+
+function extractXhsId(account) {
+  const text = String(account ?? '')
+  const fromUrl = text.match(/\/user\/profile\/([^/?#\s]+)/)
+  return fromUrl === null ? null : fromUrl[1]
+}
+
+function loginWall(text) {
+  return /验证码登录|密码登录/.test(text) && !/粉丝/.test(text)
+}
+
+/**
+ * Open one public profile in a throwaway headless browser. Public pages only;
+ * no cookies, no login, no credential handling. The platform adapter owns the
+ * URL shape and the page parser.
+ */
+async function researchPublicProfile({ platform, account }) {
+  const kind = String(platform ?? '').toLowerCase()
+  let url = null
+  let searchName = null
+  if (kind === 'heybox' || kind === '小黑盒' || kind === 'xiaoheihe') {
+    const id = extractHeyboxId(account)
+    if (id !== null) url = `https://www.xiaoheihe.cn/app/user/profile/${id}`
+    else {
+      searchName = String(account ?? '').replace(/^小黑盒\s*[:：]\s*/, '').trim()
+      const cachedId = cachedNameId(`小黑盒:${searchName}`)
+      if (cachedId !== null) {
+        url = `https://www.xiaoheihe.cn/app/user/profile/${cachedId}`
+        searchName = null
+      }
+    }
+    if (url === null && searchName === '') return { ok: false, code: 'need-account-id', message: '小黑盒需要账号名、主页链接或数字 heybox_id。' }
+  } else if (kind === 'xiaohongshu' || kind === '小红书' || kind === 'xhs') {
+    const id = extractXhsId(account)
+    if (id === null) return { ok: false, code: 'need-account-id', message: '小红书需要主页链接或用户 ID。' }
+    url = `https://www.xiaohongshu.com/user/profile/${id}`
+  } else {
+    return { ok: false, code: 'unsupported-platform', message: '目前只支持小黑盒和小红书公开主页。' }
+  }
+  const cached = url === null ? undefined : researchCache.get(url)
+  if (cached !== undefined && Date.now() - cached.at < RESEARCH_TTL_MS) return { ok: true, value: cached.value }
+
+  const { chromium } = await import('playwright-core')
+  const executablePath = CHROME_CANDIDATES.find((candidate) => existsSync(candidate))
+  const browser = await chromium.launch({ headless: false, executablePath, args: ['--no-sandbox'] })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } })
+    if (searchName !== null) {
+      const searchUrl = `https://www.xiaoheihe.cn/app/search/list?q=${encodeURIComponent(searchName)}&search_type=user`
+      const userResponse = page.waitForResponse(
+        (response) => response.url().includes('/bbs/app/api/general/search/v1') && response.url().includes('search_type=user'),
+        { timeout: 20_000 },
+      ).catch(() => null)
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+      const response = await userResponse
+      const body = response === null ? null : await response.json().catch(() => null)
+      const items = body?.result?.items ?? []
+      const users = items.filter((item) => item?.type === 'user' && item?.info?.username)
+      const normalized = (value) => String(value ?? '').toLowerCase().replace(/\s+/gu, '')
+      const exact = users.find((item) => normalized(item.info.username) === normalized(searchName))
+      const near = users.filter((item) => {
+        if (item === exact) return false
+        const name = normalized(item.info.username)
+        const query = normalized(searchName)
+        // Very short names like "Ai" share a token with almost every query; they
+        // are not useful candidates for a human choice.
+        if (name.length < 3) return false
+        return name.includes(query) || query.includes(name)
+      })
+      const match = exact ?? (near.length === 1 ? near[0] : undefined)
+      if (match?.info?.userid === undefined) {
+        const candidates = near.slice(0, 8).map((item) => ({
+          name: item.info.username,
+          id: String(item.info.userid ?? ''),
+          meta: item.info.rec_tag ?? '',
+        }))
+        if (candidates.length === 0) {
+          return {
+            ok: false,
+            code: 'needs-human',
+            message: `按“${searchName}”没有拿到可用候选；请在可见浏览器里搜索并点选目标账号。`,
+            searchUrl: `https://www.xiaoheihe.cn/app/search/list?q=${encodeURIComponent(searchName)}&search_type=user`,
+          }
+        }
+        return {
+          ok: false,
+          code: 'account-ambiguous',
+          message: `没有唯一匹配“${searchName}”，请让用户从相近账号中选择，或提供主页链接。`,
+          candidates,
+        }
+      }
+      url = `https://www.xiaoheihe.cn/app/user/profile/${match.info.userid}`
+      writeNameCache(`小黑盒:${searchName}`, String(match.info.userid))
+    }
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+    await page.waitForTimeout(6_000)
+    const title = await page.title()
+    const text = await page.locator('body').innerText()
+    const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
+    const back = lines.indexOf('返回')
+    const name = back >= 0 ? lines[back + 1] ?? '' : ''
+    const level = back >= 0 && /^Lv\./i.test(lines[back + 2] ?? '') ? lines[back + 2] : ''
+    const bio = back >= 0 && !/^Lv\./i.test(lines[back + 2] ?? '') ? lines[back + 2] ?? '' : lines[back + 3] ?? ''
+    const numberBefore = (label) => {
+      const index = lines.indexOf(label)
+      const n = index > 0 ? Number(lines[index - 1].replace(/[^\d]/g, '')) : NaN
+      return Number.isFinite(n) ? n : null
+    }
+    const posts = await page.locator('a[href*="/app/bbs/link/"]').evaluateAll((anchors) => anchors.slice(0, 20).map((a) => {
+      const lines = (a.innerText ?? '').split('\n').map((line) => line.trim()).filter(Boolean)
+      const date = lines.find((line) => /^(?:\d{4}-)?\d{2}-\d{2}$/.test(line) || /^(?:\d+分钟前|\d+小时前|\d+天前|昨天|前天|今天)/.test(line)) ?? ''
+      const body = lines.slice(2).filter((line) => line !== date && !/^共\d+张$/.test(line) && !/^\d+$/.test(line))
+      return { title: body.join(' ').slice(0, 240), date, url: a.href }
+    }))
+    const value = {
+      platform: kind === '小黑盒' || kind === 'xiaoheihe' ? 'heybox' : kind,
+      url,
+      title,
+      name,
+      level,
+      bio,
+      stats: { following: numberBefore('关注'), followers: numberBefore('粉丝'), likes: numberBefore('获赞与收藏') },
+      posts,
+      needsAuth: loginWall(text),
+      text: text.slice(0, 12_000),
+      fetchedAt: Date.now(),
+    }
+    researchCache.set(url, { at: Date.now(), value })
+    return { ok: true, value }
+  } catch (error) {
+    return { ok: false, code: 'research-failed', message: error instanceof Error ? error.message : String(error) }
+  } finally {
+    await browser.close().catch(() => {})
+  }
+}
+
+async function handleResearch(payload, res) {
+  const result = await researchPublicProfile({
+    platform: payload.platform,
+    account: payload.account ?? payload.url ?? payload.query,
+  })
+  if (result.ok) {
+    json(res, { ok: true, value: result.value })
+    return
+  }
+  const status = ['need-account-id', 'account-not-found', 'account-ambiguous', 'needs-human'].includes(result.code) ? 422 : result.code === 'unsupported-platform' ? 400 : 502
+  const envelope = FAIL(result.code, result.message)
+  if (result.candidates !== undefined) envelope.candidates = result.candidates
+  if (result.searchUrl !== undefined) envelope.searchUrl = result.searchUrl
+  json(res, envelope, status)
+}
+
 const FAIL = (code, message) => ({ ok: false, error: { code, message } })
 
 /** Write one JSON envelope response. */
@@ -54,7 +269,7 @@ async function readJsonBody(req) {
     const buffer = chunk
     chunks.push(buffer)
     total += buffer.length
-    if (total > 1 << 20) return null
+    if (total > 32 * 1024 * 1024) return null
   }
   const text = Buffer.concat(chunks).toString('utf8')
   if (text === '') return null
@@ -123,7 +338,171 @@ const DEFAULT_LIBRARY_ROOT = join(homedir(), 'BotCamp', 'library')
 /** Resolve the library root from the environment (BotCamp sets it on first run). */
 function resolveLibraryRoot() {
   const configured = process.env.BOTCAMP_LIBRARY_ROOT
-  return typeof configured === 'string' && configured.trim() !== '' ? configured.trim() : DEFAULT_LIBRARY_ROOT
+  if (typeof configured === 'string' && configured.trim() !== '') return configured.trim()
+  // The desktop host is started per account with DSH_HOME pointing at
+  // ~/.botcamp/accounts/<id>; keep each user's docs inside that workspace.
+  const accountHome = process.env.DSH_HOME
+  if (typeof accountHome === 'string' && accountHome.trim() !== '') {
+    return join(accountHome.trim(), 'bot', 'workspace')
+  }
+  return DEFAULT_LIBRARY_ROOT
+}
+
+// ---------------------------------------------------------------------------
+// Account onboarding (platform-level, one profile per account)
+// ---------------------------------------------------------------------------
+
+const ONBOARDING_VERSION = 1
+const ONBOARDING_DOC = 'docs/账号/账号定位.md'
+
+/** Account-scoped initialization state lives beside the docs workspace. */
+function onboardingPath(libraryRoot) {
+  return join(dirname(libraryRoot), 'onboarding.json')
+}
+
+function readOnboarding(libraryRoot) {
+  try {
+    const value = JSON.parse(readFileSync(onboardingPath(libraryRoot), 'utf8'))
+    return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+function onboardingComplete(libraryRoot) {
+  const value = readOnboarding(libraryRoot)
+  return value?.version === ONBOARDING_VERSION && value?.complete === true ? value : null
+}
+
+function clampText(value, max) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+/** Validate and normalize the one-time account interview payload. */
+function normalizeOnboarding(payload) {
+  const platform = clampText(payload?.platform, 60)
+  const account = clampText(payload?.account, 240)
+  const accountId = clampText(payload?.accountId, 80)
+  const audience = clampText(payload?.audience, 240)
+  const goal = clampText(payload?.goal, 300)
+  const resources = clampText(payload?.resources, 800)
+  const rawIntervention = Number(payload?.intervention)
+  const intervention = Number.isFinite(rawIntervention) ? Math.max(0, Math.min(100, Math.round(rawIntervention))) : 40
+  if (platform === '') throw new Error('请选择主要平台')
+  if (account === '') throw new Error('请填写账号链接或账号 ID')
+  return {
+    version: ONBOARDING_VERSION,
+    complete: true,
+    platform,
+    account,
+    accountId,
+    audience,
+    goal,
+    resources,
+    intervention,
+    completedAt: Date.now(),
+  }
+}
+
+const STANDARDS_DIR = fileURLToPath(new URL('../standards/', import.meta.url))
+
+/** Seed the shared rules and template once per account, without overwriting edits. */
+async function seedStandards(libraryRoot) {
+  const pairs = [
+    ['团队规范.md', 'docs/团队规范/index.md'],
+    ['文档模板.md', 'docs/团队规范/文档模板.md'],
+  ]
+  for (const [source, target] of pairs) {
+    const destination = join(libraryRoot, target)
+    try {
+      await stat(destination)
+      continue
+    } catch { /* absent */ }
+    await mkdir(dirname(destination), { recursive: true })
+    await writeFile(destination, await readFile(join(STANDARDS_DIR, source), 'utf8'), { mode: 0o600 })
+  }
+}
+
+/** Write the canonical account-positioning document (no frontmatter, no versions). */
+async function writeOnboardingDoc(libraryRoot, profile) {
+  const target = join(libraryRoot, ONBOARDING_DOC)
+  await mkdir(dirname(target), { recursive: true })
+  const body = `# 账号定位\n\n> 这份文档由首次初始化生成，后续由主编和团队原地更新。\n\n## 平台\n\n${profile.platform}\n\n## 账号\n\n${profile.account}\n\n## 目标受众\n\n${profile.audience || '待补充'}\n\n## 目标\n\n${profile.goal || '待补充'}\n\n## 现有资源与限制\n\n${profile.resources || '待补充'}\n\n## 干预度\n\n${profile.intervention}/100\n\n- 0–25：只提醒会导致返工、合规或交付失败的关键缺口。\n- 26–55：关键缺口必须提醒，最多附带一条高价值建议。\n- 56–80：可以主动给结构优化和下一步建议。\n- 81–100：高强度挑战假设、给替代方案，但最终由用户决定。\n\n## 相关文档\n\n- [团队规范](botcamp://doc?path=docs%2F%E5%9B%A2%E9%98%9F%E8%A7%84%E8%8C%83%2Findex.md)\n`
+  const tmp = target + '.tmp'
+  await writeFile(tmp, body, { mode: 0o600 })
+  await rename(tmp, target)
+  return { path: ONBOARDING_DOC, link: `botcamp://doc?path=${encodeURIComponent(ONBOARDING_DOC)}` }
+}
+
+async function handleOnboardingGet(libraryRoot, res) {
+  const profile = readOnboarding(libraryRoot)
+  json(res, { ok: true, value: { complete: onboardingComplete(libraryRoot) !== null, profile } })
+}
+
+async function handleOnboardingSave(libraryRoot, payload, res) {
+  let profile
+  try {
+    profile = normalizeOnboarding(payload)
+  } catch (error) {
+    json(res, FAIL('onboarding-invalid', error.message), 400)
+    return
+  }
+  const path = onboardingPath(libraryRoot)
+  await mkdir(dirname(path), { recursive: true })
+  const tmp = path + '.tmp'
+  await writeFile(tmp, JSON.stringify(profile, null, 2), { mode: 0o600 })
+  await rename(tmp, path)
+  await seedStandards(libraryRoot)
+  const doc = await writeOnboardingDoc(libraryRoot, profile)
+  json(res, { ok: true, value: { profile, doc } })
+}
+
+/** Model-facing account profile and intervention policy. */
+function onboardingPrompt(libraryRoot) {
+  const profile = readOnboarding(libraryRoot)
+  if (profile === null || profile.complete !== true) {
+    return `【账号初始化：未完成】
+直接在 BotCamp 聊天里向用户提问，不要用表格、表单或弹框。一次只问一个问题。
+
+先收集，再研究，再问缺口：
+1. 主要平台。用户已经说过的不要重复问。
+2. 账号名、主页链接或账号 ID。已经有账号时，先要账号名或链接；接口支持按昵称搜用户。
+拿到账号后立刻研究公开信息，不要先问受众、目标或资源。优先调用平台研究接口：
+curl -sS -X POST http://127.0.0.1:8765/md-reader/research -H 'content-type: application/json' -d '{"platform":"小黑盒","account":"<主页链接或数字ID>"}'
+- 小黑盒：传账号名或公开主页 https://www.xiaoheihe.cn/app/user/profile/<数字ID> 都可以。接口会先按昵称搜用户，再返回昵称、等级、简介、关注/粉丝/获赞、近期帖子。重名或搜不到时，再向用户要主页链接；不要瞎猜。
+- 小红书：把 platform 改为“小红书”，account 传主页链接或用户 ID；公开页能看到多少就报多少。
+- 其他平台：先用浏览器打开主页，读取公开内容。
+接口返回 account-ambiguous 时，把候选账号（昵称、ID、粉丝/内容数）列给用户，让用户选；不要自己猜。候选为空或返回 needs-human/CAPTCHA 时，用可见浏览器打开搜索页，请用户完成验证或在窗口里点选目标账号，再继续。接口返回 need-account-id 时，只问用户要主页链接或 ID；返回 needsAuth 时，请用户在 BotCamp 浏览器登录后交还，或给公开链接；绝不要索要密码、Cookie、验证码。
+如果页面要求登录、验证码或空数据：告诉用户“这个页面需要登录/授权，我目前只能看到公开部分”，并请用户在 BotCamp 浏览器里登录后交还，或提供公开主页链接。绝不要向用户索要密码、Cookie 或验证码，也不要把这些写进文档。
+
+研究完成后，先用一小段话告诉用户你确认了什么、哪些查不到，再只问用户无法从公开信息判断的内容：
+3. 目标受众或当前定位（如果主页已经能判断，就直接确认，不再问）
+4. 当前最想解决的问题
+5. 每周可投入时间和限制
+平台和账号是必填；其余可以“跳过”。收齐后必须 POST http://127.0.0.1:8765/md-reader/onboarding，字段 platform,account,audience,goal,resources；只有返回 ok:true 才算完成。然后给最低成本启动方案，不要提前给选题建议。
+干预度不要问，也不要提。默认就是 40，静默记录。只有用户主动说“多给我建议/多管我一点”或“少提建议/别管太多”时，才在后台把干预度调高或调低并保存，不要把数值、档位或调整过程告诉用户。`
+  }
+  const n = typeof profile.intervention === 'number' ? profile.intervention : 40
+  return `【账号初始化资料（权威事实）】
+下面的账号资料已经由用户在初始化面板确认，优先于任何旧的欢迎语、开场白或“资料为空”的旧消息；不要再说没看到账号信息。
+- 平台：${profile.platform}
+- 账号：${profile.account}
+${profile.accountId ? `- 账号 ID：${profile.accountId}\n` : ''}- 目标受众：${profile.audience || '待补充'}
+- 目标：${profile.goal || '待补充'}
+- 资源与限制：${profile.resources || '待补充'}
+- 干预度：${n}/100
+
+【公开账号研究（优先用这个）】
+用户给出账号链接或 ID 后，先调用公开研究接口，不要先靠猜或手写网页抓取：
+curl -sS -X POST http://127.0.0.1:8765/md-reader/research -H 'content-type: application/json' -d '{"platform":"小黑盒","account":"<主页链接或数字ID>"}'
+小黑盒公开主页为 https://www.xiaoheihe.cn/app/user/profile/<数字ID>，接口会返回昵称、等级、简介、关注/粉丝/获赞与收藏和近期帖子。账号名可以直接传；接口会先搜用户。若返回 account-ambiguous，把候选账号列给用户选；候选为空/需要验证码时，打开可见浏览器让用户完成验证或点选；搜不到再要主页链接或 ID，不要反复试错。返回 needsAuth 时请用户在 BotCamp 浏览器登录后交还，绝不要索要密码、Cookie、验证码。小红书把 platform 改为“小红书”，其余平台先用公开主页链接。
+【干预规则】
+只把用户无法从公开信息或账号数据里判断的内容拿来问：真实目标、资源、限制、决策偏好。平台规则、公开案例、竞品内容先自己查，查不到再问。
+公开信息研究优先用 web_search / 浏览器工具；单次最多 2 轮搜索、约 90 秒内给结论。遇到登录、验证码、反爬或签名接口就停止，不要为了查账号去逆向接口或撞多个搜索引擎；查不到就明确说“公开信息查不到”，不要编造账号数据。
+必须提醒的关键缺口：平台/账号不明确、目标受众不清、合规或授权风险、关键交付依赖缺失、会导致返工的事实错误。
+可选建议按干预度处理：0–25 只提关键缺口；26–55 关键缺口必须提醒，最多附带一条高价值建议；56–80 可主动给结构优化和下一步建议；81–100 可挑战假设、给替代方案。无论数值多少，用户保留最终决定权。
+不要教成熟用户基础操作；不要奉承、不要训斥；先给结论，再给依据。
+不要在回复里提干预度、档位、默认值或“我可以调整主动程度”。默认按 40 执行；只有用户主动要求多给建议或少给建议时，才在后台调整并静默保存。`
 }
 
 /** Cap for /md-reader/read (larger files are truncated with a flag). */
@@ -133,6 +512,7 @@ const MAX_RAW_BYTES = 4 * 1024 * 1024 * 1024
 
 /** Markdown extensions the reader accepts. */
 const MD_EXT = new Set(['.md', '.markdown', '.mdown', '.mdx'])
+const MEDIA_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif', '.mp4', '.m4v', '.webm', '.ogv', '.mov'])
 
 /** Mime map for raw file serving (images, video, audio, and other assets). */
 const RAW_MIME = {
@@ -550,7 +930,7 @@ async function handleTree(gate, root, res) {
   const docs = await collectDocs(gated.canonical)
   const media = []
   const walkMedia = async (dir, depth) => {
-    if (depth > 6 || media.length >= 500) return
+    if (depth > 8 || media.length >= 500) return
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -565,18 +945,22 @@ async function handleTree(gate, root, res) {
         continue
       }
       if (!entry.isFile() || media.length >= 500) continue
+      const ext = extname(entry.name).toLowerCase()
+      if (!MEDIA_EXT.has(ext)) continue
       let info
       try { info = await stat(absolute) } catch { continue }
       media.push({
         path: relative(gated.canonical, absolute).replaceAll('\\', '/'),
         name: entry.name,
+        type: ['.mp4', '.m4v', '.webm', '.ogv', '.mov'].includes(ext) ? 'video' : 'image',
         size: info.size,
         mtime: info.mtimeMs,
       })
     }
   }
-  await walkMedia(join(gated.canonical, 'media'), 0)
-  json(res, { ok: true, value: { root: gated.canonical, docs, media } })
+  await walkMedia(gated.canonical, 0)
+  const folderData = await collectFolders(gated.canonical)
+  json(res, { ok: true, value: { root: gated.canonical, docs, media, folders: folderData.folders, folderInfo: folderData.folderInfo } })
 }
 
 /** POST /md-reader/create: create docs/<slug>/index.md plus assets/. */
@@ -593,21 +977,38 @@ async function handleCreate(gate, root, payload, res) {
   }
   const docsDir = join(gated.canonical, 'docs')
   await mkdir(docsDir, { recursive: true })
+  const parentRel = normalizeRelPath(strField(payload, 'parent') ?? 'docs')
+  if (parentRel === null || (parentRel !== 'docs' && !parentRel.startsWith('docs/'))) {
+    json(res, FAIL('invalid-parent', 'parent must be a folder under docs/'), 400)
+    return
+  }
+  const parentDir = join(gated.canonical, parentRel)
+  let parentReal
+  try {
+    parentReal = await realpath(parentDir)
+    if (!isPathInside(docsDir, parentReal) || !(await stat(parentReal)).isDirectory()) throw new Error('bad parent')
+    if (await stat(join(parentReal, 'index.md')).then(() => true).catch(() => false)) throw new Error('parent is a document')
+  } catch {
+    json(res, FAIL('invalid-parent', 'parent folder does not exist'), 400)
+    return
+  }
   const requestedSlug = strField(payload, 'slug')
   const base = slugFromTitle(requestedSlug || title)
-  const slug = await uniqueDocSlug(docsDir, base)
-  const dir = join(docsDir, slug)
+  const slug = await uniqueDocSlug(parentReal, base)
+  const dir = join(parentReal, slug)
   await mkdir(join(dir, 'assets'), { recursive: true })
-  const date = new Date().toISOString().slice(0, 10)
   const heading = title.replace(/\r?\n/g, ' ')
-  const content = `---\ntitle: ${JSON.stringify(heading)}\nicon: 📄\ncreated: ${date}\nupdated: ${date}\n---\n\n# ${heading}\n\n`
+  const content = `# ${heading}\n\n`
   try {
     await writeFile(join(dir, 'index.md'), content, { flag: 'wx', mode: 0o600 })
   } catch {
     json(res, FAIL('create-failed', 'document already exists or could not be created'), 409)
     return
   }
-  json(res, { ok: true, value: { path: `docs/${slug}/index.md`, slug, title: heading } })
+  const parentPrefix = relative(gated.canonical, parentReal).replaceAll('\\', '/')
+  const docPath = `${parentPrefix}/${slug}/index.md`
+  const link = `botcamp://doc?path=${encodeURIComponent(docPath)}`
+  json(res, { ok: true, value: { path: docPath, link, slug, title: heading, parent: parentPrefix } })
 }
 
 /** POST /md-reader/write: atomically replace one Markdown document. */
@@ -664,8 +1065,9 @@ async function handleRename(gate, root, payload, res) {
     json(res, FAIL('invalid-path', 'only a document folder can be renamed'), 400)
     return
   }
+  const parentDir = dirname(docDir)
   const slug = slugFromTitle(title)
-  const target = join(docsDir, slug)
+  const target = join(parentDir, slug)
   if (target === docDir) {
     json(res, { ok: true, value: { path: rel } })
     return
@@ -680,19 +1082,107 @@ async function handleRename(gate, root, payload, res) {
     const file = join(target, basename(resolved.real))
     const text = await readFile(file, 'utf8').catch(() => '')
     if (text !== '') {
-      const next = /^title:.*$/m.test(text)
-        ? text.replace(/^title:.*$/m, `title: ${JSON.stringify(title)}`)
-        : `---\ntitle: ${JSON.stringify(title)}\n---\n\n${text}`
+      let next = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+      const lines = next.split('\n')
+      const headingIndex = lines.findIndex((line) => /^#\s+/.test(line))
+      if (headingIndex !== -1) lines[headingIndex] = `# ${title}`
+      else lines.unshift(`# ${title}`, '')
+      next = lines.join('\n')
       await writeFile(file, next, { mode: 0o600 })
     }
-    json(res, { ok: true, value: { path: `docs/${slug}/${basename(resolved.real)}` } })
+    json(res, { ok: true, value: { path: relative(gated.canonical, join(target, basename(resolved.real))).replaceAll('\\', '/') } })
   } catch {
     json(res, FAIL('rename-failed', 'document could not be renamed'), 500)
   }
 }
 
+/** POST /md-reader/rename-folder: rename one folder inside docs/. */
+async function handleRenameFolder(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  const raw = typeof payload.name === 'string' ? payload.name.trim() : ''
+  const name = raw.replace(/[\\/:*?"<>|]/g, '').trim()
+  if (rel === null || !rel.startsWith('docs/') || name === '' || name === '.' || name === '..' || name.startsWith('.') || name.length > 80) {
+    json(res, FAIL('invalid-request', 'path and name are required'), 400)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  const info = await stat(resolved.real).catch(() => null)
+  if (info === null || !info.isDirectory() || !isPathInside(docsDir, resolved.real) || resolved.real === docsDir) {
+    json(res, FAIL('invalid-path', 'only a folder can be renamed'), 400)
+    return
+  }
+  if (await stat(join(resolved.real, 'index.md')).then(() => true).catch(() => false)) {
+    json(res, FAIL('is-document', 'use the document rename API for documents'), 400)
+    return
+  }
+  const target = join(dirname(resolved.real), name)
+  if (!isPathInside(docsDir, target) || target === resolved.real) {
+    json(res, { ok: true, value: { path: rel } })
+    return
+  }
+  try {
+    await stat(target)
+    json(res, FAIL('already-exists', '同名文件夹已存在'), 409)
+    return
+  } catch { /* free */ }
+  try {
+    await rename(resolved.real, target)
+    json(res, { ok: true, value: { path: relative(gated.canonical, target).replaceAll('\\', '/') } })
+  } catch {
+    json(res, FAIL('rename-failed', '文件夹重命名失败'), 500)
+  }
+}
+
+/** POST /md-reader/delete-folder: move a folder into .trash/. */
+async function handleDeleteFolder(gate, root, payload, res) {
+  const rel = normalizeRelPath(strField(payload, 'path'))
+  if (rel === null || !rel.startsWith('docs/')) {
+    json(res, FAIL('invalid-path', 'path must be a folder under docs/'), 400)
+    return
+  }
+  const resolved = await resolveInside(gate, root, rel)
+  if (!resolved.ok) {
+    json(res, FAIL(resolved.error.code, resolved.error.message), resolved.status)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  const info = await stat(resolved.real).catch(() => null)
+  if (info === null || !info.isDirectory() || !isPathInside(docsDir, resolved.real) || resolved.real === docsDir) {
+    json(res, FAIL('invalid-path', 'only a folder can be deleted'), 400)
+    return
+  }
+  if (await stat(join(resolved.real, 'index.md')).then(() => true).catch(() => false)) {
+    json(res, FAIL('is-document', 'use the document delete API for documents'), 400)
+    return
+  }
+  const trash = join(root, '.trash')
+  await mkdir(trash, { recursive: true })
+  const target = join(trash, `${Date.now()}-${basename(resolved.real)}`)
+  try {
+    await rename(resolved.real, target)
+    json(res, { ok: true, value: { trash: target } })
+  } catch {
+    json(res, FAIL('delete-failed', '文件夹删除失败'), 500)
+  }
+}
+
 /** Allowed image extensions for the workspace upload route. */
-const UPLOAD_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'])
+const UPLOAD_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif', '.mp4', '.webm', '.ogg', '.mov'])
 
 /** POST /md-reader/upload: save one base64 image into the document's assets/. */
 async function handleUpload(gate, root, payload, res) {
@@ -704,7 +1194,7 @@ async function handleUpload(gate, root, payload, res) {
   const name = basename(String(strField(payload, 'name') ?? 'image.png'))
   const ext = extname(name).toLowerCase()
   if (!UPLOAD_EXT.has(ext)) {
-    json(res, FAIL('unsupported-type', 'only image files can be uploaded'), 415)
+    json(res, FAIL('unsupported-type', 'only image or video files can be uploaded'), 415)
     return
   }
   const raw = typeof payload?.data === 'string' ? payload.data : ''
@@ -717,7 +1207,7 @@ async function handleUpload(gate, root, payload, res) {
     return
   }
   if (buffer.length > 20 * 1024 * 1024) {
-    json(res, FAIL('too-large', 'image is larger than 20MB'), 413)
+    json(res, FAIL('too-large', 'media is larger than 20MB'), 413)
     return
   }
   const resolved = await resolveInside(gate, root, rel)
@@ -832,6 +1322,83 @@ async function resolveCover(root, docAbs, configured) {
   return null
 }
 
+/** Walk `docs/` and return every non-hidden folder, including empty ones. */
+async function collectFolders(root) {
+  const docsDir = join(root, 'docs')
+  const folders = []
+  const folderInfo = {}
+  const walk = async (dir, depth) => {
+    if (depth > 6 || folders.length >= 300) return
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'assets' || !entry.isDirectory()) continue
+      const absolute = join(dir, entry.name)
+      const rel = relative(root, absolute).replaceAll('\\', '/')
+      let info = null
+      try { info = await stat(absolute) } catch { /* still list it */ }
+      folders.push(rel)
+      if (info !== null) folderInfo[rel] = { created: info.birthtimeMs || info.ctimeMs, mtime: info.mtimeMs }
+      await walk(absolute, depth + 1)
+    }
+  }
+  await walk(docsDir, 0)
+  return { folders, folderInfo }
+}
+
+/** POST /md-reader/mkdir: create one folder under docs/. */
+async function handleMkdir(gate, root, payload, res) {
+  const raw = typeof payload.name === 'string' ? payload.name.trim() : ''
+  const name = raw.replace(/[\\/:*?"<>|]/g, '').trim()
+  if (name === '' || name === '.' || name === '..' || name.startsWith('.')) {
+    json(res, FAIL('invalid-name', '文件夹名称无效'), 400)
+    return
+  }
+  if (name.length > 80) {
+    json(res, FAIL('invalid-name', '文件夹名称太长'), 400)
+    return
+  }
+  const gated = await gate('')
+  if (!gated.ok) {
+    json(res, FAIL(gated.error.code, gated.error.message), 500)
+    return
+  }
+  const docsDir = join(gated.canonical, 'docs')
+  await mkdir(docsDir, { recursive: true })
+  const parentRel = normalizeRelPath(strField(payload, 'parent') ?? 'docs')
+  if (parentRel === null || (parentRel !== 'docs' && !parentRel.startsWith('docs/'))) {
+    json(res, FAIL('invalid-parent', 'parent must be a folder under docs/'), 400)
+    return
+  }
+  const parentDir = join(gated.canonical, parentRel)
+  let parentReal
+  try {
+    parentReal = await realpath(parentDir)
+    if (!isPathInside(docsDir, parentReal) || !(await stat(parentReal)).isDirectory()) throw new Error('bad parent')
+    if (await stat(join(parentReal, 'index.md')).then(() => true).catch(() => false)) throw new Error('parent is a document')
+  } catch {
+    json(res, FAIL('invalid-parent', 'parent folder does not exist'), 400)
+    return
+  }
+  const target = join(parentReal, name)
+  if (!isPathInside(parentReal, target)) {
+    json(res, FAIL('invalid-name', '文件夹名称无效'), 400)
+    return
+  }
+  try {
+    await stat(target)
+    json(res, FAIL('exists', '同名文件夹已存在'), 409)
+    return
+  } catch { /* free */ }
+  await mkdir(target)
+  const parentPrefix = relative(gated.canonical, parentReal).replaceAll('\\', '/')
+  json(res, { ok: true, value: { path: `${parentPrefix}/${name}` } })
+}
+
 /** Walk `docs/` and return the library cards, newest first. */
 async function collectDocs(root) {
   const docsDir = join(root, 'docs')
@@ -887,6 +1454,7 @@ async function collectDocs(root) {
             ? data.updated
             : info.mtime.toISOString().slice(0, 10),
         mtime: info.mtimeMs,
+        created: info.birthtimeMs || info.ctimeMs,
         size: info.size,
       })
     }
@@ -940,8 +1508,13 @@ async function serveStandalone(req, res) {
     return
   }
   let rel = url.pathname.replace(/^\/library\/?/, '')
-  if (rel === 'reader' || rel.startsWith('reader/')) rel = rel.slice(6).replace(/^\/+/, '') || 'index.html'
-  else if (rel === '' || rel === 'index.html') rel = 'workspace.html'
+  if (rel === 'reader' || rel.startsWith('reader/')) {
+    // The old read-only reader is retired; every library entry goes to the workspace.
+    res.writeHead(302, { location: '/library/' })
+    res.end()
+    return
+  }
+  if (rel === '' || rel === 'index.html') rel = 'workspace.html'
   const allowed = rel === 'workspace.js' || rel === 'workspace.html' || rel === 'index.html'
     || rel === 'react.js' || rel === 'react-dom.js' || rel === 'client.js'
     || rel.startsWith('vditor/')
@@ -1003,6 +1576,10 @@ function registerRoutes(ctx, gate, libraryRoot) {
         await handleTree(gate, libraryRoot, res)
         return
       }
+      if (req.method === 'GET' && url.pathname === '/md-reader/onboarding') {
+        await handleOnboardingGet(libraryRoot, res)
+        return
+      }
       if (url.pathname === '/md-reader/raw') {
         await serveRaw(gate, req, url, res)
         return
@@ -1040,6 +1617,26 @@ function registerRoutes(ctx, gate, libraryRoot) {
     }
     if (pathname === '/md-reader/create') {
       await handleCreate(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/mkdir') {
+      await handleMkdir(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/rename-folder') {
+      await handleRenameFolder(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/delete-folder') {
+      await handleDeleteFolder(gate, libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/onboarding') {
+      await handleOnboardingSave(libraryRoot, payload, res)
+      return
+    }
+    if (pathname === '/md-reader/research') {
+      await handleResearch(payload, res)
       return
     }
     if (pathname === '/md-reader/write') {
@@ -1102,4 +1699,9 @@ export function apply(ctx) {
     order: SECTION_ORDER,
     text: MARKDOWN_READER_GUIDANCE,
   }), 'botcamp-library: prompt section')
+  ctx.effect(() => ctx.systemPrompt.section({
+    name: 'plugin:botcamp-onboarding',
+    order: SECTION_ORDER + 1,
+    text: () => onboardingPrompt(libraryRoot),
+  }), 'botcamp-library: onboarding prompt section')
 }

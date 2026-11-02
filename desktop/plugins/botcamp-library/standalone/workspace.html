@@ -36,7 +36,38 @@
   .brand-mark { font-size: 21px; }
   .brand-name { font-weight: 700; letter-spacing: .2px; }
   .brand-sub { color: var(--muted); font-size: 11px; margin-top: -2px; }
-  .side-actions { display: flex; gap: 7px; padding: 4px 14px 10px; }
+  .tree-section-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 8px 4px 14px; }
+  .tree-section { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+  .tree-section-add { flex: none; width: 22px; height: 22px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: 16px/1 system-ui; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .tree-section-add:hover { background: var(--hover); color: var(--ink); }
+  .tree-node { margin: 1px 8px; border-radius: 7px; }
+  .tree-node:hover, .tree-node:focus-within { background: var(--hover); }
+  .tree-node.active { background: #ece8df; }
+  .tree-row { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 2px 6px 2px 2px; border-radius: 7px; cursor: default; user-select: none; }
+  .tree-row.doc-row { cursor: pointer; }
+  .tree-twisty { flex: none; width: 16px; height: 22px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; padding: 0; }
+  .tree-spacer { flex: none; width: 16px; }
+  .tree-icon { flex: none; width: 18px; text-align: center; font-size: 15px; }
+  .tree-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--ink); }
+  .tree-actions { display: flex; flex: none; align-items: center; gap: 1px; opacity: 0; transition: opacity .12s; }
+  .tree-node:hover .tree-actions, .tree-node:focus-within .tree-actions { opacity: 1; }
+  .tree-act { width: 22px; height: 22px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: 15px/1 system-ui; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .tree-act:hover { background: rgba(0,0,0,.08); color: var(--ink); }
+  .tree-rename { flex: 1; min-width: 0; height: 24px; padding: 0 5px; border: 1px solid var(--accent); border-radius: 4px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; outline: none; }
+  .ctx-menu { position: fixed; z-index: 200; min-width: 150px; padding: 5px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); box-shadow: 0 12px 32px rgba(0,0,0,.16); }
+  .ctx-menu button { display: flex; width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
+  .ctx-menu button:hover { background: var(--hover); }
+  .ctx-info { padding: 2px 10px; color: var(--muted); font-size: 11px; line-height: 1.35; white-space: nowrap; }
+  .ctx-info:last-child { padding-bottom: 5px; }
+  .ctx-sep { height: 1px; margin: 3px 4px; background: var(--line); }
+  #media-view { position: absolute; inset: 0; overflow: auto; padding: 22px 26px; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  #media-view img, #media-view video { display: block; max-width: 100%; max-height: calc(100vh - 96px); margin: 0; border-radius: 8px; background: #000; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+  .media-caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: 720px; color: var(--muted); font-size: 12px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-menu { display: none; }
+  @media (max-width: 760px) {
+    .tree-actions { opacity: 1; }
+    .mobile-menu { display: flex; position: fixed; z-index: 50; left: 10px; top: 10px; width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; background: rgba(255,255,255,.9); }
+  }
   .btn {
     border: 1px solid var(--line); background: var(--white); color: var(--ink);
     border-radius: 7px; padding: 6px 10px; cursor: pointer; line-height: 1.2;
@@ -69,6 +100,19 @@
   .media-row { color: var(--muted); font-size: 12px; padding-left: 34px; }
   .tree-empty { color: var(--muted); font-size: 12px; padding: 16px 10px; }
   #main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg); }
+  body.embed-editor #sidebar, body.embed-editor #sidebar-mask, body.embed-editor #menu { display: none !important; }
+  body.embed-editor #main { width: 100%; }
+  .docs-sidebar-toggle { display: none; }
+  body.embed-right #sidebar { position: relative; z-index: 20; inset: auto; width: 210px; flex: 0 0 210px; transform: none; box-shadow: none; border-right: 1px solid var(--line); transition: width .18s ease, flex-basis .18s ease; overflow: hidden; }
+  body.embed-right #sidebar.collapsed { width: 44px; flex-basis: 44px; }
+  body.embed-right #sidebar.collapsed > :not(.docs-sidebar-toggle) { display: none !important; }
+  body.embed-right .docs-sidebar-toggle { display: flex; position: absolute; top: 10px; right: 8px; z-index: 5; width: 26px; height: 26px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--muted); font: 16px/1 system-ui; cursor: pointer; }
+  body.embed-right #sidebar.collapsed .docs-sidebar-toggle { right: 8px; }
+  body.embed-right #sidebar-mask, body.embed-right #menu { display: none !important; }
+  body.embed-right #main { width: 100%; padding-top: 0; }
+  body.embed-right .brand { padding-right: 42px; }
+
+
   #topbar {
     height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 8px;
     border-bottom: 1px solid var(--line); padding: 0 12px; background: rgba(251,250,248,.94);
@@ -100,7 +144,9 @@
   .vditor { border: 0 !important; border-radius: 0 !important; background: transparent !important; }
   .vditor-toolbar { border-bottom: 1px solid var(--line) !important; background: var(--bg) !important; padding-left: 10px !important; }
   .vditor-content { background: var(--bg) !important; }
-  .vditor-reset { max-width: 760px; margin: 0 auto; }
+  .vditor-reset { max-width: none; width: 100%; margin: 0; padding-left: 24px; padding-right: 24px; }
+  .vditor-toolbar [data-type="edit-mode"], .vditor-toolbar [data-type="preview"] { display: none !important; }
+  .vditor-sv { display: none !important; }
   @media (max-width: 760px) {
     #sidebar { position: fixed; z-index: 60; inset: 0 auto 0 0; transform: translateX(-100%); box-shadow: 12px 0 30px rgba(0,0,0,.12); }
     body.nav-open #sidebar { transform: none; }
@@ -123,24 +169,13 @@
       <span class="brand-mark">📚</span>
       <div><div class="brand-name">文档库</div><div class="brand-sub">Markdown · 本地文件</div></div>
     </div>
-    <div class="side-actions">
-      <button class="btn primary" id="new-doc">＋ 新建文档</button>
-      <button class="btn" id="refresh" title="刷新">↻</button>
-    </div>
+    <button type="button" id="docs-sidebar-toggle" class="docs-sidebar-toggle" title="收起文档树" aria-label="收起文档树" aria-expanded="true">«</button>
     <input id="search" placeholder="搜索标题或路径…" autocomplete="off">
     <div id="tree"></div>
   </aside>
   <main id="main">
-    <header id="topbar">
-      <button class="btn ghost" id="menu" title="文件">☰</button>
-      <div id="doc-path">未选择文档</div>
-      <span id="status"></span>
-      <button class="btn" id="image" disabled>图片</button>
-      <button class="btn" id="save" disabled>保存</button>
-      <button class="btn" id="rename" disabled>重命名</button>
-      <input id="image-input" type="file" accept="image/*" hidden>
-      <button class="btn danger" id="delete" disabled>删除</button>
-    </header>
+    <button class="btn ghost mobile-menu" id="menu" title="文件">☰</button>
+    <input id="image-input" type="file" accept="image/*" hidden>
     <div id="editor-wrap">
       <div id="empty">
         <div class="card">
@@ -150,10 +185,16 @@
         </div>
       </div>
       <div id="editor" hidden></div>
+      <div id="media-view" hidden>
+        <div class="media-caption" id="media-caption"></div>
+        <img id="media-image" hidden alt="">
+        <video id="media-video" controls playsinline hidden></video>
+      </div>
     </div>
   </main>
 </div>
 <div class="toast" id="toast"></div>
+<div class="ctx-menu" id="ctx-menu" role="menu" hidden></div>
 <script src="./vditor/dist/index.min.js"></script>
 <script src="./workspace.js"></script>
 </body>

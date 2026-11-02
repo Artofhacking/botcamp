@@ -17,6 +17,9 @@ RATE_IN = float(os.environ.get("BOTCAMP_RATE_IN", "0.14"))    # per 1M input tok
 RATE_OUT = float(os.environ.get("BOTCAMP_RATE_OUT", "0.28"))  # per 1M output tokens
 
 PREFIX = "/botcamp"
+SITE_ORIGIN = os.environ.get("BOTCAMP_SITE_ORIGIN", "https://botcamp.demox.site").rstrip("/")
+ALLOWED_ORIGINS = {SITE_ORIGIN, "dsh-app://app", "http://127.0.0.1:8765", "http://localhost:8765"}
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("BOTCAMP_ADMIN_EMAILS", "").split(",") if e.strip()}
 PUBLIC_URL = os.environ.get("BOTCAMP_PUBLIC_URL", "https://camp.aigc.sx.cn").rstrip("/")
 
 def read_version():
@@ -103,7 +106,19 @@ def init_db():
           updated_at INTEGER NOT NULL,
           online INTEGER DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS admins(
+          email TEXT PRIMARY KEY,
+          created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS settings(
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
         """)
+        seeded = c.execute("SELECT COUNT(*) n FROM admins").fetchone()["n"]
+        if not seeded:
+            for mail in sorted(ADMIN_EMAILS):
+                c.execute("INSERT OR IGNORE INTO admins(email, created_at) VALUES(?,?)", (mail, now()))
 
 def hash_password(password, salt=None):
     salt = salt or secrets.token_bytes(16)
@@ -163,18 +178,24 @@ RELAY_HTML = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BotCamp 登录</title>
 <style>
-:root{--bg:#0b0b0d;--card:#141418;--line:#26262e;--tx:#e8e8ee;--mut:#8b8b98;--acc:#6c8cff}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif}
-.card{width:min(92vw,360px);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px}
-h1{font-size:18px;margin:0 0 4px}p.sub{margin:0 0 20px;color:var(--mut);font-size:13px}
-label{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
-input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:#1b1b21;color:var(--tx);font:inherit}
-button{width:100%;margin-top:22px;padding:12px;border:0;border-radius:9px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
-button:disabled{opacity:.6}
-.err{color:#e5574f;font-size:13px;min-height:18px;margin-top:12px}
+:root{--bg:#f6f7f9;--card:#fff;--line:#e6e8ee;--tx:#14161a;--mut:#6b7280;--acc:#4d6bfe;--ok:#16a34a;--err:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;padding:24px}
+.card{width:min(92vw,380px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px rgba(16,24,40,.06)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(140deg,#6c8cff,#3b4fd8)}
+h1{font-size:20px;margin:0}
+p.sub{margin:6px 0 20px;color:var(--mut);font-size:13px}
+label{display:block;font-size:12.5px;color:var(--mut);margin:14px 0 6px}
+input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--tx);font:inherit;outline:none}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(77,107,254,.14)}
+button{width:100%;margin-top:22px;padding:12px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:hover{background:#3f5cf0}
+button:disabled{opacity:.55;cursor:default}
+.err{color:var(--err);font-size:13px;min-height:18px;margin-top:12px}
 </style></head><body>
 <div class="card">
-  <h1>BotCamp</h1>
+  <div class="brand"><span class="mark"></span><h1>BotCamp</h1></div>
   <p class="sub">登录后即可连接你的桌面 Bot 团队</p>
   <label>邮箱</label><input id="email" type="email" autocomplete="username" placeholder="you@example.com">
   <label>密码</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
@@ -204,17 +225,33 @@ RELAY_DEVICES_HTML = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>选择设备</title>
 <style>
-:root{--bg:#0b0b0d;--card:#141418;--line:#26262e;--tx:#e8e8ee;--mut:#8b8b98;--acc:#6c8cff;--ok:#3fbf7f}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;display:flex;justify-content:center;padding:28px 16px}
-.wrap{width:min(96vw,460px)}h1{font-size:18px;margin:0 0 4px}p.sub{color:var(--mut);font-size:13px;margin:0 0 20px}
-.dev{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
-.dev .name{flex:1}.dev .meta{color:var(--mut);font-size:12px}
-.dot{width:8px;height:8px;border-radius:50%;background:#555}.dot.on{background:var(--ok)}
-button{border:0;border-radius:9px;padding:9px 14px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
-button:disabled{background:#2a2a33;color:#777;cursor:not-allowed}
-.err{color:#e5574f;font-size:13px;margin-top:14px}
+:root{--bg:#f6f7f9;--card:#fff;--line:#e6e8ee;--tx:#14161a;--mut:#6b7280;--acc:#4d6bfe;--ok:#16a34a;--err:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;padding:24px}
+.card{width:min(92vw,380px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px rgba(16,24,40,.06)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(140deg,#6c8cff,#3b4fd8)}
+h1{font-size:20px;margin:0}
+p.sub{margin:6px 0 20px;color:var(--mut);font-size:13px}
+label{display:block;font-size:12.5px;color:var(--mut);margin:14px 0 6px}
+input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--tx);font:inherit;outline:none}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(77,107,254,.14)}
+button{width:100%;margin-top:22px;padding:12px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:hover{background:#3f5cf0}
+button:disabled{opacity:.55;cursor:default}
+.err{color:var(--err);font-size:13px;min-height:18px;margin-top:12px}
+
+.wrap{width:min(96vw,460px)}
+.dev{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.dev .name{flex:1;font-size:14px}
+.dev .meta{color:var(--mut);font-size:12px;margin-top:2px}
+.dot{width:8px;height:8px;border-radius:50%;background:#c9ccd3}
+.dot.on{background:var(--ok)}
+.dev button{width:auto;margin:0;padding:8px 14px;font-size:13px;border-radius:9px}
+.dev button:disabled{background:#eef0f4;color:#9aa0aa}
 </style></head><body><div class="wrap">
-<h1>选择设备</h1><p class="sub">这些是登录过 BotCamp 客户端的电脑</p>
+<div class="brand"><span class="mark"></span><h1>选择设备</h1></div>
+<p class="sub">这些是登录过 BotCamp 客户端的电脑</p>
 <div id="list"></div><div class="err" id="err"></div>
 </div><script>
 const $=s=>document.querySelector(s)
@@ -238,14 +275,29 @@ load()
 
 PAIR_HTML = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>绑定设备</title>
-<style>body{margin:0;min-height:100vh;background:#0b0b0d;color:#e8e8ee;font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center}
-.card{width:min(92vw,380px);background:#141418;border:1px solid #26262e;border-radius:14px;padding:24px;text-align:center}
-code{display:block;font-size:26px;letter-spacing:3px;margin:14px 0;color:#6c8cff}
-button{width:100%;border:0;border-radius:10px;padding:12px;background:#6c8cff;color:#fff;font:inherit;cursor:pointer}
-p{color:#8b8b98;font-size:13px;margin:6px 0}</style></head><body>
-<div class="card"><h2 style="font-size:17px;margin:0">绑定这台电脑</h2>
-<p>请在即将登录的电脑上确认下面这串码</p><code id="c"></code>
-<button id="ok">是我本人，绑定</button><p id="m"></p></div>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--line:#e6e8ee;--tx:#14161a;--mut:#6b7280;--acc:#4d6bfe;--ok:#16a34a;--err:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;padding:24px}
+.card{width:min(92vw,380px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px rgba(16,24,40,.06)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(140deg,#6c8cff,#3b4fd8)}
+h1{font-size:20px;margin:0}
+p.sub{margin:6px 0 20px;color:var(--mut);font-size:13px}
+label{display:block;font-size:12.5px;color:var(--mut);margin:14px 0 6px}
+input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--tx);font:inherit;outline:none}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(77,107,254,.14)}
+button{width:100%;margin-top:22px;padding:12px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:hover{background:#3f5cf0}
+button:disabled{opacity:.55;cursor:default}
+.err{color:var(--err);font-size:13px;min-height:18px;margin-top:12px}
+
+.card{text-align:center}
+code{display:block;font:600 28px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:4px;margin:16px 0;color:var(--acc)}
+</style></head><body>
+<div class="card"><div class="brand" style="justify-content:center"><span class="mark"></span><h1>绑定这台电脑</h1></div>
+<p class="sub">请在即将登录的电脑上确认下面这串码</p><code id="c"></code>
+<button id="ok">是我本人，绑定</button><p id="m" class="sub" style="margin:14px 0 0"></p></div>
 <script>
 const code=new URLSearchParams(location.search).get('code')||''
 document.querySelector('#c').textContent=code
@@ -260,27 +312,28 @@ ADMIN_HTML = r"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BotCamp 控制台</title>
 <style>
-:root{--bg:#0b0b0d;--card:#141418;--line:#26262e;--tx:#e8e8ee;--mut:#8b8b98;--acc:#6c8cff;--ok:#3fbf7f;--bad:#e5574f}
+:root{--bg:#f6f7f9;--card:#fff;--line:#e6e8ee;--tx:#14161a;--mut:#6b7280;--acc:#4d6bfe;--ok:#16a34a;--bad:#dc2626}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,-apple-system,"PingFang SC",sans-serif}
-header{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid var(--line)}
+header{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid var(--line);background:#fff}
 h1{font-size:16px;margin:0;font-weight:600}main{max-width:1180px;margin:0 auto;padding:24px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-input,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#1b1b21;color:var(--tx);padding:8px 12px}
-button{cursor:pointer;background:var(--acc);border-color:var(--acc);color:#fff}
-button.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20}
+input,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--tx);padding:8px 12px}
+button{cursor:pointer;background:var(--acc);border-color:var(--acc);color:#fff;transition:background .15s}
+button:hover{background:#3f5cf0;border-color:#3f5cf0}
+button.modal{position:fixed;inset:0;background:rgba(16,24,40,.28);display:flex;align-items:center;justify-content:center;z-index:20}
 .modalbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;width:min(92vw,560px);max-height:70vh;overflow:auto}
 .devrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
 .devrow button{margin-left:auto}
 .ghost{background:transparent;color:var(--mut);border-color:var(--line)}
-button.danger{background:transparent;border-color:#5a2b2b;color:var(--bad)}
+button.danger{background:#fff;border-color:#f0c9c9;color:var(--bad)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{color:var(--mut);font-weight:500}td.num{text-align:right;font-variant-numeric:tabular-nums}
 .mut{color:var(--mut)}.pill{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line)}
-.pill.on{color:var(--ok);border-color:#1f5a3c}.pill.off{color:var(--bad);border-color:#5a2b2b}
-.toast{position:fixed;right:20px;bottom:20px;background:#1f1f27;border:1px solid var(--line);padding:12px 16px;border-radius:10px;display:none}
+.pill.on{color:var(--ok);border-color:#bfe6cd;background:#f0faf3}.pill.off{color:var(--bad);border-color:#f3caca;background:#fdf3f3}
+.toast{position:fixed;right:20px;bottom:20px;background:#fff;border:1px solid var(--line);padding:12px 16px;border-radius:10px;display:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.kpi{background:#101014;border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
 .kpi b{display:block;font-size:22px;margin-top:4px}
 </style></head><body>
 <header><h1>BotCamp 控制台</h1><span class="mut" id="who"></span><span class="mut" id="ver"></span><span style="flex:1"></span><button class="ghost" id="logout">退出</button></header>
@@ -348,7 +401,7 @@ $('#createBtn').onclick=async()=>{
     $('#email').value='';$('#name').value='';$('#note').value='';load();
   }catch(e){toast('创建失败：'+e.message)}
 };
-(async()=>{try{const me=await api('/admin/me');$('#who').textContent=me.admin?'管理员已登录':'';$('#ver').textContent=me.version?'v'+me.version:'');$('#loginCard').style.display='none';$('#app').style.display='block';load()}catch(e){}})();
+(async()=>{try{const me=await api('/admin/me');$('#who').textContent=me.admin?'管理员已登录':'';$('#ver').textContent=me.version?'v'+me.version:'';;$('#loginCard').style.display='none';$('#app').style.display='block';load()}catch(e){}})();
 </script></body></html>"""
 
 def user_view(row, stats, models=()):
@@ -364,6 +417,17 @@ def user_view(row, stats, models=()):
                     "completion_tokens": m["c"] or 0, "total_tokens": m["t"] or 0} for m in models],
     }
 
+def admin_email_set():
+    with db() as c:
+        rows = {r["email"] for r in c.execute("SELECT email FROM admins").fetchall()}
+    return rows | set(ADMIN_EMAILS)
+
+def current_model():
+    with db() as c:
+        row = c.execute("SELECT value FROM settings WHERE key='model'").fetchone()
+    value = (row["value"] or "").strip() if row else ""
+    return value or PINNED_MODEL
+
 # ---------- http ----------
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -371,6 +435,26 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         print("%s %s" % (self.address_string(), fmt % args), flush=True)
+
+    def end_headers(self):
+        origin = ""
+        try:
+            origin = self.headers.get("Origin", "") or ""
+        except Exception:
+            origin = ""
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Access-Control-Allow-Headers", "content-type, authorization")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Max-Age", "600")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("content-length", "0")
+        self.end_headers()
 
     # -- response helpers --
     def send_json(self, obj, status=200, headers=None):
@@ -391,6 +475,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def redirect(self, location, status=302):
+        self.send_response(status)
+        self.send_header("location", location)
+        self.send_header("content-length", "0")
+        self.end_headers()
+
     def cookies(self):
         raw = self.headers.get("cookie", "")
         out = {}
@@ -403,7 +493,25 @@ class Handler(BaseHTTPRequestHandler):
     def is_admin(self):
         tok = self.cookies().get("botcamp_admin", "")
         data = unsign(tok) if tok else None
-        return bool(data and data.get("role") == "admin" and data.get("exp", 0) > now())
+        if data and data.get("role") == "admin" and data.get("exp", 0) > now():
+            return True
+        auth = self.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            data = unsign(auth[7:].strip())
+            return bool(data and data.get("role") == "admin" and data.get("exp", 0) > now())
+        return False
+
+    def relay_identity(self):
+        tok = self.cookies().get("botcamp_relay", "")
+        data = unsign(tok) if tok else None
+        if data and data.get("role") == "relay" and data.get("exp", 0) > now():
+            return data
+        auth = self.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            data = unsign(auth[7:].strip())
+            if data and data.get("role") == "relay" and data.get("exp", 0) > now():
+                return data
+        return None
 
     def user_from_token(self, token):
         if not token:
@@ -440,14 +548,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/botcamp", "/botcamp/"):
-            return self.send_response(302) or self.send_header("location", PREFIX + "/admin") or self.end_headers()
+            return self.redirect(SITE_ORIGIN + "/")
         if path == PREFIX + "/admin":
-            return self.send_html(ADMIN_HTML)
+            return self.redirect(SITE_ORIGIN + "/admin/")
         if path == PREFIX + "/healthz":
             return self.send_json({"ok": True, "version": VERSION})
         if path == PREFIX + "/api/relay/devices":
-            tok = self.cookies().get("botcamp_relay", "")
-            data = unsign(tok) if tok else None
+            data = self.relay_identity()
             if not data:
                 return self.send_json({"error": "login required"}, 401)
             with db() as c:
@@ -455,16 +562,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"devices": [{"slot": f"d{r['slot']}", "name": r["name"], "platform": r["platform"],
                                                 "online": now() - r["updated_at"] < 180, "last_seen": iso(r["updated_at"])} for r in rows]})
         if path == PREFIX + "/pair":
-            return self.send_html(PAIR_HTML)
+            return self.redirect(SITE_ORIGIN + "/login/")
         if path == PREFIX + "/relay/devices":
-            return self.send_html(RELAY_DEVICES_HTML)
+            return self.redirect(SITE_ORIGIN + "/desk/")
         if path == PREFIX + "/relay":
-            return self.send_html(RELAY_HTML)
+            return self.redirect(SITE_ORIGIN + "/login/")
         if path.startswith(PREFIX + "/api/relay/check/"):
             slot = path.rsplit("/", 1)[-1]
-            tok = self.cookies().get("botcamp_relay", "")
-            data = unsign(tok) if tok else None
-            if not (data and data.get("role") == "relay" and data.get("exp", 0) > now()):
+            data = self.relay_identity()
+            if not data:
                 return self.send_json({"ok": False, "error": "login required"}, 401)
             if not slot.startswith("d") or not slot[1:].isdigit():
                 return self.send_json({"ok": False, "error": "unknown device"}, 404)
@@ -498,6 +604,22 @@ class Handler(BaseHTTPRequestHandler):
             if not self.is_admin():
                 return self.send_json({"error": "unauthorized"}, 401)
             return self.admin_overview()
+        if path == PREFIX + "/api/admin/dashboard":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            return self.admin_dashboard()
+        if path == PREFIX + "/api/admin/admins":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            with db() as c:
+                rows = c.execute("SELECT email, created_at FROM admins ORDER BY created_at").fetchall()
+            listed = {r["email"] for r in rows}
+            return self.send_json({"admins": [{"email": r["email"], "created_at": iso(r["created_at"])} for r in rows] +
+                                  [{"email": e, "created_at": None} for e in sorted(ADMIN_EMAILS - listed)]})
+        if path == PREFIX + "/api/admin/models":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            return self.admin_models()
         if path == PREFIX + "/api/me":
             u = self.user_from_token(self.bearer())
             if not u:
@@ -650,11 +772,16 @@ class Handler(BaseHTTPRequestHandler):
             if not u["can_desk"]:
                 return self.send_json({"error": "该账号未开通桌面访问权限"}, 403)
             exp = now() + 7 * 86400
-            cookie = "botcamp_relay=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (sign({"role": "relay", "uid": u["id"], "exp": exp}), 7 * 86400)
-            return self.send_json({"ok": True, "redirect": PREFIX + "/relay/devices"}, headers={"set-cookie": cookie})
+            token = sign({"role": "relay", "uid": u["id"], "exp": exp})
+            cookie = "botcamp_relay=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (token, 7 * 86400)
+            admin = email in admin_email_set()
+            payload = {"ok": True, "token": token, "is_admin": admin,
+                       "redirect": SITE_ORIGIN + "/desk/"}
+            if admin:
+                payload["admin_token"] = sign({"role": "admin", "exp": now() + 12 * 3600})
+            return self.send_json(payload, headers={"set-cookie": cookie})
         if path == PREFIX + "/api/relay/go":
-            tok = self.cookies().get("botcamp_relay", "")
-            data = unsign(tok) if tok else None
+            data = self.relay_identity()
             if not data:
                 return self.send_json({"error": "login required"}, 401)
             body = self.body_json()
@@ -673,8 +800,55 @@ class Handler(BaseHTTPRequestHandler):
             if dev is None:
                 return self.send_json({"error": "没有在线的设备，请先在电脑上打开客户端"}, 503)
             return self.send_json({"ok": True, "redirect": f"/desk/d{dev['slot']}/?token={dev['token']}"})
+        if path == PREFIX + "/api/account/password":
+            d = self.body_json()
+            email = (d.get("email") or "").strip().lower()
+            current = d.get("current") or ""
+            new = d.get("next") or ""
+            if len(new) < 8:
+                return self.send_json({"error": "新密码至少 8 位"}, 400)
+            with db() as c:
+                u = c.execute("SELECT id, pw_hash, status FROM users WHERE email=?", (email,)).fetchone()
+            if not u or u["status"] != "active" or not check_password(current, u["pw_hash"]):
+                return self.send_json({"error": "当前密码不对"}, 401)
+            with db() as c:
+                c.execute("UPDATE users SET pw_hash=? WHERE id=?", (hash_password(new), u["id"]))
+            return self.send_json({"ok": True})
         if path == PREFIX + "/api/login":
             return self.login()
+        if path == PREFIX + "/api/admin/admins":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            email = (self.body_json().get("email") or "").strip().lower()
+            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                return self.send_json({"error": "需要邮箱格式"}, 400)
+            with db() as c:
+                u = c.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+                if u is None:
+                    return self.send_json({"error": "先创建这个账号"}, 404)
+                c.execute("INSERT OR IGNORE INTO admins(email, created_at) VALUES(?,?)", (email, now()))
+            return self.send_json({"ok": True})
+        if path == PREFIX + "/api/admin/admins/remove":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            email = (self.body_json().get("email") or "").strip().lower()
+            if email in ADMIN_EMAILS:
+                return self.send_json({"error": "这个管理员来自服务器环境变量，不能在这里移除"}, 400)
+            with db() as c:
+                total = c.execute("SELECT COUNT(*) n FROM admins").fetchone()["n"]
+                if total <= 1:
+                    return self.send_json({"error": "至少保留一个管理员"}, 400)
+                c.execute("DELETE FROM admins WHERE email=?", (email,))
+            return self.send_json({"ok": True})
+        if path == PREFIX + "/api/admin/models":
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            model = (self.body_json().get("model") or "").strip()
+            if not re.fullmatch(r"[A-Za-z0-9._:/-]{2,80}", model):
+                return self.send_json({"error": "模型名不合法"}, 400)
+            with db() as c:
+                c.execute("INSERT INTO settings(key, value) VALUES('model', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (model,))
+            return self.send_json({"ok": True, "model": model})
         if path == PREFIX + "/api/admin/login":
             return self.admin_login()
         if path == PREFIX + "/api/admin/logout":
@@ -698,6 +872,13 @@ class Handler(BaseHTTPRequestHandler):
             d = self.body_json()
             with db() as c:
                 c.execute("UPDATE users SET status=? WHERE id=?", ("active" if d.get("status") == "active" else "disabled", int(m.group(1))))
+            return self.send_json({"ok": True})
+        m = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/devices/(d\d+)", path)
+        if m:
+            if not self.is_admin():
+                return self.send_json({"error": "unauthorized"}, 401)
+            with db() as c:
+                c.execute("DELETE FROM devices WHERE user_id=? AND slot=?", (int(m.group(1)), int(m.group(2)[1:])))
             return self.send_json({"ok": True})
         m = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/password", path)
         if m:
@@ -737,8 +918,9 @@ class Handler(BaseHTTPRequestHandler):
         if not ADMIN_PASSWORD or not hmac.compare_digest(str(d.get("password", "")), ADMIN_PASSWORD):
             return self.send_json({"error": "密码错误"}, 401)
         exp = now() + 12 * 3600
-        cookie = "botcamp_admin=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (sign({"role": "admin", "exp": exp}), 12 * 3600)
-        return self.send_json({"ok": True}, headers={"set-cookie": cookie})
+        token = sign({"role": "admin", "exp": exp})
+        cookie = "botcamp_admin=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (token, 12 * 3600)
+        return self.send_json({"ok": True, "token": token}, headers={"set-cookie": cookie})
 
     # -- admin data --
     def admin_users(self):
@@ -750,6 +932,37 @@ class Handler(BaseHTTPRequestHandler):
                 models = c.execute("SELECT model, COUNT(*) n, SUM(prompt_tokens) p, SUM(completion_tokens) c, SUM(total_tokens) t FROM usage WHERE user_id=? GROUP BY model ORDER BY n DESC", (r["id"],)).fetchall()
                 out.append(user_view(r, st, models))
         return self.send_json({"users": out})
+
+    def admin_dashboard(self):
+        t0 = now() - 86400
+        w0 = now() - 7 * 86400
+        with db() as c:
+            users = c.execute("SELECT COUNT(*) n FROM users").fetchone()["n"]
+            today = c.execute("SELECT COUNT(*) r, COALESCE(SUM(total_tokens),0) t FROM usage WHERE ts>=?", (t0,)).fetchone()
+            week = c.execute("SELECT COALESCE(SUM(prompt_tokens),0) p, COALESCE(SUM(completion_tokens),0) o FROM usage WHERE ts>=?", (w0,)).fetchone()
+            devices = c.execute("SELECT COUNT(*) n FROM devices WHERE updated_at>=?", (now() - 180,)).fetchone()["n"]
+            admins = c.execute("SELECT COUNT(*) n FROM admins").fetchone()["n"]
+            daily = c.execute("SELECT date(ts,'unixepoch','localtime') d, COUNT(*) r, COALESCE(SUM(total_tokens),0) t FROM usage WHERE ts>=? GROUP BY d ORDER BY d", (now() - 6 * 86400,)).fetchall()
+            recent = c.execute("SELECT email, created_at, status FROM users ORDER BY id DESC LIMIT 5").fetchall()
+            top = c.execute("SELECT u.email, COUNT(*) r, COALESCE(SUM(x.total_tokens),0) t FROM usage x JOIN users u ON u.id=x.user_id WHERE x.ts>=? GROUP BY x.user_id ORDER BY t DESC LIMIT 5", (w0,)).fetchall()
+        cost = week["p"] / 1e6 * RATE_IN + week["o"] / 1e6 * RATE_OUT
+        return self.send_json({
+            "users": users, "today_requests": today["r"], "today_tokens": today["t"], "week_cost": round(cost, 6),
+            "online_devices": devices, "admins": admins, "model": current_model(),
+            "daily": [{"day": r["d"], "requests": r["r"], "tokens": r["t"]} for r in daily],
+            "recent": [{"email": r["email"], "created_at": iso(r["created_at"]), "status": r["status"]} for r in recent],
+            "top": [{"email": r["email"], "requests": r["r"], "tokens": r["t"]} for r in top],
+        })
+
+    def admin_models(self):
+        with db() as c:
+            rows = c.execute("SELECT model, COUNT(*) n, COALESCE(SUM(prompt_tokens),0) p, COALESCE(SUM(completion_tokens),0) o, COALESCE(SUM(total_tokens),0) t FROM usage GROUP BY model ORDER BY n DESC").fetchall()
+        stats = []
+        for r in rows:
+            cost = r["p"] / 1e6 * RATE_IN + r["o"] / 1e6 * RATE_OUT
+            stats.append({"model": r["model"] or "unknown", "requests": r["n"], "prompt_tokens": r["p"],
+                          "completion_tokens": r["o"], "total_tokens": r["t"], "cost": round(cost, 6)})
+        return self.send_json({"model": current_model(), "default_model": PINNED_MODEL, "stats": stats})
 
     def admin_overview(self):
         t0 = now() - 86400
@@ -781,7 +994,7 @@ class Handler(BaseHTTPRequestHandler):
         u = self.user_from_token(self.bearer())
         if not u:
             return self.send_json({"error": "unauthorized"}, 401)
-        return self.send_json({"object": "list", "data": [{"id": PINNED_MODEL, "object": "model", "owned_by": "botcamp"}]})
+        return self.send_json({"object": "list", "data": [{"id": current_model(), "object": "model", "owned_by": "botcamp"}]})
 
     def chat(self):
         u = self.user_from_token(self.bearer())
@@ -796,7 +1009,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self.send_json({"error": {"message": "bad json"}}, 400)
 
-        payload["model"] = PINNED_MODEL
+        payload["model"] = current_model()
         stream = bool(payload.get("stream"))
         if stream:
             payload.setdefault("stream_options", {})["include_usage"] = True
