@@ -269,6 +269,20 @@ console.log('applied BotCamp branding to', root)
 console.log('bundled @botcamp/dsh-library from desktop/plugins/botcamp-library')
 
 
+// 3d) Browser cookies/logins must survive a restart. Electron only persists a
+// partition whose name starts with `persist:`; a random UUID partition is an
+// in-memory session and loses the Xiaohongshu/Heybox login on every launch.
+const browserGuestsPath = join(root, 'dsh-desktop-next', 'src', 'browser-guests.ts')
+let browserGuests = readFileSync(browserGuestsPath, 'utf8')
+if (browserGuests.includes('partition = `dsh-sidebar-browser-${randomUUID()}`')) {
+  browserGuests = browserGuests.replace(
+    'partition = `dsh-sidebar-browser-${randomUUID()}`',
+    'partition = "persist:botcamp-team"',
+  )
+  writeFileSync(browserGuestsPath, browserGuests)
+  console.log('browser-guests.ts: persistent shared login profile')
+}
+
 // 4b) BotCamp update service: use our version feed and installers on both
 // desktop platforms. Windows uses the normal NSIS installer in silent mode
 // after the running app exits, then relaunches the installed executable.
