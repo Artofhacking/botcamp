@@ -7,7 +7,7 @@
  *
  * Usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>
  */
-import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { rebrandTree } from './rebrand.mjs'
 
@@ -52,5 +52,20 @@ console.log(`linked ${filled} package(s) so every workspace sees the same tree`)
 
 // Every surface a person reads says BotCamp. Runs after the links exist, so the
 // shell sources and every hoisted client plugin are patched exactly once.
+// All Bots share one BotCamp browser profile. Tabs and history stay per Bot, but
+// cookies/logins are deliberately team-wide: log in once, let the team use it.
+for (const client of [
+  join(root, 'node_modules', 'ds-bot', 'client.js'),
+  join(root, 'dsh-desktop-next', 'node_modules', 'ds-bot', 'client.js'),
+]) {
+  if (!existsSync(client)) continue
+  let text = readFileSync(client, 'utf8')
+  if (text.includes("await bridge.acquire(`bot:${botId}`)")) {
+    text = text.replace("await bridge.acquire(`bot:${botId}`)", "await bridge.acquire('botcamp:team')")
+    writeFileSync(client, text)
+    console.log('shared bot browser profile:', client)
+  }
+}
+
 const branded = rebrandTree(root, { log: (line) => console.log(line) })
 console.log(`rebranded ${branded.words} DSH mention(s) in ${branded.files} file(s)`)
