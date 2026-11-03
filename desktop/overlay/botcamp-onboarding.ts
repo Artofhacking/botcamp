@@ -346,26 +346,73 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:-.3px}p.sub{color:#667085;margin
   writeFileSync(marker, JSON.stringify({ id: choice, at: Date.now() }, null, 2) + '\n', { mode: 0o600 })
 }
 
-export async function botcampEnsureDevice(): Promise<void> {
-  configureProfiles()
-  const session = await loginWindow()
-  if (!session || !session.token) { app.exit(0); return }
-  const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
+type AgentConfig = {
+  email?: string
+  auth_token?: string
+  llm_token?: string
+  device?: { device_id: string, name: string, platform: string }
+  slot?: string
+  secret?: string
+}
+
+function readAgentConfig(): AgentConfig | undefined {
+  try { return JSON.parse(readFileSync(configPath(), 'utf8')) as AgentConfig } catch { return undefined }
+}
+
+async function cachedTokenValid(token: string): Promise<boolean> {
   try {
-    const registered = await post<{ slot: string, device_secret: string }>(
-      '/botcamp/api/devices/register', device, { authorization: `Bearer ${session.token}` },
-    )
-    mkdirSync(botcampHome(), { recursive: true })
-    writeFileSync(configPath(), JSON.stringify({
-      email: session.email,
-      device,
-      slot: registered.slot,
-      secret: registered.device_secret,
-      ...session.llm ? { llm_token: session.llm } : {},
-    }, null, 2), { mode: 0o600 })
+    const response = await fetch(`${GATEWAY}/botcamp/api/me`, { headers: { authorization: `Bearer ${token}` } })
+    if (response.status === 401) return false
+    return true
   } catch {
-    app.exit(0)
-    return
+    // Offline: keep the cached session and let the relay reconnect later.
+    return true
+  }
+}
+
+async function registerDevice(token: string, device: { device_id: string, name: string, platform: string }): Promise<{ slot: string, device_secret: string }> {
+  const response = await fetch(`${GATEWAY}/botcamp/api/devices/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify(device),
+  })
+  const data = await response.json() as { slot?: string, device_secret?: string, error?: string }
+  if (!response.ok || !data.slot || !data.device_secret) throw new Error(data.error || `HTTP ${response.status}`)
+  return { slot: data.slot, device_secret: data.device_secret }
+}
+
+export async function botcampEnsureDevice(): Promise<void> {
+  const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
+  let config = readAgentConfig()
+  const cached = config?.auth_token !== undefined && config.auth_token !== ''
+    && config.llm_token !== undefined && config.llm_token !== ''
+    && await cachedTokenValid(config.auth_token)
+  if (!cached) {
+    const session = await loginWindow()
+    if (!session || !session.token) { app.exit(0); return }
+    try {
+      const registered = await registerDevice(session.token, device)
+      config = {
+        email: session.email,
+        auth_token: session.token,
+        llm_token: session.llm,
+        device,
+        slot: registered.slot,
+        secret: registered.device_secret,
+      }
+      mkdirSync(botcampHome(), { recursive: true })
+      writeFileSync(configPath(), JSON.stringify(config, null, 2), { mode: 0o600 })
+    } catch {
+      app.exit(0)
+      return
+    }
+  } else {
+    // Refresh the device secret in the background; keep the cached login if offline.
+    try {
+      const registered = await registerDevice(config.auth_token!, device)
+      config = { ...config, device, slot: registered.slot, secret: registered.device_secret }
+      writeFileSync(configPath(), JSON.stringify(config, null, 2), { mode: 0o600 })
+    } catch { /* offline: relay will retry */ }
   }
   await botcampMaybeWelcome()
   configureProfiles()
@@ -374,7 +421,6 @@ export async function botcampEnsureDevice(): Promise<void> {
   startProvisioning()
   startRelay()
 }
-
 export function stopBotcampRelay(): void {
   relay?.kill()
   relay = undefined
