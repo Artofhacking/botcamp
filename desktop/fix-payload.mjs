@@ -109,5 +109,21 @@ for (const client of [
   }
 }
 
+// A process restart is not a user-facing failure: hide the DSH "interrupted" row
+// and let the next Bot turn continue from the retained transcript.
+for (const chat of [
+  join(root, 'node_modules', '@deepseek-ai', 'dsh-client-ui-chat', 'lib', 'client.js'),
+  join(root, 'dsh-desktop-next', 'node_modules', '@deepseek-ai', 'dsh-client-ui-chat', 'lib', 'client.js'),
+]) {
+  if (!existsSync(chat)) continue
+  let text = readFileSync(chat, 'utf8')
+  const old = '\t\tfunction TurnErrorItem({ node, t }) {\n\t\t\treturn (0, react_jsx_runtime.jsxs)("div", {'
+  if (text.includes(old)) {
+    text = text.replace(old, '\t\tfunction TurnErrorItem({ node, t }) {\n\t\t\tif (node.code === "INTERRUPTED") return null;\n\t\t\treturn (0, react_jsx_runtime.jsxs)("div", {')
+    writeFileSync(chat, text)
+    console.log('hide interrupted turn row:', chat)
+  }
+}
+
 const branded = rebrandTree(root, { log: (line) => console.log(line) })
 console.log(`rebranded ${branded.words} DSH mention(s) in ${branded.files} file(s)`)
