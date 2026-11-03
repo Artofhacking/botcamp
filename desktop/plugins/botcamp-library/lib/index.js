@@ -143,6 +143,13 @@ async function researchPublicProfile({ platform, account }) {
   const cached = url === null ? undefined : researchCache.get(url)
   if (cached !== undefined && Date.now() - cached.at < RESEARCH_TTL_MS) return { ok: true, value: cached.value }
 
+  // BotCamp uses the visible sidebar or an isolated BotCamp window for all
+  // browser work. Playwright's Chrome for Testing is opt-in only, so a normal
+  // account lookup can never pop a second browser behind the app.
+  if (process.env.BOTCAMP_RESEARCH_EXTERNAL !== '1') {
+    return { ok: false, code: 'external-browser-disabled', message: '外部 Chrome 已禁用。请把主页/账号页打开在侧边栏或隔离会话里，再用 read_browser 和 /md-reader/browser/* 操作。' }
+  }
+
   const { chromium } = await import('playwright-core')
   const executablePath = CHROME_CANDIDATES.find((candidate) => existsSync(candidate))
   const browser = await chromium.launch({ headless: false, executablePath, args: ['--no-sandbox'] })
@@ -235,6 +242,183 @@ async function researchPublicProfile({ platform, account }) {
   } finally {
     await browser.close().catch(() => {})
   }
+}
+
+
+/** Local CDP bridge to the visible sidebar browser (BotCamp patches port 9222). */
+const BROWSER_CDP_PORT = Number(process.env.BOTCAMP_CDP_PORT ?? 9222)
+
+async function browserTargets() {
+  const response = await fetch(`http://127.0.0.1:${BROWSER_CDP_PORT}/json/list`, { cache: 'no-store' })
+  if (!response.ok) throw new Error(`CDP HTTP ${response.status}`)
+  return await response.json()
+}
+
+function chooseBrowserTarget(targets, match) {
+  const webviews = targets.filter((target) => target.type === 'webview' && typeof target.url === 'string' && !target.url.startsWith('about:blank'))
+  const needle = String(match ?? '').toLowerCase()
+  return webviews.find((target) => needle === '' || target.url.toLowerCase().includes(needle)) ?? webviews[0]
+}
+
+async function withBrowserCdp(match, task) {
+  const target = chooseBrowserTarget(await browserTargets(), match)
+  if (target === undefined) throw new Error('没有已打开的侧边栏浏览器页面')
+  const socket = new WebSocket(target.webSocketDebuggerUrl)
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true })
+    socket.addEventListener('error', reject, { once: true })
+  })
+  let nextId = 0
+  const pending = new Map()
+  socket.addEventListener('message', (event) => {
+    let message
+    try { message = JSON.parse(String(event.data)) } catch { return }
+    const waiter = pending.get(message.id)
+    if (waiter !== undefined) {
+      pending.delete(message.id)
+      if (message.error !== undefined) waiter.reject(new Error(message.error.message ?? 'CDP error'))
+      else waiter.resolve(message.result)
+    }
+  })
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = ++nextId
+    pending.set(id, { resolve, reject })
+    socket.send(JSON.stringify({ id, method, params }))
+  })
+  try {
+    return await task(send, target)
+  } finally {
+    socket.close()
+  }
+}
+
+async function browserEval(expression) {
+  const target = (await browserTargets()).find((entry) => entry.type === 'page' && entry.url.startsWith('dsh-app://app/'))
+  if (target === undefined) throw new Error('BotCamp 主窗口没有可用的调试连接')
+  const socket = new WebSocket(target.webSocketDebuggerUrl)
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true })
+    socket.addEventListener('error', reject, { once: true })
+  })
+  let nextId = 0
+  const pending = new Map()
+  socket.addEventListener('message', (event) => {
+    let message
+    try { message = JSON.parse(String(event.data)) } catch { return }
+    const waiter = pending.get(message.id)
+    if (waiter !== undefined) {
+      pending.delete(message.id)
+      if (message.error !== undefined) waiter.reject(new Error(message.error.message ?? 'CDP error'))
+      else waiter.resolve(message.result)
+    }
+  })
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = ++nextId
+    pending.set(id, { resolve, reject })
+    socket.send(JSON.stringify({ id, method, params }))
+  })
+  try {
+    const evaluated = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+    if (evaluated.exceptionDetails !== undefined) throw new Error(evaluated.exceptionDetails.exception?.description ?? '浏览器控制失败')
+    return evaluated.result?.value
+  } finally {
+    socket.close()
+  }
+}
+
+async function browserFind(payload, res) {
+  const text = String(payload.text ?? '').trim()
+  if (text === '') { json(res, FAIL('malformed-request', 'text is required'), 400); return }
+  try {
+    const result = await browserEval(`window.dshDesktop.browser.find(${JSON.stringify(text)})`)
+    json(res, { ok: true, value: result })
+  } catch (error) {
+    json(res, FAIL('browser-unavailable', error instanceof Error ? error.message : String(error)), 502)
+  }
+}
+
+async function browserMouse(payload, res) {
+  const x = Number(payload.x)
+  const y = Number(payload.y)
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > 20000 || y > 20000) {
+    json(res, FAIL('malformed-request', 'x and y must be viewport coordinates'), 400)
+    return
+  }
+  try {
+    const targetId = String(payload.targetId ?? '')
+    const expectedUrl = String(payload.url ?? payload.expectedUrl ?? '')
+    const result = await browserEval(`window.dshDesktop.browser.mouse(${Math.round(x)}, ${Math.round(y)}, ${JSON.stringify(targetId)}, ${JSON.stringify(expectedUrl)})`)
+    json(res, { ok: true, value: result })
+  } catch (error) {
+    json(res, FAIL('browser-unavailable', error instanceof Error ? error.message : String(error)), 502)
+  }
+}
+
+async function browserScreenshot(payload, res) {
+  try {
+    const targetId = String(payload.targetId ?? '')
+    const expectedUrl = String(payload.url ?? payload.expectedUrl ?? '')
+    const result = await browserEval(`window.dshDesktop.browser.screenshot(${JSON.stringify(targetId)}, ${JSON.stringify(expectedUrl)})`)
+    json(res, { ok: true, value: result })
+  } catch (error) {
+    json(res, FAIL('browser-unavailable', error instanceof Error ? error.message : String(error)), 502)
+  }
+}
+
+async function browserOpenSidebar(payload, res) {
+  const url = String(payload.url ?? '').trim()
+  if (!/^https?:\/\//i.test(url)) {
+    json(res, FAIL('malformed-request', 'url must start with http:// or https://'), 400)
+    return
+  }
+  try {
+    await browserEval(`window.dispatchEvent(new CustomEvent('botcamp:open-sidebar-browser', { detail: { url: ${JSON.stringify(url)} } })); true`)
+    json(res, { ok: true, value: { url } })
+  } catch (error) {
+    json(res, FAIL('browser-unavailable', error instanceof Error ? error.message : String(error)), 502)
+  }
+}
+
+async function isolatedCall(method, args, res) {
+  if (process.env.BOTCAMP_ISOLATED_BROWSER !== '1') {
+    json(res, FAIL('isolated-disabled', '隔离会话当前已关闭。请使用 browser_open 在侧边栏打开页面。'), 409)
+    return
+  }
+  try {
+    const result = await browserEval(`window.dshDesktop.browser.isolated.${method}(${args.map((value) => JSON.stringify(value)).join(', ')})`)
+    json(res, { ok: true, value: result })
+  } catch (error) {
+    json(res, FAIL('browser-unavailable', error instanceof Error ? error.message : String(error)), 502)
+  }
+}
+
+async function isolatedOpen(payload, res) {
+  const url = String(payload.url ?? 'https://www.xiaoheihe.cn/')
+  const options = {
+    persist: payload.persist === true,
+    ...(typeof payload.name === 'string' && payload.name.trim() !== '' ? { name: payload.name.trim() } : {}),
+  }
+  await isolatedCall('open', [url, options], res)
+}
+
+async function isolatedFind(payload, res) {
+  await isolatedCall('find', [String(payload.sessionId ?? ''), String(payload.text ?? '')], res)
+}
+
+async function isolatedMouse(payload, res) {
+  await isolatedCall('mouse', [String(payload.sessionId ?? ''), Number(payload.x), Number(payload.y), String(payload.url ?? payload.expectedUrl ?? '')], res)
+}
+
+async function isolatedType(payload, res) {
+  await isolatedCall('type', [String(payload.sessionId ?? ''), String(payload.text ?? ''), payload.submit === true], res)
+}
+
+async function isolatedScreenshot(payload, res) {
+  await isolatedCall('screenshot', [String(payload.sessionId ?? ''), String(payload.url ?? payload.expectedUrl ?? '')], res)
+}
+
+async function isolatedClose(payload, res) {
+  await isolatedCall('close', [String(payload.sessionId ?? '')], res)
 }
 
 async function handleResearch(payload, res) {
@@ -1576,6 +1760,10 @@ function registerRoutes(ctx, gate, libraryRoot) {
         await handleTree(gate, libraryRoot, res)
         return
       }
+      if (req.method === 'GET' && url.pathname === '/md-reader/browser/screenshot') {
+        await browserScreenshot({ match: url.searchParams.get('match') ?? '' }, res)
+        return
+      }
       if (req.method === 'GET' && url.pathname === '/md-reader/onboarding') {
         await handleOnboardingGet(libraryRoot, res)
         return
@@ -1637,6 +1825,42 @@ function registerRoutes(ctx, gate, libraryRoot) {
     }
     if (pathname === '/md-reader/research') {
       await handleResearch(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/find') {
+      await browserFind(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/mouse') {
+      await browserMouse(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/open') {
+      await browserOpenSidebar(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/open') {
+      await isolatedOpen(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/find') {
+      await isolatedFind(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/mouse') {
+      await isolatedMouse(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/type') {
+      await isolatedType(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/screenshot') {
+      await isolatedScreenshot(payload, res)
+      return
+    }
+    if (pathname === '/md-reader/browser/isolated/close') {
+      await isolatedClose(payload, res)
       return
     }
     if (pathname === '/md-reader/write') {
