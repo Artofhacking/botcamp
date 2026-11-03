@@ -6,7 +6,7 @@
  * for the account owner to approve it on any signed-in browser, then keep the
  * relay agent running so the machine becomes reachable at /desk/d<slot>/.
  */
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -272,6 +272,24 @@ async function loginWindow(): Promise<{ token: string, llm: string, email: strin
   })
 }
 
+function ensureDefaultModels(): void {
+  const modelRef = 'botcamp/deepseek-v4.1-flash'
+  try {
+    const accounts = join(botcampHome(), 'accounts')
+    for (const account of readdirSync(accounts)) {
+      const statePath = join(accounts, account, 'bot', 'state.json')
+      if (!existsSync(statePath)) continue
+      const state = JSON.parse(readFileSync(statePath, 'utf8')) as { bots?: Record<string, { model?: string, appliedModel?: string }> }
+      let changed = false
+      for (const bot of Object.values(state.bots ?? {})) {
+        if (typeof bot.model !== 'string' || bot.model === '') { bot.model = modelRef; changed = true }
+        if (typeof bot.appliedModel !== 'string' || bot.appliedModel === '') { bot.appliedModel = bot.model; changed = true }
+      }
+      if (changed) writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n')
+    }
+  } catch { /* no account state yet */ }
+}
+
 function botcampHasAccountHistory(): boolean {
   try {
     const accounts = join(botcampHome(), 'accounts')
@@ -330,30 +348,29 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:-.3px}p.sub{color:#667085;margin
 
 export async function botcampEnsureDevice(): Promise<void> {
   configureProfiles()
-  if (!existsSync(configPath())) {
-    const session = await loginWindow()
-    if (!session || !session.token) return
-    const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
-    try {
-      const registered = await post<{ slot: string, device_secret: string }>(
-        '/botcamp/api/devices/register', device, { authorization: `Bearer ${session.token}` },
-      )
-      mkdirSync(botcampHome(), { recursive: true })
-      writeFileSync(configPath(), JSON.stringify({
-        email: session.email,
-        device,
-        slot: registered.slot,
-        secret: registered.device_secret,
-        ...session.llm ? { llm_token: session.llm } : {},
-      }, null, 2), { mode: 0o600 })
-    } catch {
-      // The app still opens; the user can retry from the login window next launch.
-      return
-    }
+  const session = await loginWindow()
+  if (!session || !session.token) { app.exit(0); return }
+  const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
+  try {
+    const registered = await post<{ slot: string, device_secret: string }>(
+      '/botcamp/api/devices/register', device, { authorization: `Bearer ${session.token}` },
+    )
+    mkdirSync(botcampHome(), { recursive: true })
+    writeFileSync(configPath(), JSON.stringify({
+      email: session.email,
+      device,
+      slot: registered.slot,
+      secret: registered.device_secret,
+      ...session.llm ? { llm_token: session.llm } : {},
+    }, null, 2), { mode: 0o600 })
+  } catch {
+    app.exit(0)
+    return
   }
   await botcampMaybeWelcome()
   configureProfiles()
   seedOnboarding()
+  ensureDefaultModels()
   startProvisioning()
   startRelay()
 }
