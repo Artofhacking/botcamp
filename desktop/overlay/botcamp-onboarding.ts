@@ -257,6 +257,62 @@ async function loginWindow(): Promise<{ token: string, llm: string, email: strin
   })
 }
 
+function botcampHasAccountHistory(): boolean {
+  try {
+    const accounts = join(botcampHome(), 'accounts')
+    for (const name of readdirSync(accounts)) {
+      if (existsSync(join(accounts, name, 'bot', 'state.json'))) return true
+    }
+  } catch { /* no accounts yet */ }
+  return false
+}
+
+async function botcampMaybeWelcome(): Promise<void> {
+  const marker = join(botcampHome(), 'template.json')
+  if (existsSync(marker)) return
+  if (botcampHasAccountHistory()) return
+  const page = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>BotCamp</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f6f7f9;color:#14161a;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;display:grid;place-items:center;padding:32px}
+.box{width:min(92vw,760px);text-align:center}.brand{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:15px;margin-bottom:20px}
+.mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(140deg,#6cd58f,#167a4d);box-shadow:0 1px 3px rgba(22,122,77,.25)}
+h1{font-size:26px;margin:0 0 8px;letter-spacing:-.3px}p.sub{color:#667085;margin:0 0 28px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{text-align:left;background:#fff;border:1px solid #e6e8ee;border-radius:16px;padding:22px;cursor:pointer;color:inherit;font:inherit;transition:.15s;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+.card:hover{border-color:#9ed3b7;background:#fbfffc}.card h2{font-size:16px;margin:0 0 8px}.card p{color:#667085;font-size:13px;margin:0 0 16px;min-height:40px}
+.badge{display:inline-block;font-size:11px;color:#167a4d;background:#e8f5ee;border-radius:999px;padding:3px 8px;margin-bottom:12px}
+.primary{color:#fff;background:#167a4d;border-color:#167a4d}.primary:hover{background:#11663f}.primary p{color:#d9f0e3}.primary .badge{color:#e8fff0;background:rgba(255,255,255,.16)}
+.primary b{font-weight:600}.card b{color:#167a4d}.primary b{color:#fff}
+.foot{color:#98a2b3;font-size:12px;margin-top:18px}
+</style></head><body><div class="box"><div class="brand"><span class="mark"></span>BotCamp</div><h1>选择你的团队模板</h1><p class="sub">这会决定首次进入 BotCamp 时的团队结构，之后仍可调整。</p>
+<div class="cards">
+<button class="card primary" onclick="location.href='botcamp://template?choice=media'"><span class="badge">推荐</span><h2>自媒体运营</h2><p>主编 + 选题、文案、视频、视觉、数据，自带内容团队和群聊。</p><b>开始使用 →</b></button>
+<button class="card" onclick="location.href='botcamp://template?choice=none'"><span class="badge">轻量</span><h2>空白团队</h2><p>只有一个 Chief，不创建其他 Bot、群聊和团队文档；文档库保留。</p><b>开始使用 →</b></button>
+</div><p class="foot">首次登录仅显示一次</p></div></body></html>`)}`
+  const window = new BrowserWindow({
+    width: 780, height: 540, resizable: false, center: true,
+    title: 'BotCamp', backgroundColor: '#f6f7f9',
+    webPreferences: { contextIsolation: true, sandbox: true },
+  })
+  const choice = await new Promise<'media' | 'none'>((resolve) => {
+    let settled = false
+    const finish = (value: 'media' | 'none'): void => {
+      if (settled) return
+      settled = true
+      resolve(value)
+      if (!window.isDestroyed()) window.close()
+    }
+    window.webContents.on('will-navigate', (event, url) => {
+      if (!url.startsWith('botcamp://template')) return
+      event.preventDefault()
+      finish(new URL(url).searchParams.get('choice') === 'none' ? 'none' : 'media')
+    })
+    window.once('closed', () => finish('media'))
+    window.loadURL(page).catch(() => finish('media'))
+  })
+  mkdirSync(botcampHome(), { recursive: true })
+  writeFileSync(marker, JSON.stringify({ id: choice, at: Date.now() }, null, 2) + '\n', { mode: 0o600 })
+}
+
 export async function botcampEnsureDevice(): Promise<void> {
   configureProfiles()
   if (!existsSync(configPath())) {
@@ -280,6 +336,7 @@ export async function botcampEnsureDevice(): Promise<void> {
       return
     }
   }
+  await botcampMaybeWelcome()
   configureProfiles()
   seedOnboarding()
   startProvisioning()

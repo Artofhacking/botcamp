@@ -7,7 +7,7 @@
  *
  * Usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>
  */
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { rebrandTree } from './rebrand.mjs'
 
@@ -123,6 +123,18 @@ for (const chat of [
     writeFileSync(chat, text)
     console.log('hide interrupted turn row:', chat)
   }
+}
+
+// BotCamp DS Bot patches: template-aware roster, bot avatars, browser tools and
+// open-card handling. Copy over the installed package so npm/yarn cannot undo it.
+const dsBotPatch = join(here, 'overlay', 'ds-bot')
+for (const installed of [
+  join(root, 'node_modules', 'ds-bot'),
+  join(root, 'dsh-desktop-next', 'node_modules', 'ds-bot'),
+]) {
+  if (!existsSync(installed)) continue
+  cpSync(dsBotPatch, installed, { recursive: true, force: true })
+  console.log('ds-bot patches:', installed)
 }
 
 const branded = rebrandTree(root, { log: (line) => console.log(line) })

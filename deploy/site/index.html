@@ -31,14 +31,14 @@
 <main>
   <h1>BotCamp</h1>
   <p class="version" id="version">正在获取最新版本…</p>
-  <a class="primary" id="download" href="https://camp.aigc.sx.cn/botcamp/updates/mac/BotCamp-latest.dmg">下载 macOS 版</a>
-  <a class="ghost" id="windows" href="https://camp.aigc.sx.cn/botcamp/updates/win/BotCamp-2.0.45-x64-Setup.exe">下载 Windows 版</a>
-  <a class="ghost" id="android" href="https://camp.aigc.sx.cn/botcamp/updates/android/BotCamp.apk">下载 Android 版</a>
+  <a class="primary" id="download" href="https://dl.demox.site/botcamp/updates/mac/BotCamp-latest.dmg?v=3">下载 macOS 版</a>
+  <a class="ghost" id="windows" href="https://dl.demox.site/botcamp/updates/win/BotCamp-2.0.47-x64-Setup.exe">下载 Windows 版</a>
+  <a class="ghost" id="android" href="https://dl.demox.site/botcamp/updates/android/BotCamp.apk">下载 Android 版</a>
 </main>
 <script>
   const fallback = {
     version: '2.0.45',
-    url: 'https://camp.aigc.sx.cn/botcamp/updates/mac/BotCamp-latest.dmg'
+    url: 'https://dl.demox.site/botcamp/updates/mac/BotCamp-latest.dmg?v=3'
   }
   const versionNode = document.getElementById('version')
   const downloadNode = document.getElementById('download')
@@ -66,8 +66,10 @@
       : 'https://camp.aigc.sx.cn/botcamp/updates/win/BotCamp-' + version + '-x64-Setup.exe'
     windowsNode.textContent = '下载 Windows 版 ' + version
     windowsNode.href = windowsUrl
-    if (androidNode) androidNode.textContent = '下载 Android 版 ' + version
+    if (androidNode) androidNode.textContent = '下载 Android 版'
   }
+  fetch('https://camp.aigc.sx.cn/botcamp/updates/win/version.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => r.json()).then(w => { if (w && w.version) { windowsNode.textContent = '下载 Windows 版 ' + w.version; if (w.url) windowsNode.href = w.url } }).catch(() => {})
   fetch('https://camp.aigc.sx.cn/botcamp/updates/mac/version.json?t=' + Date.now(), { cache: 'no-store' })
     .then((response) => { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json() })
     .then(render)
