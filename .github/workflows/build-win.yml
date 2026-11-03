@@ -51,7 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: botcamp-win-2.0.48
-          path: |
-            dsh-desktop/dsh-desktop-next/dist/**/*.exe
-            dsh-desktop/dsh-desktop-next/dist/**/*.blockmap
+          path: dsh-desktop/dsh-desktop-next/dist/*Setup.exe
           if-no-files-found: warn
