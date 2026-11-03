@@ -2,6 +2,11 @@ name: build-win
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Desktop version
+        required: false
+        default: 2.0.48
 
 jobs:
   build:
@@ -21,11 +26,19 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
 
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            dsh-desktop/.yarn/cache
+            dsh-desktop/node_modules
+          key: win-${{ hashFiles('botcamp/desktop/**', 'botcamp/.github/workflows/build-win.yml') }}
+
       - name: Apply BotCamp branding
         working-directory: dsh-desktop
         run: node ../botcamp/desktop/apply.mjs .
         env:
-          BOTCAMP_DESKTOP_VERSION: 2.0.48
+          BOTCAMP_DESKTOP_VERSION: ${{ inputs.version }}
 
       - name: Enable corepack
         working-directory: dsh-desktop
@@ -45,6 +58,20 @@ jobs:
         working-directory: dsh-desktop
         continue-on-error: true
         run: yarn workspace dsh-desktop-next dist:win
+
+      - name: Install COS SDK
+        run: npm install --no-save --prefix botcamp cos-nodejs-sdk-v5
+
+      - name: Publish installer to COS
+        if: always()
+        env:
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+        shell: bash
+        run: |
+          EXE=$(find dsh-desktop/dsh-desktop-next/dist -maxdepth 1 -name '*Setup.exe' -print -quit)
+          test -n "$EXE"
+          node botcamp/desktop/publish-cos.mjs "$EXE" "botcamp/updates/win/BotCamp-${{ inputs.version }}-x64-Setup.exe"
 
       - name: Upload Windows artifacts
         if: always()
