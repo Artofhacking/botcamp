@@ -8,10 +8,12 @@
  * Usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>
  */
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { rebrandTree } from './rebrand.mjs'
 
 // Absolute, so every symlink target below resolves from the link's own directory.
+const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(process.argv[2] ?? '')
 if (process.argv[2] === undefined) { console.error('usage: node desktop/fix-payload.mjs <path-to-dsh-desktop>'); process.exit(1) }
 
