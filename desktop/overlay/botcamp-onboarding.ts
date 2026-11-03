@@ -65,10 +65,10 @@ function deviceId(): string {
   return createHash('sha256').update(machineUuid()).digest('hex').slice(0, 16)
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
   const response = await fetch(`${GATEWAY}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
   })
   return await response.json() as T
@@ -200,31 +200,84 @@ function startRelay(): void {
   relay.on('exit', () => { relay = undefined })
 }
 
+const LOGIN_PAGE = () => `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><meta charset="utf-8"><title>BotCamp</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7f9;color:#14161a;font:14px/1.5 system-ui,-apple-system,"PingFang SC",sans-serif;padding:24px}
+.card{width:min(92vw,360px);background:#fff;border:1px solid #e6e8ee;border-radius:16px;padding:24px;box-shadow:0 12px 32px rgba(16,24,40,.06)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;margin-bottom:18px}.mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(140deg,#35b36b,#167a4d)}
+label{display:block;color:#667085;font-size:12px;margin:12px 0 5px}input{width:100%;height:38px;border:1px solid #e6e8ee;border-radius:9px;padding:0 10px;font:inherit;outline:none}input:focus{border-color:#9ed3b7}
+button{width:100%;height:40px;margin-top:18px;border:0;border-radius:10px;background:#167a4d;color:#fff;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.5}
+.err{color:#b42318;font-size:12px;min-height:16px;margin-top:10px}
+</style></head><body><div class="card"><div class="brand"><span class="mark"></span>BotCamp</div>
+<label>邮箱</label><input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+<label>密码</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+<button id="go">登录</button><div class="err" id="err"></div></div>
+<script>
+const API=${JSON.stringify(GATEWAY)};
+document.getElementById('go').onclick=async()=>{
+ const b=document.getElementById('go'),e=document.getElementById('err');
+ b.disabled=true;e.textContent='';
+ try{
+  const r=await fetch(API+'/botcamp/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||'登录失败');
+  location.href='botcamp://login?token='+encodeURIComponent(d.token||'')+'&llm='+encodeURIComponent(d.llm_token||'')+'&email='+encodeURIComponent(document.getElementById('email').value.trim());
+ }catch(err){e.textContent=err.message;b.disabled=false}
+};
+document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('go').click()});
+</script></body></html>`)}`
+
+async function loginWindow(): Promise<{ token: string, llm: string, email: string } | null> {
+  const window = new BrowserWindow({
+    width: 400, height: 480, resizable: false, center: true,
+    title: 'BotCamp', backgroundColor: '#f6f7f9',
+    webPreferences: { contextIsolation: true, sandbox: true },
+  })
+  return await new Promise((resolve) => {
+    let settled = false
+    const finish = (value: { token: string, llm: string, email: string } | null): void => {
+      if (settled) return
+      settled = true
+      resolve(value)
+      if (!window.isDestroyed()) window.close()
+    }
+    window.webContents.on('will-navigate', (event, url) => {
+      if (!url.startsWith('botcamp://login?')) return
+      event.preventDefault()
+      const parsed = new URL(url)
+      finish({
+        token: parsed.searchParams.get('token') ?? '',
+        llm: parsed.searchParams.get('llm') ?? '',
+        email: parsed.searchParams.get('email') ?? '',
+      })
+    })
+    window.once('closed', () => finish(null))
+    window.loadURL(LOGIN_PAGE()).catch(() => finish(null))
+  })
+}
+
 export async function botcampEnsureDevice(): Promise<void> {
   configureProfiles()
   if (!existsSync(configPath())) {
+    const session = await loginWindow()
+    if (!session || !session.token) return
     const device = { device_id: deviceId(), name: hostname(), platform: `${process.platform} ${process.arch}` }
-    const started = await post<{ code: string, url: string }>('/botcamp/api/devices/pair/start', device).catch(() => undefined)
-    if (!started) return
-    const window = new BrowserWindow({
-      width: 420, height: 300, resizable: false, center: true,
-      title: 'BotCamp', backgroundColor: '#0b0b0d',
-      webPreferences: { contextIsolation: true, sandbox: true },
-    })
-    void window.loadURL(PAGE(started.code, started.url))
     try {
-      const approved = await waitForApproval(started.code)
+      const registered = await post<{ slot: string, device_secret: string }>(
+        '/botcamp/api/devices/register', device, { authorization: `Bearer ${session.token}` },
+      )
       mkdirSync(botcampHome(), { recursive: true })
       writeFileSync(configPath(), JSON.stringify({
+        email: session.email,
         device,
-        slot: approved.slot,
-        secret: approved.secret,
-        ...approved.llmToken ? { llm_token: approved.llmToken } : {},
+        slot: registered.slot,
+        secret: registered.device_secret,
+        ...session.llm ? { llm_token: session.llm } : {},
       }, null, 2), { mode: 0o600 })
     } catch {
-      // Timeout or offline: let the app open; the user can pair from the settings later.
-    } finally {
-      if (!window.isDestroyed()) window.close()
+      // The app still opens; the user can retry from the login window next launch.
+      return
     }
   }
   configureProfiles()

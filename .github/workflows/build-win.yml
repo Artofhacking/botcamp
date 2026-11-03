@@ -25,7 +25,7 @@ jobs:
         working-directory: dsh-desktop
         run: node ../botcamp/desktop/apply.mjs .
         env:
-          BOTCAMP_DESKTOP_VERSION: 2.0.45
+          BOTCAMP_DESKTOP_VERSION: 2.0.47
 
       - name: Enable corepack
         working-directory: dsh-desktop
@@ -50,7 +50,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: botcamp-win-2.0.45
+          name: botcamp-win-2.0.47
           path: |
             dsh-desktop/dsh-desktop-next/dist/**/*.exe
             dsh-desktop/dsh-desktop-next/dist/**/*.blockmap

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """BotCamp: account + login + metered model gateway + admin console."""
-import base64, hashlib, hmac, json, os, re, secrets, sqlite3, threading, time, urllib.request, urllib.error
+import base64, hashlib, hmac, http.cookiejar, json, os, re, secrets, sqlite3, threading, time, urllib.request, urllib.error, urllib.parse
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -18,7 +18,7 @@ RATE_OUT = float(os.environ.get("BOTCAMP_RATE_OUT", "0.28"))  # per 1M output to
 
 PREFIX = "/botcamp"
 SITE_ORIGIN = os.environ.get("BOTCAMP_SITE_ORIGIN", "https://botcamp.demox.site").rstrip("/")
-ALLOWED_ORIGINS = {SITE_ORIGIN, "dsh-app://app", "http://127.0.0.1:8765", "http://localhost:8765"}
+ALLOWED_ORIGINS = {SITE_ORIGIN, "dsh-app://app", "http://127.0.0.1:8765", "http://localhost:8765", "null"}
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("BOTCAMP_ADMIN_EMAILS", "").split(",") if e.strip()}
 PUBLIC_URL = os.environ.get("BOTCAMP_PUBLIC_URL", "https://camp.aigc.sx.cn").rstrip("/")
 
@@ -115,6 +115,12 @@ def init_db():
           value TEXT
         );
         """)
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+        except sqlite3.OperationalError:
+            pass
+        c.execute("UPDATE users SET role='user' WHERE role IS NULL OR role=''")
+        c.execute("UPDATE users SET role='admin' WHERE email IN (SELECT email FROM admins)")
         seeded = c.execute("SELECT COUNT(*) n FROM admins").fetchone()["n"]
         if not seeded:
             for mail in sorted(ADMIN_EMAILS):
@@ -357,6 +363,8 @@ button.modal{position:fixed;inset:0;background:rgba(16,24,40,.28);display:flex;a
 .devrow button{margin-left:auto}
 .ghost{background:transparent;color:var(--mut);border-color:var(--line)}
 button.danger{background:#fff;border-color:#f0c9c9;color:var(--bad)}
+.brand{display:inline-flex;align-items:center;gap:8px;color:var(--ink);text-decoration:none;font-weight:700;font-size:14px;margin-right:6px}
+.brand img{width:26px;height:26px;border-radius:8px;display:block}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{color:var(--mut);font-weight:500}td.num{text-align:right;font-variant-numeric:tabular-nums}
 .mut{color:var(--mut)}.pill{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line)}
@@ -366,7 +374,7 @@ th{color:var(--mut);font-weight:500}td.num{text-align:right;font-variant-numeric
 .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
 .kpi b{display:block;font-size:22px;margin-top:4px}
 </style></head><body>
-<header><h1>BotCamp 控制台</h1><span class="mut" id="who"></span><span class="mut" id="ver"></span><span style="flex:1"></span><button class="ghost" id="logout">退出</button></header>
+<header><a class="brand" href="/"><img src="/icon.png" alt=""><span>BotCamp</span></a><span class="mut" id="who"></span><span class="mut" id="ver"></span><span style="flex:1"></span><button class="ghost" id="logout">退出</button></header>
 <main>
   <div class="card" id="loginCard">
     <div class="row"><input id="pw" type="password" placeholder="管理员密码" style="min-width:260px"><button id="loginBtn">登录</button></div>
@@ -383,7 +391,7 @@ th{color:var(--mut);font-weight:500}td.num{text-align:right;font-variant-numeric
         <button id="createBtn">开账号</button>
         <span class="mut" id="createMsg"></span>
       </div>
-      <table><thead><tr><th>账号</th><th>状态</th><th class="num">请求</th><th class="num">输入</th><th class="num">输出</th><th class="num">花费</th><th>模型 / tokens</th><th>桌面</th><th>最近使用</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+      <table><thead><tr><th>账号</th><th>状态</th><th class="num">请求</th><th class="num">输入</th><th class="num">输出</th><th class="num">花费</th><th>模型 / tokens</th><th>最近使用</th><th></th></tr></thead><tbody id="rows"></tbody></table>
     </div>
   </div>
 </main>
@@ -403,8 +411,7 @@ async function load(){
     <td><b>${u.email}</b><div class="mut" style="font-size:12px">${u.name||''} ${u.note?'· '+u.note:''}</div></td>
     <td><span class="pill ${u.status==='active'?'on':'off'}">${u.status==='active'?'正常':'停用'}</span></td>
     <td class="num">${fmt(u.requests)}</td><td class="num">${fmt(u.prompt_tokens)}</td><td class="num">${fmt(u.completion_tokens)}</td>
-    <td class="num">${money(u.cost)}</td><td><button class="ghost" data-desk="${u.id}" data-on="${u.can_desk?1:0}">${u.can_desk?'已开通':'未开通'}</button>
-        <button class="ghost" data-devices="${u.id}" data-email="${u.email}">设备</button></td><td>${(u.models||[]).map(m=>`<span class="pill" title="${m.requests} 次请求 · 输入 ${fmt(m.prompt_tokens)} / 输出 ${fmt(m.completion_tokens)}">${m.model} · ${fmt(m.total_tokens)}</span>`).join(" ")||"<span class=mut>—</span>"}</td><td class="mut">${u.last_seen||'—'}</td>
+    <td class="num">${money(u.cost)}</td><td><button class="ghost" data-devices="${u.id}" data-email="${u.email}">设备</button></td><td>${(u.models||[]).map(m=>`<span class="pill" title="${m.requests} 次请求 · 输入 ${fmt(m.prompt_tokens)} / 输出 ${fmt(m.completion_tokens)}">${m.model} · ${fmt(m.total_tokens)}</span>`).join(" ")||"<span class=mut>—</span>"}</td><td class="mut">${u.last_seen||'—'}</td>
     <td><button class="danger" data-toggle="${u.id}" data-status="${u.status}">${u.status==='active'?'停用':'启用'}</button></td></tr>`).join('');
   document.querySelectorAll('[data-devices]').forEach(b=>b.onclick=async()=>{
     const r=await fetch(API+'/admin/users/'+b.dataset.devices+'/devices');const d=await r.json();
@@ -412,10 +419,6 @@ async function load(){
       ${x.online?'<span style="color:#3fbf7f">在线</span>':'离线'} · ${x.last_seen}
       <button class="ghost" onclick="unbind(${b.dataset.devices},'${x.slot}')">解绑</button></div>`).join('')||'<p>没有设备</p>';
     modal(b.dataset.email, rows);
-  });
-  document.querySelectorAll('[data-desk]').forEach(b=>b.onclick=async()=>{
-    await api('/admin/users/'+b.dataset.desk+'/desk',{method:'POST',body:JSON.stringify({enabled:b.dataset.on!=='1'})});
-    toast('已更新');load();
   });
   document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=async()=>{
     await api('/admin/users/'+b.dataset.toggle+'/status',{method:'POST',body:JSON.stringify({status:b.dataset.status==='active'?'disabled':'active'})});
@@ -438,7 +441,7 @@ def user_view(row, stats, models=()):
     cost = (stats["prompt_tokens"] or 0) / 1e6 * RATE_IN + (stats["completion_tokens"] or 0) / 1e6 * RATE_OUT
     return {
         "id": row["id"], "email": row["email"], "name": row["name"], "note": row["note"],
-        "status": row["status"], "can_desk": row["can_desk"], "created_at": iso(row["created_at"]),
+        "status": row["status"], "role": (row["role"] if "role" in row.keys() and row["role"] else "user"), "created_at": iso(row["created_at"]),
         "last_seen": iso(row["last_login_at"]) if row["last_login_at"] else None,
         "requests": stats["requests"] or 0, "prompt_tokens": stats["prompt_tokens"] or 0,
         "completion_tokens": stats["completion_tokens"] or 0,
@@ -593,6 +596,25 @@ class Handler(BaseHTTPRequestHandler):
                                                 "online": now() - r["updated_at"] < 180, "last_seen": iso(r["updated_at"])} for r in rows]})
         if path == PREFIX + "/pair":
             return self.send_html(PAIR_HTML)
+        if path == PREFIX + "/enter":
+            qs = parse_qs(urlparse(self.path).query)
+            slot = (qs.get("slot") or [""])[0]
+            token = (qs.get("token") or [""])[0]
+            if not slot.startswith("d") or not slot[1:].isdigit() or not token:
+                return self.send_json({"error": "bad device link"}, 400)
+            with db() as c:
+                dev = c.execute("SELECT d.slot, d.token, d.user_id, u.status FROM devices d JOIN users u ON u.id=d.user_id WHERE d.slot=?", (int(slot[1:]),)).fetchone()
+            if dev is None or not dev["token"] or not hmac.compare_digest(str(dev["token"]), token):
+                return self.send_json({"error": "设备链接无效或已过期"}, 403)
+            if dev["status"] != "active":
+                return self.send_json({"error": "该账号已停用"}, 403)
+            cookie = "botcamp_relay=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (sign({"role": "relay", "uid": dev["user_id"], "exp": now() + 7 * 86400}), 7 * 86400)
+            self.send_response(302)
+            self.send_header("location", f"/desk/d{dev['slot']}/?token={urllib.parse.quote(str(dev['token']), safe='')}")
+            self.send_header("set-cookie", cookie)
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            return
         if path == PREFIX + "/relay/devices":
             return self.redirect(SITE_ORIGIN + "/desk/")
         if path == PREFIX + "/relay":
@@ -605,9 +627,9 @@ class Handler(BaseHTTPRequestHandler):
             if not slot.startswith("d") or not slot[1:].isdigit():
                 return self.send_json({"ok": False, "error": "unknown device"}, 404)
             with db() as c:
-                u = c.execute("SELECT id, email, can_desk FROM users WHERE id=? AND status='active'", (data.get("uid"),)).fetchone()
+                u = c.execute("SELECT id, email FROM users WHERE id=? AND status='active'", (data.get("uid"),)).fetchone()
                 dev = c.execute("SELECT * FROM devices WHERE slot=?", (int(slot[1:]),)).fetchone()
-            if u is None or not u["can_desk"]:
+            if u is None:
                 return self.send_json({"ok": False, "error": "no device access"}, 403)
             if dev is None or dev["user_id"] != u["id"]:
                 return self.send_json({"ok": False, "error": "device not yours"}, 403)
@@ -734,10 +756,10 @@ class Handler(BaseHTTPRequestHandler):
             body = self.body_json()
             code = str(body.get("code") or "").upper()
             with db() as c:
-                user = c.execute("SELECT id, can_desk FROM users WHERE id=? AND status='active'", (data.get("uid"),)).fetchone()
+                user = c.execute("SELECT id FROM users WHERE id=? AND status='active'", (data.get("uid"),)).fetchone()
                 row = c.execute("SELECT * FROM pair_codes WHERE code=?", (code,)).fetchone()
-                if user is None or not user["can_desk"]:
-                    return self.send_json({"error": "该账号未开通桌面访问权限"}, 403)
+                if user is None:
+                    return self.send_json({"error": "该账号已停用"}, 403)
                 if row is None or now() - row["created_at"] > 900:
                     return self.send_json({"error": "配对码已过期"}, 410)
                 existing = c.execute("SELECT slot, user_id FROM devices WHERE device_id=?", (row["device_id"],)).fetchone()
@@ -799,8 +821,6 @@ class Handler(BaseHTTPRequestHandler):
                 u = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
             if not u or u["status"] != "active" or not check_password(pw, u["pw_hash"]):
                 return self.send_json({"error": "账号或密码错误"}, 401)
-            if not u["can_desk"]:
-                return self.send_json({"error": "该账号未开通桌面访问权限"}, 403)
             exp = now() + 7 * 86400
             token = sign({"role": "relay", "uid": u["id"], "exp": exp})
             cookie = "botcamp_relay=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (token, 7 * 86400)
@@ -829,7 +849,101 @@ class Handler(BaseHTTPRequestHandler):
                                     (data.get("uid"), now() - 180)).fetchone()
             if dev is None:
                 return self.send_json({"error": "没有在线的设备，请先在电脑上打开客户端"}, 503)
-            return self.send_json({"ok": True, "redirect": f"/desk/d{dev['slot']}/?token={dev['token']}"})
+            return self.send_json({
+                "ok": True,
+                "redirect": f"/desk/d{dev['slot']}/?token={dev['token']}",
+                "site_redirect": f"{SITE_ORIGIN}/desk/d{dev['slot']}/",
+            })
+        if path == PREFIX + "/api/desk":
+            auth = self.headers.get("authorization", "")
+            data = unsign(auth[7:].strip()) if auth.lower().startswith("bearer ") else None
+            if not data or data.get("role") != "relay" or data.get("exp", 0) <= now():
+                return self.send_json({"error": "请先登录"}, 401)
+            body = self.body_json()
+            slot = str(body.get("slot") or "")
+            if not slot.startswith("d") or not slot[1:].isdigit():
+                return self.send_json({"error": "设备参数无效"}, 400)
+            with db() as c:
+                dev = c.execute("SELECT slot, token, updated_at FROM devices WHERE slot=? AND user_id=?", (int(slot[1:]), data.get("uid"))).fetchone()
+            if dev is None:
+                return self.send_json({"error": "设备不存在或不属于当前账号"}, 403)
+            if now() - dev["updated_at"] > 180:
+                return self.send_json({"error": "设备离线"}, 503)
+            endpoint = str(body.get("endpoint") or "")
+            if endpoint not in ("state", "chat", "send", "bots"):
+                return self.send_json({"error": "unsupported endpoint"}, 400)
+            port = 18765 + int(dev['slot']) - 1
+            target = f"http://127.0.0.1:{port}/api/bot"
+            try:
+                # The device host authenticates browser sessions with its own
+                # dsh-auth cookie. Exchange the one-time token carried by the
+                # relay heartbeat for that cookie, then call the host API.
+                jar = http.cookiejar.CookieJar()
+                opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+                opener.open(f"http://127.0.0.1:{port}/?token={urllib.parse.quote(str(dev['token']), safe='')}", timeout=15).read()
+                req = urllib.request.Request(target, data=json.dumps({"endpoint": endpoint, "payload": body.get("payload") or {}}).encode(), headers={"content-type": "application/json"}, method="POST")
+                with opener.open(req, timeout=30) as r:
+                    raw = r.read()
+                return self.send_json(json.loads(raw or b"{}"))
+            except urllib.error.HTTPError as e:
+                raw = e.read()
+                try:
+                    return self.send_json(json.loads(raw or b"{}"), e.code)
+                except Exception:
+                    return self.send_json({"error": "设备接口错误"}, 502)
+            except Exception as e:
+                return self.send_json({"error": f"设备暂不可达: {e}"}, 502)
+        if path == PREFIX + "/api/desk/library":
+            auth = self.headers.get("authorization", "")
+            data = unsign(auth[7:].strip()) if auth.lower().startswith("bearer ") else None
+            if not data or data.get("role") != "relay" or data.get("exp", 0) <= now():
+                return self.send_json({"error": "请先登录"}, 401)
+            body = self.body_json()
+            slot = str(body.get("slot") or "")
+            if not slot.startswith("d") or not slot[1:].isdigit():
+                return self.send_json({"error": "设备参数无效"}, 400)
+            with db() as c:
+                dev = c.execute("SELECT slot, token, updated_at FROM devices WHERE slot=? AND user_id=?", (int(slot[1:]), data.get("uid"))).fetchone()
+            if dev is None or now() - dev["updated_at"] > 180:
+                return self.send_json({"error": "设备离线"}, 503)
+            port = 18765 + int(dev["slot"]) - 1
+            try:
+                jar = http.cookiejar.CookieJar()
+                opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+                opener.open(f"http://127.0.0.1:{port}/?token={urllib.parse.quote(str(dev['token']), safe='')}", timeout=15).read()
+                action = str(body.get("action") or "proxy")
+                if action == "proxy":
+                    rel = str(body.get("path") or "")
+                    if not rel.startswith("/md-reader/") or rel.startswith("/md-reader/raw"):
+                        return self.send_json({"error": "文档路径无效"}, 400)
+                    method = str(body.get("method") or "GET").upper()
+                    if method not in ("GET", "POST"):
+                        return self.send_json({"error": "文档方法无效"}, 400)
+                    payload = body.get("body")
+                    req = urllib.request.Request(
+                        f"http://127.0.0.1:{port}{rel}",
+                        data=(json.dumps(payload).encode() if method == "POST" else None),
+                        headers={"content-type": "application/json"} if method == "POST" else {},
+                        method=method,
+                    )
+                elif action == "tree":
+                    req = urllib.request.Request(f"http://127.0.0.1:{port}/md-reader/tree", method="GET")
+                elif action == "read":
+                    target = str(body.get("path") or "")
+                    req = urllib.request.Request(f"http://127.0.0.1:{port}/md-reader/read", data=json.dumps({"root": "library", "path": target}).encode(), headers={"content-type": "application/json"}, method="POST")
+                else:
+                    return self.send_json({"error": "unsupported library action"}, 400)
+                with opener.open(req, timeout=30) as r:
+                    raw = r.read()
+                return self.send_json(json.loads(raw or b"{}"))
+            except urllib.error.HTTPError as e:
+                raw = e.read()
+                try:
+                    return self.send_json(json.loads(raw or b"{}"), e.code)
+                except Exception:
+                    return self.send_json({"error": "文档接口错误"}, 502)
+            except Exception as e:
+                return self.send_json({"error": f"设备暂不可达: {e}"}, 502)
         if path == PREFIX + "/api/account/password":
             d = self.body_json()
             email = (d.get("email") or "").strip().lower()
@@ -887,13 +1001,26 @@ class Handler(BaseHTTPRequestHandler):
             if not self.is_admin():
                 return self.send_json({"error": "unauthorized"}, 401)
             return self.admin_create_user()
-        m = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/desk", path)
+        m = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/role", path)
         if m:
             if not self.is_admin():
                 return self.send_json({"error": "unauthorized"}, 401)
-            d = self.body_json()
+            body = self.body_json()
+            role = str(body.get("role") or "user")
+            if role not in ("test", "user", "admin"):
+                return self.send_json({"error": "身份不合法"}, 400)
             with db() as c:
-                c.execute("UPDATE users SET can_desk=? WHERE id=?", (1 if d.get("enabled") else 0, int(m.group(1))))
+                row = c.execute("SELECT id, email FROM users WHERE id=?", (int(m.group(1)),)).fetchone()
+                if row is None:
+                    return self.send_json({"error": "用户不存在"}, 404)
+                email = row["email"].lower()
+                if email in ADMIN_EMAILS and role != "admin":
+                    return self.send_json({"error": "该管理员来自服务器环境变量，不能在这里降级"}, 400)
+                c.execute("UPDATE users SET role=? WHERE id=?", (role, row["id"]))
+                if role == "admin":
+                    c.execute("INSERT OR IGNORE INTO admins(email, created_at) VALUES(?,?)", (email, now()))
+                else:
+                    c.execute("DELETE FROM admins WHERE email=?", (email,))
             return self.send_json({"ok": True})
         m = re.fullmatch(PREFIX + r"/api/admin/users/(\d+)/status", path)
         if m:
@@ -1012,7 +1139,7 @@ class Handler(BaseHTTPRequestHandler):
         pw = secrets.token_urlsafe(9)
         try:
             with db() as c:
-                c.execute("INSERT INTO users(email,name,note,pw_hash,created_at) VALUES(?,?,?,?,?)",
+                c.execute("INSERT INTO users(email,name,note,pw_hash,created_at,can_desk) VALUES(?,?,?,?,?,1)",
                           (email, (d.get("name") or "").strip(), (d.get("note") or "").strip(), hash_password(pw), now()))
         except sqlite3.IntegrityError:
             return self.send_json({"error": "这个账号已存在"}, 409)
