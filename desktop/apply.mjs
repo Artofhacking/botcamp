@@ -191,13 +191,13 @@ const fusesPath = join(root, 'dsh-desktop-next/scripts/verify-fuses.ts')
 let fuses = readFileSync(fusesPath, 'utf8')
 if (!fuses.includes('const productName = JSON.parse')) {
   fuses = fuses.replace("import { existsSync } from 'node:fs'", "import { existsSync, readFileSync } from 'node:fs'")
-  const oldPaths = `  const paths = ['mac/DSH NEXT.app/Contents/MacOS/DSH NEXT', 'mac-arm64/DSH NEXT.app/Contents/MacOS/DSH NEXT',
-    'mac-universal/DSH NEXT.app/Contents/MacOS/DSH NEXT', 'win-unpacked/DSH NEXT.exe', 'linux-unpacked/dsh-desktop-next']`
-  const newPaths = `  const productName = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')).build.productName
+  const pathsPattern = /  const paths = \[[\s\S]*?\]/
+  const replacement = `  const productName = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')).build.productName
   const paths = [\`mac/\${productName}.app/Contents/MacOS/\${productName}\`, \`mac-arm64/\${productName}.app/Contents/MacOS/\${productName}\`,
-    \`mac-universal/\${productName}.app/Contents/MacOS/\${productName}\`, \`win-unpacked/\${productName}.exe\`, 'linux-unpacked/dsh-desktop-next']`
-  if (fuses.includes(oldPaths)) {
-    fuses = fuses.replace(oldPaths, newPaths)
+    \`mac-universal/\${productName}.app/Contents/MacOS/\${productName}\`, \`win-unpacked/\${productName}.exe\`, 'linux-unpacked/dsh-desktop-next',
+    'linux-arm64-unpacked/dsh-desktop-next']`
+  if (pathsPattern.test(fuses)) {
+    fuses = fuses.replace(pathsPattern, replacement)
     writeFileSync(fusesPath, fuses)
     console.log('verify-fuses.ts: product name follows branding')
   } else {
