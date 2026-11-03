@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
+import { parse as parseYaml } from 'yaml'
 
 const GATEWAY = (process.env.BOTCAMP_GATEWAY ?? 'https://camp.aigc.sx.cn').replace(/\/$/, '')
 const botcampHome = (): string => process.env.BOTCAMP_HOME || join(homedir(), '.botcamp')
@@ -126,9 +127,23 @@ function configureProfiles(): void {
         const patchPath = join(directory, 'cordis.patch.yml')
         if (existsSync(patchPath)) {
           const text = readFileSync(patchPath, 'utf8')
-          if (!text.includes('dsh-llm-pi-ai')) {
+          let valid = true
+          try { parseYaml(text) } catch { valid = false }
+          if (!valid) {
+            // A half-written or duplicated patch put the app into recovery mode.
+            // Keep a copy, then replace it with the known-good model patch.
+            try { writeFileSync(patchPath + '.broken', text) } catch { /* ignore */ }
+            writeFileSync(patchPath, MODEL_PATCH)
+          } else if (!text.includes('dsh-llm-pi-ai')) {
             const head = text.trim()
-            writeFileSync(patchPath, head === '' || head === '[]' ? MODEL_PATCH : `${text.trimEnd()}\n${MODEL_PATCH}`)
+            const next = head === '' || head === '[]' ? MODEL_PATCH : `${text.trimEnd()}\n${MODEL_PATCH}`
+            try {
+              parseYaml(next)
+              writeFileSync(patchPath, next)
+            } catch {
+              try { writeFileSync(patchPath + '.broken', text) } catch { /* ignore */ }
+              writeFileSync(patchPath, MODEL_PATCH)
+            }
           }
         }
         const manifestPath = join(directory, 'package.json')
