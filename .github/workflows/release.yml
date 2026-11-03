@@ -74,6 +74,7 @@ jobs:
         run: python -m pip install --quiet coscmd
 
       - name: Upload to COS
+        continue-on-error: true
         shell: bash
         env:
           COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
@@ -85,6 +86,7 @@ jobs:
             xargs -0 -r -I{} coscmd upload {} "botcamp/artifacts/${GITHUB_REF_NAME}/${{ matrix.artifact }}/$(basename {})"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: botcamp-${{ matrix.artifact }}
           path: |
