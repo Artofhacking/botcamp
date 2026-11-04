@@ -47,7 +47,7 @@ import java.util.Map;
 public class MainActivity extends Activity {
     private static final String HOST = "botcamp.demox.site";
     /** 应用版本，控制台「关于」页显示它并据此判断有没有新版本。 */
-    private static final String APP_VERSION = "2.1.1";
+    private static final String APP_VERSION = "2.1.2";
     /** 只进控制台；/admin/ 和产品下载页不在这个应用里。 */
     private static final String START_URL = "https://" + HOST + "/console/";
     private static final int FILE_CHOOSER = 41;
@@ -118,6 +118,19 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         root.requestApplyInsets();
+
+        // 版本变了先清掉 Service Worker 和缓存，否则 WebView 会一直用旧版的壳。
+        if (!APP_VERSION.equals(getSharedPreferences("botcamp", MODE_PRIVATE)
+                .getString("seenVersion", ""))) {
+            getSharedPreferences("botcamp", MODE_PRIVATE).edit()
+                    .putString("seenVersion", APP_VERSION).apply();
+            web.clearCache(true);
+            web.evaluateJavascript(
+                    "if(window.navigator.serviceWorker){navigator.serviceWorker.getRegistrations()"
+                            + ".then(function(rs){rs.forEach(function(r){r.unregister()})})}"
+                            + "if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})})}",
+                    null);
+        }
 
         if (state != null) {
             web.restoreState(state);

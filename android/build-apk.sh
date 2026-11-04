@@ -11,8 +11,8 @@ BT="$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)"
 PLATFORM="$SDK/platforms/android-34/android.jar"
 APP=app/src/main
 PKG=site.demox.botcamp
-VERSION_CODE=2051
-VERSION_NAME=2.1.1
+VERSION_CODE=2052
+VERSION_NAME=2.1.2
 OUT="$ROOT/build/manual"
 
 [ -x "$BT/aapt2" ] || { echo "找不到 build-tools（$SDK/build-tools）"; exit 1; }
