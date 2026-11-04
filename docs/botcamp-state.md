@@ -110,6 +110,13 @@ window.__RAKAZO_UI__ = { hiddenSections: ["models", "computer", "billing", "voic
 - **Demox 不托管 .apk**（部署会报「是可执行文件」），安装包放在 CVM：
   `/var/www/downloads/*.apk` + nginx `location /downloads/`（`application/vnd.android.package-archive`）
 
+## 关于 / 检查更新
+
+- 控制台「设置 → 关于」：显示 BotCamp 版本（安卓壳注入 `window.__BOTCAMP_APP__`，网页回落构建号），
+  一个「检查更新」按钮拉 `https://botcamp.aigc.sx.cn/downloads/latest.json`，有新版本显示「下载」
+- 发布新版本：传 apk 到 `/var/www/downloads/`、改 `latest.json` 的 `version` 和 `android` 地址、
+  改产品页的 `ANDROID_VERSION` 与链接，重新打包安卓壳时把 `APP_VERSION`、`build-apk.sh` 的版本号一起改
+
 ## 安卓 APK
 
 - 工程：`botcamp/android`（WebView 壳，只加载 `/console/`，不含产品页/后台）

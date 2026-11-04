@@ -46,6 +46,8 @@ import java.util.Map;
  */
 public class MainActivity extends Activity {
     private static final String HOST = "botcamp.demox.site";
+    /** 应用版本，控制台「关于」页显示它并据此判断有没有新版本。 */
+    private static final String APP_VERSION = "2.1.1";
     /** 只进控制台；/admin/ 和产品下载页不在这个应用里。 */
     private static final String START_URL = "https://" + HOST + "/console/";
     private static final int FILE_CHOOSER = 41;
@@ -197,7 +199,18 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageStarted(WebView v, String url, android.graphics.Bitmap icon) {
+                // 尽早注入，让「关于」拿到壳的版本而不是网页构建号。
+                v.evaluateJavascript(
+                        "window.__BOTCAMP_APP__={platform:'android',version:'" + APP_VERSION + "'}",
+                        null);
+            }
+
+            @Override
             public void onPageFinished(WebView v, String url) {
+                v.evaluateJavascript(
+                        "window.__BOTCAMP_APP__={platform:'android',version:'" + APP_VERSION + "'}",
+                        null);
                 progress.setVisibility(View.GONE);
                 if (!failed) {
                     offline.setVisibility(View.GONE);
