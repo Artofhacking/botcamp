@@ -1,10 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
 import {
   Brain,
-  CloudDownload,
   Cpu,
   CreditCard,
   Gauge,
+  Info,
   KeyRound,
   MessageCircle,
   Monitor,
@@ -51,8 +51,7 @@ export function useSettingsNavItems(available: {
     ...(available.billing && !hidden("billing")
       ? [{ id: "billing" as const, label: t`Billing`, icon: CreditCard }]
       : []),
-    ...(available.updates
-      ? [{ id: "updates" as const, label: t`Updates`, icon: CloudDownload }]
-      : []),
+    // 字面量：新 msgid 没进编译目录时会渲染成哈希
+    { id: "updates" as const, label: "关于", icon: Info },
   ];
 }

@@ -38,6 +38,7 @@ import {
   ComputersUnavailableHint,
   computersAreUnavailable,
 } from "../components/ComputersUnavailableHint";
+import { AboutBotCamp } from "../components/AboutBotCamp";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { PasskeySettings } from "../components/PasskeySettings";
 import { SettingsGroup, SettingsRow } from "../components/SettingsRows";
@@ -630,6 +631,7 @@ export function ComputerSettingsPanel({
 export function UpdatesSettingsPanel() {
   return (
     <div className="space-y-5">
+      <AboutBotCamp />
       <DesktopUpdateSection />
     </div>
   );

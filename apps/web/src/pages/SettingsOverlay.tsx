@@ -105,7 +105,8 @@ export function SettingsOverlay({
     keepComputerRecovery ||
     computersAreUnavailable(sandboxProvider) ||
     canChooseOwnComputer(sandboxProvider));
-  const showUpdates = Boolean(desktopBridge()?.update);
+  // 网页端和安卓壳也要看版本、查更新，不只是桌面客户端。
+  const showUpdates = true;
   // A section that isn't available yet (billing before its flag loads) shows General until it is.
   const section =
     (requestedSection === "computer" && !showComputer) ||

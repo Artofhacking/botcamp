@@ -105,7 +105,9 @@ export function installServiceWorker(
     // page). Everything under the deployment's base is the app, so serve the cached shell
     // and let the router read the path. A new deploy still lands: the browser re-fetches the
     // worker on navigation and activateWaitingWorker() reloads into it.
-    if (appBase !== "/" && url.pathname.startsWith(appBase)) {
+    // 深层路径服务器只会给 404，直接回外壳；入口 `/console/` 必须联网，否则新版本永远装不上。
+    const entry = url.pathname === appBase || url.pathname === appBase.replace(/\/$/, "");
+    if (appBase !== "/" && url.pathname.startsWith(appBase) && !entry) {
       const shell = await shellFromCache();
       if (shell) return shell;
     }
