@@ -1,115 +1,313 @@
-# BotCamp
+# Rakazo
 
-一个账号，连自己的电脑：桌面客户端跑 Bot 团队（能操作电脑），手机和网页通过中转连到同一支团队。
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
-> 本分支废弃了旧的 Tauri 客户端与 Node 网关（保留在原 `main` 历史里）。
-> 新架构只保留三件东西：**网关**、**中继**、**客户端**。
+[![GitHub stars](https://img.shields.io/github/stars/elie222/rakazo?labelColor=black&style=for-the-badge&color=2563EB)](https://github.com/elie222/rakazo/stargazers)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?labelColor=black&style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/RWwKa2Sn7h)
+[![Download on the App Store](https://img.shields.io/badge/App%20Store-Download%20for%20iPhone-black?labelColor=black&style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/rakazo/id6801531099)
+[![Get Android on Google Play](https://img.shields.io/badge/Google%20Play-Get%20the%20app-black?labelColor=black&style=for-the-badge&logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.rakazo.app)
 
-## 结构
+![Rakazo — AI teammates you actually own](./docs/readme-hero.png)
 
-| 目录 | 作用 |
-|---|---|
-| `server/` | BotCamp 网关（Python 标准库 + SQLite）：账号、登录、设备注册、计量、路由校验 |
-| `relay/macos/` | macOS 中继：启动本机 DSH host，注册设备，建反向隧道 |
-| `mobile/` | 手机端（Next.js）：登录 + 设备列表 + 进入会话 |
-| `deploy/` | systemd、nginx 片段、发布与回滚脚本 |
-| `docs/` | 架构与运维说明 |
+Rakazo is an open source AI agent for persistent teammates, and a self-hosted AI assistant you
+can run on your own machine. It is available on the web, as an Electron desktop app, and on
+[iPhone](https://apps.apple.com/app/rakazo/id6801531099) and [Android](https://play.google.com/store/apps/details?id=com.rakazo.app). Bring your own model
+and computer provider, or run the complete stack locally.
 
-## 工作方式
+It is an open source, self-hosted alternative to Grok Bot, Meta Muse, OpenAI Dots, Instinct,
+OpenClaw, Hermes Agent, and Claude Duet.
 
-```
-手机 / 网页 ──HTTPS──> camp.aigc.sx.cn (nginx)
-                        │  /desk/dN/   ← 每台设备一个隧道入口
-                        │  /botcamp/   ← 网关：登录、设备、计量
-                        ▼
-                  反向隧道 127.0.0.1:1876N
-                        │
-                  你的电脑（DSH host + ds-bot 团队）
-```
+Rakazo is in beta. Learn more at [rakazo.com](https://rakazo.com).
 
-- **一个 Bot 团队只有一个“家”**（某台电脑）。所有端都是它的客户端，不复制、不分叉。
-- 没有设备 = 没有入口：账号没在客户端登录过，设备列表为空，任何 `/desk/dN/` 都会被拒。
-- 设备凭证由服务端签发（登录换），共享密钥已删除。
+## Features
 
-## 网关接口（摘要）
+- Persistent bots with their own conversations, memory, routines, and history
+- Voice mode: speak replies, dictate, and call a bot. Bring your own ElevenLabs, OpenAI, Cartesia, or Fish Audio key, or use a Mac server's installed voices
+- Shared Team Computers and isolated Private computers
+- Browser, terminal, file, and graphical desktop access
+- Bots that can delegate to peer bots or short-lived subagents
+- Bring-your-own model credentials through Pi
+- App integrations through Composio or Pipedream Connect, plus user-installed Treg, remote MCP, and OpenAPI tool sources
+- Docker, E2B, Daytona, CreateOS, Boat, and trusted local-computer support
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/botcamp/api/login` | 账号登录，返回 API token |
-| POST | `/botcamp/api/devices/register` | Bearer 用户 token + 设备信息 → 设备凭证 |
-| POST | `/botcamp/api/devices/heartbeat` | Bearer 设备凭证 + host token → 心跳 |
-| POST | `/botcamp/api/relay/login` | 网页登录（cookie） |
-| GET | `/botcamp/api/relay/devices` | 当前账号的设备列表 |
-| POST | `/botcamp/api/relay/go` | 选择设备 → 返回 `/desk/dN/?token=…` |
-| GET | `/desk/dN/…` | 经 nginx 鉴权 + 隧道到达本机 host |
+## Demo
 
-## 文档库（BotCamp Library）
+https://github.com/user-attachments/assets/dccdeddb-2134-4a56-8eed-b2e591736b1c
 
-`desktop/plugins/botcamp-library/` 是从
-[`@s1lencewill/dsh-markdown-reader`](https://github.com/s1lencewill/dsh-markdown-reader)
-（BSD-3-Clause）fork 出来的文档库，做了五件事：
+## Thanks
 
-- **Notion 式阅读页**：封面 / 图标 / 标题 / 708px 版心 / 图片 / 视频。
-- **文库首页**：扫描 `~/BotCamp/library/docs/`，按 frontmatter 出卡片、搜索、封面。
-- **视频**：`:::video` 块 + `/md-reader/raw` 的 range 流式播放，可拖进度条。
-- **完整工作区**：`/library/` 左侧文件树、新建、Vditor 编辑/保存、重命名、
-  删除到 `.trash/`、搜索、图片上传；`Cmd/Ctrl+S` 保存，不做版本管理。
-- **同一份工作区上手机**：宿主在 `/library/` 提供独立页面，手机通过
-  `/desk/dN/library/` 打开，共用同一套工作区和库。
+- [PromptLayer](https://promptlayer.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Inbox Zero](https://getinboxzero.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [ConnectorMap](https://connectormap.luinbytes.dev/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [CodeRabbit](https://www.coderabbit.ai/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Greptile](https://www.greptile.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Snyk](https://snyk.io/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
 
-库根默认 `~/BotCamp/library/`，可用 `BOTCAMP_LIBRARY_ROOT` 覆盖。目录约定：
+## Stack
 
-```
-library/
-  docs/<slug>/index.md      # 终稿，一文一文件夹
-  docs/<slug>/assets/       # 该篇自带图片/视频
-  media/                    # 可复用的原始素材
-```
+- TypeScript
+- React 19, Vite, and Tailwind CSS
+- Electron and Expo
+- Hono and oRPC
+- PostgreSQL and Prisma
+- Better Auth
+- Graphile Worker
+- Pi
+- Docker, E2B, Daytona, CreateOS, and Boat
+- Composio, Pipedream Connect, MCP, and OpenAPI integrations
 
-桌面构建由 `desktop/apply.mjs` 把这个包作为 `@botcamp/dsh-library` 依赖带进
-payload，并把 `ds-bot` / `@botcamp/dsh-library` 写进 desktop profile 的
-`dsh.profile.bundles`（已有 profile 也会补齐）；本地试用可以 `npm pack` 后在
-桌面端 **Plugins → Add plugin** 安装 tarball。
-详见 `desktop/plugins/botcamp-library/README.md`。
+## Quick start (published images)
 
-## 环境变量
-
-BotCamp 对外只使用 `BOTCAMP_*`，不读取外部 `DSH_*`：
-
-- `BOTCAMP_HOME`：数据目录，默认 `~/.botcamp`
-- `BOTCAMP_GATEWAY`：网关地址，默认 `https://camp.aigc.sx.cn`
-- `BOTCAMP_LIBRARY_ROOT`：文档库根，默认 `~/BotCamp/library`
-- `BOTCAMP_AGENT_CONFIG` / `BOTCAMP_SSH_HOST` / `BOTCAMP_SSH_KEY` / `BOTCAMP_HOST_PORT`：中继 agent
-- `BOTCAMP_TELEMETRY_DISABLED=1`：关闭内嵌引擎遥测
-
-`DSH_*` 只作为内嵌 DSH 引擎子进程的内部协议保留；app 启动时会清掉外部继承的
-`DSH_HOME` / `DSH_DESKTOP_NEXT_HOME` / `DSH_NEXT_*`，所以从 DSH 终端启动也不会串数据。
-
-## 界面文案
-
-BotCamp 是内嵌 DSH 引擎的白标产品：用户能读到的文字里不再出现 “DSH”。
-`desktop/rebrand.mjs` 在构建期改写桌面外壳与恢复助手所在工作区的源码
-（`dsh-desktop-next/src`、`dsh-plugin-desktop/src`、`dsh-plugin-desktop-beta/src`）
-和已安装的 client 插件 bundle（`lib/client.js`、`locale/*.json`），把 “DSH Desktop”
-与裸词 “DSH” 换成 “BotCamp”；`apply.mjs` 和 `fix-payload.mjs` 都会调用它，后者在
-`yarn install` 之后跑，保证被重装的插件也覆盖到。错误提示（如“DSH 进程在本轮完成前退出”）
-同属这批文案，改后显示为“BotCamp 进程在本轮完成前退出”。
-
-内部协议名不动：`DSH_HOME` / `DSH_PROFILE` / `DSH_*`、`X-DSH-*` 请求头、`DSH-NEXT`
-更新通道、`@deepseek-ai/*` 包名仍是内嵌引擎的私有约定（见上一节）。只想看会改哪些文件时：
+You need Docker Engine, the Compose plugin, curl, and OpenSSL. No clone or Node install.
 
 ```bash
-node desktop/rebrand.mjs <path-to-dsh-desktop> --check
+mkdir -p rakazo && cd rakazo &&
+curl -fsSLO https://raw.githubusercontent.com/elie222/rakazo/main/infra/compose/install-images.sh &&
+bash install-images.sh
 ```
 
-## 部署
+The installer downloads the Compose files, creates `.env` with random secrets, and starts Rakazo.
+It preserves an existing `.env` when rerun.
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173), create an account, and connect a model.
+Local Docker computers are on by default. Optional remote providers: `e2b`, `novita`, `daytona`, `createos`, `boat`, `boxd`, or `railway`
+with the matching API key.
+
+Default image tag is `edge` (main builds, `linux/amd64` + `linux/arm64`). Details and tags:
+[self-hosting guide](./docs/self-host.md#published-images-no-checkout).
+
+On restricted networks, override the installer download base (`RAKAZO_DOWNLOAD_BASE`), skip
+existing Compose files (`--local` / `RAKAZO_DOWNLOAD_SKIP_EXISTING`), or mirror the bootstrap
+script URL — see
+[Restricted networks / mirror downloads](./docs/self-host.md#restricted-networks--mirror-downloads).
+
+For an agent-assisted install, use [SETUP_PROMPT.md](./SETUP_PROMPT.md).
+
+## Run on a server
+
+Bots stay on when the backend runs on a server. Use the same installer on a VPS, then connect from
+the desktop app, the mobile app, or a browser.
 
 ```bash
-# 网关
-/opt/botcamp/deploy.sh <app.py> <version>     # 语法检查 → 切版本 → 健康检查 → 失败回滚
-
-# 客户端更新（macOS）
-/opt/botcamp/publish-update.sh <version> <产物目录>
+bash install-images.sh --prepare-only
+# edit .env: SANDBOX_PROVIDER=boat (or e2b / daytona / createos) with its API key, RAKAZO_HOST=your.domain
+bash install-images.sh
 ```
 
-详见 `docs/architecture.md`。
+Put HTTPS in front of port 5173; [docs/self-host-production.md](./docs/self-host-production.md#public-single-vm-deployment)
+covers the Caddy setup and host hardening. In the desktop app choose **Existing instance** and enter
+the `https://` address.
+
+Or [deploy on Railway](https://railway.com/new/template/rakazo-template); see the [Railway setup guide](./infra/railway/README.md).
+
+## Local development (source checkout)
+
+You need Node.js 22.22.2 or newer in the 22.x line, Node.js 24.x, or Node.js 26+;
+pnpm 9; and Docker. Node.js 23.x and 25.x are not supported.
+
+```bash
+git clone https://github.com/elie222/rakazo.git
+cd rakazo
+cp .env.example .env
+```
+
+Set `POSTGRES_PASSWORD` and `POSTGRES_APP_PASSWORD` to two values from `openssl rand -hex 16`,
+then put them in `DATABASE_MIGRATION_URL` and `DATABASE_URL`. The app connects as its own
+`rakazo_app` login, which row-level security applies to; migrations run as the owner
+([database roles](docs/self-host-configuration.md#database-roles)). Set `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, and `SCREEN_PROXY_SECRET` to
+independent long random values. Docker sandboxes also need a dedicated
+`SANDBOX_SUPERVISOR_TOKEN`. You can also set `OPENROUTER_API_KEY`, or connect a supported
+model provider during onboarding.
+
+For host-side development with Docker Desktop, set `SANDBOX_CONTROL_VIA_LOOPBACK=true`
+in `.env`. The supervisor discovers Docker Desktop's user socket automatically;
+`DOCKER_HOST` or `DOCKER_SOCKET` can override it for another Docker runtime.
+
+Managed app catalogs are optional. Set `COMPOSIO_API_KEY` for Composio, or the
+`PIPEDREAM_CLIENT_ID`, `PIPEDREAM_CLIENT_SECRET`, and `PIPEDREAM_PROJECT_ID` trio for Pipedream
+Connect. Users can add an HTTPS MCP server, Treg endpoint, or OpenAPI JSON document from
+**Integrations** without enabling either managed catalog. Connector credentials are encrypted on the
+server and are never returned by the API.
+
+Treg is usage-metered. Self-hosters supply their own Treg token; operators embedding Treg in a
+hosted product should review [Treg's integration terms](https://treg.to/integrate.md), which require
+a written agreement for hosted resale.
+
+```bash
+pnpm install
+pnpm sandbox:build
+pnpm dev
+```
+
+`pnpm dev` uses the Postgres in `DATABASE_URL` when it accepts a connection. Otherwise it starts a
+local `rakazo-dev-postgres` container with Docker, and every checkout reuses that one. It applies
+migrations and generates the Prisma client before starting. A branch that adds migrations main
+doesn't have gets its own database on the same server, copied from the shared one when possible,
+so unmerged schema changes stay out of it. When the default ports are taken, for example by
+another git worktree, it moves to the next free block and prints the URL. Set `WEB_PORT` and
+`API_PORT` to choose ports yourself.
+
+To run Postgres from the Compose file instead, start it with the `postgres-host` overlay, which
+publishes loopback `127.0.0.1:5433`, and point `DATABASE_URL` and `DATABASE_MIGRATION_URL` at it:
+
+```bash
+docker compose --env-file .env \
+  -f infra/compose/docker-compose.yml \
+  -f infra/compose/docker-compose.postgres-host.yml \
+  up postgres -d
+```
+
+Use a URI-safe `POSTGRES_PASSWORD` (`openssl rand -hex 16`). An existing `pgdata` volume keeps the
+user, password, and database from first init, so keep those values in `.env`, or change them in
+place with `ALTER ROLE` / rename. Recreate the volume only after a backup (or when the data is
+disposable); `docker compose down -v` deletes all Postgres state.
+
+Open the printed URL ([http://127.0.0.1:5173](http://127.0.0.1:5173) by default), create an account, connect a model, and create
+your first bot.
+
+For deployment, provider selection, backups, and upgrades, see the
+[self-hosting guide](./docs/self-host.md), [production deployment](./docs/self-host-production.md),
+[backup and restore](./docs/self-host-backups.md), and [upgrading](./docs/self-host-upgrading.md).
+
+To use CreateOS, set `SANDBOX_PROVIDER=createos` and `CREATEOS_SANDBOX_API_KEY`.
+Optional `CREATEOS_SANDBOX_BASE_URL`, `CREATEOS_SANDBOX_SHAPE`, and
+`CREATEOS_SANDBOX_ROOTFS` default to `https://api.sb.createos.sh`, `s-2vcpu-2gb`,
+and `desktop:1`.
+
+To use Railway computers, set `SANDBOX_PROVIDER=railway`, `RAILWAY_API_TOKEN`
+and `RAILWAY_ENVIRONMENT_ID` on the API and worker. Choose the sandbox environment
+explicitly; Railway's automatic environment ID identifies the hosted app's environment.
+Use the narrowest Railway API token that works: prefer a project token if sufficient
+for sandbox operations and supported by the client's authentication. This provider
+currently uses bearer authentication, so use a team/workspace token rather than a
+personal account token.
+The live screen and desktop require `PRIVATE` networking so Railway's public domain
+can serve the screen. Computers use this mode and can reach other services in the
+same Railway project/environment, as well as the public internet. We recommend a
+dedicated Railway project (or at least a separate environment) for sandboxes,
+separate from the app and database. Recreate existing `ISOLATED` computers before use.
+The desktop is installed on first start. Stopping a computer saves its portable
+home and destroys the sandbox; the next start restores that home in a new sandbox.
+Railway sandbox usage is metered.
+New computers start in Railway's default region. Set `RAILWAY_SANDBOX_REGION` (for example
+`asia-southeast1-eqsg3a`) to keep them near the API; a running computer moves on its next start.
+Workspace exports reject files above 64 MiB without truncating them. Set `RAILWAY_MAX_WORKSPACE_FILE_BYTES` to change this limit.
+
+## Desktop and mobile
+
+The Electron and Expo apps are clients of the same Rakazo API used by the web app.
+
+With the development stack running, launch Electron with:
+
+```bash
+pnpm --filter @rakazo/desktop dev
+```
+
+On first run the desktop app asks whether to run Rakazo on this computer or connect to an existing
+server. **This computer** installs and starts the published images with Docker Compose (the same
+files as `infra/compose/install-images.sh`) under the app's data directory, so Docker Desktop,
+OrbStack, or Docker Engine must be installed; the app links to them when it is not. Installed
+builds pin the image tag to their own version; unpackaged builds pull `edge`. Developers running
+`pnpm dev` should pick **Existing instance** with `http://127.0.0.1:5173` instead. Public servers
+must use HTTPS; HTTP is accepted only for loopback and private LAN addresses (not link-local). The
+app verifies Rakazo's health endpoint before saving, and later launches go straight to that
+instance. The stack keeps running after the app quits; **Stop Local Stack** in the application
+menu turns it off.
+
+On Linux the desktop app ships as an AppImage, which needs FUSE 2 (`libfuse.so.2`). Distributions
+that only include FUSE 3, such as Fedora Silverblue or Ubuntu 24.04, show
+`dlopen(): error loading libfuse.so.2`. Install the FUSE 2 library (`fuse-libs` on Fedora,
+`libfuse2t64` on Ubuntu 24.04, `libfuse2` on older Ubuntu and Debian), or run the AppImage without
+FUSE:
+
+```bash
+chmod +x Rakazo-*.AppImage
+./Rakazo-*.AppImage --appimage-extract-and-run
+```
+
+**This computer** looks for the `docker` CLI and does not detect Podman. To try another
+Docker-compatible CLI that supports the `compose` commands, set `RAKAZO_DOCKER_BINARY` to its path
+before starting the app.
+
+Use **Change Rakazo Server…** in the application menu to reconnect. Closing that window without
+saving returns to the previous instance. For development automation, set `RAKAZO_WEB_URL` to point
+the shell somewhere else without changing the saved instance, or `RAKAZO_FORCE_SETUP=1` to run
+setup again.
+
+Mobile build and release instructions live in [docs/mobile-release.md](./docs/mobile-release.md).
+
+## UI language
+
+The web (and Electron-hosted) UI supports English, Deutsch, 한국어, Türkçe, हिन्दी,
+Português (Brasil), 简体中文, 繁體中文, Español, Русский, Français, עברית, Nederlands, and 日本語 under
+**Settings → Language**. The Expo app ships English, 简体中文, 繁體中文, Русский, Deutsch,
+Nederlands, and 日本語 catalogs, and **Account → Language** lists all seven. A device language or
+`EXPO_PUBLIC_DEFAULT_UI_LOCALE` still selects the starting catalog before a saved choice.
+The marketing
+homepage (`apps/www`) is available in en/de/ko/zh/ja via footer language links (`/`, `/de/`,
+`/ko/`, `/zh/`, `/ja/`); other marketing pages stay English. The Russian marketing homepage and
+native Electron setup/menu remain separate follow-up work.
+
+## Development
+
+```text
+apps/       web, api, worker, desktop, mobile, and public website
+packages/   domain, contracts, persistence, adapters, UI, and test tooling
+infra/      local services and computer images
+docs/       architecture, operations, and release guides
+```
+
+Common checks:
+
+```bash
+pnpm lint
+pnpm check
+pnpm test
+pnpm test:integration
+pnpm test:e2e
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and test matrix.
+
+## Documentation
+
+- [Self-hosting](./docs/self-host.md)
+- [Self-host configuration](./docs/self-host-configuration.md)
+- [Self-host secrets](./docs/self-host-secrets.md)
+- [Sign-in and accounts](./docs/self-host-accounts.md)
+- [Models](./docs/self-host-models.md)
+- [Tools and integrations](./docs/self-host-integrations.md)
+- [Computer providers](./docs/self-host-sandbox-providers.md)
+- [Docker computers](./docs/self-host-docker-computers.md)
+- [Storage and encryption](./docs/self-host-storage.md)
+- [Production deployment](./docs/self-host-production.md)
+- [Backup and restore](./docs/self-host-backups.md)
+- [Upgrading](./docs/self-host-upgrading.md)
+- [Logs and monitoring](./docs/self-host-observability.md)
+- [Apps and clients](./docs/self-host-clients.md)
+- [Billing](./docs/self-host-billing.md)
+- [Computer runtime and isolation](./docs/computer-runtime.md)
+- [Desktop releases](./docs/desktop-release.md)
+- [Mobile releases](./docs/mobile-release.md)
+- [Performance testing](./docs/performance.md)
+- [Bots that manage bots](./docs/fleet-management.md)
+
+## How Rakazo compares
+
+- [Grok Bot](https://rakazo.com/grok-bot-alternative/)
+- [Muse](https://rakazo.com/muse-alternative/)
+- [Dots](https://rakazo.com/dots-alternative/)
+- [Instinct](https://rakazo.com/instinct-alternative/)
+- [OpenClaw](https://rakazo.com/openclaw-alternative/)
+- [Hermes Agent](https://rakazo.com/hermes-alternative/)
+- [All comparisons](https://rakazo.com/alternatives/)
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull
+request. For security vulnerabilities, follow [SECURITY.md](./SECURITY.md) instead of filing a public
+issue.
+
+Rakazo is licensed under the [Apache License 2.0](./LICENSE).
+
+Questions and ideas are welcome in the [Rakazo Discord community](https://discord.gg/RWwKa2Sn7h).

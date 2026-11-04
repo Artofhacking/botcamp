@@ -10,8 +10,8 @@ android {
         applicationId = "site.demox.botcamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2049
-        versionName = "2.0.49"
+        versionCode = 2050
+        versionName = "2.1.0"
     }
 
     signingConfigs {

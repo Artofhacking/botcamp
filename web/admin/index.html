@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BotCamp 管理后台</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif;
+             background: #0b0c0f; color: #e7e9ee; }
+      header { display: flex; align-items: center; gap: 16px; padding: 16px 24px;
+               border-bottom: 1px solid #23252b; position: sticky; top: 0; background: #0b0c0f; }
+      h1 { font-size: 16px; margin: 0; font-weight: 600; }
+      .muted { color: #8b90a0; }
+      main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+      .card { background: #14161b; border: 1px solid #23252b; border-radius: 10px; padding: 14px; }
+      .card .label { font-size: 12px; color: #8b90a0; }
+      .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #14161b;
+              border: 1px solid #23252b; border-radius: 10px; overflow: hidden; }
+      th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #23252b; font-size: 13px; }
+      th { background: #171a20; color: #9aa0b0; font-weight: 500; }
+      tr:last-child td { border-bottom: none; }
+      select { background: #0b0c0f; color: #e7e9ee; border: 1px solid #2c3039;
+               border-radius: 6px; padding: 6px 8px; }
+      input[type="number"] { width: 120px; background: #0b0c0f; color: #e7e9ee;
+                             border: 1px solid #2c3039; border-radius: 6px; padding: 6px 8px; }
+      button { background: #2b6cff; color: #fff; border: none; border-radius: 6px;
+               padding: 6px 12px; cursor: pointer; font-size: 13px; }
+      button:hover { background: #3f7bff; }
+      button.ghost { background: #1d2027; border: 1px solid #2c3039; }
+      .bar { height: 6px; background: #23252b; border-radius: 3px; overflow: hidden; width: 120px; }
+      .bar > i { display: block; height: 100%; background: #2b6cff; }
+      .row { display: flex; align-items: center; gap: 8px; }
+      .toast { position: fixed; bottom: 20px; right: 20px; background: #14161b;
+               border: 1px solid #2c3039; padding: 10px 14px; border-radius: 8px; opacity: 0;
+               transition: opacity .2s; }
+      .toast.show { opacity: 1; }
+      .danger { color: #ff6b6b; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>BotCamp 管理后台</h1>
+      <span class="muted" id="who"></span>
+      <span style="flex:1"></span>
+      <button class="ghost" id="refresh">刷新</button>
+    </header>
+    <main>
+      <section class="cards" id="cards"></section>
+      <h2 style="font-size:14px;margin:24px 0 8px">正在运行的容器</h2>
+      <table>
+        <thead>
+          <tr><th>Bot</th><th>档位</th><th>核</th><th>已运行</th><th>核·秒</th></tr>
+        </thead>
+        <tbody id="live"><tr><td colspan="5" class="muted">加载中…</td></tr></tbody>
+      </table>
+
+      <div class="row" style="margin-top:20px">
+        <input id="q" placeholder="按邮箱或名字搜索" style="flex:1;background:#0b0c0f;color:#e7e9ee;border:1px solid #2c3039;border-radius:6px;padding:8px 10px" />
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>用户</th><th>注册时间</th><th>Bots</th><th>本周用量</th>
+            <th>本周积分</th><th>大容器核·秒</th><th>档位</th><th>周额度（积分）</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="9" class="muted">加载中…</td></tr></tbody>
+      </table>
+    </main>
+    <div class="toast" id="toast"></div>
+    <script src="./config.js"></script>
+    <script>
+      const fmt = (n) => new Intl.NumberFormat("zh-CN").format(n);
+      const usd = (n) => "$" + (n ?? 0).toFixed(6);
+      // Core-seconds are the stored unit; hours are the friendlier reading.
+      const cores = (seconds) => {
+        const whole = Math.round(seconds ?? 0);
+        return whole >= 3600
+          ? `${fmt(whole)} <span class="muted">(${(whole / 3600).toFixed(2)} 核时)</span>`
+          : fmt(whole);
+      };
+      let users = [];
+
+      // The page is served by Demox while the API lives on its own host, so every call is
+      // absolute; config.js next to this page points at it.
+      const API_BASE = (window.__RAKAZO_ADMIN_API__ || window.__RAKAZO_API_ORIGIN__ || "").replace(/\/+$/, "");
+
+      // 认证走 Bearer token：管理后台和前端一样托管在 Demox，与 API 不同站。
+      const token = (() => {
+        try { return localStorage.getItem("bc_auth_token") || ""; } catch { return ""; }
+      })();
+
+      async function api(path, init) {
+        const headers = new Headers(init && init.headers ? init.headers : undefined);
+        if (token) headers.set("authorization", "Bearer " + token);
+        const response = await fetch(API_BASE + path, { ...init, headers, credentials: "omit" });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(response.status + " " + text.slice(0, 120));
+        }
+        return response.json();
+      }
+
+      function toast(message, isError) {
+        const el = document.getElementById("toast");
+        el.textContent = message;
+        el.style.color = isError ? "#ff6b6b" : "#e7e9ee";
+        el.classList.add("show");
+        setTimeout(() => el.classList.remove("show"), 2200);
+      }
+
+      function renderCards(data) {
+        const cards = [
+          ["用户", fmt(data.users)],
+          ["Bots", fmt(data.bots)],
+          ["沙箱", fmt(data.computers)],
+          ["本周 tokens", fmt(data.weekTokens)],
+          ["本周积分", fmt(Math.round(data.creditsUsed ?? 0))],
+          ["本周调用", fmt(data.weekCalls)],
+          ["大容器核·秒", fmt(Math.round(data.weekCoreSeconds ?? 0))],
+        ];
+        document.getElementById("cards").innerHTML = cards
+          .map(([label, value]) => `<div class="card"><div class="label">${label}</div><div class="value">${value}</div></div>`)
+          .join("");
+      }
+
+      function renderRows() {
+        const tbody = document.getElementById("rows");
+        if (!users.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted">没有匹配的用户</td></tr>';
+          return;
+        }
+        tbody.innerHTML = users
+          .map((u) => {
+            const quota = Number(u.weeklyTokenQuota) || 0;
+            const pct = quota > 0 ? Math.min(100, Math.round((u.weekTokens / quota) * 100)) : 0;
+            return `<tr data-id="${u.id}">
+              <td><div>${u.name || "-"}</div><div class="muted">${u.email}${u.emailVerified ? "" : ' <span class="danger">未验证</span>'}</div></td>
+              <td class="muted">${new Date(u.createdAt).toLocaleDateString("zh-CN")}</td>
+              <td>${u.bots}</td>
+              <td><div>${fmt(u.weekTokens)}</div><div class="bar"><i style="width:${pct}%"></i></div></td>
+              <td>${fmt(u.usedCredits ?? 0)} <span class="muted">/ ${fmt(u.weeklyCredits ?? 0)}</span></td>
+              <td>${cores(u.weekCoreSeconds)}</td>
+              <td>
+                <select data-plan>
+                  ${["free", "pro", "plus", "max", "max_plus"]
+                    .map((id) => `<option value="${id}"${u.plan === id ? " selected" : ""}>${id}</option>`)
+                    .join("")}
+                </select>
+              </td>
+              <td><input type="number" min="0" step="100" value="${u.weeklyCredits ?? 0}" />
+                <div class="muted" style="font-size:11px">≈¥${(u.creditsYuan ?? 0).toFixed(2)} / $${(u.creditsUsd ?? 0).toFixed(2)}</div></td>
+              <td><button data-save>保存</button></td>
+            </tr>`;
+          })
+          .join("");
+      }
+
+      document.getElementById("rows").addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-save]");
+        if (!button) return;
+        const row = button.closest("tr");
+        const id = row.dataset.id;
+        const quota = Number(row.querySelector("input").value);
+        const plan = row.querySelector("[data-plan]").value;
+        const user = users.find((entry) => entry.id === id);
+        try {
+          if (!user || user.plan !== plan) {
+            await api(`/admin/api/users/${id}/plan`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ plan }),
+            });
+            if (user) user.plan = plan;
+            toast(`已切换到 ${plan}`);
+            void load();
+            return;
+          }
+          await api(`/admin/api/users/${id}/quota`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ weeklyTokenQuota: quota }),
+          });
+          if (user) user.weeklyTokenQuota = quota;
+          toast("已更新额度");
+        } catch (error) {
+          toast(String(error.message || error), true);
+        }
+      });
+
+      function renderLive(data) {
+        const body = document.getElementById("live");
+        if (!data.sandboxes || !data.sandboxes.length) {
+          body.innerHTML = '<tr><td colspan="5" class="muted">当前没有运行中的容器</td></tr>';
+          return;
+        }
+        body.innerHTML = data.sandboxes
+          .map((s) => `<tr>
+            <td>${s.botId}</td>
+            <td>${s.tier}</td>
+            <td>${s.cores}</td>
+            <td>${s.runningSeconds < 60 ? s.runningSeconds + " 秒" : Math.round(s.runningSeconds / 60) + " 分钟"}</td>
+            <td>${fmt(s.coreSeconds)}</td>
+          </tr>`)
+          .join("");
+      }
+
+      async function loadLive() {
+        try {
+          renderLive(await api("/admin/api/live"));
+        } catch (error) {
+          document.getElementById("live").innerHTML =
+            `<tr><td colspan="5" class="danger">${String(error.message || error)}</td></tr>`;
+        }
+      }
+
+      async function load() {
+        if (!token) {
+          document.getElementById("rows").innerHTML =
+            '<tr><td colspan="9">请先登录：<a style="color:#2b6cff" href="/console/">打开控制台</a>，登录后再回到本页。</td></tr>';
+          return;
+        }
+        try {
+          const [overview, list] = await Promise.all([
+            api("/admin/api/overview"),
+            api("/admin/api/users" + (document.getElementById("q").value.trim() ? "?q=" + encodeURIComponent(document.getElementById("q").value.trim()) : "")),
+          ]);
+          renderCards(overview);
+          users = list.users;
+          renderRows();
+          void loadLive();
+          document.getElementById("who").textContent =
+            "本周 " + new Date(overview.weekStart).toLocaleString("zh-CN") +
+            " → " + new Date(overview.weekEnd).toLocaleString("zh-CN");
+        } catch (error) {
+          document.getElementById("rows").innerHTML =
+            `<tr><td colspan="9" class="danger">${String(error.message || error)}</td></tr>`;
+        }
+      }
+
+      document.getElementById("refresh").addEventListener("click", load);
+      document.getElementById("q").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") load();
+      });
+      load();
+      // Running containers accrue cost continuously: refresh the live table on its own.
+      setInterval(loadLive, 10000);
+    </script>
+  </body>
+</html>

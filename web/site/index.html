@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BotCamp — 每个 bot 都有一台自己的电脑</title>
+<meta name="description" content="BotCamp 是常驻云端的 AI 智能体工作台：每个 bot 拥有独立文件目录与容器，日常查文件秒开，重活一键开大容器，结果回到同一个目录。">
+<meta name="theme-color" content="#0b0c0f">
+<link rel="icon" href="/console/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/console/apple-touch-icon.png">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0c0f;
+    --panel: #14161b;
+    --line: #23262e;
+    --text: #eceef3;
+    --muted: #949aa8;
+    --lime: #c6f24e;
+    --teal: #1fa88a;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 20px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: .2px; }
+  .brand img { width: 28px; height: 28px; border-radius: 8px; }
+  .nav .links { display: flex; gap: 18px; margin-left: 8px; font-size: 14px; color: var(--muted); }
+  .nav .links a:hover { color: var(--text); }
+  .nav .spacer { flex: 1; }
+  .account { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .account .email { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account button { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+  .account button:hover { color: var(--text); background: #1a1d24; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 20px; border-radius: 10px; font-weight: 600; font-size: 15px;
+    border: 1px solid transparent; transition: transform .12s ease, background .15s ease, border-color .15s ease;
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--lime); color: #10130a; }
+  .btn-primary:hover { background: #d3ff5c; }
+  .btn-ghost { background: #15181e; border-color: var(--line); color: var(--text); }
+  .btn-ghost:hover { border-color: #3a3f4a; }
+  .btn-sm { padding: 8px 14px; font-size: 14px; }
+
+  .hero { padding: 84px 0 56px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% 40% auto -10%; height: 520px;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--teal) 26%, transparent), transparent 70%);
+    pointer-events: none;
+  }
+  .hero h1 { font-size: clamp(30px, 5vw, 52px); line-height: 1.15; margin: 0 0 18px; letter-spacing: -.5px; }
+  .hero h1 em { font-style: normal; color: var(--lime); }
+  .hero p.lead { font-size: clamp(15px, 2vw, 19px); color: var(--muted); max-width: 620px; margin: 0 0 30px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .version { margin: 16px 0 0; color: var(--muted); font-size: 13px; min-height: 20px; }
+
+  section { padding: 54px 0; border-top: 1px solid var(--line); scroll-margin-top: 72px; }
+  h2 { font-size: 22px; margin: 0 0 8px; letter-spacing: -.2px; }
+  .sub { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .card .dot { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+               background: color-mix(in srgb, var(--lime) 16%, transparent); margin-bottom: 12px; font-size: 14px; }
+
+  .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .tier { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .tier .tag { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .tier strong { display: block; font-size: 18px; margin: 6px 0 4px; }
+  .tier span { font-size: 14px; color: var(--muted); }
+
+  .downloads { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .platform {
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px;
+  }
+  .platform .head { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+  .platform .head .icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+                          background: color-mix(in srgb, var(--lime) 16%, transparent); font-size: 14px; }
+  .platform .meta { color: var(--muted); font-size: 13.5px; margin: 0; flex: 1; }
+  .platform .tag-soon { margin-left: auto; font-size: 12px; color: var(--muted); border: 1px solid var(--line);
+                        border-radius: 999px; padding: 2px 9px; }
+  .platform .btn { width: 100%; }
+  .platform.is-soon { opacity: .62; }
+  .platform.is-soon .btn { cursor: default; }
+  .download-note { color: var(--muted); font-size: 13px; margin: 16px 0 0; }
+
+  footer { padding: 34px 0 56px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+  footer .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 620px) {
+    .nav .links { display: none; }
+    .nav { gap: 12px; }
+    .hero { padding: 56px 0 40px; }
+    /* 手机上放不下账号 + 两个按钮，留「退出」和控制台入口就够。 */
+    .account .email { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/console/icon-192.png" alt="BotCamp">
+      <span>BotCamp</span>
+    </a>
+    <nav class="links">
+      <a href="#how">怎么工作</a>
+      <a href="#tiers">容器档位</a>
+      <a href="#download">下载</a>
+    </nav>
+    <span class="spacer"></span>
+    <div class="account" id="account"></div>
+    <div id="account-cta"></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>每个 bot，都有一台<br><em>自己的电脑</em></h1>
+    <p class="lead">
+      常驻的云端小容器负责看文件、跑指令，需要重活时一键换成大容器；
+      文件始终在同一个云端目录里，换个容器不用搬。
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" id="cta-main" href="/console/">进入控制台</a>
+      <a class="btn btn-ghost" href="#download">下载客户端</a>
+    </div>
+    <p class="version" id="version"></p>
+  </section>
+
+  <section id="how" class="wrap">
+    <h2>怎么工作</h2>
+    <p class="sub">一个 bot，一份文件，多种算力，按需切换。</p>
+    <div class="grid">
+      <div class="card">
+        <div class="dot">📁</div>
+        <h3>文件在云端只有一份</h3>
+        <p>每个 bot 一个独立目录，挂在网络存储上。容器重建、换档位，文件都还在。</p>
+      </div>
+      <div class="card">
+        <div class="dot">⚡</div>
+        <h3>小容器常驻</h3>
+        <p>随时可用的轻量容器，打开就能查文件、跑短命令，不用等待启动。</p>
+      </div>
+      <div class="card">
+        <div class="dot">🚀</div>
+        <h3>大容器按需</h3>
+        <p>编译、跑测试、批量处理，需要时再开，跑完释放，不占着钱。</p>
+      </div>
+      <div class="card">
+        <div class="dot">🖥️</div>
+        <h3>桌面模式</h3>
+        <p>需要图形界面或浏览器时，换成带桌面的容器，同样是那一份文件。</p>
+      </div>
+      <div class="card">
+        <div class="dot">⏱️</div>
+        <h3>定时任务</h3>
+        <p>让 bot 按计划自己醒来干活，不需要你的电脑开着。</p>
+      </div>
+      <div class="card">
+        <div class="dot">🔒</div>
+        <h3>每人一套额度</h3>
+        <p>用量按周结算，控制台里能看到剩余比例，不担心超支。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tiers" class="wrap">
+    <h2>容器档位</h2>
+    <p class="sub">同一个 bot，按任务切换，文件跟着走。</p>
+    <div class="tiers">
+      <div class="tier">
+        <div class="tag">常驻</div>
+        <strong>小容器</strong>
+        <span>查文件、跑轻量命令，秒级响应</span>
+      </div>
+      <div class="tier">
+        <div class="tag">按需</div>
+        <strong>大容器</strong>
+        <span>编译、测试、批处理，几十秒启动</span>
+      </div>
+      <div class="tier">
+        <div class="tag">按需</div>
+        <strong>桌面容器</strong>
+        <span>图形界面与浏览器，适合网页操作</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" class="wrap">
+    <h2>下载客户端</h2>
+    <p class="sub">也可以直接在浏览器里用，控制台功能一致。</p>
+    <div class="downloads">
+      <div class="platform">
+        <div class="head"><span class="icon">🤖</span>Android</div>
+        <p class="meta">安装包 77 KB · 需要 Android 8 及以上</p>
+        <a class="btn btn-primary" id="android" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-2.1.0.apk">下载 Android 版 <span id="android-version">2.1.0</span></a>
+      </div>
+      <div class="platform is-soon">
+        <div class="head"><span class="icon">🍎</span>macOS<span class="tag-soon">即将推出</span></div>
+        <p class="meta">桌面客户端，支持直接打开 bot 的桌面容器。</p>
+        <span class="btn btn-ghost" aria-disabled="true">敬请期待</span>
+      </div>
+      <div class="platform is-soon">
+        <div class="head"><span class="icon">🪟</span>Windows<span class="tag-soon">即将推出</span></div>
+        <p class="meta">桌面客户端，与 macOS 版功能一致。</p>
+        <span class="btn btn-ghost" aria-disabled="true">敬请期待</span>
+      </div>
+      <div class="platform is-soon">
+        <div class="head"><span class="icon">📱</span>iOS<span class="tag-soon">即将推出</span></div>
+        <p class="meta">App Store 版本，正在开发中。</p>
+        <span class="btn btn-ghost" aria-disabled="true">敬请期待</span>
+      </div>
+    </div>
+    <p class="download-note">macOS / Windows / iOS 版本还在开发，先用网页版或 Android 版。</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap row">
+    <span>© <span id="year">2026</span> BotCamp</span>
+    <span class="spacer" style="flex:1"></span>
+    <a href="/console/">控制台</a>
+    <a href="https://www.demox.site/" target="_blank" rel="noreferrer">托管于 Demox</a>
+  </div>
+</footer>
+
+<script>
+  const ANDROID_VERSION = '2.1.0'
+  const API = 'https://botcamp.aigc.sx.cn'
+  const accountNode = document.getElementById('account')
+  const accountCtaNode = document.getElementById('account-cta')
+  const ctaMainNode = document.getElementById('cta-main')
+  const versionNode = document.getElementById('version')
+  document.getElementById('year').textContent = String(new Date().getFullYear())
+  document.getElementById('android-version').textContent = ANDROID_VERSION
+  versionNode.textContent = 'Android ' + ANDROID_VERSION + ' 已发布'
+
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+
+  // 未登录：右上角只有一个「登录」；主按钮引导去注册/登录。
+  const showGuest = () => {
+    accountNode.innerHTML = '<a class="btn btn-ghost btn-sm" href="/console/">登录</a>'
+    accountCtaNode.innerHTML = ''
+    ctaMainNode.textContent = '登录 / 注册'
+    ctaMainNode.href = '/console/'
+  }
+
+  // 已登录：右上角显示账号和「进入控制台」，主按钮也变成进入控制台。
+  const showUser = (email) => {
+    accountNode.innerHTML =
+      '<span class="email">' + escapeHtml(email) + '</span>' +
+      '<button id="logout" type="button">退出</button>'
+    accountCtaNode.innerHTML = '<a class="btn btn-primary btn-sm" href="/console/">进入控制台</a>'
+    ctaMainNode.textContent = '进入控制台'
+    ctaMainNode.href = '/console/'
+    document.getElementById('logout').onclick = async () => {
+      const token = localStorage.getItem('bc_auth_token')
+      try {
+        localStorage.removeItem('bc_auth_token')
+        localStorage.removeItem('bc_token')
+        localStorage.removeItem('bc_admin')
+        localStorage.removeItem('bc_admin_token')
+        localStorage.removeItem('bc_email')
+      } catch (e) {}
+      if (token) {
+        // 服务端会话也一并注销，避免 token 继续有效
+        fetch(API + '/api/auth/sign-out', {
+          method: 'POST',
+          headers: { authorization: 'Bearer ' + token },
+        }).catch(() => {})
+      }
+      location.reload()
+    }
+  }
+
+  // 登录状态以 token 为准：token 失效就当未登录。
+  const token = (() => {
+    try { return localStorage.getItem('bc_auth_token') } catch (e) { return null }
+  })()
+  if (!token) {
+    showGuest()
+  } else {
+    showGuest()
+    fetch(API + '/api/auth/get-session', { headers: { authorization: 'Bearer ' + token } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((session) => {
+        const email = session && session.user && session.user.email
+        if (email) showUser(email)
+      })
+      .catch(() => {})
+  }
+</script>
+</body>
+</html>
