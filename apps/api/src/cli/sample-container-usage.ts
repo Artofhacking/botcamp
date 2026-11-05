@@ -108,6 +108,7 @@ async function sampleOnce() {
     const now = Date.now();
     for (const [key, entry] of perUser) {
       const [userId] = key.split("|");
+      if (!userId) continue;
       const existing = await prisma.containerUsage.findUnique({
         where: { userId_tier_day: { userId, tier: entry.tier, day } },
         select: { sampledAt: true },

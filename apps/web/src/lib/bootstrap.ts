@@ -5,6 +5,7 @@ import { initialBootstrapTarget } from "./bootstrap-target";
 import { identityLabels } from "./identity-display";
 import { markOnce } from "./performance";
 import { rpc, selectedSpaceId } from "./rpc";
+import { adoptHashRoute, documentPath } from "./static-host-route";
 
 let ticketBoardEnabled = false;
 let maxUploadSizeBytes = ATTACHMENT_MAX_BYTES;
@@ -30,10 +31,9 @@ let primedBootstrap: {
   seed?: AppBootstrap;
 } | null = null;
 
-const initialTarget = initialBootstrapTarget(
-  window.location.pathname,
-  Boolean(window.rakazoDesktop),
-);
+// Before anything reads the address: a path route becomes a hash route with no request.
+adoptHashRoute();
+const initialTarget = initialBootstrapTarget(documentPath(), Boolean(window.rakazoDesktop));
 if (initialTarget) {
   const { botId } = initialTarget;
   const promise = requestBootstrap(botId);

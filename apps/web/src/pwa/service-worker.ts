@@ -13,10 +13,18 @@ type FetchEvent = ExtendableEvent & {
 };
 type MessageEvent = ExtendableEvent & { data: unknown };
 
+type ControlledWindow = {
+  url?: string;
+  navigate?: (url: string) => Promise<unknown>;
+};
+
 export type ServiceWorkerScope = {
   location: { origin: string };
   caches: CacheStorage;
-  clients: { matchAll(options: { type: "window" }): Promise<readonly unknown[]> };
+  clients: {
+    matchAll(options: { type: "window" }): Promise<readonly ControlledWindow[]>;
+    claim?: () => Promise<void>;
+  };
   registration: {
     waiting: Pick<ServiceWorker, "postMessage" | "addEventListener" | "removeEventListener"> | null;
   };
@@ -32,10 +40,12 @@ export function bypassesServiceWorker(pathname: string): boolean {
 }
 
 /**
- * Precaches the app shell, serves hashed assets cache-first and falls back to
- * the cached shell for navigations while offline. A new version waits until
- * the next navigation of the last open window, then takes over by reloading
- * that navigation. The previous shell stays cached for tabs still using it.
+ * Precaches the app shell and serves hashed assets cache-first. A navigation
+ * always asks the network for the entry document, and uses the cached shell
+ * only while offline or when that document is missing. A new version takes
+ * over as soon as it installs, then reloads open windows so they leave the
+ * shell they were drawn from. The previous shell stays cached for a tab whose
+ * reload has not finished.
  */
 export function installServiceWorker(
   scope: ServiceWorkerScope,
@@ -56,13 +66,15 @@ export function installServiceWorker(
               (url) => new Request(new URL(url, scope.location.origin), { cache: "no-cache" }),
             ),
           ),
-        ),
+        )
+        .then(() => scope.skipWaiting()),
     );
   });
 
   scope.addEventListener("activate", (event) => {
     event.waitUntil(
-      scope.caches.keys().then((names) => {
+      (async () => {
+        const names = await scope.caches.keys();
         // Keep the newest previous shell for tabs still running its bundle. Names end in the build
         // id, which sorts oldest first; older workers named caches by a content hash instead, so
         // one of those is kept only when no build-named cache exists.
@@ -73,10 +85,22 @@ export function installServiceWorker(
           .filter((name) => BUILD_ID.test(name.slice(CACHE_PREFIX.length)))
           .sort();
         const keep = byBuild.at(-1) ?? previous.at(-1);
-        return Promise.all(
+        await Promise.all(
           previous.filter((name) => name !== keep).map((name) => scope.caches.delete(name)),
         );
-      }),
+        await scope.clients.claim?.();
+        // A first install has nothing to replace. An update does: open windows are still
+        // drawing the previous shell until something reloads them.
+        if (previous.length === 0) return;
+        const windows = await scope.clients.matchAll({ type: "window" });
+        await Promise.all(
+          windows.map((client) =>
+            client && typeof client.navigate === "function" && client.url
+              ? client.navigate(client.url)
+              : undefined,
+          ),
+        );
+      })(),
     );
   });
 
@@ -101,18 +125,21 @@ export function installServiceWorker(
       return new Response("", { headers: { Refresh: "0" } });
     }
     const url = new URL(request.url);
-    // A static host has no SPA fallback: /console/app/<id> answers 404 (or the site's other
-    // page). Everything under the deployment's base is the app, so serve the cached shell
-    // and let the router read the path. A new deploy still lands: the browser re-fetches the
-    // worker on navigation and activateWaitingWorker() reloads into it.
-    // 深层路径服务器只会给 404，直接回外壳；入口 `/console/` 必须联网，否则新版本永远装不上。
-    const entry = url.pathname === appBase || url.pathname === appBase.replace(/\/$/, "");
-    if (appBase !== "/" && url.pathname.startsWith(appBase) && !entry) {
-      const shell = await shellFromCache();
-      if (shell) return shell;
-    }
+    // A static host has no SPA fallback, so /console/app/<id> is not a document.
+    // Ask for the entry itself, bypassing the HTTP cache: a cached shell here is
+    // how an open tab keeps running the previous deployment. The cached shell is
+    // only the offline and 404 fallback. The app then moves a deep path into the hash.
+    const entryPath = appBase.replace(/\/$/, "") || "/";
+    const inApp =
+      appBase !== "/" &&
+      (url.pathname === appBase || url.pathname === entryPath || url.pathname.startsWith(appBase));
+    const target = inApp
+      ? new Request(new URL(appBase, scope.location.origin), { cache: "reload" })
+      : request;
     try {
-      return await scope.fetch(request);
+      const response = await scope.fetch(target);
+      if (inApp && !response.ok) throw new Error("shell missing");
+      return response;
     } catch (error) {
       const shell = await shellFromCache();
       if (shell) return shell;

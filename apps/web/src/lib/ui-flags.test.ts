@@ -87,7 +87,16 @@ describe("sectionHidden", () => {
 
 describe("offeredApps", () => {
   it("offers the app this build ships when the deployment names none", () => {
-    expect(offeredApps().map((app) => app.endpoint)).toEqual(["https://api.mail.qq.com/mcp"]);
+    expect(offeredApps()).toEqual([
+      {
+        name: "QQ邮箱",
+        endpoint: "https://api.mail.qq.com/mcp",
+        scopes: [
+          { label: "只读", scope: "alias:read mail:read" },
+          { label: "可发信", scope: "alias:read mail:read mail:send" },
+        ],
+      },
+    ]);
   });
 
   it("lets a deployment replace the app this build ships", () => {

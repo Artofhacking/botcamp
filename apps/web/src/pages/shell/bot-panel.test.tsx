@@ -169,6 +169,7 @@ function bot(description = "Billing", overrides: Partial<Bot> = {}): Bot {
     webhookConfigured: false,
     spawnKey: null,
     ...overrides,
+    computerTier: overrides.computerTier ?? "small",
   };
 }
 

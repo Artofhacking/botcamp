@@ -6,7 +6,6 @@ import { Hono } from "hono";
 import type { PrismaClient } from "@rakazo/db";
 import {
   PLANS,
-  USD_TO_CNY,
   containerCostYuan,
   isPlanId,
   planOf,
@@ -22,7 +21,7 @@ import { isAdmin } from "./admins.js";
 
 export interface AdminConsoleDeps {
   prisma: PrismaClient;
-  env: { adminEmails: string[] };
+  env: { adminEmails: string[]; adminUserIds?: string[] };
   /** Resolves the signed-in user from the request, or null. */
   sessionUser: (request: Request) => Promise<{ id: string; email: string } | null>;
 }

@@ -577,9 +577,11 @@ export class Dictation {
       if (this.token !== mine) return;
       const res = await withAbort(
         fetch(apiUrl("/api/voice/transcribe"), {
-        headers: authHeaders(),
           method: "POST",
-          headers: withSpaceHeaders({ "content-type": "application/json" }, spaceId),
+          headers: withSpaceHeaders(
+            authHeaders({ "content-type": "application/json" }),
+            spaceId,
+          ),
           credentials: "include",
           body: JSON.stringify({
             audioBase64,

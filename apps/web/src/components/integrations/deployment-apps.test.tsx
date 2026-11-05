@@ -9,8 +9,19 @@ import { DeploymentApps } from "./deployment-apps";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const { translate } = vi.hoisted(() => ({
+  translate: (value: { message?: string } | string) =>
+    typeof value === "string" ? value : (value.message ?? ""),
+}));
 vi.mock("@lingui/react/macro", () => ({
-  Trans: ({ children }: { children: ReactNode }) => children,
+  Trans: ({ children, message }: { children?: ReactNode; message?: string }) =>
+    children ?? message ?? null,
+  useLingui: () => ({ t: translate, _: translate }),
+}));
+vi.mock("@lingui/react", () => ({
+  useLingui: () => ({ t: translate, _: translate }),
+  Trans: ({ children, message }: { children?: ReactNode; message?: string }) =>
+    children ?? message ?? null,
 }));
 vi.mock("@rakazo/ui-web", () => {
   const Container = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
@@ -20,14 +31,40 @@ vi.mock("@rakazo/ui-web", () => {
       size: _size,
       ...props
     }: ComponentProps<"button"> & { variant?: string; size?: string }) => <button {...props} />,
-    DropdownMenu: Container,
-    DropdownMenuContent: Container,
-    DropdownMenuItem: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
+    Dialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
+      open ? <div data-testid="mailbox-dialog">{children}</div> : null,
+    DialogContent: Container,
+    DialogFooter: Container,
+    DialogHeader: Container,
+    DialogTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
+    Input: (props: ComponentProps<"input">) => <input {...props} />,
+    Label: ({ children, ...props }: ComponentProps<"label">) => (
+      // The input this names is rendered beside the label.
+      // biome-ignore lint/a11y/noLabelWithoutControl: test double
+      <label {...props}>{children}</label>
     ),
-    DropdownMenuTrigger: Container,
+    RadioGroup: ({
+      children,
+      onValueChange,
+    }: {
+      children?: ReactNode;
+      value?: string;
+      onValueChange?: (value: string) => void;
+    }) => (
+      // biome-ignore lint/a11y/noStaticElementInteractions: test double selects the clicked radio
+      // biome-ignore lint/a11y/useKeyWithClickEvents: test double
+      <div
+        onClick={(event) => {
+          const value = (event.target as HTMLElement)
+            .closest("[data-value]")
+            ?.getAttribute("data-value");
+          if (value) onValueChange?.(value);
+        }}
+      >
+        {children}
+      </div>
+    ),
+    RadioGroupItem: ({ value }: { value: string }) => <button type="button" data-value={value} />,
   };
 });
 
@@ -90,6 +127,21 @@ function appRows(container: HTMLElement) {
   return [...container.querySelectorAll('[data-testid="deployment-app"]')];
 }
 
+function typeInto(input: HTMLInputElement, value: string) {
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+async function fill(container: HTMLElement, email: string, code: string) {
+  const emailInput = container.querySelector('input[type="email"]') as HTMLInputElement;
+  const codeInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+  await act(async () => {
+    typeInto(emailInput, email);
+    typeInto(codeInput, code);
+  });
+}
+
 it("lists only the apps the deployment offers", async () => {
   const container = await render(
     <DeploymentApps
@@ -97,47 +149,28 @@ it("lists only the apps the deployment offers", async () => {
       servers={[]}
       pending={null}
       error={null}
-      onConnect={vi.fn()}
+      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );
   const rows = appRows(container);
   expect(rows).toHaveLength(1);
   expect(rows[0]?.textContent).toContain("Mail");
+  expect(container.querySelector('[data-testid="deployment-apps"]')?.className).toBe(
+    "grid grid-cols-1 gap-2 sm:grid-cols-2",
+  );
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
-it("offers each scope the deployment allows, and connects with the chosen one", async () => {
-  const onConnect = vi.fn();
+it("asks for the authorization code and saves the chosen permission", async () => {
+  const onSave = vi.fn(async () => undefined);
   const container = await render(
     <DeploymentApps
       apps={[APP]}
       servers={[]}
       pending={null}
       error={null}
-      onConnect={onConnect}
-      onDisconnect={vi.fn()}
-    />,
-  );
-  const choices = [...container.querySelectorAll("button")].filter(
-    (button) => button.textContent === "Read and send",
-  );
-  expect(choices).toHaveLength(1);
-  await act(async () => choices[0]?.click());
-  expect(onConnect).toHaveBeenCalledWith(APP, {
-    label: "Read and send",
-    scope: "mail.read mail.send",
-  });
-});
-
-it("connects straight away when the app offers one scope", async () => {
-  const onConnect = vi.fn();
-  const container = await render(
-    <DeploymentApps
-      apps={[{ ...APP, scopes: [{ label: "Read only", scope: "mail.read" }] }]}
-      servers={[]}
-      pending={null}
-      error={null}
-      onConnect={onConnect}
+      onSave={onSave}
       onDisconnect={vi.fn()}
     />,
   );
@@ -145,9 +178,42 @@ it("connects straight away when the app offers one scope", async () => {
     (button) => button.textContent === "Connect",
   );
   await act(async () => connect?.click());
-  expect(onConnect).toHaveBeenCalledWith(
-    { ...APP, scopes: [{ label: "Read only", scope: "mail.read" }] },
-    { label: "Read only", scope: "mail.read" },
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')?.textContent).toContain(
+    "Read and send",
+  );
+  const send = container.querySelector('[data-value="mail.read mail.send"]');
+  await act(async () => (send as HTMLButtonElement).click());
+  await fill(container, "Person@Example.com", "abcd efgh ijkl mnop");
+  await act(async () => container.querySelector("form")?.requestSubmit());
+  expect(onSave).toHaveBeenCalledWith(APP, {
+    address: "person@example.com",
+    authCode: "abcdefghijklmnop",
+    scope: "mail.read mail.send",
+  });
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
+});
+
+it("keeps the dialog open when the code is not 16 characters", async () => {
+  const onSave = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[APP]}
+      servers={[]}
+      pending={null}
+      error={null}
+      onSave={onSave}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  const connect = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  );
+  await act(async () => connect?.click());
+  await fill(container, "person@example.com", "short");
+  await act(async () => container.querySelector("form")?.requestSubmit());
+  expect(onSave).not.toHaveBeenCalled();
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "Enter the 16-character authorization code",
   );
 });
 
@@ -159,7 +225,7 @@ it("shows a connected app with its disconnect, and disconnects it", async () => 
       servers={[server()]}
       pending={null}
       error={null}
-      onConnect={vi.fn()}
+      onSave={vi.fn()}
       onDisconnect={onDisconnect}
     />,
   );
@@ -171,6 +237,24 @@ it("shows a connected app with its disconnect, and disconnects it", async () => 
   expect(onDisconnect).toHaveBeenCalledWith(APP);
 });
 
+it("shows a saved mailbox as connected", async () => {
+  const container = await render(
+    <DeploymentApps
+      apps={[APP]}
+      servers={[]}
+      pending={null}
+      error={null}
+      linked
+      onSave={vi.fn()}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  expect(container.textContent).toContain("Connected");
+  expect(
+    [...container.querySelectorAll("button")].some((button) => button.textContent === "Connect"),
+  ).toBe(false);
+});
+
 it("asks for a reconnect when the grant lapsed", async () => {
   const container = await render(
     <DeploymentApps
@@ -178,7 +262,7 @@ it("asks for a reconnect when the grant lapsed", async () => {
       servers={[server({ oauthStatus: "reconnect" })]}
       pending={null}
       error={null}
-      onConnect={vi.fn()}
+      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );
@@ -193,7 +277,7 @@ it("says why connecting failed", async () => {
       servers={[]}
       pending={null}
       error="Could not connect"
-      onConnect={vi.fn()}
+      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );

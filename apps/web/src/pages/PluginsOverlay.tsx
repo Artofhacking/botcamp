@@ -7,7 +7,11 @@ import type {
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
 } from "@rakazo/contracts";
-import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@rakazo/contracts";
+import {
+  CONNECTION_LABEL_MAX_LENGTH,
+  MailboxSaveInput,
+  PluginPreviewSchema,
+} from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
@@ -15,7 +19,6 @@ import {
   catalogItemAccounts,
   catalogItemKey,
   connectCatalogItem,
-  deriveMcpSlug,
   filterConnectionCatalogItems,
   humanizeToolName,
   installedPluginParts,
@@ -55,6 +58,7 @@ import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/rea
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MailboxConnectInput } from "../components/integrations/deployment-apps";
 import { DeploymentApps } from "../components/integrations/deployment-apps";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import type {
@@ -76,11 +80,10 @@ import {
   useOwnSpaces,
 } from "../components/integrations/space-availability";
 import { connectedAppMarks } from "../lib/connected-apps";
-import { connectMcpOauth } from "../lib/mcp-connect";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
-import type { DeploymentApp, DeploymentAppScope } from "../lib/ui-flags";
+import type { DeploymentApp } from "../lib/ui-flags";
 import { offeredApps } from "../lib/ui-flags";
 import { errorText } from "../lib/user-error";
 
@@ -188,6 +191,11 @@ export function PluginsOverlay({
   const mcpQuery = useQuery(mcpOptions);
   const mcpServers = mcpQuery.data ?? [];
   const mcpError = mcpQuery.error ? errorText(mcpQuery.error, t`Could not load MCP servers`) : null;
+  const mailboxQuery = useQuery({
+    ...queries.mailbox.get.queryOptions(),
+    enabled: pinnedApps,
+  });
+  const mailbox = mailboxQuery.data;
   async function loadIntegrations() {
     // The catalog call reconciles connection rows, so list them after it settles.
     const catalog = rpc.connections.catalog({});
@@ -288,35 +296,27 @@ export function PluginsOverlay({
     return mcpServers.find((server) => !server.installId && server.endpoint === app.endpoint);
   }
 
-  async function connectDeploymentApp(app: DeploymentApp, scope: DeploymentAppScope | undefined) {
+  async function saveDeploymentApp(_app: DeploymentApp, input: MailboxConnectInput) {
     setAppError(null);
-    setAppPending(app.endpoint);
-    try {
-      const server =
-        appServer(app) ??
-        (await rpc.mcp.servers.create({
-          slug: deriveMcpSlug(app.name),
-          name: app.name,
-          transport: "streamable_http",
-          endpoint: app.endpoint,
-        }));
-      // A cancelled popup leaves the app as it was; anything else re-reads its state.
-      if ((await connectMcpOauth(server.id, scope?.scope)) !== "cancelled") await refresh();
-    } catch (err) {
-      setAppError(errorText(err, t`Could not connect`));
-    } finally {
-      setAppPending(null);
-    }
+    const saved = await rpc.mailbox.save(MailboxSaveInput.parse(input));
+    queryClient.setQueryData(queries.mailbox.get.queryKey(), saved);
   }
 
   async function disconnectDeploymentApp(app: DeploymentApp) {
     const server = appServer(app);
-    if (!server) return;
     setAppError(null);
     setAppPending(app.endpoint);
     try {
-      await rpc.mcp.servers.remove({ id: server.id });
-      await refresh();
+      await rpc.mailbox.remove();
+      queryClient.setQueryData(queries.mailbox.get.queryKey(), {
+        connected: false,
+        address: null,
+        scope: null,
+      });
+      if (server) {
+        await rpc.mcp.servers.remove({ id: server.id });
+        await refresh();
+      }
     } catch (err) {
       setAppError(errorText(err, t`Could not remove connector`));
     } finally {
@@ -1107,8 +1107,12 @@ export function PluginsOverlay({
         }
         servers={mcpServers}
         pending={appPending}
-        error={appError}
-        onConnect={(app, scope) => void connectDeploymentApp(app, scope)}
+        error={
+          appError ??
+          (mailboxQuery.error ? errorText(mailboxQuery.error, t`Could not load the mailbox`) : null)
+        }
+        linked={mailbox?.connected === true}
+        onSave={saveDeploymentApp}
         onDisconnect={(app) => void disconnectDeploymentApp(app)}
       />
     );
@@ -1620,7 +1624,7 @@ export function PluginsOverlay({
           </div>
         </DialogHeader>
 
-        {browsing ? (
+        {browsing && !pinnedApps ? (
           <div className="space-y-4 px-8 pt-4">
             <Input
               disabled={loading}

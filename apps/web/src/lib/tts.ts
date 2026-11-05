@@ -180,9 +180,11 @@ export class Speaker {
     try {
       const res = await withAbort(
         fetch(apiUrl("/api/voice/speak"), {
-        headers: authHeaders(),
           method: "POST",
-          headers: withSpaceHeaders({ "content-type": "application/json" }, spaceId),
+          headers: withSpaceHeaders(
+            authHeaders({ "content-type": "application/json" }),
+            spaceId,
+          ),
           credentials: "include",
           body: JSON.stringify({
             text,

@@ -1,13 +1,22 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { McpServer } from "@rakazo/contracts";
+import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE, mailboxAuthCode } from "@rakazo/contracts";
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
 } from "@rakazo/ui-web";
+import type { FormEvent } from "react";
+import { useId, useState } from "react";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
+import { errorText } from "../../lib/user-error";
 
 function AppIcon({ name }: { name: string }) {
   return (
@@ -17,17 +26,25 @@ function AppIcon({ name }: { name: string }) {
   );
 }
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type MailboxConnectInput = {
+  address: string;
+  authCode: string;
+  scope: string;
+};
+
 /**
- * The apps a deployment offers, one row each. Nothing else is listed here, so the row
- * carries its own connect and disconnect; the server row a connected app owns is the
- * one whose endpoint matches.
+ * The apps a deployment offers, one row each. Connecting asks for the mailbox
+ * authorization code and the permission, then tests that sign-in before saving it.
  */
 export function DeploymentApps({
   apps,
   servers,
   pending,
   error,
-  onConnect,
+  linked = false,
+  onSave,
   onDisconnect,
 }: {
   apps: readonly DeploymentApp[];
@@ -36,9 +53,63 @@ export function DeploymentApps({
   /** Endpoint of the app with a connect or disconnect in flight. */
   pending: string | null;
   error: string | null;
-  onConnect: (app: DeploymentApp, scope: DeploymentAppScope | undefined) => void;
+  /** The saved mailbox sign-in, which connects the offered app. */
+  linked?: boolean;
+  onSave: (app: DeploymentApp, input: MailboxConnectInput) => Promise<void>;
   onDisconnect: (app: DeploymentApp) => void;
 }) {
+  const { t } = useLingui();
+  const emailId = useId();
+  const codeId = useId();
+  const permissionId = useId();
+  const [draft, setDraft] = useState<DeploymentApp | null>(null);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [scope, setScope] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function open(app: DeploymentApp) {
+    setDraft(app);
+    setEmail("");
+    setCode("");
+    setScope(app.scopes[0]?.scope ?? "");
+    setFormError(null);
+  }
+
+  function signInError(err: unknown): string {
+    const message = errorText(err, t`Could not sign in`);
+    if (message === MAILBOX_AUTH_REJECTED) return t`Authorization code was rejected`;
+    if (message === MAILBOX_UNREACHABLE) return t`Could not reach the mailbox`;
+    return message;
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!draft || saving) return;
+    const address = email.trim().toLowerCase();
+    const authCode = mailboxAuthCode(code);
+    if (!EMAIL.test(address) || address.length > 254) {
+      setFormError(t`Enter a valid email`);
+      return;
+    }
+    if (!authCode) {
+      setFormError(t`Enter the 16-character authorization code`);
+      return;
+    }
+    if (!scope) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      await onSave(draft, { address, authCode, scope });
+      setDraft(null);
+    } catch (err) {
+      setFormError(signInError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {error ? (
@@ -46,13 +117,13 @@ export function DeploymentApps({
           {error}
         </p>
       ) : null}
-      <div data-testid="deployment-apps" className="grid grid-cols-2 gap-2">
+      <div data-testid="deployment-apps" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {apps.map((app) => {
           const server = servers.find(
             (entry) => !entry.installId && entry.endpoint === app.endpoint,
           );
-          const connected = server?.oauthStatus === "connected";
-          const expiring = server?.oauthStatus === "reconnect";
+          const connected = linked || server?.oauthStatus === "connected";
+          const expiring = !connected && server?.oauthStatus === "reconnect";
           const busy = pending === app.endpoint;
           return (
             <div
@@ -78,29 +149,8 @@ export function DeploymentApps({
                 >
                   <Trans>Disconnect</Trans>
                 </Button>
-              ) : app.scopes.length > 1 ? (
-                // The user picks what the app may do; each choice is its own grant.
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={<Button variant="secondary" size="sm" disabled={busy} />}
-                  >
-                    {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {app.scopes.map((option) => (
-                      <DropdownMenuItem key={option.scope} onClick={() => onConnect(app, option)}>
-                        {option.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => onConnect(app, app.scopes[0])}
-                >
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => open(app)}>
                   {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
                 </Button>
               )}
@@ -108,6 +158,87 @@ export function DeploymentApps({
           );
         })}
       </div>
+      <Dialog
+        open={draft !== null}
+        onOpenChange={(open) => {
+          if (!open && !saving) setDraft(null);
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={(event) => void submit(event)} className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>{draft?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Label htmlFor={emailId}>
+                <Trans>Mailbox</Trans>
+              </Label>
+              <Input
+                id={emailId}
+                type="email"
+                autoComplete="email"
+                autoFocus
+                required
+                disabled={saving}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={codeId}>
+                <Trans>Authorization code</Trans>
+              </Label>
+              <Input
+                id={codeId}
+                type="password"
+                autoComplete="off"
+                required
+                disabled={saving}
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+              />
+            </div>
+            {draft && draft.scopes.length > 0 ? (
+              <div className="grid gap-2">
+                <p id={permissionId} className="text-sm font-medium text-muted-foreground">
+                  <Trans>Permission</Trans>
+                </p>
+                <RadioGroup
+                  aria-labelledby={permissionId}
+                  value={scope}
+                  disabled={saving}
+                  onValueChange={(value) => setScope(value)}
+                >
+                  {draft.scopes.map((option) => (
+                    <ScopeChoice key={option.scope} option={option} />
+                  ))}
+                </RadioGroup>
+              </div>
+            ) : null}
+            {formError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button type="submit" disabled={saving || !email.trim() || !code.trim() || !scope}>
+                {saving ? <Trans>Testing…</Trans> : <Trans>Test and save</Trans>}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function ScopeChoice({ option }: { option: DeploymentAppScope }) {
+  return (
+    // The radio is the control inside the label.
+    // biome-ignore lint/a11y/noLabelWithoutControl: the wrapped RadioGroupItem is the control.
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
+      <RadioGroupItem value={option.scope} />
+      <span className="text-sm text-foreground">{option.label}</span>
+    </label>
   );
 }

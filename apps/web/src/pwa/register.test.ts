@@ -19,7 +19,7 @@ describe("registerServiceWorker", () => {
     expect(register).not.toHaveBeenCalled();
     target.dispatchEvent(new Event("load"));
     // The worker is registered for the deployment's base path, not just its file.
-    expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/" });
+    expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/", updateViaCache: "none" });
   });
 
   it("stays off in dev and inside Electron", () => {

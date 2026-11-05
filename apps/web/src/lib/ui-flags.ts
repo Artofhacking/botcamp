@@ -91,7 +91,7 @@ export function deploymentApps(): readonly DeploymentApp[] {
  */
 export const BUILTIN_APPS: readonly DeploymentApp[] = [
   {
-    name: "邮箱",
+    name: "QQ邮箱",
     endpoint: "https://api.mail.qq.com/mcp",
     scopes: [
       { label: "只读", scope: "alias:read mail:read" },

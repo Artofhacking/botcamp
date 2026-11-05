@@ -7166,3 +7166,31 @@ msgstr "你的语音提供方拒绝了该密钥。"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr ""
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Mailbox"
+msgstr "邮箱"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Permission"
+msgstr "权限"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Test and save"
+msgstr "测试并保存"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Authorization code was rejected"
+msgstr "授权码不正确"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Could not reach the mailbox"
+msgstr "连不上邮箱"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "Enter the 16-character authorization code"
+msgstr "请输入 16 位授权码"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Could not load the mailbox"
+msgstr "无法读取邮箱连接"

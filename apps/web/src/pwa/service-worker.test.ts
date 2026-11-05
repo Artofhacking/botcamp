@@ -24,7 +24,7 @@ class FakeCache {
 
 let network: (request: Request) => Promise<Response>;
 
-function setup(options: { precache?: string[]; windows?: number } = {}) {
+function setup(options: { precache?: string[]; windows?: number; base?: string } = {}) {
   const stores = new Map<string, FakeCache>();
   const listeners = new Map<string, (event: unknown) => void>();
   const waiting = new EventTarget() as EventTarget & { postMessage: ReturnType<typeof vi.fn> };
@@ -40,7 +40,10 @@ function setup(options: { precache?: string[]; windows?: number } = {}) {
   const scope = {
     location: { origin: ORIGIN },
     caches: caches as unknown as CacheStorage,
-    clients: { matchAll: async () => Array.from({ length: options.windows ?? 1 }) },
+    clients: {
+      matchAll: async () => Array.from({ length: options.windows ?? 1 }),
+      claim: vi.fn(async () => undefined),
+    },
     registration: { waiting: null as typeof waiting | null },
     skipWaiting: vi.fn(async () => undefined),
     fetch: (request: Request) => network(request),
@@ -48,7 +51,12 @@ function setup(options: { precache?: string[]; windows?: number } = {}) {
       listeners.set(type, listener);
     },
   };
-  installServiceWorker(scope as unknown as ServiceWorkerScope, options.precache ?? ["/"], CACHE);
+  installServiceWorker(
+    scope as unknown as ServiceWorkerScope,
+    options.precache ?? ["/"],
+    CACHE,
+    options.base,
+  );
 
   async function dispatch(type: string, extra: object) {
     const pending: Promise<unknown>[] = [];
@@ -117,6 +125,58 @@ describe("service worker", () => {
     network = async () => new Response("next deploy");
     expect(await (await sw.fetch("/", "navigate"))!.text()).toBe("next deploy");
     expect(await (await sw.fetch("/t/1", "navigate"))!.text()).toBe("next deploy");
+  });
+
+  it("takes over as soon as the shell is precached", async () => {
+    network = async () => new Response("shell");
+    const sw = setup({ precache: ["/"] });
+    await sw.dispatch("install", {});
+    expect(sw.scope.skipWaiting).toHaveBeenCalledOnce();
+  });
+
+  it("loads a fresh entry document for an online subpath navigation", async () => {
+    network = async (request) => new Response(`cached ${new URL(request.url).pathname}`);
+    const sw = setup({ precache: ["/console/"], base: "/console/" });
+    await sw.dispatch("install", {});
+    network = async (request) => new Response(`fresh ${new URL(request.url).pathname}`);
+    expect(await (await sw.fetch("/console/app/1", "navigate"))!.text()).toBe("fresh /console/");
+    expect(await (await sw.fetch("/console/", "navigate"))!.text()).toBe("fresh /console/");
+  });
+
+  it("serves the cached shell when a subpath navigation cannot reach the entry", async () => {
+    network = async (request) => new Response(`cached ${new URL(request.url).pathname}`);
+    const sw = setup({ precache: ["/console/"], base: "/console/" });
+    await sw.dispatch("install", {});
+    network = async () => {
+      throw new TypeError("offline");
+    };
+    expect(await (await sw.fetch("/console/app/1", "navigate"))!.text()).toBe("cached /console/");
+    network = async () => new Response("missing", { status: 404 });
+    expect(await (await sw.fetch("/console/app/1", "navigate"))!.text()).toBe("cached /console/");
+  });
+
+  it("reloads open windows when a newer shell takes over", async () => {
+    network = async () => new Response("ok");
+    const sw = setup();
+    await sw.scope.caches.open("rakazo-shell-20261022100000");
+    const navigate = vi.fn(async () => undefined);
+    sw.scope.clients.matchAll = (async () => [
+      { url: `${ORIGIN}/console/app/1`, navigate },
+    ]) as typeof sw.scope.clients.matchAll;
+    await sw.dispatch("activate", {});
+    expect(sw.scope.clients.claim).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith(`${ORIGIN}/console/app/1`);
+  });
+
+  it("leaves the first open window alone when nothing older is cached", async () => {
+    network = async () => new Response("ok");
+    const sw = setup();
+    const navigate = vi.fn(async () => undefined);
+    sw.scope.clients.matchAll = (async () => [
+      { url: `${ORIGIN}/`, navigate },
+    ]) as typeof sw.scope.clients.matchAll;
+    await sw.dispatch("activate", {});
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("caches lazy assets as they load, but not an HTML fallback", async () => {

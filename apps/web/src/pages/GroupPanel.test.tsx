@@ -107,6 +107,7 @@ function fakeBot(id: string, name: string): Bot {
     webhookConfigured: false,
     fleetManagement: false,
     spawnKey: null,
+    computerTier: "small",
   };
 }
 

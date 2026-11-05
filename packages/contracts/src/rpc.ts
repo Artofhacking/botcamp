@@ -158,6 +158,7 @@ import {
   IntegrationProviderConfigSchema,
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
+import { MailboxSaveInput, MailboxStatusSchema } from "./mailbox.js";
 import { ModelHeadersSchema } from "./model-headers.js";
 import { ModelRoleSchema, ModelRoleUpdateSchema, ModelRoleViewSchema } from "./model-roles.js";
 import {
@@ -1105,6 +1106,11 @@ export const appContract = {
         .output(z.object({ ok: z.literal(true) })),
       disconnect: oc.input(z.object({ serverId: Id })).output(z.object({ ok: z.literal(true) })),
     },
+  },
+  mailbox: {
+    get: oc.output(MailboxStatusSchema),
+    save: oc.input(MailboxSaveInput).output(MailboxStatusSchema),
+    remove: oc.output(z.object({ ok: z.literal(true) })),
   },
   onboarding: {
     /** Record the optional signup survey; an empty submission marks it skipped. */

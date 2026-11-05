@@ -15,7 +15,11 @@ export function registerServiceWorker(
       // The worker is built next to the app, so a subpath deployment registers its own copy
       // instead of asking the site root for one that does not exist.
       const worker = `${import.meta.env.BASE_URL}sw.js`.replace(/\/{2,}/g, "/");
-      target.navigator.serviceWorker.register(worker, { scope: import.meta.env.BASE_URL }).catch(() => undefined);
+      // "none" rechecks the worker script with the network. The host marks sw.js
+      // immutable for a year, which would otherwise keep the previous worker.
+      target.navigator.serviceWorker
+        .register(worker, { scope: import.meta.env.BASE_URL, updateViaCache: "none" })
+        .catch(() => undefined);
     },
     { once: true },
   );

@@ -51,8 +51,7 @@ export function AccountDataSettings({
     try {
       const response = await fetch(apiUrl("/api/account/import"), {
         method: "POST",
-        headers: authHeaders(),
-        headers: { "content-type": "application/zip" },
+        headers: authHeaders({ "content-type": "application/zip" }),
         credentials: "include",
         body: file,
       });
