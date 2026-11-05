@@ -6,6 +6,7 @@ import {
   CannotDeleteLastSpaceError,
   CannotDeleteSpaceAsNonOwnerError,
   CannotRenameSpaceAsNonOwnerError,
+  InvalidSpaceNameError,
   createExternalConversationRepos,
   IsolationError,
   recordAuditEvent,
