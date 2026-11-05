@@ -5,8 +5,13 @@
 <script>
   // This host returns this page for a path that is not a file. A console
   // route has to live in the hash, or a reload of /console/app/<id> stays here.
+  // Shipped desktop builds open the site origin, which is this page.
   (function () {
     var path = location.pathname.replace(/\/+$/, "") || "/";
+    if (path === "/" && navigator.userAgent.indexOf("Electron") !== -1) {
+      location.replace("/console/" + location.search + location.hash);
+      return;
+    }
     if (path === "/mcp/oauth/callback" || path === "/console/mcp/oauth/callback") {
       location.replace("/console/#/mcp/oauth/callback" + location.search);
       return;
@@ -474,7 +479,7 @@
     <div class="release">
       <strong>Windows</strong>
       <p>未签名安装包。SmartScreen 提示时选「仍要运行」。</p>
-      <a class="btn btn-primary btn-sm" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-Setup-0.6.0.exe">下载 <span id="windows-version">0.6.0</span></a>
+      <a class="btn btn-primary btn-sm" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-Setup-0.7.1.exe">下载 <span id="windows-version">0.7.1</span></a>
     </div>
     <div class="release">
       <strong>iOS</strong>
@@ -496,7 +501,7 @@
 <script>
   const ANDROID_VERSION = "2.1.2";
   const MAC_VERSION = "0.7.1";
-  const WINDOWS_VERSION = "0.6.0";
+  const WINDOWS_VERSION = "0.7.1";
   const API = "https://botcamp.aigc.sx.cn";
   const accountNode = document.getElementById("account");
   const accountCtaNode = document.getElementById("account-cta");
