@@ -16,22 +16,32 @@ on:
         default: ""
 
 jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - id: targets
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          set -euo pipefail
+          mac='{"os":"macos-14","target":"--mac","arch":"--arm64","artifact":"botcamp-macos","platform":"mac"}'
+          windows='{"os":"windows-latest","target":"--win","arch":"--x64","artifact":"botcamp-windows","platform":"windows"}'
+          case "$PLATFORM" in
+            mac) matrix="[$mac]" ;;
+            windows) matrix="[$windows]" ;;
+            "") matrix="[$mac,$windows]" ;;
+            *) echo "platform must be mac, windows, or empty" >&2; exit 1 ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: select
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-14
-            target: --mac
-            arch: --arm64
-            artifact: botcamp-macos
-            platform: mac
-          - os: windows-latest
-            target: --win
-            arch: --x64
-            artifact: botcamp-windows
-            platform: windows
-    if: inputs.platform == '' || inputs.platform == matrix.platform
+        include: ${{ fromJson(needs.select.outputs.targets) }}
     runs-on: ${{ matrix.os }}
     env:
       # 没有证书：让 electron-builder 直接出未签名包，别去找钥匙串里的身份。
