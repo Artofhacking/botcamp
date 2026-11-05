@@ -86,7 +86,11 @@ window.__RAKAZO_UI__ = { hiddenSections: ["models", "computer", "billing", "voic
 
 ## 未完成（按顺序）
 
-1. **部署默认模型通道不通（只影响没有个人 key 的账号）**：
+1. ~~部署默认模型通道不通~~ **已修（2026-11-05）**：nginx 加了 `/v1/` 网关
+   （`set $relay_expected` 校验 Bearer，无 key 返回 403），`PI_COMPATIBLE_BASE_URL` 改成
+   `https://botcamp.aigc.sx.cn/v1`，重启 api+worker。所有没有个人连接的账号统一走这个口。
+   下面保留当时的排查记录：
+   
    owner 账号 23:23 的 run 是 `completed`（首字 5.5s），走的是它自己的模型连接；
    而 `quota-test` 这类只有部署默认的账号回落到 3199 中转会 `run.failure=TransientModelError
    reason=Connection error.`。nginx 3199 访问日志里**没有任何来自应用的请求**，
