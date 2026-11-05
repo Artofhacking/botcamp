@@ -3,9 +3,10 @@
 The shared editable source and export notes are in
 [`packages/ui-tokens/assets`](../../../packages/ui-tokens/assets/README.md).
 
-Mac packaging requires Xcode 26 or newer. Electron builder compiles `BotCamp.icon`
-into `Assets.car` for Tahoe and generates `icon.icns` for older macOS versions.
-`icon-macos.png` is the matching development export with Dock margins.
+Packaged Mac builds take `icon.png`. macOS masks that to the Dock squircle.
+`icon-macos.png` is the same mark already clipped, with the Dock margin, because an
+unpackaged launch draws the file as-is.
 
-`icon.png` and `icon.ico` are matching orange exports for Linux and Windows.
-Refresh them with `pnpm --filter @rakazo/ui-tokens export:brand`.
+`icon.png` is the product mark for Linux and for unpackaged Windows. `icon.ico` is that
+same mark at the sizes Windows uses for the installer, the exe, shortcuts, and the taskbar.
+Refresh `icon.ico` and `icon-macos.png` with `pnpm --filter @rakazo/ui-tokens export:brand`.

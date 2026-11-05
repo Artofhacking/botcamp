@@ -1,12 +1,12 @@
 # App icon source
 
-`BotCamp.icon` is the editable source for the macOS and Windows app icons. Open it in Apple's
-Icon Composer with Xcode 26 or newer. The orange foreground keeps its original lighting, sits
-90 points below center, and uses the system dark background.
+`BotCamp.icon` is the older macOS Icon Composer source. Open it in Apple's Icon Composer
+with Xcode 26 or newer. The orange foreground keeps its original lighting, sits 90 points
+below center, and uses the system dark background. It is not the Windows or Linux icon.
 
-macOS packaging compiles the source into a Tahoe asset catalog and generates the legacy ICNS
-fallback. Run `pnpm --filter @rakazo/ui-tokens export:brand` to refresh the web favicons and
-the Windows/Linux icons.
+The product mark is `apps/desktop/assets/icon.png`. Run
+`pnpm --filter @rakazo/ui-tokens export:brand` to rebuild `icon.ico` and the
+unpackaged Mac Dock icon from that file.
 
 ## Animated vector avatars
 

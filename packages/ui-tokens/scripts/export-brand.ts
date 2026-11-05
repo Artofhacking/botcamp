@@ -1,38 +1,13 @@
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { darkTokens } from "../src/index.ts";
 
 const root = new URL("../../../", import.meta.url);
 const path = (name: string) => fileURLToPath(new URL(name, root));
-const source = path("packages/ui-tokens/assets/BotCamp.icon/Assets/orange-bot.png");
 
-// Match the Icon Composer portrait: the character sits 90 points below center.
-const portrait = await sharp(source).resize(1024, 1024).png().toBuffer();
-async function framed(background: string) {
-  return sharp({ create: { width: 1024, height: 1114, channels: 4, background } })
-    .composite([{ input: portrait, top: 90, left: 0 }])
-    .extract({ left: 0, top: 0, width: 1024, height: 1024 })
-    .png()
-    .toBuffer();
-}
-const mask = Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" rx="200" fill="white"/></svg>',
-);
-async function roundedCorners(input: Buffer) {
-  return sharp(input)
-    .composite([{ input: mask, blend: "dest-in" }])
-    .png()
-    .toBuffer();
-}
-const square = await framed(darkTokens.background);
-const rounded = await roundedCorners(square);
-
-async function png(input: Buffer, name: string, size: number) {
-  await sharp(input).resize(size, size).png().toFile(path(name));
-}
-
-// PNG frames in ICO are supported by modern Windows and browser favicon loaders.
+// The product mark is apps/desktop/assets/icon.png. Packaged Windows does not
+// read that PNG: the installer, the exe, shortcuts, and the taskbar use icon.ico.
+// PNG frames are what current Windows and this repo already ship.
 async function ico(input: Buffer, name: string, sizes: number[]) {
   const frames = await Promise.all(sizes.map((size) => sharp(input).resize(size).png().toBuffer()));
   const header = Buffer.alloc(6 + frames.length * 16);
@@ -51,15 +26,32 @@ async function ico(input: Buffer, name: string, sizes: number[]) {
   await writeFile(path(name), Buffer.concat([header, ...frames]));
 }
 
-for (const app of ["web"]) {
-  const publicDir = `apps/${app}/public`;
-  await png(rounded, `${publicDir}/favicon-16x16.png`, 16);
-  await png(rounded, `${publicDir}/favicon-32x32.png`, 32);
-  await png(rounded, `${publicDir}/favicon.png`, 128);
-  await png(square, `${publicDir}/apple-touch-icon.png`, 180);
-  await png(square, `${publicDir}/icon-192.png`, 192);
-  await png(square, `${publicDir}/icon-512.png`, 512);
-  await ico(rounded, `${publicDir}/favicon.ico`, [16, 32, 48]);
+const desktopIcon = await sharp(path("apps/desktop/assets/icon.png")).resize(1024, 1024).png().toBuffer();
+await ico(desktopIcon, "apps/desktop/assets/icon.ico", [16, 32, 48, 64, 128, 256]);
+
+// Unpackaged Mac draws this file as-is. The squircle matches the old Dock
+// footprint: 1024 canvas, 100px margin, superellipse n=4.5.
+function dockSquircle() {
+  const cx = 512;
+  const radius = 412;
+  const exponent = 2 / 4.5;
+  const steps = 256;
+  let d = "";
+  for (let i = 0; i < steps; i++) {
+    const t = (i / steps) * Math.PI * 2;
+    const ct = Math.cos(t);
+    const st = Math.sin(t);
+    const x = cx + radius * Math.sign(ct) * Math.abs(ct) ** exponent;
+    const y = cx + radius * Math.sign(st) * Math.abs(st) ** exponent;
+    d += `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><path d="${d}Z" fill="white"/></svg>`,
+  );
 }
-await png(square, "apps/desktop/assets/icon.png", 1024);
-await ico(rounded, "apps/desktop/assets/icon.ico", [16, 32, 48, 64, 128, 256]);
+
+await sharp(desktopIcon)
+  .ensureAlpha()
+  .composite([{ input: dockSquircle(), blend: "dest-in" }])
+  .png()
+  .toFile(path("apps/desktop/assets/icon-macos.png"));
