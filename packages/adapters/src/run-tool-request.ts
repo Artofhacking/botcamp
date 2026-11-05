@@ -333,12 +333,15 @@ export async function prepareToolRequest(
   if (fleetWrite || name === "list_fleet") {
     if (isSubagentToolExecution(executionId))
       return { error: "Helpers cannot use bot management tools." };
-    // The run-start snapshot is not enough: the primary bot can change mid-run.
+    // The run-start snapshot is not enough: the switch and the primary bot can change mid-run.
     const live = await deps.prisma.bot.findUnique({
       where: { id: bot.id },
-      select: { isPrimary: true },
+      select: { isPrimary: true, fleetManagement: true },
     });
-    if (!live?.isPrimary) {
+    if (live?.fleetManagement === false) {
+      return { error: "This tool is disabled for this bot." };
+    }
+    if (live?.isPrimary === false) {
       return { error: "只有主 bot 可以管理其他 bot。请让用户先把某个 bot 设为主 bot。" };
     }
     if (!ctx.source.ownerStartedRun)

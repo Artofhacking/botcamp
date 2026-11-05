@@ -29,6 +29,7 @@ import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { withNewestThreadMessages } from "./preview-messages.js";
 import { BotSectionNameConflictError, IsolationError } from "./scope.js";
+import { runAsSystemInTransaction } from "./row-security.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
 import {
   activeRunSelection,
@@ -621,11 +622,17 @@ export function createRepos(
             kind,
           });
           // The account's first bot carries the management duty, so a new account is never
-          // left without a primary bot.
-          const existingPrimary = await tx.bot.findFirst({
-            where: { userId: actor.userId, isPrimary: true },
-            select: { id: true },
-          });
+          // left without a primary bot. The unique index is per user, while this
+          // transaction can only see the current space, so the lookup has to cross spaces.
+          const existingPrimary = await runAsSystemInTransaction(
+            tx,
+            "the account's one primary bot",
+            () =>
+              tx.bot.findFirst({
+                where: { userId: actor.userId, isPrimary: true },
+                select: { id: true },
+              }),
+          );
           const created = await tx.bot.create({
             data: {
               id: avatar.id,

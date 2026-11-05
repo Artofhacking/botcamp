@@ -6,16 +6,28 @@ function allowedServerHeaderName(name: string): boolean {
   const lower = name.trim().toLowerCase();
   return (
     ![
+      "authorization",
+      "cookie",
+      "cookie2",
+      "host",
       "origin",
       "referer",
-      "cookie2",
       "set-cookie",
+      "connection",
+      "keep-alive",
+      "proxy-authorization",
+      "te",
+      "trailer",
+      "transfer-encoding",
+      "upgrade",
       "via",
       "forwarded",
       "x-forwarded-for",
       "x-forwarded-host",
       "x-forwarded-proto",
-    ].includes(lower) && !lower.startsWith("x-rakazo-")
+    ].includes(lower) &&
+    !lower.startsWith("x-rakazo-") &&
+    !lower.startsWith("x-botcamp-")
   );
 }
 

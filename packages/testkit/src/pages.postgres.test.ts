@@ -662,6 +662,7 @@ describePages("pages", () => {
       app.request(`${SHARED_PAGE_PATH_PREFIX}${new URL(url).pathname.slice(-43)}`);
     expect((await read(own.shareUrl)).status).toBe(200);
 
+    await rpc(app, cookie, "bots/update", { botId: partner.id, isPrimary: true });
     await rpc(app, cookie, "bots/remove", { botId: bot.id, deleteMemories: true });
     expect((await read(own.shareUrl)).status).toBe(404);
     expect(await db().page.count({ where: { id: own.pageId } })).toBe(0);

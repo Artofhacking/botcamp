@@ -1842,6 +1842,8 @@ describeJourneys("required product journeys", () => {
     const snap = await rpc<Snap>(app, cookie, "threads/get", { botId: parent.id });
     expect(JSON.stringify(snap.messages)).toMatch(/child_bot|Scout/);
 
+    // A spawned bot is not the primary, and only the primary bot can spawn another one.
+    await rpc(app, cookie, "bots/update", { botId: scout!.id, isPrimary: true });
     await sendAndWait(app, cookie, scout!.id, "spawn a bot named Nested");
     const afterNested = await rpc<Bot[]>(app, cookie, "bots/list");
     const nested = afterNested.find((bot) => bot.name === "Nested");
@@ -1853,6 +1855,7 @@ describeJourneys("required product journeys", () => {
       nested!.id,
       (s) => !s.run || ["completed", "failed", "cancelled"].includes(s.run.status),
     );
+    await rpc(app, cookie, "bots/update", { botId: parent.id, isPrimary: true });
 
     await sendAndWait(app, cookie, parent.id, "delete the bot named Nested");
     expect((await rpc<Bot[]>(app, cookie, "bots/list")).some((bot) => bot.id === nested!.id)).toBe(
@@ -1868,9 +1871,7 @@ describeJourneys("required product journeys", () => {
     const afterScout = await rpc<Bot[]>(app, cookie, "bots/list");
     expect(afterScout.some((bot) => bot.id === scout!.id)).toBe(false);
     expect(afterScout.some((bot) => bot.id === nested!.id)).toBe(false);
-
-    await rpc(app, cookie, "bots/remove", { botId: parent.id });
-    expect((await rpc<Bot[]>(app, cookie, "bots/list")).map((bot) => bot.name)).toEqual([]);
+    expect(afterScout.map((bot) => bot.name)).toEqual(["Chief"]);
   });
 
   it("duplicating a bot uses the new-bot management default", async () => {
@@ -2593,6 +2594,7 @@ describeJourneys("required product journeys", () => {
       groupId: group.id,
       botIds: remainingGroupBotIds,
     });
+    await rpc(app, ada, "bots/update", { botId: remainingGroupBotIds[0]!, isPrimary: true });
     await rpc(app, ada, "bots/remove", { botId: artifactOwnerId, deleteMemories: true });
     expect(await prisma.artifact.findUniqueOrThrow({ where: { id: artifact.id } })).toMatchObject({
       botId: null,
@@ -3292,6 +3294,14 @@ describeJourneys("required product journeys", () => {
       where: { id: routine.id },
       data: { active: false, nextRunAt: null, lastRunAt: null },
     });
+    const keeper = await rpc<Bot>(app, cookie, "bots/create", {
+      name: "Keeper",
+      title: "",
+      description: "",
+      instructions: "",
+      notifyOnFinish: true,
+    });
+    await rpc(app, cookie, "bots/update", { botId: keeper.id, isPrimary: true });
     await rpc(app, cookie, "bots/archive", { botId: bot.id });
     const whileArchived = await raw(app, cookie, "routines/update", {
       routineId: routine.id,
@@ -3333,12 +3343,14 @@ describeJourneys("required product journeys", () => {
       botId: bot.id,
       text: "create a space named Customer support",
     });
-    const done = await waitFor(
-      app,
-      cookie,
-      bot.id,
-      (snap) => snap.run?.id === sent.runId && snap.run.status === "completed",
-    );
+    const done = await waitFor(app, cookie, bot.id, (snap) => {
+      if (snap.run?.id === sent.runId && snap.run.status === "completed") return true;
+      // The snapshot drops a finished run, so the reply can be the only sign it ended.
+      return (
+        snap.run == null &&
+        snap.messages.some((message) => message.runId === sent.runId && message.role === "bot")
+      );
+    });
     const transcript = JSON.stringify(done.messages);
     expect(transcript).not.toContain("Create space");
     expect(await prisma.spaceMember.count({ where: { userId: me.userId } })).toBe(
@@ -4149,6 +4161,7 @@ type Snap = {
   messages: Array<{
     id: string;
     seq: number;
+    role?: string;
     runId?: string | null;
     blocks: Array<{
       kind?: string;

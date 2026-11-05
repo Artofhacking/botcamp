@@ -155,6 +155,8 @@ async function executorHarness(server: ReturnType<typeof statefulMcpServer>) {
   });
   const events: AppendEventInput[] = [];
   const prisma = {
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     user: { findUnique: vi.fn(async () => null) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -183,6 +185,7 @@ async function executorHarness(server: ReturnType<typeof statefulMcpServer>) {
       findMany: vi.fn(async () => []),
     },
     attempt: {
+      findMany: vi.fn(async () => []),
       count: vi.fn(async () => 0),
       create: vi.fn(async () => ({ id: "attempt-1" })),
       update: vi.fn(),

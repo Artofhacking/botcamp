@@ -46,7 +46,11 @@ describe("createBackgroundJobHandlers", () => {
       executor: {
         continueRun: vi.fn(async () => undefined),
       } as unknown as ReturnType<typeof createRunExecutor>,
-      prisma: { run: owned() } as unknown as PrismaClient,
+      prisma: {
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
+      run: owned() } as unknown as PrismaClient,
       sandbox: {} as unknown as SandboxProvider,
       home: {} as unknown as AgentHomeStore,
       artifacts: {} as unknown as ArtifactStore,
@@ -77,7 +81,11 @@ describe("createBackgroundJobHandlers", () => {
   });
 
   it("compacts the requested thread with the runtime, job publisher, and model key it was given", async () => {
-    const prisma = { thread: owned() } as unknown as PrismaClient;
+    const prisma = {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
+    thread: owned() } as unknown as PrismaClient;
     const runtime = {} as unknown as AgentRuntime;
     const jobs = {} as unknown as JobPublisher;
     const secretStore = {} as unknown as EncryptedSecretStore;
@@ -125,11 +133,19 @@ describe("createBackgroundJobHandlers", () => {
       const handlers = createBackgroundJobHandlers({
         executor:
           contextStrategy === undefined
-            ? createRunExecutor({ prisma: {} as PrismaClient } as Parameters<
+            ? createRunExecutor({ prisma: {
+                user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+                usageRecord: { aggregate: async () => ({ _sum: {} }) },
+                containerUsage: { aggregate: async () => ({ _sum: {} }) },
+              } as unknown as PrismaClient } as Parameters<
                 typeof createRunExecutor
               >[0])
             : ({ contextStrategy } as ReturnType<typeof createRunExecutor>),
-        prisma: { thread: owned() } as unknown as PrismaClient,
+        prisma: {
+        user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+        usageRecord: { aggregate: async () => ({ _sum: {} }) },
+        containerUsage: { aggregate: async () => ({ _sum: {} }) },
+        thread: owned() } as unknown as PrismaClient,
         sandbox: {} as unknown as SandboxProvider,
         home: {} as unknown as AgentHomeStore,
         artifacts: {} as unknown as ArtifactStore,
@@ -156,7 +172,11 @@ describe("createBackgroundJobHandlers", () => {
     const lookups = { findUnique: vi.fn(async () => owner) };
     const handlers = createBackgroundJobHandlers({
       executor: { continueRun } as unknown as ReturnType<typeof createRunExecutor>,
-      prisma: { run: lookups } as unknown as PrismaClient,
+      prisma: {
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
+      run: lookups } as unknown as PrismaClient,
       sandbox: {} as unknown as SandboxProvider,
       home: {} as unknown as AgentHomeStore,
       artifacts: {} as unknown as ArtifactStore,
@@ -193,7 +213,11 @@ describe("createBackgroundJobHandlers", () => {
     const enqueue = vi.fn(async () => undefined);
     const handlers = createBackgroundJobHandlers({
       executor: {} as unknown as ReturnType<typeof createRunExecutor>,
-      prisma: { computer: owned() } as unknown as PrismaClient,
+      prisma: {
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
+      computer: owned() } as unknown as PrismaClient,
       sandbox: {} as unknown as SandboxProvider,
       home: {} as unknown as AgentHomeStore,
       artifacts: {} as unknown as ArtifactStore,
@@ -220,6 +244,9 @@ describe("createBackgroundJobHandlers", () => {
 
   it("resolves the deployment model when no user credential is configured", async () => {
     const prisma = {
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
       userModelPreference: { findFirst: vi.fn(async () => null) },
       spaceSettingOverride: { findUnique: vi.fn(async () => null) },
       userModelRoleChoice: { findMany: vi.fn(async () => []) },
@@ -246,6 +273,9 @@ describe("createBackgroundJobHandlers", () => {
 
   it("preserves a configured local model when resolving background compaction", async () => {
     const prisma = {
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
       userModelPreference: { findFirst: vi.fn(async () => null) },
       spaceSettingOverride: { findUnique: vi.fn(async () => null) },
       userModelRoleChoice: { findMany: vi.fn(async () => []) },
@@ -278,7 +308,10 @@ it("retries retired messaging credentials without deleting a currently reference
   const remove = vi.fn(async () => undefined);
   const findUnique = vi.fn(async () => ({ ciphertext: "active-ref" }));
   const handlers = createBackgroundJobHandlers({
-    prisma: { messagingInstallation: { findUnique } },
+    prisma: {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) }, messagingInstallation: { findUnique } },
     secretStore: { delete: remove },
   } as unknown as Parameters<typeof createBackgroundJobHandlers>[0]);
   await handlers["messaging.credential-cleanup"]({

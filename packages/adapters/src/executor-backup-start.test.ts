@@ -129,6 +129,8 @@ async function runTurn({
   });
   const prisma = withModelRoles(
     {
+      usageRecord: { aggregate: async () => ({ _sum: {} }) },
+      containerUsage: { aggregate: async () => ({ _sum: {} }) },
       $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
       user: { findUnique: vi.fn(async () => null) },
       run: {
@@ -161,6 +163,7 @@ async function runTurn({
         findMany: vi.fn(async () => []),
       },
       attempt: {
+        findMany: vi.fn(async () => []),
         create: vi.fn(async () => ({ id: "attempt-1" })),
         update: vi.fn(),
         updateMany: vi.fn(async () => ({ count: 1 })),

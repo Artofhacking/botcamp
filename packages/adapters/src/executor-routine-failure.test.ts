@@ -92,6 +92,8 @@ async function failRun(scenario: Scenario) {
     throw scenario.error;
   });
   const prisma = {
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     user: { findUnique: vi.fn(async () => null) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -149,6 +151,7 @@ async function failRun(scenario: Scenario) {
       findMany: vi.fn(async () => []),
     },
     attempt: {
+      findMany: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "attempt-1" })),
       update: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -629,6 +632,8 @@ function retryHarness(scenario: RetryScenario = {}) {
     },
   };
   const prisma = {
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     user: { findUnique: vi.fn(async () => null) },
     run: {
       findUnique: vi.fn(async () => failed),

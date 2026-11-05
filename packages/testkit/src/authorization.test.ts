@@ -13,6 +13,7 @@ import {
   claimSpaceDeletionForMember,
   createSpaceForMember,
   deleteClaimedSpaceForMember,
+  recordAuditEvent,
   listClaimedSpaceComputers,
   pushSessionExpiresAt,
   releaseSpaceDeletionClaim,
@@ -517,6 +518,16 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["mcp/oauth/begin"],
       ["mcp/oauth/complete"],
       ["mcp/oauth/disconnect"],
+      ["mailbox/get"],
+      [
+        "mailbox/save",
+        {
+          address: "bot@example.com",
+          authCode: "abcdefghijklmnop",
+          scope: "alias:read mail:read",
+        },
+      ],
+      ["mailbox/remove"],
       ["onboarding/signupSurvey"],
       ["onboarding/start"],
       ["onboarding/promptFocus"],
@@ -2343,6 +2354,12 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const outsider = await signup(app, `audit-outsider-${stamp}@rakazo.test`, "Audit Outsider");
     const account = await rpc<Actor>(app, owner, "me");
     const space = await createFixtureSpace(owner, "Client A");
+    await recordAuditEvent({
+      action: "space.created",
+      actor: { type: "user", id: account.userId },
+      spaceId: space.id,
+      target: { type: "space", id: space.id, label: space.name },
+    });
     await rpc(app, owner, "spaces/remove", { spaceId: space.id });
 
     type Page = { events: Array<{ action: string; spaceName: string | null }> };

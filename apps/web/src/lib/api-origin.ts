@@ -15,7 +15,9 @@ export function apiOrigin(): string {
   if (typeof injected === "string" && injected.trim()) {
     return injected.trim().replace(/\/+$/, "");
   }
-  return window.location.origin;
+  // A test or embedded frame can expose window without a location. The app then uses the
+  // same loopback default as a non-browser run.
+  return window.location?.origin || "http://127.0.0.1:5173";
 }
 
 /** An absolute URL for an API path such as `/api/auth/capabilities`. */

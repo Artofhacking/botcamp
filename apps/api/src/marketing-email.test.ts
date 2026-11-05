@@ -83,7 +83,7 @@ describe("sendWelcomeEmail", () => {
     await sendWelcomeEmail(welcome, "user-1", new Headers({ "accept-language": "es-CL,es" }));
     await vi.waitFor(() => expect(email.sent).toHaveLength(1));
     expect(email.sent[0]!.subject).toBe("Te damos la bienvenida a BotCamp");
-    expect(email.sent[0]!.text).toMatch(/Windows \S+ y Linux/);
+    expect(email.sent[0]!.text).toContain("¿Quieres usarlo en tus propios servidores?");
   });
 
   it("sends nothing when another sign-in already claimed the welcome", async () => {

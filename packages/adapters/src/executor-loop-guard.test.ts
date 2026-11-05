@@ -130,6 +130,7 @@ async function runLoop(
     findMany: async () => [],
     findFirst: async () => null,
     findUnique: async () => null,
+    aggregate: async () => ({ _sum: {} }),
     count: async () => 0,
     updateMany: async () => ({ count: 0 }),
     createMany: async () => ({ count: 0 }),
@@ -172,6 +173,9 @@ async function runLoop(
     },
   };
   const prisma = {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     externalEffect,
     $transaction: async (work: unknown): Promise<unknown> =>
       typeof work === "function" ? work(proxied) : Promise.all(work as unknown[]),

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiUrl } from "./api-origin";
 import {
   combineTranscript,
   Dictation,
@@ -197,7 +198,7 @@ describe("Dictation recorder fallback", () => {
     await vi.waitFor(() => expect(onFinal).toHaveBeenCalledWith("hello"));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/voice/transcribe",
+      apiUrl("/api/voice/transcribe"),
       expect.objectContaining({ credentials: "include" }),
     );
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
@@ -240,7 +241,7 @@ describe("Dictation recorder fallback", () => {
     await vi.waitFor(() => expect(onFinal).toHaveBeenCalledWith("hola, una prueba"));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/voice/transcribe",
+      apiUrl("/api/voice/transcribe"),
       expect.objectContaining({ credentials: "include" }),
     );
   });
@@ -294,7 +295,7 @@ describe("Dictation recorder fallback", () => {
     await vi.waitFor(() => expect(onFinal).toHaveBeenCalledWith("hola otra vez"));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/voice/transcribe",
+      apiUrl("/api/voice/transcribe"),
       expect.objectContaining({ credentials: "include" }),
     );
     expect(track.stop).toHaveBeenCalled();
@@ -620,7 +621,7 @@ describe("Dictation recorder fallback", () => {
     expect(stopped).toHaveBeenCalledOnce();
     expect(track.stop).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      "/api/voice/transcribe",
+      apiUrl("/api/voice/transcribe"),
       expect.objectContaining({ method: "POST" }),
     );
     await vi.advanceTimersByTimeAsync(1_200);
@@ -1300,7 +1301,7 @@ describe("Dictation web speech", () => {
     dictation.submitHold();
     await vi.waitFor(() => expect(onFinal).toHaveBeenCalledWith("from fish"));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/voice/transcribe",
+      apiUrl("/api/voice/transcribe"),
       expect.objectContaining({ method: "POST" }),
     );
   });

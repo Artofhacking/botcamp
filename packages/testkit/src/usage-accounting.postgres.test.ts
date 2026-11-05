@@ -143,6 +143,15 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         notifyOnFinish: false,
       });
       await discardBotIntroRun(handles, cookie, bot.id);
+      const keeper = await rpc<{ id: string }>("bots/create", {
+        name: "Keeper",
+        title: "",
+        description: "",
+        instructions: "",
+        notifyOnFinish: false,
+      });
+      await discardBotIntroRun(handles, cookie, keeper.id);
+      await rpc("bots/update", { botId: keeper.id, isPrimary: true });
       await rpc("bots/update", {
         botId: bot.id,
         modelProvider: model.model.provider,

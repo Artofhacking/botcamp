@@ -1,5 +1,6 @@
 import { MAX_VOICE_AUDIO_BYTES, VOICE_RESPONSE_TIMEOUT_MS } from "@rakazo/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { apiUrl } from "./api-origin.js";
 import { Speaker } from "./tts.js";
 
 afterEach(() => {
@@ -112,7 +113,7 @@ describe("Speaker", () => {
     await speaker.speak("Hello.", { messageId: "m1", spaceId });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/voice/speak",
+      apiUrl("/api/voice/speak"),
       expect.objectContaining({ credentials: "include" }),
     );
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);

@@ -5,6 +5,7 @@ import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { apiUrl } from "../lib/api-origin";
 
 const accountToken = vi.hoisted(() => vi.fn());
 
@@ -140,12 +141,17 @@ it("uploads the chosen archive and refreshes spaces", async () => {
 
   await chooseFile(file);
 
-  expect(fetchMock).toHaveBeenCalledWith("/api/account/import", {
-    method: "POST",
-    headers: { "content-type": "application/zip" },
-    credentials: "include",
-    body: file,
-  });
+  expect(fetchMock).toHaveBeenCalledWith(
+    apiUrl("/api/account/import"),
+    expect.objectContaining({
+      method: "POST",
+      credentials: "include",
+      body: file,
+    }),
+  );
+  expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("content-type")).toBe(
+    "application/zip",
+  );
   expect(onImported).toHaveBeenCalledTimes(1);
   expect(container.querySelector('[data-testid="success"]')).not.toBeNull();
   expect(container.querySelector('[role="alert"]')).toBeNull();

@@ -54,6 +54,8 @@ async function teamChatRun(input: {
     leaseFence: 0,
   };
   const prisma = {
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     $queryRaw: vi.fn(async () => []),
     user: { findUnique: vi.fn(async () => null) },
     run: {

@@ -37,7 +37,11 @@ function executorFixture(
     leaseFence: 0,
   };
   const prisma = {
-    user: { findUnique: vi.fn<() => Promise<{ timezone: string } | null>>(async () => null) },
+    user: {
+      findUnique: vi.fn<
+        (args?: { select?: object }) => Promise<Record<string, unknown> | null>
+      >(async () => null),
+    },
     run: {
       findUnique: async () => run,
       findUniqueOrThrow: async () => run,
@@ -59,6 +63,7 @@ function executorFixture(
       findMany: async () => [],
     },
     attempt: {
+      findMany: vi.fn(async () => []),
       create: async () => ({ id: "attempt" }),
       update: vi.fn(),
       updateMany: async () => ({ count: 1 }),
@@ -89,7 +94,11 @@ function executorFixture(
     userActionApprovalRule: { findMany: async () => [] },
     userActionAutoReviewPreference: { findUnique: async () => ({ enabled: false }) },
     externalEffect: { findMany: async () => [] },
-    usageRecord: { createMany: async () => ({ count: 1 }) },
+    usageRecord: {
+      createMany: async () => ({ count: 1 }),
+      aggregate: async () => ({ _sum: {} }),
+    },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     modelCreditEntry: { findUnique: async () => null },
     $transaction: async (work: (tx: unknown) => Promise<unknown>) => work(prisma),
   };
@@ -156,11 +165,15 @@ describe("Parallel through the ordinary bot caller", () => {
       },
     } as unknown as AgentRuntime;
     const fixture = executorFixture(runtime);
-    if (state === "failure") {
-      fixture.prisma.user.findUnique.mockRejectedValueOnce(new Error("lookup unavailable"));
-    } else if (state === "saved") {
-      fixture.prisma.user.findUnique.mockResolvedValueOnce({ timezone: "Pacific/Auckland" });
-    }
+    // Quota reads the same user row before the optional timezone lookup.
+    fixture.prisma.user.findUnique.mockImplementation(async (args?: { select?: object }) => {
+      if (!args?.select || !("timezone" in args.select)) {
+        return { quotaAnchorAt: null, weeklyCreditQuota: null };
+      }
+      if (state === "failure") throw new Error("lookup unavailable");
+      if (state === "saved") return { timezone: "Pacific/Auckland" };
+      return null;
+    });
     await fixture.execute();
     expect(prompt).toContain(state === "saved" ? "(Pacific/Auckland)" : "Current date and time:");
     expect(prompt).toContain("(UTC)");

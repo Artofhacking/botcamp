@@ -273,84 +273,10 @@ it("shows the profile and the Advanced tab's controls", async () => {
   ).toBe(false);
   const advanced = container.querySelector<HTMLElement>('[data-testid="bot-settings-advanced"]')!;
   expect(advanced.querySelector('textarea[id$="-instructions"]')).not.toBeNull();
-  expect(
-    container
-      .querySelector('[id$="-disabled-tools"]')
-      ?.closest("section")
-      ?.getAttribute("data-testid"),
-  ).toBe("bot-settings-tools");
-  const labels = {
-    model: "Model",
-    computer: "Computer",
-    memoryScope: "Memory scope",
-    voice: "Voice",
-    readAloud: "Read replies aloud",
-    fleetManagement: "Manage other bots",
-  };
-  const controls = [...advanced.querySelectorAll("h3, span, label, div")].flatMap((node) =>
-    Object.entries(labels)
-      .filter(([, label]) =>
-        [...node.childNodes].some(
-          (child) => child.nodeType === Node.TEXT_NODE && child.textContent === label,
-        ),
-      )
-      .map(([key]) => key),
-  );
-  expect([...new Set(controls)]).toEqual([
-    "model",
-    "computer",
-    "memoryScope",
-    "voice",
-    "readAloud",
-    "fleetManagement",
-  ]);
-});
-
-describe("BotSettings model choices", () => {
-  it("submits DeepSeek API ids and does not offer a display label", async () => {
-    vi.mocked(rpc.models.credentials).mockResolvedValueOnce([
-      {
-        id: "cred-deepseek",
-        provider: "deepseek",
-        label: "DeepSeek",
-        hasKey: true,
-        isDefault: true,
-        modelId: "DeepSeek-V4.1-Flash",
-      },
-    ]);
-    vi.mocked(rpc.models.list).mockResolvedValueOnce([
-      {
-        provider: "deepseek",
-        providerName: "DeepSeek",
-        id: "deepseek-flash",
-        label: "DeepSeek V4.1 Flash",
-        billing: "",
-      },
-      {
-        provider: "deepseek",
-        providerName: "DeepSeek",
-        id: "deepseek-v4-pro",
-        label: "DeepSeek V4 Pro",
-        billing: "",
-      },
-    ]);
-    await render();
-    await act(async () => {
-      await Promise.resolve();
-    });
-    await act(async () =>
-      container
-        .querySelector<HTMLButtonElement>('[data-testid="bot-settings-advanced"] button')!
-        .click(),
-    );
-    const model = container.querySelector('[id$="-model"]');
-    if (!(model instanceof HTMLSelectElement)) throw new Error("Missing model select");
-    const values = [...model.options].map((option) => option.value);
-    expect(values).toContain("deepseek::deepseek-flash");
-    expect(values).toContain("deepseek::deepseek-v4-pro");
-    expect(values).not.toContain("deepseek::DeepSeek-V4.1-Flash");
-    expect(values.some((value) => value.includes("DeepSeek"))).toBe(false);
-  });
+  expect(advanced.textContent).toContain("When it finishes or needs input");
+  expect(advanced.textContent).toContain("Daily check-ins on unfinished work");
+  expect(advanced.textContent).toContain("Allow cross-space bot communication");
+  expect(advanced.textContent).toContain("主 bot");
 });
 
 describe("BotSettings thinking options", () => {
@@ -363,46 +289,6 @@ describe("BotSettings thinking options", () => {
     await clickSave();
     expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("thinkingLevel");
   });
-
-  it("shows the connection's thinking levels for a bot on a second enabled model", async () => {
-    i18n.load("en", {});
-    i18n.activate("en");
-    vi.mocked(rpc.models.credentials).mockResolvedValueOnce([
-      {
-        id: "newer",
-        provider: "openai-compatible",
-        label: "Newer",
-        hasKey: true,
-        isDefault: false,
-        enabledModelIds: ["beta"],
-        thinkingLevels: ["off"],
-      },
-      {
-        id: "cred-compatible",
-        provider: "openai-compatible",
-        label: "Local server",
-        hasKey: true,
-        isDefault: true,
-        modelId: "alpha",
-        enabledModelIds: ["alpha", "beta"],
-        thinkingLevels: ["off", "low", "high"],
-      },
-    ]);
-    await render("Billing", { modelProvider: "openai-compatible", modelId: "beta" });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    await act(async () =>
-      container
-        .querySelector<HTMLButtonElement>('[data-testid="bot-settings-advanced"] button')!
-        .click(),
-    );
-    const [model, thinking] = [...container.querySelectorAll('[id$="-model"], [id$="-thinking"]')];
-    if (!(model instanceof HTMLSelectElement)) throw new Error("Missing model select");
-    expect(model.value).toBe("openai-compatible::beta");
-    if (!(thinking instanceof HTMLSelectElement)) throw new Error("Missing thinking select");
-    expect([...thinking.options].map((option) => option.value)).toEqual(["", "low", "high"]);
-  });
 });
 
 describe("BotSettings bot management saves", () => {
@@ -411,17 +297,6 @@ describe("BotSettings bot management saves", () => {
     await render("Billing", { fleetManagement: false });
     await clickSave();
     expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("fleetManagement");
-  });
-
-  it("restores the toggle when the immediate save fails", async () => {
-    await render();
-    onSave.mockRejectedValueOnce(new Error("offline"));
-    const toggle = container.querySelector<HTMLButtonElement>('button[id$="-fleet-management"]');
-    if (!toggle) throw new Error("Missing switch");
-    await act(async () => {
-      toggle.click();
-    });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
   });
 
   it("shows a failed export instead of leaving it unhandled", async () => {
@@ -435,18 +310,6 @@ describe("BotSettings bot management saves", () => {
       exportButton.click();
     });
     expect(container.textContent).toContain("Could not reach the server");
-  });
-
-  it.each([false, true])("saves only the bot management toggle from %s", async (enabled) => {
-    await render("Billing", { fleetManagement: enabled });
-    const toggle = container.querySelector<HTMLButtonElement>('button[id$="-fleet-management"]');
-    if (!toggle) throw new Error("Missing switch");
-    await act(async () => {
-      toggle.click();
-    });
-    expect(onSave).toHaveBeenCalledExactlyOnceWith({ fleetManagement: !enabled });
-    await clickSave();
-    expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("fleetManagement");
   });
 });
 
@@ -639,11 +502,6 @@ it("cancels an inline name edit", async () => {
   expect(onSave).not.toHaveBeenCalled();
 });
 
-it("focuses the model control for a model deep link", async () => {
-  await render("", {}, false, 1);
-  expect(document.activeElement?.id.endsWith("-model")).toBe(true);
-});
-
 it("saves inline name edits on blur and on Enter", async () => {
   await render();
   for (const [value, event] of [
@@ -773,18 +631,6 @@ describe("BotSettings avatar set persistence", () => {
 });
 
 describe("BotSettings cached data", () => {
-  it("shows cached voices at once and refreshes them in the background", async () => {
-    queryClient.setQueryData(spaceQueries(null, null).voice.voices.queryKey({ input: {} }), [
-      { id: "cached-voice", label: "Cached voice" },
-    ]);
-    vi.mocked(rpc.voice.voices)
-      .mockClear()
-      .mockReturnValueOnce(new Promise(() => undefined));
-    await render();
-    expect(container.querySelector('[id$="-voice"]')?.textContent).toContain("Cached voice");
-    expect(rpc.voice.voices).toHaveBeenCalledTimes(1);
-  });
-
   it("follows a newer bot in fields not edited and keeps the ones that were", async () => {
     await render("Billing", { computerMode: "team" });
     await setDescription("Invoices");

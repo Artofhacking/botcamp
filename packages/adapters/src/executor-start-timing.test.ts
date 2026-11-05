@@ -52,6 +52,9 @@ function fixture(
     startedAt: options.startedAt ?? null,
   };
   const prisma = {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => ({ ...run, status: "leased" })),

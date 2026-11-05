@@ -267,10 +267,10 @@ it("edits the memory of the space the app is showing, even after another space's
 const updatesNav = (container: HTMLElement) =>
   container.querySelector('[data-testid="settings-nav-updates"]');
 
-it("hides server updates and never requests server authority", async () => {
+it("shows updates on the web without asking the server until that section opens", async () => {
   const { container, cleanup } = await render({});
   try {
-    expect(updatesNav(container)).toBeNull();
+    expect(updatesNav(container)).not.toBeNull();
     expect(updaterStatus).not.toHaveBeenCalled();
   } finally {
     await cleanup();

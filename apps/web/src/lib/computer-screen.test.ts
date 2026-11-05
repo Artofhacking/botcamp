@@ -143,7 +143,9 @@ describe("embeddableScreenUrl", () => {
   });
 
   it("serves the screen proxy from the page origin", () => {
-    vi.stubGlobal("window", { location: { href: "http://localhost:5173/chat" } });
+    vi.stubGlobal("window", {
+      location: { href: "http://localhost:5173/chat", origin: "http://localhost:5173" },
+    });
     expect(embeddableScreenUrl("http://127.0.0.1:5173/novnc/session/view/1.x/vnc.html?a=1")).toBe(
       "http://localhost:5173/novnc/session/view/1.x/vnc.html?a=1",
     );

@@ -133,6 +133,8 @@ async function runTurn(
   const savedEvents: AppendEventInput[] = [];
   let failMessage = options.failMessageOnce;
   const prisma = {
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     user: { findUnique: vi.fn(async () => null) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -160,6 +162,7 @@ async function runTurn(
       findMany: vi.fn(async () => []),
     },
     attempt: {
+      findMany: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "attempt-1" })),
       update: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -505,6 +508,9 @@ describe("held-back narration on peer requests", () => {
       };
       const reconciler = createJobReconciler({
         prisma: {
+          user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+          usageRecord: { aggregate: async () => ({ _sum: {} }) },
+          containerUsage: { aggregate: async () => ({ _sum: {} }) },
           run: {
             findMany: vi.fn(async ({ where }: { where: { trigger?: string } }) =>
               where.trigger === "bot_message" ? [terminalRun] : [],

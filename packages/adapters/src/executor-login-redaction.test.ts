@@ -95,6 +95,9 @@ async function runAfterFill(
     yield { type: "done" as const, text: reply };
   });
   const prisma = {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     $transaction: vi.fn(async (write: (tx: unknown) => unknown) => write(prisma)),
     $queryRaw: vi.fn(async () => []),
     run: {
@@ -128,6 +131,7 @@ async function runAfterFill(
       findMany: vi.fn(async () => []),
     },
     attempt: {
+      findMany: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "attempt-1" })),
       update: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -293,6 +297,7 @@ function withEmptyModels<T extends object>(prisma: T): T {
     findMany: async () => [],
     findFirst: async () => null,
     findUnique: async () => null,
+    aggregate: async () => ({ _sum: {} }),
     count: async () => 0,
     updateMany: async () => ({ count: 0 }),
   };

@@ -12,6 +12,7 @@ vi.mock("./preload-recovery", async (load) => ({
   recoveringByReload: () => recovery.reloading,
 }));
 
+import { apiUrl } from "./api-origin";
 import { reportCaughtReactError, startMonitoring } from "./monitoring";
 
 function respond(body: unknown, status = 200) {
@@ -99,7 +100,10 @@ describe("browser monitoring", () => {
     const signedInConfig = respond({ dsn: "https://key@errors.example.com/8", userId: PSEUDONYM });
 
     await fresh.identifyMonitoringUser(true, signedInConfig);
-    expect(signedInConfig).toHaveBeenCalledWith("/api/monitoring/config");
+    expect(signedInConfig).toHaveBeenCalledWith(
+      apiUrl("/api/monitoring/config"),
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
     expect(beforeSend({ user: { id: "raw-user", email: "ada@example.com" } })).toEqual({
       user: { id: PSEUDONYM, ip_address: null },
     });
@@ -202,7 +206,10 @@ describe("browser monitoring", () => {
       tunnel: "/api/monitoring/tunnel",
     });
     expect(await startMonitoring(fetchImpl)).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/monitoring/config");
+    expect(fetchImpl).toHaveBeenCalledWith(
+      apiUrl("/api/monitoring/config"),
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
     const options = sentry.init.mock.calls[0]![0];
     expect(options).toMatchObject({
       dsn: "https://key@errors.example.com/8",

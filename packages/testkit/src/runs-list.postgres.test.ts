@@ -113,6 +113,7 @@ describeRunsList("runs.list activity tracker", () => {
       instructions: "",
       notifyOnFinish: true,
     });
+    await rpc(app, cookie, "bots/update", { botId: visibleBot.id, isPrimary: true });
     await rpc(app, cookie, "bots/archive", { botId: archivedBot.id });
     const olderVisibleAt = new Date(Date.now() - 86_400_000);
     for (let i = 0; i < 21; i += 1) {

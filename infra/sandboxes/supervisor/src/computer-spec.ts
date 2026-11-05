@@ -48,6 +48,7 @@ export const COMPUTER_IMAGE_CONTEXT_FILES = [
   "fluxbox.apps",
   "fluxbox.menu",
   "rakazo-local-bin.sh",
+  "90-cjk-fallback.conf",
 ] as const;
 
 /**

@@ -72,6 +72,7 @@ function fixture(
     findMany: async () => [],
     findFirst: async () => null,
     findUnique: async () => null,
+    aggregate: async () => ({ _sum: {} }),
     count: async () => 0,
     updateMany: async () => ({ count: 0 }),
   };
@@ -128,7 +129,10 @@ function fixture(
         create: async ({ data }: { data: object }) => ({ id: "fixture-message", ...data }),
       },
       event: { ...empty, create: async ({ data }: { data: object }) => ({ seq: 1, ...data }) },
-      usageRecord: { createMany: async () => ({ count: 1 }) },
+      usageRecord: {
+        createMany: async () => ({ count: 1 }),
+        aggregate: async () => ({ _sum: {} }),
+      },
       run: {
         findUnique: async () => ({ ...run }),
         findUniqueOrThrow: async () => ({ ...run }),

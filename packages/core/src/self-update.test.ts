@@ -73,7 +73,7 @@ describe("repoIdentity", () => {
     expect(repoIdentity("https://github.com/artofhacking/botcamp")).toBe(identity);
     expect(repoIdentity("https://github.com/artofhacking/botcamp.git")).toBe(identity);
     expect(repoIdentity("git@github.com:artofhacking/botcamp.git")).toBe(identity);
-    expect(repoIdentity("ssh://git@github.com/Elie222/BotCamp")).toBe(identity);
+    expect(repoIdentity("ssh://git@github.com/Elie222/BotCamp")).toBe("github.com/elie222/botcamp");
     expect(repoIdentity("not a url")).toBeNull();
   });
 

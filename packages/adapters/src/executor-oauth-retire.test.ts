@@ -92,6 +92,9 @@ function oauthPrisma() {
     },
   };
   const prisma = {
+    user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: null }) },
+    usageRecord: { aggregate: async () => ({ _sum: {} }) },
+    containerUsage: { aggregate: async () => ({ _sum: {} }) },
     $transaction: vi.fn(async (callback: (txArg: typeof tx) => Promise<unknown>) => callback(tx)),
     userModelCredential: {
       findMany: vi.fn(async () => [...state.credentials]),

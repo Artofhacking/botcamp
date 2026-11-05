@@ -69,6 +69,13 @@ const NOT_PASSED: Record<string, string> = {
   KUBERNETES_SANDBOX_POD_LABELS: KUBERNETES_SANDBOX,
   KUBERNETES_SANDBOX_READY_TIMEOUT_MS: KUBERNETES_SANDBOX,
   KUBERNETES_SANDBOX_RUNTIME_CLASS_NAME: KUBERNETES_SANDBOX,
+  KUBERNETES_SANDBOX_NFS_HOME_PATH: KUBERNETES_SANDBOX,
+  KUBERNETES_SANDBOX_NFS_HOME_SERVER: KUBERNETES_SANDBOX,
+  K8S_API: "sampler CLI for a Kubernetes cluster; Compose does not run it",
+  K8S_CA: "sampler CLI for a Kubernetes cluster; Compose does not run it",
+  K8S_CERT: "sampler CLI for a Kubernetes cluster; Compose does not run it",
+  K8S_KEY: "sampler CLI for a Kubernetes cluster; Compose does not run it",
+  SAMPLE_INTERVAL_SECONDS: "sampler CLI for a Kubernetes cluster; Compose does not run it",
 };
 
 /**

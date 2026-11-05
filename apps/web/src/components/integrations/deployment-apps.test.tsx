@@ -10,8 +10,11 @@ import { DeploymentApps } from "./deployment-apps";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const { translate } = vi.hoisted(() => ({
-  translate: (value: { message?: string } | string) =>
-    typeof value === "string" ? value : (value.message ?? ""),
+  translate: (value: { message?: string } | string | TemplateStringsArray, ...parts: unknown[]) => {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return String.raw({ raw: value }, ...(parts as string[]));
+    return (value as { message?: string }).message ?? "";
+  },
 }));
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children, message }: { children?: ReactNode; message?: string }) =>

@@ -201,8 +201,17 @@ export function createAgentDesktopHostScreen(options: AgentDesktopHostScreenOpti
     }
   }
 
+  function isOwnAppQuery(query: string) {
+    const wanted = query.trim().toLowerCase().replace(/\.exe$/, "");
+    return wanted === "botcamp" || wanted === "rakazo";
+  }
+
   async function target(query: string, signal: AbortSignal): Promise<Target> {
     const windows = await listWindows(query, signal);
+    // The desktop used to be named rakazo. Driving that window is still driving this app.
+    if (isOwnAppQuery(query) && windows.some((window) => window.pid === options.selfPid)) {
+      throw new HostScreenError("BotCamp can't use its own window.");
+    }
     let matching = named(windows, query);
     if (!matching.length) {
       // Windows launches only programs it can find by bare name, like notepad.

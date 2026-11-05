@@ -8,6 +8,16 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
+vi.mock("../lib/weekly-quota.js", () => ({
+  fetchWeeklyQuota: async () => ({
+    plan: "week",
+    percent: 40,
+    coreHoursPercent: 10,
+    resetsAt: "2026-11-11T13:27:00.000Z",
+  }),
+  resetLabel: () => "Nov 11",
+}));
+
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
     t: (strings: TemplateStringsArray) => strings.join(""),
@@ -201,58 +211,22 @@ it("keeps the password form closed until asked and closes it after a change", as
   }
 });
 
-it("shows usage totals and a per-model breakdown", async () => {
+it("shows the weekly allowance", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   const root = createRoot(container);
   try {
-    await act(async () =>
-      root.render(
-        <UsageSettingsPanel
-          usage={{
-            runs: 2,
-            inputTokens: 1200,
-            outputTokens: 34,
-            totalTokens: 1234,
-            costUsd: 0.5,
-            modelCalls: 3,
-            models: [
-              {
-                provider: "openai",
-                model: "model-a",
-                modelCalls: 2,
-                inputTokens: 1000,
-                outputTokens: 30,
-                totalTokens: 1030,
-                costUsd: 0.5,
-              },
-              {
-                provider: "local",
-                model: "model-b",
-                modelCalls: 1,
-                inputTokens: 200,
-                outputTokens: 4,
-                totalTokens: 204,
-                costUsd: null,
-              },
-            ],
-          }}
-        />,
-      ),
-    );
-    expect([...container.querySelectorAll("dd")].map((node) => node.textContent)).toEqual([
-      "2",
-      "1,234",
-      "$0.50",
-    ]);
-    expect(
-      [...container.querySelectorAll("tbody tr")].map((row) =>
-        [...row.querySelectorAll("td")].map((cell) => cell.textContent),
-      ),
-    ).toEqual([
-      ["model-aopenai", "2", "1,000", "30", "$0.50"],
-      ["model-blocal", "1", "200", "4", "—"],
-    ]);
+    await act(async () => {
+      root.render(<UsageSettingsPanel />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("周额度");
+    expect(container.textContent).toContain("40%");
+    expect(container.textContent).toContain("大容器时长");
+    expect(container.textContent).toContain("10%");
+    expect(container.textContent).toContain("Nov 11");
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();

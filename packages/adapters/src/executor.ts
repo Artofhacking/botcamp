@@ -1251,10 +1251,12 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const pageBrowserAllowed =
           graphical && browser.describe().capabilities.page && !heldForTakeover;
         const disabledBuiltinTools = disabledBuiltinToolSet(bot.disabledBuiltinTools);
-        // Managing the other bots is the primary bot's duty. The others are not offered
-        // those tools, so they neither see them nor their instructions.
-        const primaryBot = (bot as { isPrimary?: boolean }).isPrimary === true;
-        if (!primaryBot) {
+        // Managing the other bots is the primary bot's duty, and the fleet switch can turn
+        // those tools off. A missing isPrimary does not count as "not primary".
+        const primaryBot = (bot as { isPrimary?: boolean }).isPrimary;
+        const fleetSwitch = (bot as { fleetManagement?: boolean }).fleetManagement !== false;
+        const managesBots = fleetSwitch && primaryBot !== false;
+        if (!managesBots) {
           for (const name of BOT_MANAGEMENT_TOOL_NAMES) disabledBuiltinTools.add(name);
         }
         const userComputerOwnerId = userComputerOwner({
@@ -1296,7 +1298,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             messagingChannelRun: nonOwnerChatRun,
             voiceCall,
             disabledBuiltinTools: bot.disabledBuiltinTools,
-            fleetManagement: primaryBot,
+            fleetManagement: managesBots,
             followUpFromUser: sourceMessage?.role === "user",
             userComputer: userComputer === "connected",
             userComputerScreen,

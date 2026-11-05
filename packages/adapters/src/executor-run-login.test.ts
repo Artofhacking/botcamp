@@ -34,6 +34,7 @@ function recordingPrisma(models: Record<string, Record<string, unknown>>, calls:
     findMany: async () => [],
     findFirst: async () => null,
     findUnique: async () => null,
+    aggregate: async () => ({ _sum: {} }),
     count: async () => 0,
     updateMany: async () => ({ count: 0 }),
   };
@@ -168,6 +169,7 @@ async function runTool(
         findMany: async () => [],
       },
       attempt: {
+        findMany: async () => [],
         create: async () => ({ id: "attempt-1" }),
         updateMany: async () => ({ count: 1 }),
       },
