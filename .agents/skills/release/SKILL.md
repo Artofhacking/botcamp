@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a Rakazo release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag it once merged. Use when asked to cut, prepare, or ship a release or a new version.
+description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag it once merged. Use when asked to cut, prepare, or ship a release or a new version.
 ---
 
 # Release
@@ -39,4 +39,4 @@ sha="$(gh pr view <release PR> --json mergeCommit -q .mergeCommit.oid)"
 git fetch origin main && git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
 ```
 
-The tag runs `release-desktop` (desktop builds, GitHub release text from the changelog section followed by the merged PR list) and publishes the server images. The workflow refuses a tag without a matching changelog section.
+The tag records the release. Build the desktop installers separately with the `desktop-unsigned` workflow.

@@ -6,10 +6,10 @@ import path from "node:path";
 import type { HostScreen } from "@rakazo/adapters/host-screen";
 import { startUserDeviceClient } from "@rakazo/adapters/user-device-client";
 import type {
+  BotCampDesktopDevice,
   DesktopMenuCommand,
   DesktopReachability,
   DesktopSetup,
-  RakazoDesktopDevice,
 } from "@rakazo/contracts";
 import { parseServerHeaders } from "@rakazo/contracts";
 import type { Session } from "electron";
@@ -84,15 +84,17 @@ import { revealSecondInstanceWindow, secondInstanceWindow } from "./second-insta
 import { installServerHeaders } from "./server-request-headers.js";
 import { installSessionPermissions } from "./session-permissions.js";
 import {
+  BOTCAMP_CLOUD_API_URL,
+  BOTCAMP_CLOUD_PAGE_URL,
+  BOTCAMP_CLOUD_URL,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
-  isRakazoHealth,
+  isBotCampHealth,
   managedLocalOpenUrl,
   maySendDesktopStackToken,
   normalizeServerUrl,
   parseSetupInput,
   probeFailureMessage,
-  RAKAZO_CLOUD_URL,
   readProbeJson,
   resolveStartupTarget,
   safeExternalUrl,
@@ -686,7 +688,7 @@ async function runMenuUpdateCheck() {
       : dialog.showMessageBox(options);
   if (state.phase === "ready") {
     const { response } = await alert({
-      message: t("Rakazo {version} is ready to install.", {
+      message: t("BotCamp {version} is ready to install.", {
         version: state.availableVersion ?? "",
       }),
       buttons: [t("Restart"), t("Later")],
@@ -712,7 +714,7 @@ async function runMenuUpdateCheck() {
     });
   } else if (state.phase === "idle") {
     await alert({
-      message: t("Rakazo is up to date."),
+      message: t("BotCamp is up to date."),
       detail: t("Version {version}", { version: state.currentVersion }),
     });
   }
@@ -758,7 +760,7 @@ function installApplicationMenu() {
   };
   const changeServer: Electron.MenuItemConstructorOptions = {
     id: "change-rakazo-server",
-    label: t("Change Rakazo Server…"),
+    label: t("Change BotCamp Server…"),
     accelerator: "CmdOrCtrl+Shift+K",
     click: () => showSetupWindow(),
   };
@@ -924,7 +926,7 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-/** Setup IPC must only answer the setup window, never a connected Rakazo server. */
+/** Setup IPC must only answer the setup window, never a connected BotCamp server. */
 function fromSetupWindow(event: Pick<Electron.IpcMainInvokeEvent, "sender">) {
   return (
     setupWindow !== null && !setupWindow.isDestroyed() && event.sender === setupWindow.webContents
@@ -935,13 +937,16 @@ async function probeServer(
   rawUrl: string,
   signal?: AbortSignal,
   headers: Record<string, string> = {},
+  apiUrl?: string,
 ): Promise<DesktopReachability> {
   const url = normalizeServerUrl(rawUrl);
   if (url === null) return { ok: false, error: t("Enter a valid http:// or https:// address.") };
+  const api = apiUrl === undefined ? url : normalizeServerUrl(apiUrl);
+  if (api === null) return { ok: false, error: t("Enter a valid http:// or https:// address.") };
   const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS);
 
   try {
-    const response = await net.fetch(`${url}/rpc/health`, {
+    const response = await net.fetch(`${api}/rpc/health`, {
       method: "POST",
       headers: { ...headers, "content-type": "application/json" },
       body: JSON.stringify({ json: {} }),
@@ -955,7 +960,7 @@ async function probeServer(
         ok: false,
         status: response.status,
         url,
-        error: t("That address redirects elsewhere. Enter the final Rakazo server address."),
+        error: t("That address redirects elsewhere. Enter the final BotCamp server address."),
       };
     }
     if (!response.ok) {
@@ -967,12 +972,12 @@ async function probeServer(
       };
     }
     const health = await readProbeJson(response);
-    if (!isRakazoHealth(health)) {
+    if (!isBotCampHealth(health)) {
       return {
         ok: false,
         status: response.status,
         url,
-        error: t("That address did not respond like a Rakazo server."),
+        error: t("That address did not respond like a BotCamp server."),
       };
     }
     return {
@@ -1066,7 +1071,8 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
   const target = await resolveSessionForTarget(targetUrl);
   configureHeaderSession(target.value);
   // A failed switch must leave telemetry with the window that remains selected.
-  if (mainWindow === null) activateDesktopMonitoring(targetUrl, target.value);
+  if (mainWindow === null)
+    activateDesktopMonitoring(currentSetup?.apiUrl ?? targetUrl, target.value);
   const previous = mainWindow;
   let win: BrowserWindow | null = null;
   try {
@@ -1096,7 +1102,7 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
       );
     }
     currentTargetUrl = targetUrl;
-    activateDesktopMonitoring(targetUrl, target.value);
+    activateDesktopMonitoring(currentSetup?.apiUrl ?? targetUrl, target.value);
     setupError = null;
     // Keep the previous window until the caller commits (after setup.json is written).
     pendingPreviousWindow =
@@ -1209,7 +1215,10 @@ function abandonPendingAppSwitch(
     currentSetup = previousSetup;
     configureHeaderSession(mainWindow?.webContents.session);
     currentTargetUrl = previousUrl;
-    activateDesktopMonitoring(previousUrl ?? undefined, previous.webContents.session);
+    activateDesktopMonitoring(
+      previousSetup?.apiUrl ?? previousUrl ?? undefined,
+      previous.webContents.session,
+    );
     syncHostComputerAccess();
     // If setup was already closed (e.g. during a slow write), make the restored
     // session visible — otherwise macOS can be left with no shown window.
@@ -1273,7 +1282,7 @@ async function recoverFromCrashedSave(
     currentTargetUrl = previousUrl;
     if (previousUrl) {
       const restored = await resolveSessionForTarget(previousUrl);
-      activateDesktopMonitoring(previousUrl, restored.value);
+      activateDesktopMonitoring(previousSetup?.apiUrl ?? previousUrl, restored.value);
     } else activateDesktopMonitoring(undefined);
   }
   const message =
@@ -1553,7 +1562,7 @@ app.whenReady().then(async () => {
       ? origin
       : null;
   };
-  const deviceState = async (origin: string | null): Promise<RakazoDesktopDevice | null> => {
+  const deviceState = async (origin: string | null): Promise<BotCampDesktopDevice | null> => {
     const state = origin === null ? null : userDevices?.state(origin);
     return state ? { ...state, name: await deviceName() } : null;
   };
@@ -1639,7 +1648,9 @@ app.whenReady().then(async () => {
     if (!fromSetupWindow(event)) return null;
     return {
       defaultLocalUrl: localStack.webUrl(),
-      cloudUrl: RAKAZO_CLOUD_URL,
+      cloudUrl: BOTCAMP_CLOUD_URL,
+      cloudApiUrl: BOTCAMP_CLOUD_API_URL,
+      cloudPageUrl: BOTCAMP_CLOUD_PAGE_URL,
       saved: currentSetup,
       error: setupError ?? undefined,
     };
@@ -1679,18 +1690,25 @@ app.whenReady().then(async () => {
         if (managedUrl === null || !(await localStack.matchesDesiredStack())) {
           return {
             ok: false,
-            error: t("The app-managed Rakazo services are not ready. Retry setup."),
+            error: t("The app-managed BotCamp services are not ready. Retry setup."),
           };
         }
         openSetup = { mode: "new", serverUrl: managedUrl };
       }
 
-      const reachability = await probeServer(openSetup.serverUrl, undefined, openSetup.headers);
+      const reachability = await probeServer(
+        openSetup.serverUrl,
+        undefined,
+        openSetup.headers,
+        openSetup.apiUrl,
+      );
       if (!reachability.ok) return { ok: false, error: reachability.error };
 
       // Open before persisting so a failed renderer load keeps the last working setup.
       currentSetup = openSetup;
-      const opened = await appOpener.open(openSetup.serverUrl, { switching: true });
+      const opened = await appOpener.open(openSetup.pageUrl ?? openSetup.serverUrl, {
+        switching: true,
+      });
       if (!opened) {
         currentSetup = previousSetup;
         configureHeaderSession(mainWindow?.webContents.session);
@@ -1799,7 +1817,12 @@ app.whenReady().then(async () => {
         showSetupWindow();
       }
     } else {
-      const reachability = await probeServer(target.url, undefined, currentSetup?.headers);
+      const reachability = await probeServer(
+        target.url,
+        undefined,
+        currentSetup?.headers,
+        currentSetup?.apiUrl,
+      );
       if (reachability.ok) {
         if (await appOpener.open(target.url)) {
           commitPendingAppSwitch();

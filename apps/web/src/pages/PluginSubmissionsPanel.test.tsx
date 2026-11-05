@@ -155,13 +155,13 @@ it("shows the page a claim is for", async () => {
     );
   });
   await vi.waitFor(() => {
-    if (!container.querySelector('a[href="https://rakazo.com/integrations/notes/"]'))
+    if (!container.querySelector('a[href="https://botcamp.demox.site/integrations/notes/"]'))
       throw new Error("Loading");
   });
   const row = container.querySelector('[data-testid="plugin-submission"]');
   const links = [...(row?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("href"));
   expect(links).toEqual([
-    "https://rakazo.com/integrations/notes/",
+    "https://botcamp.demox.site/integrations/notes/",
     submission.website,
     "mailto:owner@notes.example.test",
   ]);

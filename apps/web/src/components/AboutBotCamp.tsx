@@ -12,7 +12,9 @@ declare global {
 
 /** One release as the download page advertises it. */
 type Release = {
-  version: string;
+  version?: string;
+  androidVersion?: string;
+  desktopVersion?: string;
   android?: string;
   mac?: string;
   windows?: string;
@@ -99,8 +101,15 @@ export function AboutBotCamp() {
       const response = await fetch(`${apiOrigin()}/downloads/latest.json`, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as Release;
-      if (!data?.version) throw new Error("no version");
-      if (version && isNewer(data.version, version)) setRelease(data);
+      // Desktop and Android ship on separate version lines; older feeds only had `version`.
+      const latest =
+        platformId === "android"
+          ? (data.androidVersion ?? data.version)
+          : platformId === "mac" || platformId === "windows"
+            ? (data.desktopVersion ?? data.version)
+            : data.version;
+      if (!latest) throw new Error("no version");
+      if (version && isNewer(latest, version)) setRelease({ ...data, version: latest });
       else setUpToDate(true);
     } catch {
       setError("检查更新失败，请稍后再试");
@@ -110,10 +119,10 @@ export function AboutBotCamp() {
   }
 
   const downloadUrl = release
-    ? (release as unknown as Record<string, string | undefined>)[platformId] ??
+    ? ((release as unknown as Record<string, string | undefined>)[platformId] ??
       release.android ??
       release.mac ??
-      release.windows
+      release.windows)
     : undefined;
 
   return (
@@ -130,18 +139,14 @@ export function AboutBotCamp() {
         label={
           <div>
             <p>检查更新</p>
-            {upToDate ? (
-              <p className="text-[13px] text-muted-foreground">已是最新版本</p>
-            ) : null}
+            {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
             {error ? (
               <p role="alert" className="text-[13px] text-destructive">
                 {error}
               </p>
             ) : null}
             {release ? (
-              <p className="text-[13px] text-muted-foreground">
-                有新版本 {release.version}
-              </p>
+              <p className="text-[13px] text-muted-foreground">有新版本 {release.version}</p>
             ) : null}
           </div>
         }

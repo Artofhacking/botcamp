@@ -66,6 +66,9 @@ const exclusions = [
     kind: "directory",
   },
   { pattern: "(.*/)?([^/]*\\.log|core|core\\.[0-9]+)", kind: "file" },
+  // NFS silly-rename leftovers live until the last writer closes them; archiving one makes the
+  // next extract fail with "Cannot open: File exists".
+  { pattern: "(.*/)?\\.nfs[0-9a-fA-F]+", kind: "file" },
   { pattern: `\\.browser-profiles/(.*/)?(${alternatives(browserDirectories)})`, kind: "any" },
   { pattern: `\\.browser-profiles/(.*/)?(${alternatives(browserFiles)})`, kind: "entry" },
 ] as const;

@@ -74,20 +74,20 @@ describe("pageViewerDocument", () => {
     const code =
       'const App = () => React.createElement(Text, null, "</script><script>steal()</script><!--");';
     const html = pageViewerDocument({
-      runtime: "window.RakazoPage={mount(){}};",
+      runtime: "window.BotCampPage={mount(){}};",
       code,
       theme: "light",
       errorTitle: "Couldn't show",
     });
     const boot = html.slice(
-      html.indexOf("RakazoPage.mount(") + "RakazoPage.mount(".length,
+      html.indexOf("BotCampPage.mount(") + "BotCampPage.mount(".length,
       -"</script></body></html>".length - 1,
     );
     expect(html.match(/<\/script>/g)).toHaveLength(2);
     expect(html).not.toContain("<!--");
     expect(JSON.parse(boot)).toEqual({ code, theme: "light", errorTitle: "Couldn't show" });
     const ja = pageViewerDocument({ ...base, lang: "ja" });
-    expect(JSON.parse(ja.match(/RakazoPage\.mount\((.*)\)<\/script>/)![1]!).lang).toBe("ja");
+    expect(JSON.parse(ja.match(/BotCampPage\.mount\((.*)\)<\/script>/)![1]!).lang).toBe("ja");
     // The reader's language is not the content's, so it never becomes the frame's lang or dir.
     expect(ja).toContain("<html><head>");
   });

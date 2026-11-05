@@ -4,21 +4,23 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
+  BotCampSetup,
   DesktopLocalStackState,
   DesktopReachability,
   DesktopSetup,
   DesktopSetupState,
-  RakazoSetup,
 } from "@rakazo/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { ES_MESSAGES } from "./locales/es.js";
 import { HE_MESSAGES } from "./locales/he.js";
 
-type DesktopSetupResult = Awaited<ReturnType<RakazoSetup["save"]>>;
+type DesktopSetupResult = Awaited<ReturnType<BotCampSetup["save"]>>;
 
 const DEFAULT_LOCAL_URL = "http://127.0.0.1:6130";
-const CLOUD_URL = "https://cloud.rakazo.example";
-const ENGLISH: RakazoSetup["locale"] = { lang: "en", dir: "ltr", messages: {} };
+const CLOUD_URL = "https://cloud.botcamp.example";
+const CLOUD_API_URL = "https://api.botcamp.example";
+const CLOUD_PAGE_URL = "https://cloud.botcamp.example/console/";
+const ENGLISH: BotCampSetup["locale"] = { lang: "en", dir: "ltr", messages: {} };
 
 // The jsdom environment replaces the global URL, so resolve the sibling files via Node's.
 const srcDir = path.dirname(fileURLToPath(import.meta.url));
@@ -100,7 +102,7 @@ function mount(saved: DesktopSetup | null, locale = ENGLISH): Harness {
   const saves: DesktopSetup[] = [];
   const saveCalls: Array<Deferred<DesktopSetupResult>> = [];
 
-  const bridge: RakazoSetup = {
+  const bridge: BotCampSetup = {
     platform: "linux",
     locale,
     state: () => {
@@ -133,12 +135,18 @@ function mount(saved: DesktopSetup | null, locale = ENGLISH): Harness {
       },
     },
   };
-  (window as { rakazoSetup?: RakazoSetup }).rakazoSetup = bridge;
+  (window as { rakazoSetup?: BotCampSetup }).rakazoSetup = bridge;
   // Run the plain script the same way setup.html's script tag does.
   new Function(setupScript)();
 
   const initState = stateCalls.shift();
-  initState?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, cloudUrl: CLOUD_URL, saved });
+  initState?.resolve({
+    defaultLocalUrl: DEFAULT_LOCAL_URL,
+    cloudUrl: CLOUD_URL,
+    cloudApiUrl: CLOUD_API_URL,
+    cloudPageUrl: CLOUD_PAGE_URL,
+    saved,
+  });
   return {
     nextCheck: () => {
       const call = checkCalls.shift();
@@ -148,9 +156,13 @@ function mount(saved: DesktopSetup | null, locale = ENGLISH): Harness {
     resolveCheck: (result) => checkCalls.shift()?.resolve(result),
     startResult,
     resolveAppState: (next) =>
-      stateCalls
-        .shift()
-        ?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, cloudUrl: CLOUD_URL, saved: next }),
+      stateCalls.shift()?.resolve({
+        defaultLocalUrl: DEFAULT_LOCAL_URL,
+        cloudUrl: CLOUD_URL,
+        cloudApiUrl: CLOUD_API_URL,
+        cloudPageUrl: CLOUD_PAGE_URL,
+        saved: next,
+      }),
     resolveStackState: (state) => stackStateCalls.shift()?.resolve(state),
     pushStackState: (state) => {
       for (const listener of pushListeners) listener(state);
@@ -173,7 +185,7 @@ async function boot(saved: DesktopSetup | null, locale = ENGLISH): Promise<Harne
 describe("setup", () => {
   afterEach(() => {
     document.body.innerHTML = "";
-    delete (window as { rakazoSetup?: RakazoSetup }).rakazoSetup;
+    delete (window as { rakazoSetup?: BotCampSetup }).rakazoSetup;
   });
 
   it("keeps an address edited while the connection check is pending", async () => {
@@ -226,7 +238,7 @@ describe("setup", () => {
     currentCheck.resolve({ ok: true, url: "https://two.example" });
     await flush();
     expect(field.value).toBe("https://two.example");
-    expect(element("status").textContent).toBe("Rakazo answered at https://two.example.");
+    expect(element("status").textContent).toBe("BotCamp answered at https://two.example.");
     expect(element("status").getAttribute("data-tone")).toBe("ok");
     expect(element<HTMLButtonElement>("check").disabled).toBe(false);
     expect(element<HTMLButtonElement>("continue").disabled).toBe(false);
@@ -283,7 +295,7 @@ describe("setup", () => {
     await flush();
 
     expect(element("stack").hidden).toBe(false);
-    expect(element("stack-phase").textContent).toBe("Downloading Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Downloading BotCamp…");
   });
 
   it("locks the address while it is being saved and unlocks it when the save fails", async () => {
@@ -338,7 +350,7 @@ describe("setup", () => {
     await flush();
 
     expect(element<HTMLInputElement>("server-url").value).toBe("https://one.example");
-    expect(element("status").textContent).toBe("Rakazo answered at https://one.example.");
+    expect(element("status").textContent).toBe("BotCamp answered at https://one.example.");
     expect(element("status").getAttribute("data-tone")).toBe("ok");
     expect(element<HTMLButtonElement>("check").disabled).toBe(false);
   });
@@ -389,7 +401,7 @@ describe("setup", () => {
     ui.startResult.resolve(stackState("pulling"));
     await flush();
     expect(element("stack").hidden).toBe(false);
-    expect(element("stack-phase").textContent).toBe("Downloading Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Downloading BotCamp…");
     expect(element<HTMLButtonElement>("continue").disabled).toBe(true);
 
     ui.resolveStackState(stackState("ready"));
@@ -399,7 +411,7 @@ describe("setup", () => {
     ui.resolveSave({ ok: true });
     await flush();
 
-    expect(element("stack-phase").textContent).toBe("Rakazo is ready.");
+    expect(element("stack-phase").textContent).toBe("BotCamp is ready.");
     expect(element("stack-phase").getAttribute("data-tone")).toBe("ok");
     expect(ui.saves).toEqual([{ mode: "new", serverUrl: DEFAULT_LOCAL_URL }]);
     expect(element<HTMLButtonElement>("continue").disabled).toBe(false);
@@ -416,15 +428,15 @@ describe("setup", () => {
     const ui = await boot(null, { lang: "es", dir: "ltr", messages: ES_MESSAGES });
     expect(document.documentElement.lang).toBe("es");
     expect(document.documentElement.dir).toBe("ltr");
-    expect(document.querySelector("h1")?.textContent).toBe("Te damos la bienvenida a Rakazo");
+    expect(document.querySelector("h1")?.textContent).toBe("Te damos la bienvenida a BotCamp");
     expect(document.querySelector('label[for="mode-new"]')?.textContent?.trim()).toBe(
       "Esta computadora",
     );
     expect(document.querySelector('label[for="mode-cloud"]')?.textContent?.trim()).toBe(
-      "Rakazo Cloud",
+      "BotCamp Cloud",
     );
     expect(element("quit").textContent).toBe("Salir");
-    expect(element("quit").title).toBe("Salir de Rakazo");
+    expect(element("quit").title).toBe("Salir de BotCamp");
     expect(element("stack-details").getAttribute("aria-label")).toBe("Detalles técnicos");
     expect(element<HTMLTextAreaElement>("server-headers").placeholder).toBe("Nombre: valor");
     expect(element("continue").textContent).toBe("Continuar");
@@ -437,13 +449,13 @@ describe("setup", () => {
     expect(element("status").textContent).toBe("Comprobando…");
     ui.resolveCheck({ ok: true, url: "https://one.example" });
     await flush();
-    expect(element("status").textContent).toBe("Rakazo respondió en https://one.example.");
+    expect(element("status").textContent).toBe("BotCamp respondió en https://one.example.");
 
     selectMode("new");
     submitForm();
     ui.startResult.resolve({ ...stackState("pulling"), layerBytes: { layer: 2.5e6 } });
     await flush();
-    expect(element("stack-phase").textContent).toBe("Descargando Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Descargando BotCamp…");
     expect(element("stack-detail").textContent).toBe("3 MB descargados");
   });
 });

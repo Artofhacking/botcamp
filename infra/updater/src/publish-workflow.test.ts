@@ -150,7 +150,6 @@ describe("server image publish workflow", () => {
     }
     for (const job of [
       ci.jobs["deploy-production"],
-      ci.jobs["publish-mobile-update"],
       workflow.jobs["build-depot"],
       workflow.jobs.publish,
     ]) {

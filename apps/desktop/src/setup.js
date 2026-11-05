@@ -54,10 +54,10 @@
   const PHASE_LABELS = {
     "checking-docker": t("Getting ready…"),
     preparing: t("Getting ready…"),
-    pulling: t("Downloading Rakazo…"),
-    starting: t("Starting Rakazo…"),
+    pulling: t("Downloading BotCamp…"),
+    starting: t("Starting BotCamp…"),
     "waiting-healthy": t("Almost ready…"),
-    ready: t("Rakazo is ready."),
+    ready: t("BotCamp is ready."),
   };
   const TERMINAL_PHASES = new Set([
     "idle",
@@ -80,6 +80,8 @@
 
   let defaultLocalUrl = "";
   let cloudUrl = "";
+  let cloudApiUrl = "";
+  let cloudPageUrl = "";
   /** Bumped on user edits, mode switches, and new async runs; a run left behind is stale. */
   let requestGeneration = 0;
   /** Generation of the check in flight; an edit or mode switch retires it and releases its lock. */
@@ -224,7 +226,7 @@
     return headers;
   }
 
-  async function save(mode, url, headers) {
+  async function save(mode, url, headers, apiUrl, pageUrl) {
     const generation = ++requestGeneration;
     // Locking the address blurs it; a failed save hands focus back so Enter can retry.
     const focused = document.activeElement;
@@ -232,7 +234,13 @@
     lockChoice(true);
     setStatus(t("Connecting…"));
     try {
-      const saved = await bridge.save({ mode, serverUrl: url, ...(headers ? { headers } : {}) });
+      const saved = await bridge.save({
+        mode,
+        serverUrl: url,
+        ...(apiUrl ? { apiUrl } : {}),
+        ...(pageUrl ? { pageUrl } : {}),
+        ...(headers ? { headers } : {}),
+      });
       if (!saved.ok) setStatus(saved.error ?? t("Could not save that address."), "error");
     } catch {
       setStatus(t("Could not save that address. Try again."), "error");
@@ -339,7 +347,7 @@
       if (generation !== requestGeneration) return result;
       if (result.ok) {
         serverUrl.value = result.url;
-        setStatus(t("Rakazo answered at {url}.", { url: result.url }), "ok");
+        setStatus(t("BotCamp answered at {url}.", { url: result.url }), "ok");
       } else {
         setStatus(result.error ?? t("Could not reach that address."), "error");
       }
@@ -408,8 +416,9 @@
     event.preventDefault();
     const mode = selectedMode();
     if (mode === "new") void runStack();
-    // Cloud is an existing server at a fixed address.
-    else if (mode === "cloud") void save("existing", cloudUrl);
+    // Cloud is an existing server with a page and API on separate origins.
+    else if (mode === "cloud")
+      void save("existing", cloudUrl, undefined, cloudApiUrl, cloudPageUrl);
     else {
       const headers = readHeaders();
       if (headers === null) setStatus(t("Invalid custom headers"), "error");
@@ -445,8 +454,14 @@
       if (state === null) throw new Error("Setup is not active");
       defaultLocalUrl = state.defaultLocalUrl;
       cloudUrl = state.cloudUrl;
+      cloudApiUrl = state.cloudApiUrl;
+      cloudPageUrl = state.cloudPageUrl;
       if (state.saved !== null) {
-        const savedCloud = state.saved.mode === "existing" && state.saved.serverUrl === cloudUrl;
+        const savedCloud =
+          state.saved.mode === "existing" &&
+          state.saved.serverUrl === cloudUrl &&
+          state.saved.apiUrl === cloudApiUrl &&
+          state.saved.pageUrl === cloudPageUrl;
         const mode = savedCloud ? "cloud" : state.saved.mode;
         const modeInput = document.querySelector(`input[name="mode"][value="${mode}"]`);
         if (modeInput !== null) modeInput.checked = true;
@@ -475,7 +490,7 @@
         continueButton.focus();
       }
     } catch {
-      setStatus(t("Setup could not start. Quit Rakazo and try again."), "error");
+      setStatus(t("Setup could not start. Quit BotCamp and try again."), "error");
       setBusy(true);
     }
   }

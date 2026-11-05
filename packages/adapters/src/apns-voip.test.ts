@@ -78,7 +78,15 @@ describe("APNs VoIP", () => {
         APNS_VOIP_KEY_ID: "test-key",
         APNS_VOIP_TEAM_ID: "test-team",
         APNS_VOIP_PRIVATE_KEY: "test-key-contents",
+        APNS_VOIP_BUNDLE_ID: "com.example.botcamp",
       }),
-    ).toMatchObject({ environment: "production", bundleId: "com.rakazo.app" });
+    ).toMatchObject({ environment: "production", bundleId: "com.example.botcamp" });
+    expect(() =>
+      apnsVoipConfig({
+        APNS_VOIP_KEY_ID: "test-key",
+        APNS_VOIP_TEAM_ID: "test-team",
+        APNS_VOIP_PRIVATE_KEY: "test-key-contents",
+      }),
+    ).toThrow("APNS_VOIP_BUNDLE_ID");
   });
 });

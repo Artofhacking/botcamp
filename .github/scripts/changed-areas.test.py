@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).with_name("changed-areas.sh").resolve()
-BASE_FILES = ("apps/web/src/logo.svg", "apps/mobile/app/index.tsx", "README.md")
+BASE_FILES = ("apps/web/src/logo.svg", "README.md")
 
 
 def git(root, *args):
@@ -61,11 +61,10 @@ EVERY_BROWSER_AREA = ("web", "e2e", "server")
 class ChangedAreasTests(unittest.TestCase):
     def test_classifies_what_the_pull_request_changed(self):
         cases = [
-            ("apps/mobile/app/screen.tsx", expect()),
             (".agents/skills/x/SKILL.md", expect()),
             ("CHANGELOG.md", expect()),
             ("docs/getting-started.md", expect("web")),
-            ("apps/www/src/page.astro", expect("web")),
+            ("web/site/index.html", expect("web")),
             ("apps/worker/src/index.ts", expect("web", "server")),
             ("packages/adapters/src/slack.ts", expect("web", "server")),
             ("packages/adapters/src/host-computer-runner.ts", expect("web", "server", "native")),
@@ -77,7 +76,7 @@ class ChangedAreasTests(unittest.TestCase):
             ),
             ("infra/sandboxes/computer/start.sh", expect(*EVERY_BROWSER_AREA, "all_packages")),
             ("infra/updater/src/compose-env.ts", expect(*EVERY_BROWSER_AREA)),
-            ("apps/mobile/package.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            ("apps/web/package.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
             ("tsconfig.base.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
             ("scripts/build-server.mjs", expect(*EVERY_BROWSER_AREA, "all_packages")),
             (".agents/skills/pr-watch/pr-digest", expect("all_packages")),
@@ -92,8 +91,8 @@ class ChangedAreasTests(unittest.TestCase):
 
     def test_a_rename_out_of_the_web_app_counts_its_old_path(self):
         def move(root):
-            (root / "apps/mobile/assets").mkdir()
-            git(root, "mv", "apps/web/src/logo.svg", "apps/mobile/assets/logo.svg")
+            (root / ".agents/assets").mkdir(parents=True)
+            git(root, "mv", "apps/web/src/logo.svg", ".agents/assets/logo.svg")
 
         self.assertEqual(areas(move), expect("web", "e2e"))
 

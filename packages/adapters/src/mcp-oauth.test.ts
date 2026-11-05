@@ -1113,7 +1113,7 @@ describe("MCP OAuth", () => {
       if (started.status !== "authorization_required") throw new Error("OAuth was not requested");
       const authorizationUrl = new URL(started.authorizationUrl);
 
-      expect(registration).toMatchObject({ client_name: "Rakazo", application_type: "native" });
+      expect(registration).toMatchObject({ client_name: "BotCamp", application_type: "native" });
       expect(authorizationUrl.origin).toBe("https://auth.example.test");
       expect(authorizationUrl.searchParams.get("client_id")).toBe("registered-client-id");
       expect(authorizationUrl.searchParams.get("code_challenge_method")).toBe("S256");
@@ -2002,6 +2002,23 @@ describe("MCP OAuth", () => {
       });
 
       expect(authorizationUrlOf(started).searchParams.get("scope")).toBe("mail.read mail.send");
+    });
+
+    it("authorizes with the scope chosen for this attempt over the client's", async () => {
+      nonRegisteringAuthServer(() => undefined);
+      const { broker } = brokerWithMaterial({
+        oauthClient: { ...oauthClient, scope: "mail.read mail.send" },
+      });
+
+      const started = await broker.begin({
+        serverId: "server-1",
+        spaceId: "workspace-1",
+        userId: "user-1",
+        redirectUri: "https://app.example.test/mcp/oauth/callback",
+        scope: "mail.read",
+      });
+
+      expect(authorizationUrlOf(started).searchParams.get("scope")).toBe("mail.read");
     });
 
     describe("offline_access", () => {

@@ -7,9 +7,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { _electron as electron, expect, test } from "@playwright/test";
-import type { RakazoDesktop } from "@rakazo/contracts";
+import type { BotCampDesktop } from "@rakazo/contracts";
 
-const APP_MARKER = "Existing Rakazo instance ready";
+const APP_MARKER = "Existing BotCamp instance ready";
 /** Outlasts the shell's 20s wait for a mounted app before it rejects the server. */
 const NOT_READY_TIMEOUT_MS = 30_000;
 const execFileAsync = promisify(execFile);
@@ -55,7 +55,7 @@ test.beforeAll(async () => {
     }
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(
-      `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head><body><main>${APP_MARKER}</main></body></html>`,
+      `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BotCamp</title></head><body><main>${APP_MARKER}</main></body></html>`,
     );
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -96,22 +96,22 @@ function launch(extraEnv: Record<string, string> = {}) {
   });
 }
 
-test("first run offers Rakazo Cloud first, with local and existing instances", async () => {
+test("first run offers BotCamp Cloud first, with local and existing instances", async () => {
   app = await launch();
   if (process.env.RAKAZO_E2E_EXECUTABLE) {
     expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true);
   }
   const setup = await app.firstWindow();
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Welcome to BotCamp" })).toBeVisible();
   await expect(setup.getByText("Choose which server this app should use.")).toBeVisible();
-  await expect(setup.getByText("Rakazo Cloud")).toBeVisible();
+  await expect(setup.getByText("BotCamp Cloud")).toBeVisible();
   await expect(setup.getByText("This computer")).toBeVisible();
   await expect(setup.getByText("Existing instance")).toBeVisible();
   await expect(setup.locator(".card")).toHaveCount(0);
 
   // Cloud is the default: one click opens the hosted app, with nothing to fill in.
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
+  await expect(setup.getByRole("radio", { name: /BotCamp Cloud/ })).toBeChecked();
   await expect(setup.locator("#panel-new")).toBeHidden();
   await expect(setup.locator("#panel-existing")).toBeHidden();
   await expect(setup.getByRole("button", { name: "Check connection" })).toBeHidden();
@@ -168,7 +168,7 @@ test("setup opens in the language the app last used", async () => {
 
   await expect(setup.locator("html")).toHaveAttribute("lang", "es");
   await expect(
-    setup.getByRole("heading", { name: "Te damos la bienvenida a Rakazo" }),
+    setup.getByRole("heading", { name: "Te damos la bienvenida a BotCamp" }),
   ).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continuar" })).toBeEnabled();
   await setup.screenshot({
@@ -182,26 +182,36 @@ test("setup lays out right to left in Hebrew", async () => {
   const setup = await app.firstWindow();
 
   await expect(setup.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(setup.getByRole("heading", { name: "ברוכים הבאים ל-Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "ברוכים הבאים ל-BotCamp" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "המשך" })).toBeEnabled();
   await setup.screenshot({
     path: path.join(import.meta.dirname, "screenshots", "11-setup-hebrew.png"),
   });
 });
 
-test("Rakazo Cloud saves the hosted address and is reselected when saved", async () => {
+test("BotCamp Cloud saves the hosted address and is reselected when saved", async () => {
   app = await launch();
   const setup = await app.firstWindow();
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
+  await expect(setup.getByRole("radio", { name: /BotCamp Cloud/ })).toBeChecked();
   await expect(setup.getByRole("button", { name: "Continue" })).toBeEnabled();
 
   // Capture the request instead of reaching the hosted server, so CI stays offline.
-  const { cloudUrl } = await setup.evaluate(() =>
+  const cloud = await setup.evaluate(() =>
     (
-      window as typeof window & { rakazoSetup: { state: () => Promise<{ cloudUrl: string }> } }
+      window as typeof window & {
+        rakazoSetup: {
+          state: () => Promise<{
+            cloudUrl: string;
+            cloudApiUrl: string;
+            cloudPageUrl: string;
+          }>;
+        };
+      }
     ).rakazoSetup.state(),
   );
-  expect(cloudUrl).toMatch(/^https:\/\//);
+  expect(cloud.cloudUrl).toMatch(/^https:\/\//);
+  expect(cloud.cloudApiUrl).toMatch(/^https:\/\//);
+  expect(cloud.cloudPageUrl).toMatch(/^https:\/\//);
   await app.evaluate(({ ipcMain }) => {
     const state = globalThis as typeof globalThis & { cloudSaves?: unknown[] };
     state.cloudSaves = [];
@@ -217,20 +227,34 @@ test("Rakazo Cloud saves the hosted address and is reselected when saved", async
     await app.evaluate(
       () => (globalThis as typeof globalThis & { cloudSaves?: unknown[] }).cloudSaves,
     ),
-  ).toEqual([{ mode: "existing", serverUrl: cloudUrl }]);
+  ).toEqual([
+    {
+      mode: "existing",
+      serverUrl: cloud.cloudUrl,
+      apiUrl: cloud.cloudApiUrl,
+      pageUrl: cloud.cloudPageUrl,
+    },
+  ]);
   expect(await readFile(path.join(userData, "setup.json"), "utf8").catch(() => null)).toBeNull();
 
   // A saved Cloud setup reopens with Cloud chosen, not as a typed existing address.
-  await app.evaluate(({ ipcMain }, url) => {
+  await app.evaluate(({ ipcMain }, saved) => {
     ipcMain.removeHandler("desktop.setup.state");
     ipcMain.handle("desktop.setup.state", () => ({
       defaultLocalUrl: "http://127.0.0.1:45173",
-      cloudUrl: url,
-      saved: { mode: "existing", serverUrl: url },
+      cloudUrl: saved.cloudUrl,
+      cloudApiUrl: saved.cloudApiUrl,
+      cloudPageUrl: saved.cloudPageUrl,
+      saved: {
+        mode: "existing",
+        serverUrl: saved.cloudUrl,
+        apiUrl: saved.cloudApiUrl,
+        pageUrl: saved.cloudPageUrl,
+      },
     }));
-  }, cloudUrl);
+  }, cloud);
   await setup.reload();
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
+  await expect(setup.getByRole("radio", { name: /BotCamp Cloud/ })).toBeChecked();
   await expect(setup.locator("#panel-existing")).toBeHidden();
 });
 
@@ -243,7 +267,7 @@ test("connecting to an existing instance verifies, saves, and opens it", async (
 
   await setup.locator("#server-url").fill(serverUrl);
   await setup.getByRole("button", { name: "Check connection" }).click();
-  await expect(setup.locator("#status")).toHaveText(`Rakazo answered at ${serverUrl}.`);
+  await expect(setup.locator("#status")).toHaveText(`BotCamp answered at ${serverUrl}.`);
   await expect(setup.locator("#status")).toHaveAttribute("data-tone", "ok");
 
   await setup.screenshot({
@@ -354,7 +378,7 @@ test("an HTTP error document is not accepted after a healthy probe", async () =>
 
 test("a session-pending shell skeleton is not accepted as a ready app", async () => {
   test.setTimeout(2 * NOT_READY_TIMEOUT_MS);
-  const skeletonHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const skeletonHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BotCamp</title></head>
 <body><div id="root"><div data-rakazo-app-state="session-pending"><aside></aside><main><div>Opening your Space…</div></main></div></div></body></html>`;
   const skeleton = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -405,7 +429,7 @@ for (const { name, surface } of [
   },
 ]) {
   test(`a post-session ${name} mount is accepted`, async () => {
-    const readyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title>
+    const readyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BotCamp</title>
 </head>
 <body><div id="root"><div data-rakazo-app-state="ready">${surface}</div></div></body></html>`;
     const ready = createServer((request, response) => {
@@ -455,7 +479,7 @@ for (const { name, surface } of [
 
 test("a shell mount before workspace bootstrap is not accepted", async () => {
   test.setTimeout(2 * NOT_READY_TIMEOUT_MS);
-  const preBootstrapHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const preBootstrapHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BotCamp</title></head>
 <body><div id="root"><div data-rakazo-app-state="ready"><div data-testid="shell-root" data-ready="false">Workspace</div></div></div></body></html>`;
   const preBootstrap = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -493,7 +517,7 @@ test("a shell mount before workspace bootstrap is not accepted", async () => {
 
 test("a session-ready marker without a route surface is not accepted", async () => {
   test.setTimeout(2 * NOT_READY_TIMEOUT_MS);
-  const emptyReadyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const emptyReadyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BotCamp</title></head>
 <body><div id="root"><div data-rakazo-app-state="ready" class="h-full"></div></div></body></html>`;
   const emptyReady = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -543,10 +567,10 @@ test("a malformed address is rejected before anything is written", async () => {
   }).toPass();
 });
 
-test("a generic web page is not accepted as a Rakazo server", async () => {
+test("a generic web page is not accepted as a BotCamp server", async () => {
   const plain = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><p>not Rakazo</p>");
+    response.end("<!doctype html><p>not BotCamp</p>");
   });
   await new Promise<void>((resolve) => plain.listen(0, "127.0.0.1", resolve));
   const address = plain.address();
@@ -560,7 +584,7 @@ test("a generic web page is not accepted as a Rakazo server", async () => {
     await setup.getByRole("button", { name: "Continue" }).click();
 
     await expect(setup.locator("#status")).toHaveText(
-      "That address did not respond like a Rakazo server.",
+      "That address did not respond like a BotCamp server.",
     );
     await expect(async () => {
       await expect(readFile(path.join(userData, "setup.json"), "utf8")).rejects.toThrow();
@@ -613,7 +637,7 @@ test("an unreachable saved server falls back to setup with a recovery message", 
   app = await launch();
   const setup = await app.firstWindow();
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Welcome to BotCamp" })).toBeVisible();
   await expect(setup.getByRole("radio", { name: /Existing instance/ })).toBeChecked();
   await expect(setup.locator("#server-url")).toHaveValue(closedUrl);
   await expect(setup.locator("#status")).toContainText("Could not reconnect to the saved server.");
@@ -635,7 +659,7 @@ test("the native application menu can reopen setup without exposing setup IPC to
   });
   const setup = await setupPromise;
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Welcome to BotCamp" })).toBeVisible();
   await expect(setup.locator("#status")).toBeEmpty();
 
   // Closing setup without saving restores the connected instance.
@@ -726,7 +750,7 @@ test("the app window stays on its server when a link redirects to another site",
   const openSignIn = (page: Page) =>
     page.evaluate(
       (url) =>
-        (window as typeof window & { rakazoDesktop: RakazoDesktop }).rakazoDesktop.oauth
+        (window as typeof window & { rakazoDesktop: BotCampDesktop }).rakazoDesktop.oauth
           .open(url)
           .then(
             () => "opened",

@@ -6,8 +6,12 @@ import { t } from "./i18n.js";
 
 /** Managed desktop origin; development keeps its usual web/API ports. */
 export const DEFAULT_LOCAL_WEB_URL = "http://127.0.0.1:45173";
-/** Hosted Rakazo; setup saves it as an `existing` server so it opens like any other. */
-export const RAKAZO_CLOUD_URL = "https://app.rakazo.com";
+/** Hosted BotCamp page origin, saved as an `existing` server when chosen. */
+export const BOTCAMP_CLOUD_URL = "https://botcamp.demox.site";
+/** Hosted BotCamp API origin; the page at `/console/` calls it directly. */
+export const BOTCAMP_CLOUD_API_URL = "https://botcamp.aigc.sx.cn";
+/** The console page the desktop opens for the hosted instance. */
+export const BOTCAMP_CLOUD_PAGE_URL = "https://botcamp.demox.site/console/";
 export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 export const SETUP_FILE_NAME = "setup.json";
@@ -21,7 +25,7 @@ const SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 /**
  * Accepts what a person would actually type ("localhost:5173", "rakazo.example.com")
  * and returns a canonical http(s) origin, or null when the input can never
- * securely address a Rakazo server.
+ * securely address a BotCamp server.
  */
 export function normalizeServerUrl(input: string): string | null {
   const trimmed = input.trim();
@@ -46,9 +50,22 @@ export function normalizeServerUrl(input: string): string | null {
   // Public login cookies and API traffic must never cross a cleartext connection.
   if (url.protocol === "http:" && !isPrivateNetworkHost(url.hostname)) return null;
 
-  // Rakazo serves its renderer, RPC, and auth routes from one origin. Keeping a
+  // BotCamp serves its RPC and auth routes from one API origin. Keeping a
   // user-supplied path would make the setup probe and the loaded app disagree.
   return url.origin;
+}
+
+/** A page may live under a path on the same origin as its API, but never on another origin. */
+export function normalizePageUrl(input: string, serverUrl: string): string | null {
+  try {
+    const page = new URL(input);
+    if (page.origin !== new URL(serverUrl).origin) return null;
+    if (page.protocol !== "http:" && page.protocol !== "https:") return null;
+    if (page.username !== "" || page.password !== "") return null;
+    return page.href;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -82,19 +99,32 @@ export function maySendDesktopStackToken(serverUrl: string): boolean {
 export function parseSetupInput(value: unknown): DesktopSetup | null {
   if (typeof value !== "object" || value === null) return null;
 
-  const { mode, serverUrl, headers } = value as Record<string, unknown>;
+  const { mode, serverUrl, apiUrl, pageUrl, headers } = value as Record<string, unknown>;
   if (mode !== "new" && mode !== "existing") return null;
   if (typeof serverUrl !== "string") return null;
 
   const normalized = normalizeServerUrl(serverUrl);
   if (normalized === null) return null;
   if (mode === "new" && !isLoopbackHost(new URL(normalized).hostname)) return null;
-  if (headers === undefined) return { mode, serverUrl: normalized };
+
+  const normalizedApi = apiUrl === undefined ? undefined : normalizeServerUrl(String(apiUrl));
+  if (normalizedApi === null) return null;
+  const normalizedPage =
+    pageUrl === undefined ? undefined : normalizePageUrl(String(pageUrl), normalized);
+  if (normalizedPage === null) return null;
+  if (mode === "new" && (normalizedApi !== undefined || normalizedPage !== undefined)) return null;
+
+  const setup: DesktopSetup = { mode, serverUrl: normalized };
+  if (normalizedApi !== undefined && normalizedApi !== normalized) setup.apiUrl = normalizedApi;
+  if (normalizedPage !== undefined && normalizedPage !== `${normalized}/`) {
+    setup.pageUrl = normalizedPage;
+  }
+
+  if (headers === undefined) return setup;
   const parsed = parseServerHeaders(headers);
   if (parsed === null || (mode === "new" && Object.keys(parsed).length > 0)) return null;
-  return Object.keys(parsed).length > 0
-    ? { mode, serverUrl: normalized, headers: parsed }
-    : { mode, serverUrl: normalized };
+  if (Object.keys(parsed).length > 0) setup.headers = parsed;
+  return setup;
 }
 
 /** Configured headers for a request to the saved server, including its websockets; none elsewhere. */
@@ -104,7 +134,10 @@ export function serverHeadersFor(url: string, setup: DesktopSetup | null): Recor
     const target = new URL(url);
     if (target.protocol === "ws:") target.protocol = "http:";
     if (target.protocol === "wss:") target.protocol = "https:";
-    return target.origin === new URL(setup.serverUrl).origin ? setup.headers : {};
+    const origins = [setup.serverUrl, setup.apiUrl, setup.pageUrl]
+      .filter((value): value is string => value !== undefined)
+      .map((value) => new URL(value).origin);
+    return origins.includes(target.origin) ? setup.headers : {};
   } catch {
     return {};
   }
@@ -186,7 +219,7 @@ export function servesBundledRenderer(targetUrl: string, managedLocalStack: bool
   }
 }
 
-/** Each Rakazo origin gets its own persistent cookie and storage partition. */
+/** Each BotCamp origin gets its own persistent cookie and storage partition. */
 export function sessionPartitionForServerUrl(targetUrl: string): string | null {
   try {
     const url = new URL(targetUrl);
@@ -209,7 +242,7 @@ export function safeExternalUrl(targetUrl: string): string | null {
   }
 }
 
-export function isRakazoHealth(value: unknown): boolean {
+export function isBotCampHealth(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const json = (value as { json?: unknown }).json;
   return (

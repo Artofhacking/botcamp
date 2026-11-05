@@ -16,7 +16,7 @@ test("asks for a GitHub star after a few messages", async ({ page }, testInfo) =
   await expect(prompt).toBeVisible();
   await expect(prompt.getByRole("link", { name: "Star on GitHub" })).toHaveAttribute(
     "href",
-    "https://github.com/elie222/rakazo",
+    "https://github.com/artofhacking/botcamp",
   );
   await captureScreenshot(page, testInfo, "github-star-prompt");
 

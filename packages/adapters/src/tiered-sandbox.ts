@@ -1,5 +1,7 @@
 import type {
   AdapterContext,
+  PortableFile,
+  StreamedPortableFile,
   CommandRequest,
   ComputerRef,
   ProcessEvent,
@@ -63,6 +65,15 @@ class TieredSandbox {
     return (async function* (): AsyncIterable<ProcessEvent> {
       const provider = await owner();
       yield* provider.execute(computer, request, context);
+    })();
+  }
+
+  /** Same rule as execute(): a streaming member must return an iterable, not a promise. */
+  exportWorkspace(computer: ComputerRef, context: AdapterContext) {
+    const owner = () => this.owner(computer?.botId);
+    return (async function* (): AsyncIterable<PortableFile | StreamedPortableFile> {
+      const provider = await owner();
+      yield* provider.exportWorkspace(computer, context);
     })();
   }
 

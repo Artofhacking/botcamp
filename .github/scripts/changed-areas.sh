@@ -22,7 +22,7 @@ all_packages=false
 while IFS= read -r file; do
   case "$file" in
     apps/*/package.json | packages/*/package.json | infra/*/package.json) all_packages=true ;;
-    apps/*/* | packages/*/* | infra/sandboxes/supervisor/* | infra/updater/*) ;;
+    apps/*/* | packages/*/* | web/site/* | infra/sandboxes/supervisor/* | infra/updater/*) ;;
     .agents/skills/pr-watch/*) all_packages=true ;;
     .agents/* | .claude/* | docs/*) ;;
     */*) all_packages=true ;;
@@ -45,8 +45,8 @@ while IFS= read -r file; do
   esac
   case "$file" in
     apps/*/package.json | packages/*/package.json) ;;
-    .agents/* | .claude/* | apps/mobile/*) continue ;;
-    apps/www/* | docs/*) web=true; continue ;;
+    .agents/* | .claude/*) continue ;;
+    web/site/* | docs/*) web=true; continue ;;
     apps/web/* | apps/desktop/* | packages/ui-web/* | packages/chat-ui/*)
       web=true
       e2e=true

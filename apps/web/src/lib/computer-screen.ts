@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { isLocalhostOrLoopbackIp } from "@rakazo/contracts";
 import { COMPUTER_SCREEN_PATH } from "@rakazo/contracts/content-security-policy";
+import { apiOrigin } from "./api-origin";
 import { errorText } from "./user-error";
 
 export interface ComputerScreenResult {
@@ -40,10 +41,10 @@ export function embeddableScreenUrl(url: string | null): string | null {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return `${page.origin}${COMPUTER_SCREEN_PATH}#${parsed.searchParams.toString()}`;
     }
-    // The server that served this page proxies /novnc/. Keep the frame on this origin even when the
-    // API's WEB_ORIGIN names another host for it (localhost vs 127.0.0.1), as the CSP frames 'self'.
+    // The API host serves /novnc/ (it proxies the container's screen), so keep the frame there
+    // even when the capability URL was minted against the marketing origin.
     if (parsed.pathname.startsWith("/novnc/")) {
-      return `${page.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      return `${apiOrigin()}${parsed.pathname}${parsed.search}${parsed.hash}`;
     }
     const local = isLocalhostOrLoopbackIp(parsed.hostname);
     const pagePort = page.port || (page.protocol === "https:" ? "443" : "80");

@@ -1,7 +1,7 @@
 import type { ApnsVoipConfig } from "./apns-voip.js";
 
-/** The published app's bundle id (apps/mobile/app.json); self-built apps set their own. */
-const DEFAULT_BUNDLE_ID = "com.rakazo.app";
+/** The deployment's own iOS bundle id; BotCamp has no shared upstream app. */
+const DEFAULT_BUNDLE_ID = "";
 
 export function apnsVoipConfig(
   source: Record<string, string | undefined>,
@@ -17,12 +17,14 @@ export function apnsVoipConfig(
     !["sandbox", "production"].includes(source.APNS_VOIP_ENVIRONMENT)
   )
     throw new Error("APNS_VOIP_ENVIRONMENT must be sandbox or production.");
+  const bundleId = source.APNS_VOIP_BUNDLE_ID || DEFAULT_BUNDLE_ID;
+  if (!bundleId) throw new Error("APNS_VOIP_BUNDLE_ID must be configured.");
   return {
     keyId: source.APNS_VOIP_KEY_ID,
     teamId: source.APNS_VOIP_TEAM_ID,
     privateKey: source.APNS_VOIP_PRIVATE_KEY.replace(/\\n/g, "\n"),
     environment: source.APNS_VOIP_ENVIRONMENT === "sandbox" ? "sandbox" : "production",
-    bundleId: source.APNS_VOIP_BUNDLE_ID || DEFAULT_BUNDLE_ID,
+    bundleId,
   };
 }
 

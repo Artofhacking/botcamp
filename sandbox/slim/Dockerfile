@@ -1,5 +1,5 @@
 # BotCamp slim computer: file viewing + small commands. No desktop, no browser.
-# Rakazo reaches a computer only through exec (docker exec / pod exec), so the
+# BotCamp reaches a computer only through exec (docker exec / pod exec), so the
 # container needs a live PID 1 and a workspace; it does not need X11.
 FROM debian:bookworm-slim
 

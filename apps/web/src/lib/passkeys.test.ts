@@ -37,7 +37,7 @@ describe("passkeysSupported", () => {
 
   it("on the macOS app, offers passkeys only for relying parties the build is associated with", async () => {
     const mac = (rpIds?: string[] | Error) => ({
-      ...browser("app.rakazo.com"),
+      ...browser("app.botcamp.example"),
       desktop: {
         platform: "darwin",
         passkeys:
@@ -51,13 +51,19 @@ describe("passkeysSupported", () => {
               },
       },
     });
-    await expect(passkeysSupported("app.rakazo.com", mac(["app.rakazo.com"]))).resolves.toBe(true);
-    await expect(passkeysSupported("App.Rakazo.com", mac(["app.rakazo.com"]))).resolves.toBe(true);
-    await expect(passkeysSupported("app.rakazo.com", mac([]))).resolves.toBe(false);
-    await expect(passkeysSupported("app.rakazo.com", mac())).resolves.toBe(false);
-    await expect(passkeysSupported("app.rakazo.com", mac(new Error("ipc")))).resolves.toBe(false);
-    const selfHosted = { ...mac(["app.rakazo.com"]), host: "rakazo.example.com" };
-    await expect(passkeysSupported("rakazo.example.com", selfHosted)).resolves.toBe(false);
+    await expect(
+      passkeysSupported("app.botcamp.example", mac(["app.botcamp.example"])),
+    ).resolves.toBe(true);
+    await expect(
+      passkeysSupported("App.BotCamp.example", mac(["app.botcamp.example"])),
+    ).resolves.toBe(true);
+    await expect(passkeysSupported("app.botcamp.example", mac([]))).resolves.toBe(false);
+    await expect(passkeysSupported("app.botcamp.example", mac())).resolves.toBe(false);
+    await expect(passkeysSupported("app.botcamp.example", mac(new Error("ipc")))).resolves.toBe(
+      false,
+    );
+    const selfHosted = { ...mac(["app.botcamp.example"]), host: "botcamp.example.com" };
+    await expect(passkeysSupported("botcamp.example.com", selfHosted)).resolves.toBe(false);
     expect(
       selfHosted.credential.isUserVerifyingPlatformAuthenticatorAvailable,
     ).not.toHaveBeenCalled();

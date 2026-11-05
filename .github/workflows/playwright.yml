@@ -79,11 +79,6 @@ jobs:
           SHARD: ${{ matrix.shard }}/${{ inputs.nightly && 4 || 2 }}
           E2E_SKIP_NIGHTLY: ${{ !inputs.nightly && '1' || '' }}
         run: pnpm test:e2e -- --shard="$SHARD"
-      # Homepage screenshots only: no copy or layout assertions.
-      # Runs after product e2e so shared apps/web/test-results is not wiped by the product run.
-      - name: Capture marketing homepage screenshots
-        if: matrix.shard == 1 && always() && (steps.playwright_tests.outcome == 'success' || steps.playwright_tests.outcome == 'failure')
-        run: pnpm --filter @rakazo/www e2e
       - name: Upload shard results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -91,7 +86,6 @@ jobs:
           name: playwright-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             blob-report
-            playwright-report-www
             apps/web/test-results
           # Matches the combined artifact, so re-running failed shards later still finds the others.
           retention-days: 7
@@ -147,7 +141,6 @@ jobs:
               missing=1
             fi
             if [[ -d "$latest/apps/web/test-results" ]]; then cp -R "$latest/apps/web/test-results/." apps/web/test-results/; fi
-            if [[ -d "$latest/playwright-report-www" ]]; then cp -R "$latest/playwright-report-www" .; fi
           done
           exit "$missing"
       - name: Merge Playwright reports
@@ -174,7 +167,6 @@ jobs:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             playwright-report
-            playwright-report-www
             apps/web/test-results
             test-report/e2e
           retention-days: 7

@@ -334,7 +334,7 @@ export function GeneralSettingsPanels({
                     value="rakazo"
                     className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
                   >
-                    <Trans>Rakazo</Trans>
+                    <Trans>BotCamp</Trans>
                   </ToggleGroupItem>
                 </ToggleGroup>
                 {botStyleError ? (

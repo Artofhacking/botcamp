@@ -62,7 +62,7 @@ normal environment/secret manager:
 | `APNS_VOIP_TEAM_ID` | `<APPLE_TEAM_ID>` |
 | `APNS_VOIP_PRIVATE_KEY` | Contents of the `.p8` file; literal `\n` escapes are accepted |
 | `APNS_VOIP_ENVIRONMENT` | `sandbox` for development signing, `production` for TestFlight/App Store (default) |
-| `APNS_VOIP_BUNDLE_ID` | Your iOS bundle identifier; defaults to `com.rakazo.app` |
+| `APNS_VOIP_BUNDLE_ID` | Your iOS bundle identifier; required when VoIP push is configured |
 
 The adapter uses the `<bundle identifier>.voip` topic. Keep keys on the server; never put
 them in the app or repository. Enable Push Notifications and Background Modes (Voice over
@@ -127,7 +127,7 @@ for it to find the origins to add.
 ## Menu links
 
 `RAKAZO_NAV_LINKS` adds items to the account menu that open a page from the same domain inside the
-web app, such as an internal tool your reverse proxy serves next to Rakazo. Set it on the API:
+web app, such as an internal tool your reverse proxy serves next to BotCamp. Set it on the API:
 
 ```bash
 RAKAZO_NAV_LINKS='[{"id":"clients","label":"Clients","path":"/ext/clients/"}]'
@@ -138,7 +138,7 @@ single `/` and must not be under `/app`, `/api`, `/rpc`, `/novnc` or `/health`. 
 catch-all in your proxy, for example `handle /ext/* { reverse_proxy office:8080 }` in
 `Caddyfile.prod`. A malformed value stops the API from starting.
 
-Pages open sandboxed with an opaque origin, so they cannot read Rakazo's pages or act with the
+Pages open sandboxed with an opaque origin, so they cannot read BotCamp's pages or act with the
 signed-in user's session; that also blocks their own cookies and storage. Add `"trusted": true` to a
 link only for a service you control: a trusted page runs with the signed-in user's access, like a
 script allowed by `RAKAZO_CSP_SCRIPT_SRC`. The page must allow framing by the app

@@ -2,7 +2,8 @@ import * as z from "zod";
 import { SettingsScopeSchema } from "./settings-scope.js";
 
 export const AI_DISCLOSURE_VERSION = "2026-09-14";
-export const AI_PRIVACY_URL = "https://rakazo.com/privacy/";
+/** A deployment that publishes a privacy policy sets one; there is no shared vendor page. */
+export const AI_PRIVACY_URL: string | undefined = undefined;
 export const AiDataUseSchema = z.enum(["model", "voice", "memory"]);
 export type AiDataUse = z.infer<typeof AiDataUseSchema>;
 export const AI_DATA_DISCLOSURES: Record<AiDataUse, string> = {

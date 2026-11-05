@@ -77,15 +77,15 @@ describe("graphical computer spec", () => {
     // Explicit "" stands for unset, so exported RAKAZO_COMPUTER_IMAGE* values cannot leak in.
     expect(resolveComputerImage("", "")).toBe("rakazo/computer:local");
     expect(resolveComputerImage("", "edge")).toBe("rakazo/computer:local");
-    expect(resolveComputerImage("ghcr.io/elie222/rakazo/computer", "edge")).toBe(
-      "ghcr.io/elie222/rakazo/computer:edge",
+    expect(resolveComputerImage("ghcr.io/artofhacking/botcamp/computer", "edge")).toBe(
+      "ghcr.io/artofhacking/botcamp/computer:edge",
     );
-    expect(resolveComputerImage("ghcr.io/elie222/rakazo/computer", "")).toBe(
-      "ghcr.io/elie222/rakazo/computer",
+    expect(resolveComputerImage("ghcr.io/artofhacking/botcamp/computer", "")).toBe(
+      "ghcr.io/artofhacking/botcamp/computer",
     );
     // Compose already appends the tag, so a tagged or pinned image is never tagged twice.
-    expect(resolveComputerImage("ghcr.io/elie222/rakazo/computer:edge", "edge")).toBe(
-      "ghcr.io/elie222/rakazo/computer:edge",
+    expect(resolveComputerImage("ghcr.io/artofhacking/botcamp/computer:edge", "edge")).toBe(
+      "ghcr.io/artofhacking/botcamp/computer:edge",
     );
     expect(resolveComputerImage("registry.example.com:5000/rakazo/computer", "v1.2.3")).toBe(
       "registry.example.com:5000/rakazo/computer:v1.2.3",
@@ -451,7 +451,7 @@ describe("graphical computer spec", () => {
   });
 
   it("pulls a missing computer image only from a registry the name spells out", () => {
-    expect(isRegistryQualifiedImage("ghcr.io/elie222/rakazo/computer:edge")).toBe(true);
+    expect(isRegistryQualifiedImage("ghcr.io/artofhacking/botcamp/computer:edge")).toBe(true);
     expect(isRegistryQualifiedImage("registry.test/rakazo/computer@sha256:0123")).toBe(true);
     expect(isRegistryQualifiedImage("localhost:5000/rakazo/computer")).toBe(true);
     expect(isRegistryQualifiedImage("localhost/rakazo/computer:local")).toBe(true);
