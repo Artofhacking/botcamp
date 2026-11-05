@@ -31,7 +31,7 @@ The macOS build targets Apple silicon:
 pnpm --filter @rakazo/web build
 pnpm --filter @rakazo/desktop build
 CSC_IDENTITY_AUTO_DISCOVERY=false \
-  pnpm --filter @rakazo/desktop exec electron-builder --mac --arm64 --publish never
+  pnpm --filter @rakazo/desktop exec electron-builder --mac --arm64 --publish never -c.mac.identity=-
 ```
 
 The installer lands in `apps/desktop/out/`.
