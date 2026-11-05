@@ -400,6 +400,35 @@ const TARGETS = "/tmp/rakazo/desktop-targets";
 export const TERMINAL_MENU_COMMAND =
   "xterm -bg rgb:11/11/13 -fg rgb:e8/e8/ea -cr rgb:e8/e8/ea -title Terminal -xrm 'XTerm*selectToClipboard: true'";
 
+/** The page helper's refusal when its session opened a browser other than the one on the screen. */
+export const PAGE_BROWSER_DETACHED = "Page browser is not attached to this computer's Chrome.";
+
+/**
+ * End the page helper's daemon so the next call attaches to the screen's Chrome.
+ * The executable is the only match: a command line can name the browser without being it,
+ * and the screen's Chrome stays up.
+ */
+export function stopPageBrowserDaemonCommand() {
+  return [
+    "for proc in /proc/[0-9]*; do",
+    '  [ -e "$proc/exe" ] || continue',
+    '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
+    '  case "$exe" in',
+    "    */agent-browser) kill -TERM \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    "  esac",
+    "done",
+    "sleep 0.2",
+    "for proc in /proc/[0-9]*; do",
+    '  [ -e "$proc/exe" ] || continue',
+    '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
+    '  case "$exe" in',
+    "    */agent-browser) kill -KILL \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    "  esac",
+    "done",
+    "exit 0",
+  ].join("\n");
+}
+
 // Keep fixed mapping files present: TokenFile may be reading the directory concurrently.
 function revokeTargetCommand(kind: "view" | "control" | "terminal", display: number | string) {
   return `mkdir -p ${TARGETS}; : >/tmp/rakazo/${kind}-target-next-${display}; mv /tmp/rakazo/${kind}-target-next-${display} ${TARGETS}/${kind}-${display}`;
@@ -535,8 +564,8 @@ export function prepareBrowserProfileCommand(screenId: string, env = DEFAULT_DES
 
 function proxyEnvironmentCommand() {
   return [
-    'if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; else echo "websockify is required" >&2; exit 1; fi',
-    'if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; else echo "noVNC is required" >&2; exit 1; fi',
+    'if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
+    'if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
   ].join("\n");
 }
 

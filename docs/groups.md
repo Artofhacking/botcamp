@@ -28,9 +28,8 @@ exchange; it is view-only.
 Bots decide whom to ask from each bot's **How other bots see it** description in its settings
 under **Advanced**. Keep it to one line about what the bot is for.
 
-By default bots only talk to bots in the same [space](./spaces.md). Turn on
-**Allow cross-space bot communication** in a bot's settings under **Permissions** to let it reach
-bots in your other spaces.
+Your bots can message each other. **Allow cross-space bot communication**, under **Permissions** in
+a bot's settings, applies when an account still belongs to more than one workspace.
 
 ## Subagents
 

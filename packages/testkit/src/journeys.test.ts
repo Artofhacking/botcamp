@@ -3318,7 +3318,7 @@ describeJourneys("required product journeys", () => {
     await expect(prisma.run.count({ where: { routineId: routine.id } })).resolves.toBe(0);
   });
 
-  it("24: chat creates a space only after explicit approval", async () => {
+  it("24: chat does not create another space", async () => {
     const cookie = await signup(app, `space-chat-j-${stamp}@rakazo.test`, "Space Chat");
     const me = await rpc<Me>(app, cookie, "me");
     const bot = await rpc<Bot>(app, cookie, "bots/create", {
@@ -3333,54 +3333,19 @@ describeJourneys("required product journeys", () => {
       botId: bot.id,
       text: "create a space named Customer support",
     });
-    const waiting = await waitFor(
+    const done = await waitFor(
       app,
       cookie,
       bot.id,
-      (snap) => snap.run?.id === sent.runId && snap.run.status === "waiting_input",
+      (snap) => snap.run?.id === sent.runId && snap.run.status === "completed",
     );
-    const approval = JSON.stringify(waiting.messages);
-    expect(approval).toContain("Create space");
-    expect(approval).toContain("Customer support");
-    expect(approval).toContain("Cancel");
-    expect(approval).not.toContain("Always allow this tool");
+    const transcript = JSON.stringify(done.messages);
+    expect(transcript).not.toContain("Create space");
     expect(await prisma.spaceMember.count({ where: { userId: me.userId } })).toBe(
       membershipsBefore,
     );
-
-    await answerPendingApproval(app, cookie, bot.id, sent.runId, "allow", waiting);
-    await waitFor(
-      app,
-      cookie,
-      bot.id,
-      (snap) => !snap.run || ["completed", "failed", "cancelled"].includes(snap.run.status),
-    );
     const navigation = await rpc<{ spaces: Array<{ name: string }> }>(app, cookie, "spaces/list");
-    expect(navigation.spaces.map((space) => space.name)).toContain("Customer support");
-    expect(await prisma.spaceMember.count({ where: { userId: me.userId } })).toBe(
-      membershipsBefore + 1,
-    );
-
-    const denied = await rpc<{ runId: string }>(app, cookie, "threads/send", {
-      botId: bot.id,
-      text: "create a space named Finance",
-    });
-    const deniedWaiting = await waitFor(
-      app,
-      cookie,
-      bot.id,
-      (snap) => snap.run?.id === denied.runId && snap.run.status === "waiting_input",
-    );
-    await answerPendingApproval(app, cookie, bot.id, denied.runId, "deny", deniedWaiting);
-    await waitFor(
-      app,
-      cookie,
-      bot.id,
-      (snap) => !snap.run || ["completed", "failed", "cancelled"].includes(snap.run.status),
-    );
-    expect(await prisma.spaceMember.count({ where: { userId: me.userId } })).toBe(
-      membershipsBefore + 1,
-    );
+    expect(navigation.spaces.map((space) => space.name)).not.toContain("Customer support");
   });
 
   describe("bot management", () => {

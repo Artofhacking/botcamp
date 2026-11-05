@@ -23,7 +23,7 @@ export type SettingsNavItem = {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
 };
 
-/** The settings sections this deployment offers, in nav order; Space opens from its own menu. */
+/** The settings sections this deployment offers, in nav order. */
 export function useSettingsNavItems(available: {
   messaging: boolean;
   wallet: boolean;

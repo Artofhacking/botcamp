@@ -1,7 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@rakazo/contracts";
-import { resolveBotAvatarSet } from "@rakazo/contracts";
 import { SHIPPED_BOT_AVATAR_SHAPE_KEYS } from "@rakazo/core";
 import {
   BOT_AVATAR_COLORS,
@@ -37,14 +36,12 @@ export function BotLookPicker({
   identity,
   organicIdentities,
   avatarSet = "organic",
-  onAvatarSetChange,
   onChange,
 }: {
   value: string;
   identity?: string;
   organicIdentities?: readonly string[];
   avatarSet?: BotAvatarSet;
-  onAvatarSetChange?: (set: BotAvatarSet, value: string) => void;
   onChange: (value: string, identity?: string) => void;
 }) {
   const parsed = parseBotAvatar(value);
@@ -61,24 +58,6 @@ export function BotLookPicker({
 
   return (
     <div className="space-y-4">
-      {/* Only one bot's own editor overrides the account's set; a new bot takes the default. */}
-      {onAvatarSetChange ? (
-        <Tabs
-          value={avatarSet}
-          onValueChange={(next) =>
-            onAvatarSetChange(resolveBotAvatarSet(next), defaultBotAvatarValue(value))
-          }
-        >
-          <TabsList className="w-full" aria-label={t`Icon set`}>
-            <TabsTrigger value="organic" className="flex-1">
-              <Trans>Original</Trans>
-            </TabsTrigger>
-            <TabsTrigger value="rakazo" className="flex-1">
-              <Trans>BotCamp</Trans>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      ) : null}
       {avatarSet === "organic" ? (
         <div>
           {organicIdentities ? null : (
@@ -187,9 +166,13 @@ export function AvatarStudioPopover({
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function commit(next: string) {
+    onChange(next, avatarSet === "organic" ? undefined : "organic");
+  }
+
   function restoreDefaultAvatar() {
     const next = defaultBotAvatarValue(value);
-    if (next !== value) onChange(next);
+    if (next !== value) commit(next);
   }
 
   function processImageFile(file: File) {
@@ -216,7 +199,7 @@ export function AvatarStudioPopover({
         const sy = (img.height - minDim) / 2;
         ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
 
-        onChange(canvas.toDataURL("image/webp", 0.9));
+        commit(canvas.toDataURL("image/webp", 0.9));
         setOpen(false);
       };
       img.src = src;
@@ -298,7 +281,7 @@ export function AvatarStudioPopover({
               identity={identity}
               size={78}
               status={status}
-              avatarSet={avatarSet}
+              avatarSet="organic"
             />
           </div>
 
@@ -332,9 +315,8 @@ export function AvatarStudioPopover({
               <BotLookPicker
                 value={value}
                 identity={identity}
-                avatarSet={avatarSet}
-                onChange={(next) => onChange(next)}
-                onAvatarSetChange={(set, next) => onChange(next, set)}
+                avatarSet="organic"
+                onChange={(next) => commit(next)}
               />
             </TabsContent>
             <TabsContent value="upload">

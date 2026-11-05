@@ -39,7 +39,7 @@ export {
 export type UserComputerState = "connected" | "offline" | undefined;
 
 const USER_COMPUTER_UNAVAILABLE =
-  "The user's computer is not connected. Ask them to open the BotCamp desktop app.";
+  "The user's computer is not connected. Web pages and this bot's screen do not use it.";
 
 /**
  * Whose own computer this run may reach: the person whose message started it, when they own the

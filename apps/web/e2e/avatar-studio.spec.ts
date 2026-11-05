@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, openBotPanelTab, signup } from "./helpers";
+import { captureScreenshot, completeOnboarding, signup } from "./helpers";
 
 test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo) => {
   const stamp = Date.now();
@@ -19,11 +19,8 @@ test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo
   await expect(studio.getByRole("tab", { name: "Bot", exact: true })).toBeVisible();
   await expect(studio.getByRole("tab", { name: "Upload", exact: true })).toBeVisible();
   await expect(studio.getByTestId("avatar-studio-bot-tab")).toBeVisible();
+  await expect(studio.getByRole("tab", { name: "BotCamp" })).toHaveCount(0);
 
-  await expect(studio.getByRole("tab", { name: "Original", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
   const defaultLook = studio.getByTestId("avatar-studio-default");
   const wedge = studio.getByRole("button", { name: "wedge", exact: true });
   await expect(defaultLook).toHaveAttribute("aria-pressed", "true");
@@ -51,14 +48,4 @@ test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo
   await expect(studio.locator(".rakazo-organic-avatar")).toHaveCount(1);
 
   await captureScreenshot(page, testInfo, "avatar-studio-bot-tab");
-  await studio.getByRole("tab", { name: "BotCamp", exact: true }).click();
-  await expect(studio.locator(".rakazo-logo-avatar").first()).toBeVisible();
-  await studio.getByRole("button", { name: "Done", exact: true }).click();
-  await page.reload();
-  await openBotPanelTab(page, "Computer");
-  await page.getByTestId("bot-settings").getByTestId("avatar-studio-trigger").click();
-  await expect(
-    page.getByTestId("avatar-studio").getByRole("tab", { name: "BotCamp", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
-  await captureScreenshot(page, testInfo, "avatar-studio-rakazo-set");
 });

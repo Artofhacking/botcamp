@@ -7,8 +7,6 @@ import {
   CannotDeleteSpaceAsNonOwnerError,
   CannotRenameSpaceAsNonOwnerError,
   createExternalConversationRepos,
-  createSpaceForMember,
-  InvalidSpaceNameError,
   IsolationError,
   recordAuditEvent,
   renameSpaceForMember,
@@ -16,7 +14,6 @@ import {
   runAsTenant,
   SPACE_DELETION_CLAIM_TIMEOUT_MS,
   SpaceDeletionInProgressError,
-  SpaceLimitError,
   SpaceNotFoundError,
   setSpaceSettingOverride,
   spaceSettingOverrides,
@@ -61,43 +58,10 @@ export function spacesRoutes(ctx: RouterContext) {
       list: authed.spaces.list.handler(async ({ context }) =>
         spaceNavigationDto(deps, context.actor, repos, groupRepos),
       ),
-      // Seeds a Space whose id does not exist yet; the member limit is checked inside.
-      create: authed.spaces.create.handler(({ context, input }) =>
-        runAsSystem("create a Space for its member", async () => {
-          let space: { id: string; name: string };
-          try {
-            space = await createSpaceForMember(deps.prisma, {
-              currentSpaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              name: input.name,
-            });
-          } catch (error) {
-            if (error instanceof SpaceLimitError || error instanceof InvalidSpaceNameError) {
-              throw new ORPCError("BAD_REQUEST", { message: error.message });
-            }
-            throw error;
-          }
-          await recordAuditEvent({
-            action: "space.created",
-            actor: { type: "user", id: context.actor.userId },
-            spaceId: space.id,
-            target: { type: "space", id: space.id, label: space.name },
-          });
-          return {
-            id: space.id,
-            name: space.name,
-            isDefault: false,
-            hasContent: false,
-            canRename: true,
-            canDelete: true,
-            botCount: 0,
-            bots: [],
-            groups: [],
-            externalConversations: [],
-            botSections: [],
-          };
-        }),
-      ),
+      // The product has one workspace. Creating another space is not available.
+      create: authed.spaces.create.handler(() => {
+        throw new ORPCError("BAD_REQUEST", { message: "Spaces cannot be created" });
+      }),
       // Renames another of the member's Spaces; membership is checked inside.
       rename: authed.spaces.rename.handler(({ context, input }) =>
         asMemberOf(deps.prisma, context.actor, input.spaceId, async () => {

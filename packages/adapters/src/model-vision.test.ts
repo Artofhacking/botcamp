@@ -31,6 +31,39 @@ describe("model vision gating for computer tools", () => {
     expect(modelAcceptsImageInput("openrouter", "deepseek/deepseek-v4-flash-vision-exp")).toBe(
       true,
     );
+    expect(modelAcceptsImageInput("openrouter", "deepseek/deepseek-v4.1-flash")).toBe(true);
+  });
+
+  it("treats a gateway's DeepSeek V4.1 Flash id as able to see", () => {
+    expect(modelAcceptsImageInput("openai-compatible", "deepseek-v4.1-flash")).toBe(true);
+    expect(modelAcceptsImageInput("deepseek", "deepseek-v4.1-flash")).toBe(true);
+    const tools = filterImageReturningComputerTools(
+      builtinAgentTools,
+      modelAcceptsImageInput("openai-compatible", "deepseek-v4.1-flash"),
+    );
+    expect(tools.some((tool) => tool.name === "computer_observe")).toBe(true);
+    expect(
+      resolveRuntimeModel({
+        provider: "openai-compatible",
+        id: "deepseek-v4.1-flash",
+        baseUrl: "https://models.example.test/v1",
+        acceptsImages: true,
+      }).model?.input.includes("image"),
+    ).toBe(true);
+    expect(
+      resolveRuntimeModel({
+        provider: "deepseek",
+        id: "deepseek-v4.1-flash",
+        acceptsImages: true,
+      }).model?.input.includes("image"),
+    ).toBe(true);
+  });
+
+  it("keeps an explicit text-only connection and older DeepSeek ids unable to see", () => {
+    expect(modelAcceptsImageInput("openai-compatible", "deepseek-v4.1-flash", false)).toBe(false);
+    expect(modelAcceptsImageInput("openai-compatible", "deepseek-v4-flash")).toBe(false);
+    expect(modelAcceptsImageInput("openai-compatible", "deepseek-v4-pro")).toBe(false);
+    expect(modelAcceptsImageInput("openai-compatible", "not-a-catalog-model")).toBe(false);
   });
 
   it("sees models the runtime adds to the bundled catalog", () => {

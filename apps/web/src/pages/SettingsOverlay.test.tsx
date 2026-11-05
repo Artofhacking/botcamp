@@ -155,26 +155,11 @@ function button(container: HTMLElement, label: string) {
   return match;
 }
 
-it("lists the spaces under General and opens the one picked", async () => {
-  const onOpenSpace = vi.fn();
-  const { container, cleanup } = await render({ spaces, onOpenSpace });
-  try {
-    const list = container.querySelector('[data-testid="settings-spaces"]');
-    expect(list?.textContent).toContain("Acme");
-    expect(list?.textContent).toContain("Beta");
-    await act(async () => button(container, "Manage Beta").click());
-    expect(onOpenSpace).toHaveBeenCalledWith("space-b");
-    // Spaces live under General, not in the nav.
-    expect(container.querySelector('[data-testid="settings-nav-space"]')).toBeNull();
-  } finally {
-    await cleanup();
-  }
-});
-
-it("lists no spaces when there is only one", async () => {
-  const { container, cleanup } = await render({ spaces: [acme], onOpenSpace: vi.fn() });
+it("does not list spaces under General", async () => {
+  const { container, cleanup } = await render({});
   try {
     expect(container.querySelector('[data-testid="settings-spaces"]')).toBeNull();
+    expect(container.querySelector('[data-testid="settings-nav-space"]')).toBeNull();
   } finally {
     await cleanup();
   }
@@ -185,7 +170,6 @@ it("titles a space's page with its name and leads back to General", async () => 
   const onSectionChange = vi.fn();
   const { container, cleanup } = await render({
     space: { ...acme, canDelete: true },
-    spaces,
     onDeleteSpace,
     onSectionChange,
     section: "space",
@@ -236,7 +220,7 @@ it("opens a linked billing section once billing turns out to be on", async () =>
 
 it("edits the account's models, voice, confirmations, and vault", async () => {
   scopes.length = 0;
-  const props = { space: acme, spaces };
+  const props = { space: acme };
   const { container, rerender, cleanup } = await render({ ...props, section: "models" });
   try {
     for (const section of ["models", "voice", "confirmations", "vault"] as const) {
@@ -266,7 +250,6 @@ it("edits the memory of the space the app is showing, even after another space's
   const onMemoryConfigChange = vi.fn();
   const { cleanup } = await render({
     space: spaces[1],
-    spaces,
     section: "memory",
     memoryConfig: shown,
     onMemoryConfigChange,

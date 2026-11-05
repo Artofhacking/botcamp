@@ -20,8 +20,7 @@ be downloaded or deleted.
 ## Shared memory
 
 Some things every bot should know, such as your name, your company, or how you like reports
-written. Those go in **Shared memory**: every bot in the [space](./spaces.md) reads these notes and
-keeps them up to date.
+written. Those go in **Shared memory**: every bot reads these notes and keeps them up to date.
 
 Find it in **Settings → Memory**.
 
@@ -37,7 +36,7 @@ their notes. In **Settings → Memory**, choose **Connect memory provider**:
 Once connected, **Default scope** decides what bots share in the provider:
 
 - **Isolated**: each bot recalls only what it saved. This is the default.
-- **Shared**: bots in the space recall from one pool.
+- **Shared**: your bots recall from one pool.
 
 Each bot's settings also gain a **Memory scope** under **Advanced**, so one bot can differ from the
 default.
@@ -46,7 +45,3 @@ default.
 
 Separate from memory, each bot keeps a short list of **Open work**: things it has started and not
 finished. It is in the bot's settings. You can add items for it, or mark them complete.
-
-## Memory across spaces
-
-Memory never crosses [spaces](./spaces.md). A bot in one space can't read notes from another.

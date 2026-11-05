@@ -1,5 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { desktopBridge } from "./desktop";
+import { documentPath, routePathOfUrl, routeSearch } from "./static-host-route";
 
 type SsoResult = {
   data: { url?: string } | null;
@@ -13,8 +14,8 @@ let cancelActiveAttempt: (() => void) | undefined;
 
 /** The callback runs before session routing, including failed authentication. */
 export function completeSsoCallback(): boolean {
-  if (window.location.pathname !== SSO_CALLBACK_PATH) return false;
-  const params = new URLSearchParams(window.location.search);
+  if (documentPath() !== SSO_CALLBACK_PATH) return false;
+  const params = new URLSearchParams(routeSearch());
   const nonce = params.get("nonce");
   const returnTo = params.get("returnTo");
   if (!nonce || !returnTo) return true;
@@ -24,7 +25,7 @@ export function completeSsoCallback(): boolean {
   } catch {
     return true;
   }
-  if (target.origin !== window.location.origin || target.pathname === SSO_CALLBACK_PATH)
+  if (target.origin !== window.location.origin || routePathOfUrl(target) === SSO_CALLBACK_PATH)
     return true;
   const error = params.get("error");
   if (error) target.searchParams.set("error", error);

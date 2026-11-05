@@ -3,6 +3,7 @@ import { toolResultTaintsRun } from "@rakazo/core";
 import { isTerminatingReplyResult } from "./approval-effect.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS, MODEL_CANNOT_SEE_MESSAGE } from "./model-vision.js";
 import type { RunContext } from "./run-context.js";
+import { COMPUTER_START_RETRY_ERROR, modelRetriesComputerStart } from "./run-computer.js";
 import { noteComputerTaskStep } from "./run-progress.js";
 import type { ToolHandler } from "./run-tool-gate.js";
 import { auditToolCall, gateToolCall } from "./run-tool-gate.js";
@@ -67,6 +68,14 @@ export async function applyTool(
 ) {
   try {
     return await dispatchTool(ctx, name, args, executionId, observer);
+  } catch (error) {
+    // The model asked for the computer. A start failure is that tool's result, so the model
+    // can try the tool again instead of the run dying as if the model provider had failed.
+    if (modelRetriesComputerStart(error) && ctx.computer.lazy.yieldsToModel()) {
+      ctx.computer.lazy.acknowledgeYield();
+      return { error: COMPUTER_START_RETRY_ERROR };
+    }
+    throw error;
   } finally {
     // Editing its own profile returns only what this run wrote; a child's profile is another bot's.
     const ownProfile = name === "update_bot" && !argumentGiven(args.bot_id);

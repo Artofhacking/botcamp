@@ -22,11 +22,13 @@ import {
   desktopTerminalCommand,
   desktopUrl,
   managedDesktopCommand,
+  PAGE_BROWSER_DETACHED,
   releaseDesktopCommand,
   screenDisplayArgv,
   screenPorts,
   shellQuote,
   stopAllDesktopBrowsersCommand,
+  stopPageBrowserDaemonCommand,
 } from "@rakazo/core/node/desktop-runtime";
 import {
   BrowserStillRunningError,
@@ -247,6 +249,19 @@ export class LinuxDesktop {
 
   /** The page tools on this screen's Chrome, through the computer image's helper. */
   async pageBrowser(
+    computer: ComputerRef,
+    request: PageBrowserCommand,
+    context: AdapterContext,
+  ): Promise<PageBrowserResult> {
+    const first = await this.drivePageBrowser(computer, request, context);
+    // After the screen is handed back, the helper's daemon can still be attached to a browser
+    // it opened itself. That browser is not the screen's Chrome. Drop the daemon and attach once more.
+    if (first.ok === true || first.error !== PAGE_BROWSER_DETACHED) return first;
+    await this.run(computer, stopPageBrowserDaemonCommand(), context);
+    return this.drivePageBrowser(computer, request, context);
+  }
+
+  private async drivePageBrowser(
     computer: ComputerRef,
     request: PageBrowserCommand,
     context: AdapterContext,
@@ -478,10 +493,15 @@ export const PREPARE_LINUX_DESKTOP = [
   "    $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-remove $missing",
   "  fi",
   "fi",
-  // Bots read pages visually; without a color emoji font every emoji is an empty box. The
-  // desktop works without it, so an image whose package manager is broken still runs.
+  // Bots read pages visually; without a color emoji font every emoji is an empty box, and
+  // without WenQuanYi every Han character is one. Debian binds Noto CJK only for a Chinese
+  // locale, and these computers run as C.UTF-8. The desktop works without either font, so an
+  // image whose package manager is broken still runs.
   "if [ ! -e /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ]; then",
   '  { $root apt-get update -qq && $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-color-emoji; } || echo "could not install the emoji font" >&2',
+  "fi",
+  "if [ ! -e /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc ]; then",
+  '  { $root apt-get update -qq && $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-wqy-zenhei; } || echo "could not install the CJK font" >&2',
   "fi",
   `policy=${shellQuote(BROWSER_POLICY)}`,
   `for dir in ${BROWSER_POLICY_DIRS.join(" ")}; do`,

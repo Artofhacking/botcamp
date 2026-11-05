@@ -24,23 +24,6 @@ async function seedToolActivityOn(page: Page) {
   }, STORAGE_KEY);
 }
 
-async function setToggle(page: Page, on: boolean) {
-  await page.goto(`${fixture}?view=settings`);
-  const settings = page.getByTestId("user-settings");
-  await expect(settings).toBeVisible();
-  const toggle = settings.getByTestId("tool-activity-toggle");
-  await expect(toggle).toBeVisible();
-  if (on) await expect(toggle).not.toBeChecked();
-  else await expect(toggle).toBeChecked();
-  await toggle.click();
-  if (on) await expect(toggle).toBeChecked();
-  else await expect(toggle).not.toBeChecked();
-  await expect
-    .poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
-    .toBe(on ? "on" : "off");
-  await toggle.scrollIntoViewIfNeeded();
-}
-
 test("tool activity shows for live and finished runs when the user turned it on", async ({
   page,
 }, testInfo) => {
@@ -96,21 +79,8 @@ test("tool activity shows for live and finished runs when the user turned it on"
   }
 });
 
-test("the settings toggle hides and restores tool activity", async ({ page }, testInfo) => {
+test("tool activity stays hidden until this browser saved on", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-
-  // Nothing saved leaves the switch off and the cards hidden.
-  await page.goto(`${fixture}?view=settings`);
-  const settings = page.getByTestId("user-settings");
-  await expect(settings).toBeVisible();
-  const initialToggle = settings.getByTestId("tool-activity-toggle");
-  await expect(initialToggle).toBeVisible();
-  await expect(initialToggle).not.toBeChecked();
-  await expect
-    .poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
-    .toBeNull();
-  await initialToggle.scrollIntoViewIfNeeded();
-  await captureScreenshot(page, testInfo, "settings-tool-activity-off");
 
   await openThread(page, "done");
   await expect(page.getByTestId("message-bot-bubble")).toHaveText(REPLY_TEXT);
@@ -122,11 +92,10 @@ test("the settings toggle hides and restores tool activity", async ({ page }, te
   await expect(page.getByTestId("tool-activity")).toHaveCount(0);
   await expect(page.getByTestId("tool-activity-line")).toHaveCount(0);
   await expect(page.getByTestId("message-bot-bubble")).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveText("Thinking…");
   await captureScreenshot(page, testInfo, "off-live");
 
-  await setToggle(page, true);
-  await captureScreenshot(page, testInfo, "settings-tool-activity-on");
-
+  await seedToolActivityOn(page);
   await openThread(page, "done");
   await expect(page.getByTestId("tool-activity")).toHaveCount(1);
   await expect(page.getByTestId("tool-activity").locator("button[aria-expanded]")).toContainText(

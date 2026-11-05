@@ -5,7 +5,7 @@ import { EncryptedSecretStore, InMemoryRealtimeFanout } from "@rakazo/adapters";
 import type { AgentImportPlan, Bot, MemoryDocument } from "@rakazo/contracts";
 import { resolveEncryptionKey } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
-import { createDb } from "@rakazo/db";
+import { createDb, createSpaceForMember } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // The app's own logger module (the API resolves `@rakazo/logging` to this file).
 import { createLogger, createTestSink, installLogger } from "../../logging/src/index.js";
@@ -142,6 +142,15 @@ describeIntegration("agent import", () => {
     await stop?.();
     rmSync(dataDir, { recursive: true, force: true });
   });
+
+  async function createFixtureSpace(cookie: string, name: string) {
+    const actor = await rpc<{ userId: string; spaceId: string }>(app, cookie, "me");
+    return createSpaceForMember(db, {
+      currentSpaceId: actor.spaceId,
+      userId: actor.userId,
+      name,
+    });
+  }
 
   it("previews, then creates the bot with only the chosen items and no overwrites", async () => {
     const cookie = await signup(app, `import-${stamp}@rakazo.test`, "Import User");
@@ -1088,7 +1097,7 @@ describeIntegration("agent import", () => {
 
   it("keeps imports apart between two members of one space", async () => {
     const owner = await signup(app, `import-shared-owner-${stamp}@rakazo.test`, "Owner");
-    const shared = await rpc<{ id: string }>(app, owner, "spaces/create", { name: "Shared" });
+    const shared = await createFixtureSpace(owner, "Shared");
     const { organizationId } = await db.space.findUniqueOrThrow({
       where: { id: shared.id },
       select: { organizationId: true },

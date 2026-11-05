@@ -483,14 +483,6 @@ export const TOOL_CHOICE_DEFINITIONS: ToolChoiceCase[] = [
     prompt: "Add the MCP server at https://mcp.example.com/sse so you can use its tools.",
     expect: { calls: [{ tool: "add_mcp_server" }] },
   },
-  {
-    id: "space-create",
-    area: "rare",
-    kind: "guard",
-    purpose: "Create a space when asked.",
-    prompt: "Create a new space called Marketing.",
-    expect: { calls: [{ tool: "create_space" }] },
-  },
   // Ordinary conversation that needs no tool.
   {
     id: "chat-haiku",
@@ -565,14 +557,6 @@ export const TOOL_CHOICE_DEFINITIONS: ToolChoiceCase[] = [
     purpose: "Find the plot tool, then run it.",
     prompt: "Draw a bar chart of these sales: Mon 3, Tue 5, Wed 2.",
     expect: { order: ["find_tool", "render_plot"] },
-  },
-  {
-    id: "lazy-space",
-    area: "lazy-tools",
-    kind: "guard",
-    purpose: "Find the space tool, then run it.",
-    prompt: "Set up a separate space called Finance so its data stays apart from this one.",
-    expect: { order: ["find_tool", "create_space"] },
   },
   {
     id: "lazy-generate-secret",

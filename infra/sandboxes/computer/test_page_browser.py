@@ -1089,9 +1089,20 @@ class AgentBrowserTest(unittest.TestCase):
     def test_refuses_a_browser_agent_browser_started_itself(self):
         launched = [{"success": True, "result": {"lifecycle": {"launched": True}}}]
         with patch.object(helper.subprocess, "run",
-                          return_value=subprocess.CompletedProcess([], 0, json.dumps(launched), "")):
+                          return_value=subprocess.CompletedProcess([], 0, json.dumps(launched), "")) as run:
             with self.assertRaisesRegex(RuntimeError, "not attached"):
                 helper.AgentBrowser(9222).batch([["snapshot"]])
+        self.assertEqual(run.call_count, 2)
+
+    def test_attaches_again_after_dropping_a_daemon_that_opened_its_own_browser(self):
+        launched = json.dumps([{"success": True, "result": {"lifecycle": {"launched": True}}}])
+        attached = json.dumps([{"success": True, "result": {"ok": 1}}])
+        answers = iter([
+            subprocess.CompletedProcess([], 0, launched, ""),
+            subprocess.CompletedProcess([], 0, attached, ""),
+        ])
+        with patch.object(helper.subprocess, "run", side_effect=lambda *_args, **_kwargs: next(answers)):
+            self.assertEqual(helper.AgentBrowser(9222).batch([["snapshot"]]), [{"ok": 1}])
 
     def test_picks_the_tab_last_brought_to_the_front(self):
         listing = [{"type": "browser_ui", "id": "ui", "url": "chrome://webui-toolbar.top-chrome/"},

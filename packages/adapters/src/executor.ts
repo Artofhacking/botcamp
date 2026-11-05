@@ -7,7 +7,11 @@ import {
   SandboxUnresponsiveError,
 } from "@rakazo/adapter-kit";
 import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
-import { BOT_MANAGEMENT_TOOL_NAMES, disabledBuiltinToolSet } from "@rakazo/contracts";
+import {
+  BOT_MANAGEMENT_TOOL_NAMES,
+  disabledBuiltinToolSet,
+  usableModelId,
+} from "@rakazo/contracts";
 import {
   assertTransition,
   botMessageAllowsSilence,
@@ -127,7 +131,7 @@ import { loadPurchaseRedactions } from "./purchase-service.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
 import { backOffRoutineAfterAccountError } from "./routine-backoff.js";
 import { lateRoutineRunDueAt, lateRoutineRunInstruction } from "./routine-lateness.js";
-import { lazyRunComputer } from "./run-computer.js";
+import { lazyRunComputer, modelRetriesComputerStart } from "./run-computer.js";
 import type {
   RunComputerUseState,
   RunContext,
@@ -204,6 +208,7 @@ import {
   filterStrategicInitiativeTools,
   isStrategicInitiativeRun,
 } from "./strategic-initiative.js";
+import type { SubscriptionChoice, SubscriptionRunAuth } from "./subscription-quota.js";
 import {
   continueRunClaimFence,
   refreshTakeoverContinuePlan,
@@ -242,6 +247,20 @@ async function verbatimMcpServersForRun(
   });
   if (!servers?.length) return undefined;
   return { ids: servers.map((server) => server.id), slugs: servers.map((server) => server.slug) };
+}
+
+async function subscriptionChoice(
+  deps: ExecutorDeps,
+  runId: string,
+  modelId: (provider: string) => string | null,
+): Promise<SubscriptionChoice | undefined> {
+  try {
+    return await deps.subscriptionFallback?.({ modelId });
+  } catch (error) {
+    // The usage read failing is not an empty account. Keep the model already selected.
+    getLogger().warn("subscription quota check failed", { runId, error });
+    return undefined;
+  }
 }
 
 export function createRunExecutor(executorDeps: ExecutorDeps) {
@@ -871,8 +890,13 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             : undefined,
           defaults: { settings, deployment: runDeployment },
         });
-        const selectedProvider = selected.provider ?? runtimeFallback?.provider;
-        const selectedModelId = selected.id ?? runtimeFallback?.id;
+        let selectedProvider = selected.provider ?? runtimeFallback?.provider;
+        let selectedModelId = selected.id ?? runtimeFallback?.id;
+        let selectedCredential = selected.credential;
+        let selectedThinking = selected.thinkingLevel;
+        let subscriptionAuth: SubscriptionRunAuth | undefined;
+        let subscriptionExhausted = false;
+        const subscriptionSkip = new Set<string>();
         // A missing or refused connection of the user's own fails every scheduled run alike.
         const failRunBeforeModel = async (message: string, accountFailure = false) => {
           const failed = await failRunBeforeTurn(
@@ -901,6 +925,37 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           (await modelCreditBillingEnabled(deps)) &&
           !(await spaceHasModelAccess(deps.prisma, run.spaceId));
         const scripted = deps.runtime.describe().capabilities.scripted;
+        if (!run.modelPinned && !scripted && deps.subscriptionFallback) {
+          const choice = await subscriptionChoice(deps, run.id, (provider) => {
+            const fromSettings =
+              settings?.defaultModelProvider === provider
+                ? usableModelId(settings.defaultModelId)
+                : null;
+            const fromDeployment =
+              runDeployment?.provider === provider ? usableModelId(runDeployment.model) : null;
+            return fromSettings ?? fromDeployment;
+          });
+          if (choice?.kind === "use") {
+            for (const provider of choice.skipProviders) subscriptionSkip.add(provider);
+            if (choice.provider !== selectedProvider || choice.modelId !== selectedModelId) {
+              selectedThinking = null;
+            }
+            selectedProvider = choice.provider;
+            selectedModelId = choice.modelId;
+            selectedCredential = null;
+            subscriptionAuth = choice.auth;
+            runSecrets.push(...choice.auth.redact);
+          } else if (choice?.kind === "exhausted") {
+            subscriptionExhausted = true;
+            for (const provider of choice.skipProviders) subscriptionSkip.add(provider);
+            if (selectedProvider && subscriptionSkip.has(selectedProvider)) {
+              selectedProvider = undefined;
+              selectedModelId = undefined;
+              selectedCredential = null;
+              selectedThinking = null;
+            }
+          }
+        }
         let backupChoices: Promise<ModelRoleChoice[]> | undefined;
         const loadBackups = () =>
           (backupChoices ??= scripted
@@ -922,6 +977,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const startOnBackup = async () => {
           if (run.modelPinned) return undefined;
           for (const choice of await loadBackups()) {
+            if (subscriptionSkip.has(choice.provider)) {
+              backupsUnavailable.add(choice);
+              continue;
+            }
             try {
               const backup = await resolveConnectedModelKey(
                 deps,
@@ -964,16 +1023,17 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             start = {
               provider: selectedProvider,
               id: selectedModelId,
-              credential: selected.credential,
-              thinkingLevel: selected.thinkingLevel,
+              credential: selectedCredential,
+              thinkingLevel: selectedThinking,
               resolved: await resolveModelKey(
                 deps,
                 run.userId,
                 run.spaceId,
-                selected.credential,
+                selectedCredential,
                 selectedProvider,
                 selectedModelId,
                 (values) => runSecrets.push(...values),
+                subscriptionAuth ? { subscription: subscriptionAuth } : undefined,
               ),
             };
           } catch (error) {
@@ -996,7 +1056,12 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         start ??= await startOnBackup();
         if (!start) {
           if (retryPrimary) throw retryPrimary;
-          await failRunBeforeModel(primaryFailure.message, primaryFailure.accountFailure);
+          await failRunBeforeModel(
+            subscriptionExhausted && !selectedProvider
+              ? "Model quota is used up."
+              : primaryFailure.message,
+            primaryFailure.accountFailure,
+          );
           return;
         }
         const {
@@ -1333,7 +1398,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             ? `Commands run on a Windows cloud computer. ${hostShell} Files outside the bot workspace can be accessed through commands. The screen shows the Windows desktop; use the graphical tools for apps without a command line.`
             : `Commands run on the user's ${hostEnvironment.platform} computer with their account permissions. ${hostShell} Local files outside the bot workspace can be accessed through commands. App launching is available through OS commands; graphical screen control is unavailable.`;
         const computerInstruction = [
-          "Use the computer only when the task needs files, commands, a browser, or an installed application. Answer directly from the conversation when sufficient; use connected tools for app data. A website with no connected app is still yours to use in the computer's browser, now and in scheduled routines, so a missing connection alone is never a reason to decline. Do not inspect the computer just to prepare for an unrelated task. If what you are about to buy, send or submit differs from what the user confirmed, such as a changed item or total, show the difference and confirm again first.",
+          "Use the computer only when the task needs files, commands, a browser, or an installed application. Answer directly from the conversation when sufficient; use connected tools for app data. A website with no connected app is still yours to use in the computer's browser, now and in scheduled routines, so a missing connection alone is never a reason to decline. Opening or operating a website uses this bot's own computer. If its screen does not start, say so and keep using the page tools. Never ask the user to open a desktop app or grant access to their computer in order to browse or click. Do not inspect the computer just to prepare for an unrelated task. If what you are about to buy, send or submit differs from what the user confirmed, such as a changed item or total, show the difference and confirm again first.",
           hostInstruction
             ? `${baseComputerInstruction} ${hostInstruction}`
             : dockerToolInstruction
@@ -1641,6 +1706,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // The running model is not its own backup, unless another account serves it.
         const fallbackModels = (await loadBackups()).filter(
           (candidate) =>
+            !subscriptionSkip.has(candidate.provider) &&
             !backupsUnavailable.has(candidate) &&
             (candidate.provider !== runModelProvider ||
               candidate.modelId !== runModelId ||
@@ -1754,6 +1820,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 id: runModelId,
                 ...(credential ? { connectionId: credential.id } : {}),
                 ...resolvedModelRunFields(resolved),
+                // A gateway model id the catalogs agree can see is vision-capable even
+                // when the saved connection never declared it. The tool gate already
+                // used this answer; the call has to use it too, or screenshots are dropped.
+                acceptsImages: modelSeesImages,
                 thinkingLevel: thinkingLevel ?? resolved.thinkingLevel ?? null,
               },
               fallbackModels: fallbackModels.map(({ provider, modelId, credentialId }) => ({
@@ -1892,8 +1962,11 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const providerOutage =
           setupError instanceof SandboxUnavailableError ||
           setupError instanceof SandboxUnresponsiveError;
+        // The model already tried this start inside the turn. Keep starting the computer
+        // later instead of ending the run, and do not report it as a model failure.
+        const computerStart = modelRetriesComputerStart(setupError);
         // A lost lease aborted setup on purpose; whatever that interrupted is not a failure.
-        if (providerOutage || !lease.valid) {
+        if (providerOutage || computerStart || !lease.valid) {
           getLogger().warn("run setup failed", { error: reportedSetupError });
         } else if (!computerBusy) {
           getLogger().error("run setup failed", reportedSetupError);
@@ -1901,7 +1974,8 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const priorFailures = retryForever ? 0 : await setupFailureStreak(deps.prisma, runId);
         // The job reconciler re-enqueues a queued run whose job ran out of attempts, so a
         // setup that fails every time would retry forever. End the run instead.
-        if (!retryForever && priorFailures >= RUN_SETUP_FAILURE_LIMIT - 1) {
+        // A computer that will not start is the exception: the model keeps trying it.
+        if (!retryForever && !computerStart && priorFailures >= RUN_SETUP_FAILURE_LIMIT - 1) {
           const bot = await deps.prisma.bot.findUnique({
             where: { id: run.botId },
             select: { name: true },
@@ -1915,9 +1989,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           );
           return;
         }
-        const retryDelay = providerOutage
-          ? providerOutageRetryDelay(priorFailures)
-          : computerRetryDelay(fence);
+        const retryDelay =
+          providerOutage || computerStart
+            ? providerOutageRetryDelay(priorFailures)
+            : computerRetryDelay(fence);
         // One instant for the run and its wake-up job, so neither runs before the other.
         const retryAt = new Date(Date.now() + retryDelay);
         const released = await writeComputerRunRequeue(

@@ -48,6 +48,12 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
         message: "The model provider returned an error.",
         values,
       });
+    case "Computer failed to boot":
+      return i18n._({
+        id: "Computer failed to boot",
+        message: "Computer failed to boot",
+        values,
+      });
     case "{provider} is rate limiting requests. Try again shortly.":
       return i18n._({
         id: "{provider} is rate limiting requests. Try again shortly.",

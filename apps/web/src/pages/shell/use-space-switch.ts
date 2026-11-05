@@ -5,6 +5,7 @@ import { getSnapshot as getCallSnapshot } from "../../lib/call-session";
 import { queryClient, spaceSeedKey } from "../../lib/query";
 import { selectedSpaceId, selectSpace } from "../../lib/rpc";
 import { remountShellForSpace, spaceSwitchDecision } from "../../lib/space-switch";
+import { assignAppLocation, documentPath, routeSearch } from "../../lib/static-host-route";
 import { speaker } from "../../lib/tts";
 import { readShellOverlay, searchString, withShellOverlay } from "../shell-overlay";
 import type { useShellNavigation } from "./use-shell-navigation";
@@ -52,12 +53,12 @@ export function useOpenSpaceChat({
         return;
       }
       const reload = () => {
-        if (selectSpace(spaceId)) window.location.assign(destination());
+        if (selectSpace(spaceId)) assignAppLocation(destination());
       };
       const destination = () =>
         overlayRevision.current === startedOverlay
           ? path
-          : `${path}${searchString(withShellOverlay(new URLSearchParams(), readShellOverlay(new URLSearchParams(window.location.search))))}`;
+          : `${path}${searchString(withShellOverlay(new URLSearchParams(), readShellOverlay(new URLSearchParams(routeSearch()))))}`;
       // Another space is an auth boundary: its bootstrap is loaded first, under that
       // space's header, then the shell remounts so none of this space's state survives.
       // A call in progress, or a page outside the shell, still reloads.
@@ -66,14 +67,14 @@ export function useOpenSpaceChat({
         reload();
         return;
       }
-      const startedAt = window.location.pathname;
+      const startedAt = documentPath();
       const decision = () =>
         spaceSwitchDecision(
           request === spaceSwitchRequest.current &&
             startedNavigation === navigationRevision.current &&
             startedIndex === window.history.state?.idx,
           startedAt,
-          window.location.pathname,
+          documentPath(),
           Boolean(getCallSnapshot()),
         );
       const current = () => decision() !== "abandon";

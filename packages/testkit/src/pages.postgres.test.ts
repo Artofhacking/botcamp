@@ -6,7 +6,7 @@ import { EncryptedSecretStore } from "@rakazo/adapters";
 import type { createApp } from "@rakazo/api/app";
 import type { PageDetail, PageSummary, ThreadSnapshot } from "@rakazo/contracts";
 import { SHARED_PAGE_PATH_PREFIX } from "@rakazo/contracts";
-import { deletePageShareSecrets } from "@rakazo/db";
+import { createSpaceForMember, deletePageShareSecrets } from "@rakazo/db";
 import { pageViewerCode } from "@rakazo/page-kit/compile";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { BotIntroHarness } from "./discard-bot-intro.js";
@@ -52,6 +52,15 @@ describePages("pages", () => {
   });
 
   const db = () => asSystem(harness!.prisma);
+
+  async function createFixtureSpace(cookie: string, name: string) {
+    const actor = await rpc<{ userId: string; spaceId: string }>(app, cookie, "me");
+    return createSpaceForMember(db(), {
+      currentSpaceId: actor.spaceId,
+      userId: actor.userId,
+      name,
+    });
+  }
 
   /**
    * Runs `during` while this test holds the page's row lock; `waitFor(n)` returns once n other
@@ -784,7 +793,7 @@ describePages("pages", () => {
     expect(
       await db().spaceMember.count({ where: { spaceId: owner.spaceId, userId: member.userId } }),
     ).toBe(1);
-    const other = await rpc<{ id: string }>(app, ownerCookie, "spaces/create", { name: "Other" });
+    const other = await createFixtureSpace(ownerCookie, "Other");
     const attempts = [
       ["pages/get", { pageId }],
       ["pages/rename", { pageId, title: "Taken" }],
@@ -813,7 +822,7 @@ describePages("pages", () => {
 
   it("forgets every member's page links when the owner deletes their shared space", async () => {
     const ownerCookie = await signup(app, `pages-space-owner-${stamp}@rakazo.test`, "Owner");
-    const shared = await rpc<{ id: string }>(app, ownerCookie, "spaces/create", { name: "Crew" });
+    const shared = await createFixtureSpace(ownerCookie, "Crew");
     const { organizationId } = await db().space.findUniqueOrThrow({
       where: { id: shared.id },
       select: { organizationId: true },

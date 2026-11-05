@@ -98,7 +98,7 @@ export async function bootstrapUserSpace(
           userId: user.id,
           scope: "user",
           path: "MEMORY.md",
-          content: "# Space memory\n\nPreferences and context kept within this space live here.\n",
+          content: "# Memory\n\nPreferences and context kept for your bots live here.\n",
         },
       })
       .catch((error: unknown) => {

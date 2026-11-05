@@ -29,8 +29,7 @@ import {
 /** Internal API endpoints other processes forward to. Not under /api, so the public proxy never routes them. */
 export const USER_DEVICE_FORWARD_PATH = "/internal/user-devices/request";
 export const USER_DEVICE_DISCONNECT_PATH = "/internal/user-devices/disconnect";
-export const USER_DEVICE_OFFLINE_MESSAGE =
-  "Your computer is not connected. Open the BotCamp desktop app.";
+export const USER_DEVICE_OFFLINE_MESSAGE = "Your computer is not connected. Open the desktop app.";
 const DISCONNECTED_MESSAGE = "Your computer disconnected. Check the result before retrying.";
 const REVOKED_MESSAGE = "This computer was disconnected from BotCamp.";
 export const USER_DEVICE_LIMIT = 10;

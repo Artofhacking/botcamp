@@ -89,7 +89,6 @@ export function SettingsOverlays({
   setOverlay,
   settingsSpace,
   showSettings,
-  spaces,
   renameSpace,
   removeSpace,
   refreshSpaces,
@@ -112,7 +111,6 @@ export function SettingsOverlays({
   setOverlay: (next: ShellOverlay) => void;
   settingsSpace: Space | null;
   showSettings: boolean;
-  spaces: Space[];
   renameSpace: (spaceId: string, name: string) => Promise<void>;
   removeSpace: (spaceId: string) => Promise<void>;
   refreshSpaces: () => Promise<void>;
@@ -140,13 +138,11 @@ export function SettingsOverlays({
       {overlay?.kind === "settings" && showSettings ? (
         <SettingsOverlay
           space={settingsSpace}
-          spaces={spaces}
           onRenameSpace={renameSpace}
           onDeleteSpace={async (spaceId) => {
             await removeSpace(spaceId);
             if (alive.current) setOverlay(null);
           }}
-          onOpenSpace={(spaceId) => setOverlay({ ...overlay, section: "space", spaceId })}
           name={user?.name ?? ""}
           onNameSaved={async () => {
             await refetchSession();
@@ -168,16 +164,6 @@ export function SettingsOverlays({
           onTimezoneChange={async (timezone) => {
             const nextMe = await rpc.preferences.update({ timezone });
             setBootstrapMe((prev) => (prev ? { ...prev, timezone: nextMe.timezone } : nextMe));
-          }}
-          botAvatarSet={bootstrapMe?.botAvatarSet}
-          onBotAvatarSetChange={async (botAvatarSet) => {
-            const nextMe = await rpc.preferences.update({ botAvatarSet });
-            setBootstrapMe((prev) =>
-              prev ? { ...prev, botAvatarSet: nextMe.botAvatarSet } : nextMe,
-            );
-            // Unpinned bots were restyled with it. The save already succeeded, so a failed
-            // refresh only waits for the roster's next poll.
-            void refreshSpaces().catch(() => undefined);
           }}
           onAccountImported={refreshSpaces}
           onImportAgent={() => {

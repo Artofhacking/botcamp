@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { AccountSecurity, BotAvatarSet, UsageSummary } from "@rakazo/contracts";
+import type { AccountSecurity, UsageSummary } from "@rakazo/contracts";
 import {
   accountDisplay,
   displayName,
@@ -11,11 +11,9 @@ import {
   Field,
   FieldLabel,
   Input,
-  Label,
   NativeSelect,
   NativeSelectOption,
   OptionSelect,
-  Switch,
   ToggleGroup,
   ToggleGroupItem,
 } from "@rakazo/ui-web";
@@ -29,6 +27,7 @@ import {
 } from "@rakazo/ui-web/components/ui/table";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { AboutBotCamp } from "../components/AboutBotCamp";
 import { AccountAccess, LinkSsoRow } from "../components/AccountAccess";
 import { AccountDataSettings } from "../components/AccountDataSettings";
 import { SuccessPop } from "../components/ai/primitives";
@@ -38,7 +37,6 @@ import {
   ComputersUnavailableHint,
   computersAreUnavailable,
 } from "../components/ComputersUnavailableHint";
-import { AboutBotCamp } from "../components/AboutBotCamp";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { PasskeySettings } from "../components/PasskeySettings";
 import { SettingsGroup, SettingsRow } from "../components/SettingsRows";
@@ -50,32 +48,16 @@ import {
   setBotsSidebarDensity,
   subscribeBotsSidebarDensity,
 } from "../lib/bots-sidebar-density-pref";
-import {
-  getComposerEnterToSend,
-  setComposerEnterToSend,
-  subscribeComposerEnterToSend,
-} from "../lib/composer-enter-to-send-pref";
 import { getActiveUiLocale, setUiLocale } from "../lib/i18n";
 import { localTimezone, sameTimeZone, timezoneOptions } from "../lib/local-timezone";
 import { usePasskeysSupported } from "../lib/passkeys";
-import {
-  getRemoteImagesPreference,
-  setRemoteImagesPreference,
-} from "../lib/remote-images-preference";
-import {
-  getResponseStreamingPreference,
-  setResponseStreamingPreference,
-} from "../lib/response-streaming";
-import {
-  getToolActivityPreference,
-  setToolActivityPreference,
-} from "../lib/tool-activity-preference";
 import type { AppearancePreference } from "../lib/ui-appearance";
 import { getUiAppearancePreference, setUiAppearance } from "../lib/ui-appearance";
 import type { UiLocale } from "../lib/ui-locale";
 import { UI_LOCALE_LABELS, UI_LOCALES } from "../lib/ui-locale";
 import { authErrorText } from "../lib/user-error";
-import { fetchWeeklyQuota, resetLabel, type WeeklyQuota } from "../lib/weekly-quota.js";
+import type { WeeklyQuota } from "../lib/weekly-quota.js";
+import { fetchWeeklyQuota, resetLabel } from "../lib/weekly-quota.js";
 
 export type SettingsGeneralProps = {
   email?: string | null;
@@ -84,9 +66,6 @@ export type SettingsGeneralProps = {
   /** The user's saved IANA timezone, or null before one is set. */
   timezone?: string | null;
   onTimezoneChange?: (timezone: string) => Promise<void>;
-  /** The icon set new and unpinned bots wear; absent from servers that predate it. */
-  botAvatarSet?: BotAvatarSet;
-  onBotAvatarSetChange?: (set: BotAvatarSet) => Promise<void>;
   onAccountImported?: () => Promise<void>;
   onImportAgent?: () => void;
 };
@@ -97,8 +76,6 @@ export function GeneralSettingsPanels({
   onNameSaved,
   timezone = null,
   onTimezoneChange,
-  botAvatarSet,
-  onBotAvatarSetChange,
   onAccountImported,
   onImportAgent,
 }: SettingsGeneralProps) {
@@ -154,26 +131,6 @@ export function GeneralSettingsPanels({
     () => "comfortable",
   );
   const sidebarDensityLabelId = useId();
-  const botStyleLabelId = useId();
-  const [botStyleError, setBotStyleError] = useState<string | null>(null);
-  const [streamReplies, setStreamReplies] = useState(
-    () => getResponseStreamingPreference() === "on",
-  );
-  const streamRepliesId = useId();
-  const [showToolActivity, setShowToolActivity] = useState(
-    () => getToolActivityPreference() === "on",
-  );
-  const showToolActivityId = useId();
-  const enterToSend = useSyncExternalStore(
-    subscribeComposerEnterToSend,
-    getComposerEnterToSend,
-    () => false,
-  );
-  const enterToSendId = useId();
-  const [loadRemoteImages, setLoadRemoteImages] = useState(
-    () => getRemoteImagesPreference() === "on",
-  );
-  const loadRemoteImagesId = useId();
   const timezoneId = useId();
   const showPassword = Boolean(
     accountSecurity?.hasPassword && accountSecurity.passwordChangeEnabled !== false,
@@ -301,51 +258,6 @@ export function GeneralSettingsPanels({
             />
           }
         />
-        {botAvatarSet && onBotAvatarSetChange ? (
-          <SettingsRow
-            label={
-              <span id={botStyleLabelId}>
-                <Trans>Bot style</Trans>
-              </span>
-            }
-            control={
-              <div className="space-y-1">
-                <ToggleGroup
-                  aria-labelledby={botStyleLabelId}
-                  data-testid="bot-style-select"
-                  value={[botAvatarSet]}
-                  onValueChange={([next]) => {
-                    if (!next || next === botAvatarSet) return;
-                    setBotStyleError(null);
-                    onBotAvatarSetChange(next as BotAvatarSet).catch(() =>
-                      setBotStyleError(t`Couldn't update bot style`),
-                    );
-                  }}
-                  spacing={1}
-                  className="grid min-w-0 grid-cols-2 rounded-lg bg-muted p-1"
-                >
-                  <ToggleGroupItem
-                    value="organic"
-                    className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
-                  >
-                    <Trans>Original</Trans>
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="rakazo"
-                    className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
-                  >
-                    <Trans>BotCamp</Trans>
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                {botStyleError ? (
-                  <p role="alert" className="text-[12.5px] text-destructive">
-                    {botStyleError}
-                  </p>
-                ) : null}
-              </div>
-            }
-          />
-        ) : null}
         <SettingsRow
           label={
             <span id={sidebarDensityLabelId}>
@@ -433,78 +345,6 @@ export function GeneralSettingsPanels({
             </SettingsRow>
           </div>
         ) : null}
-      </SettingsGroup>
-
-      <SettingsGroup title={<Trans>Chat</Trans>}>
-        <SettingsRow
-          label={
-            <Label htmlFor={enterToSendId} className="text-[14px] font-normal text-foreground">
-              <Trans>Send with Enter</Trans>
-            </Label>
-          }
-          control={
-            <Switch
-              id={enterToSendId}
-              data-testid="composer-enter-to-send-toggle"
-              checked={enterToSend}
-              onCheckedChange={(checked) => setComposerEnterToSend(checked)}
-            />
-          }
-        />
-        <SettingsRow
-          label={
-            <Label htmlFor={streamRepliesId} className="text-[14px] font-normal text-foreground">
-              <Trans>Stream replies</Trans>
-            </Label>
-          }
-          control={
-            <Switch
-              id={streamRepliesId}
-              data-testid="response-streaming-toggle"
-              checked={streamReplies}
-              onCheckedChange={(checked) => {
-                setStreamReplies(checked);
-                setResponseStreamingPreference(checked ? "on" : "off");
-              }}
-            />
-          }
-        />
-        <SettingsRow
-          label={
-            <Label htmlFor={showToolActivityId} className="text-[14px] font-normal text-foreground">
-              <Trans>Show tool activity</Trans>
-            </Label>
-          }
-          control={
-            <Switch
-              id={showToolActivityId}
-              data-testid="tool-activity-toggle"
-              checked={showToolActivity}
-              onCheckedChange={(checked) => {
-                setShowToolActivity(checked);
-                setToolActivityPreference(checked ? "on" : "off");
-              }}
-            />
-          }
-        />
-        <SettingsRow
-          label={
-            <Label htmlFor={loadRemoteImagesId} className="text-[14px] font-normal text-foreground">
-              <Trans>Load web images automatically</Trans>
-            </Label>
-          }
-          control={
-            <Switch
-              id={loadRemoteImagesId}
-              data-testid="remote-images-toggle"
-              checked={loadRemoteImages}
-              onCheckedChange={(checked) => {
-                setLoadRemoteImages(checked);
-                setRemoteImagesPreference(checked ? "on" : "off");
-              }}
-            />
-          }
-        />
       </SettingsGroup>
 
       <TrustedLinkSitesSettings />

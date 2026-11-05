@@ -18,6 +18,7 @@ await unwrapEnvFromKeyManager();
 import {
   apnsVoipConfig,
   auditLogConfig,
+  burstProvisionGuard,
   ChatSdkMessagingSurface,
   CodexCatalogCache,
   contentKeyProviderFromEnv,
@@ -40,8 +41,6 @@ import {
   createRoutineRetryNoticeReconciler,
   createRunExecutor,
   createRunSandbox,
-  tieredSandbox,
-  burstProvisionGuard,
   createRunSecretWriter,
   createStrategicInitiativeReconciler,
   createTicketChangeNotifier,
@@ -79,7 +78,11 @@ import {
   ScriptedAgentRuntime,
   SpaceMemoryProviderResolver,
   sandboxProviderOptionsFromEnv,
+  sandboxTierFor,
   shutdownPiTelemetry,
+  subscriptionFallbackFor,
+  subscriptionSecretValues,
+  tieredSandbox,
   UserDevices,
   userDeviceForwardSecret,
   withRunWorker,
@@ -205,14 +208,7 @@ async function main() {
       ? tieredSandbox({
           providers,
           beforeBurstProvision: burstProvisionGuard(prisma as never),
-          tierFor: async (botId) => {
-            const bot = await prisma.bot.findUnique({
-              where: { id: botId },
-              select: { computerTier: true },
-            });
-            const tier = bot?.computerTier;
-            return tier === "big" || tier === "desktop" ? tier : "small";
-          },
+          tierFor: (address) => sandboxTierFor(prisma, address),
         })
       : baseSandbox;
   const allowPrivateEndpoint = process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true";
@@ -346,7 +342,9 @@ async function main() {
       process.env.COMPOSIO_API_KEY ?? "",
       process.env.CURSOR_API_KEY ?? "",
       process.env.TYPESAFE_API_KEY ?? "",
+      ...subscriptionSecretValues(),
     ].filter(Boolean),
+    subscriptionFallback: subscriptionFallbackFor({ prisma, secretStore: secrets }),
     secretStore: secrets,
     mcpAllowPrivateEndpoint: process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
     deploymentModelKey,

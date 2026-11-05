@@ -117,20 +117,13 @@ vi.mock("../lib/ui-appearance", () => ({
 }));
 
 import { authClient } from "../lib/auth";
-import {
-  COMPOSER_ENTER_TO_SEND_STORAGE_KEY,
-  getComposerEnterToSend,
-  setComposerEnterToSend,
-} from "../lib/composer-enter-to-send-pref";
-import { getRemoteImagesEnabled } from "../lib/remote-images-preference";
-import { TOOL_ACTIVITY_STORAGE_KEY } from "../lib/tool-activity-preference";
 import { GeneralSettingsPanels, UsageSettingsPanel } from "./AccountSettingsOverlay";
 
 afterEach(() => {
   localStorage.clear();
 });
 
-it("flips the stored tool activity preference from the settings toggle", async () => {
+it("does not offer bot style or chat preferences", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -139,61 +132,13 @@ it("flips the stored tool activity preference from the settings toggle", async (
     await act(async () => {
       root.render(<GeneralSettingsPanels name="Jamie" />);
     });
-
-    const toggle = container.querySelector<HTMLButtonElement>(
-      '[data-testid="tool-activity-toggle"]',
-    );
-    if (!toggle) throw new Error("Missing tool activity toggle");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-
-    await act(async () => {
-      toggle.click();
-    });
-
-    expect(localStorage.getItem(TOOL_ACTIVITY_STORAGE_KEY)).toBe("on");
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-
-    await act(async () => {
-      toggle.click();
-    });
-
-    expect(localStorage.getItem(TOOL_ACTIVITY_STORAGE_KEY)).toBe("off");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-  } finally {
-    await act(async () => root.unmount());
-    container.remove();
-    vi.unstubAllGlobals();
-  }
-});
-
-it("turns loading web images on and off from the settings toggle", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
-  try {
-    await act(async () => {
-      root.render(<GeneralSettingsPanels name="Jamie" />);
-    });
-
-    const toggle = container.querySelector<HTMLButtonElement>(
-      '[data-testid="remote-images-toggle"]',
-    );
-    if (!toggle) throw new Error("Missing remote images toggle");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(getRemoteImagesEnabled()).toBe(false);
-
-    await act(async () => {
-      toggle.click();
-    });
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    expect(getRemoteImagesEnabled()).toBe(true);
-
-    await act(async () => {
-      toggle.click();
-    });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(getRemoteImagesEnabled()).toBe(false);
+    const text = container.textContent ?? "";
+    expect(text).not.toContain("Bot style");
+    expect(text).not.toContain("Send with Enter");
+    expect(text).not.toContain("Stream replies");
+    expect(text).not.toContain("Show tool activity");
+    expect(text).not.toContain("Load web images automatically");
+    expect(container.querySelector('[data-testid="bot-style-select"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
@@ -252,35 +197,6 @@ it("keeps the password form closed until asked and closes it after a change", as
   } finally {
     await act(async () => root.unmount());
     container.remove();
-    vi.unstubAllGlobals();
-  }
-});
-
-it("updates the Enter preference from Settings and reflects external changes", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  setComposerEnterToSend(true);
-  const container = document.createElement("div");
-  const root = createRoot(container);
-  try {
-    await act(async () => {
-      root.render(<GeneralSettingsPanels name="Test" />);
-    });
-    const toggle = container.querySelector<HTMLButtonElement>(
-      '[data-testid="composer-enter-to-send-toggle"]',
-    );
-    if (!toggle) throw new Error("Missing Enter preference");
-    expect(container.querySelector(`label[for="${toggle.id}"]`)?.textContent).toBe(
-      "Send with Enter",
-    );
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    await act(async () => toggle.click());
-    expect(getComposerEnterToSend()).toBe(false);
-    expect(localStorage.getItem(COMPOSER_ENTER_TO_SEND_STORAGE_KEY)).toBe("0");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    await act(async () => setComposerEnterToSend(true));
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-  } finally {
-    await act(async () => root.unmount());
     vi.unstubAllGlobals();
   }
 });

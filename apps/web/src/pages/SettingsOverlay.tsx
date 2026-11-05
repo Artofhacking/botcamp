@@ -1,15 +1,15 @@
 import { useLingui } from "@lingui/react/macro";
-import type { BotAvatarSet, SpaceMemoryConfig, UsageSummary } from "@rakazo/contracts";
+import type { SpaceMemoryConfig, UsageSummary } from "@rakazo/contracts";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
 import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
-import { SETTINGS_CONTENT_WIDTH, SettingsGroup, SettingsRow } from "../components/SettingsRows";
+import { SETTINGS_CONTENT_WIDTH } from "../components/SettingsRows";
 import { VaultSettings } from "../components/VaultSettings";
 import { canChooseOwnComputer } from "../lib/computer-sandbox";
-import { desktopBridge } from "../lib/desktop";
 import { SpaceRpcProvider } from "../lib/space-rpc";
+import { sectionHidden } from "../lib/ui-flags.js";
 import {
   ComputerSettingsPanel,
   GeneralSettingsPanels,
@@ -26,12 +26,9 @@ import { useSettingsNavItems } from "./settings-nav";
 import type { SettingsSpace } from "./shell/dialogs";
 import type { SettingsSection } from "./shell-overlay";
 import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
-import { sectionHidden } from "../lib/ui-flags.js";
 
 export function SettingsOverlay({
   space,
-  spaces = [],
-  onOpenSpace,
   onRenameSpace,
   onDeleteSpace,
   email,
@@ -43,8 +40,6 @@ export function SettingsOverlay({
   onNameSaved,
   timezone,
   onTimezoneChange,
-  botAvatarSet,
-  onBotAvatarSetChange,
   onAccountImported,
   onImportAgent,
   billingEnabled = false,
@@ -60,8 +55,6 @@ export function SettingsOverlay({
 }: {
   /** The space the Space page edits; it need not be the selected space. */
   space?: SettingsSpace | null;
-  spaces?: { id: string; name: string }[];
-  onOpenSpace?: (spaceId: string) => void;
   onRenameSpace?: (spaceId: string, name: string) => Promise<void>;
   onDeleteSpace?: (spaceId: string) => Promise<void>;
   email?: string | null;
@@ -73,8 +66,6 @@ export function SettingsOverlay({
   onNameSaved?: () => Promise<void>;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
-  botAvatarSet?: BotAvatarSet;
-  onBotAvatarSetChange?: (set: BotAvatarSet) => Promise<void>;
   onAccountImported?: () => Promise<void>;
   onImportAgent?: () => void;
   billingEnabled?: boolean;
@@ -102,9 +93,9 @@ export function SettingsOverlay({
   const showComputer =
     !sectionHidden("computer") &&
     (canConfigureComputers ||
-    keepComputerRecovery ||
-    computersAreUnavailable(sandboxProvider) ||
-    canChooseOwnComputer(sandboxProvider));
+      keepComputerRecovery ||
+      computersAreUnavailable(sandboxProvider) ||
+      canChooseOwnComputer(sandboxProvider));
   // 网页端和安卓壳也要看版本、查更新，不只是桌面客户端。
   const showUpdates = true;
   // A section that isn't available yet (billing before its flag loads) shows General until it is.
@@ -365,33 +356,9 @@ export function SettingsOverlay({
                         onNameSaved={onNameSaved}
                         timezone={timezone}
                         onTimezoneChange={onTimezoneChange}
-                        botAvatarSet={botAvatarSet}
-                        onBotAvatarSetChange={onBotAvatarSetChange}
                         onAccountImported={onAccountImported}
                         onImportAgent={onImportAgent}
                       />
-                      {/* One space is just the app, so there is nothing to tell apart or manage. */}
-                      {spaces.length > 1 && onOpenSpace ? (
-                        <SettingsGroup title={t`Spaces`} data-testid="settings-spaces">
-                          {spaces.map((option) => (
-                            <SettingsRow
-                              key={option.id}
-                              label={<p className="break-words">{option.name}</p>}
-                              control={
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="rounded-full"
-                                  aria-label={t`Manage ${option.name}`}
-                                  onClick={() => onOpenSpace(option.id)}
-                                >
-                                  {t`Manage`}
-                                </Button>
-                              }
-                            />
-                          ))}
-                        </SettingsGroup>
-                      ) : null}
                     </div>
                   ) : null}
                   {section === "space" && space ? (

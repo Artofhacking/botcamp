@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, openNewSpace, signup } from "./helpers";
+import { captureScreenshot, completeOnboarding, openNewBot, signup } from "./helpers";
 
 function isPresented(error: Locator) {
   return error.evaluate((element) => {
@@ -122,16 +122,16 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   await page.getByPlaceholder(/^Message /).fill("fail this run");
   const modalSendButton = await page.getByRole("button", { name: "Send" }).elementHandle();
   if (!modalSendButton) throw new Error("Send button not found");
-  await openNewSpace(page);
-  const newSpaceDialog = page.getByRole("dialog", { name: "New space" });
-  await expect(newSpaceDialog).toBeVisible();
+  await openNewBot(page);
+  const newBotDialog = page.getByRole("dialog", { name: "New bot" });
+  await expect(newBotDialog).toBeVisible();
   await modalSendButton.evaluate((button) => (button as HTMLButtonElement).click());
   await expect(error).toContainText("The model provider returned an error.", { timeout: 30_000 });
   expect(await isPresented(error)).toBe(false);
   await expect.poll(() => seenRunErrorCount(page)).toBe(recordedErrorCount + 1);
 
-  await newSpaceDialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(newSpaceDialog).toHaveCount(0);
+  await newBotDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(newBotDialog).toHaveCount(0);
   await expect.poll(() => isPresented(error)).toBe(true);
   await expect.poll(() => seenRunErrorCount(page)).toBe(recordedErrorCount + 2);
   await page.reload();

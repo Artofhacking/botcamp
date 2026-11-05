@@ -15,6 +15,7 @@ import math
 import mimetypes
 import os
 import re
+import signal
 import socket
 import stat
 import subprocess
@@ -34,6 +35,7 @@ from page_secrets import CardFieldUncertain, Refused, payment_frame_origin  # no
 discover_ws_url = page_secrets.discover_ws_url
 
 AGENT_BROWSER = os.environ.get("RAKAZO_AGENT_BROWSER") or "/usr/local/bin/agent-browser"
+DETACHED = "Page browser is not attached to this computer's Chrome."
 
 NO_ANSWER = "The page did not answer in time."
 STALE_REF = "Stale element ref: the page has changed since that snapshot. Use a ref from the page below."
@@ -375,8 +377,51 @@ class AgentBrowser:
             "AGENT_BROWSER_NO_WEBMCP": "1",
         })
 
+    def stop_daemon(self) -> None:
+        """End a helper daemon that opened its own browser. The screen's Chrome is a different program."""
+        try:
+            entries = os.listdir("/proc")
+        except OSError:
+            return
+        home = os.path.realpath(self.home)
+        for entry in entries:
+            if not entry.isdigit():
+                continue
+            proc = f"/proc/{entry}"
+            if not self._daemon_pid(entry, home):
+                continue
+            with contextlib.suppress(OSError):
+                os.kill(int(entry), signal.SIGTERM)
+        time.sleep(0.2)
+        for entry in entries:
+            if not self._daemon_pid(entry, home):
+                continue
+            with contextlib.suppress(OSError):
+                os.kill(int(entry), signal.SIGKILL)
+
+    def _daemon_pid(self, entry: str, home: str) -> bool:
+        if not entry.isdigit():
+            return False
+        try:
+            proc = f"/proc/{entry}"
+            exe = os.path.basename(os.readlink(f"{proc}/exe"))
+            cwd = os.path.realpath(os.readlink(f"{proc}/cwd"))
+            return exe == "agent-browser" and os.path.commonpath((cwd, home)) == home
+        except (OSError, ValueError):
+            return False
+
     def batch(self, commands: list[list[str]], *, timeout: float = 20.0, bail: bool = True) -> list[Any]:
         """Each command's result, in one agent-browser call. Commands and their text go over stdin, not argv."""
+        try:
+            return self._batch(commands, timeout=timeout, bail=bail)
+        except RuntimeError as error:
+            if str(error) != DETACHED:
+                raise
+            # The daemon answered by opening a browser of its own. Drop it and attach to the screen's Chrome once.
+            self.stop_daemon()
+            return self._batch(commands, timeout=timeout, bail=bail)
+
+    def _batch(self, commands: list[list[str]], *, timeout: float, bail: bool) -> list[Any]:
         try:
             proc = subprocess.run(
                 [AGENT_BROWSER, "batch", "--json", "--omit-command", *(["--bail"] if bail else [])],
@@ -397,7 +442,7 @@ class AgentBrowser:
             data = item.get("result") if isinstance(item.get("result"), dict) else {}
             # Only ever the browser on the screen: a page agent-browser opened itself is not the bot's.
             if (data.get("lifecycle") or {}).get("launched") is True:
-                raise RuntimeError("Page browser is not attached to this computer's Chrome.")
+                raise RuntimeError(DETACHED)
             if not item.get("success"):
                 if bail:
                     raise AbError(str(item.get("error") or "agent-browser failed"), index)

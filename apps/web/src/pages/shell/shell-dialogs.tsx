@@ -8,13 +8,12 @@ import {
 } from "@rakazo/ui-web";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Settings, Trash2 } from "lucide-react";
-import type { ComponentProps, RefObject } from "react";
+import type { ComponentProps } from "react";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { PAGE_PARAM } from "../../lib/pages";
 import { useSpaceQueries } from "../../lib/query";
 import type { Panel } from "../../lib/right-panel-state";
 import type { createSpaceRpc } from "../../lib/rpc";
-import { selectSpace } from "../../lib/rpc";
 import type { CommandPaletteAction } from "./command-palette";
 import { CommandPalette } from "./command-palette";
 import type { CreateBotDialogInput } from "./create-bot-dialog";
@@ -25,7 +24,6 @@ import {
   DeleteItemDialog,
   DeleteSpaceDialog,
   NewBotSectionDialog,
-  NewSpaceDialog,
   RenameBotSectionDialog,
 } from "./dialogs";
 
@@ -52,7 +50,6 @@ export function useShellDialogs() {
   const [newSectionTarget, setNewSectionTarget] = useState<ChatTarget | null>(null);
   const [renameSectionTarget, setRenameSectionTarget] = useState<SectionTarget | null>(null);
   const [deleteSectionTarget, setDeleteSectionTarget] = useState<SectionTarget | null>(null);
-  const [newSpaceOpen, setNewSpaceOpen] = useState(false);
   const [createBotOpen, setCreateBotOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   return {
@@ -74,8 +71,6 @@ export function useShellDialogs() {
     setRenameSectionTarget,
     deleteSectionTarget,
     setDeleteSectionTarget,
-    newSpaceOpen,
-    setNewSpaceOpen,
     createBotOpen,
     setCreateBotOpen,
     commandPaletteOpen,
@@ -93,7 +88,6 @@ export function ShellDialogs({
   bots,
   activeId,
   activeGroupId,
-  alive,
   navigate,
   setPanel,
   refreshBots,
@@ -112,7 +106,6 @@ export function ShellDialogs({
   bots: Bot[];
   activeId: string | undefined;
   activeGroupId: string | undefined;
-  alive: RefObject<boolean>;
   navigate: (path: string) => void;
   setPanel: (panel: Panel) => void;
   refreshBots: (includeArchived?: boolean) => Promise<void>;
@@ -145,8 +138,6 @@ export function ShellDialogs({
     setRenameSectionTarget,
     deleteSectionTarget,
     setDeleteSectionTarget,
-    newSpaceOpen,
-    setNewSpaceOpen,
     createBotOpen,
     setCreateBotOpen,
     commandPaletteOpen,
@@ -335,29 +326,6 @@ export function ShellDialogs({
           avatarSet={botAvatarSet}
           onCancel={() => setCreateBotOpen(false)}
           onCreate={createBot}
-        />
-      ) : null}
-
-      {newSpaceOpen ? (
-        <NewSpaceDialog
-          onCancel={() => setNewSpaceOpen(false)}
-          onCreate={async (name) => (await rpc.spaces.create({ name })).id}
-          loadItems={() => rpc.availability.items()}
-          chooseItems={async (spaceId, items) => {
-            await rpc.availability.chooseForSpace({
-              spaceId,
-              items: items.map(({ kind, id }) => ({ kind, id })),
-            });
-          }}
-          onDone={(spaceId) => {
-            if (!alive.current) return;
-            if (!selectSpace(spaceId)) {
-              setNewSpaceOpen(false);
-              void refreshBots();
-              return;
-            }
-            window.location.assign("/onboarding");
-          }}
         />
       ) : null}
 

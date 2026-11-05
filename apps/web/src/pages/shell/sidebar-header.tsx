@@ -21,7 +21,6 @@ export function SidebarHeader({
   setMobileSidebarOpen,
   setPanel,
   navigate,
-  setNewSpaceOpen,
   setCreateBotOpen,
 }: {
   mini?: boolean;
@@ -36,7 +35,6 @@ export function SidebarHeader({
   setMobileSidebarOpen: (open: boolean) => void;
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
-  setNewSpaceOpen: (open: boolean) => void;
   setCreateBotOpen: (open: boolean) => void;
 }) {
   const { t } = useLingui();
@@ -136,11 +134,6 @@ export function SidebarHeader({
                   setCreateMenuOpen(false);
                   setMobileSidebarOpen(false);
                   setPanel("create-group");
-                }}
-                onCreateSpace={() => {
-                  setCreateMenuOpen(false);
-                  setMobileSidebarOpen(false);
-                  setNewSpaceOpen(true);
                 }}
               />
             </PopoverContent>

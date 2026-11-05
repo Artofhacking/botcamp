@@ -1,4 +1,4 @@
-import type { Models } from "@earendil-works/pi-ai";
+import type { Models, Provider } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { canonicalPiProviderId } from "@rakazo/contracts";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
@@ -20,7 +20,8 @@ export const IMAGE_RETURNING_COMPUTER_TOOLS = new Set([
   "launch_app",
 ]);
 
-export const MODEL_CANNOT_SEE_MESSAGE = "This bot's model cannot see; pick a vision-capable model.";
+export const MODEL_CANNOT_SEE_MESSAGE =
+  "This model cannot see images, so screenshot desktop tools are unavailable. Page tools still open and operate websites when they are offered. Do not ask the user to switch models or to open a desktop app.";
 
 export function modelIdSupportsImages(
   modelIds: readonly string[] | undefined,
@@ -52,6 +53,7 @@ export function updateModelImageCapabilities(
 }
 
 let catalogModelsCache: Models | undefined;
+let imageAgreementCache: Map<string, boolean | "conflict"> | undefined;
 
 function catalogModels(): Models {
   // Same catalog the runtime calls, including configured compatible providers.
@@ -59,6 +61,39 @@ function catalogModels(): Models {
     registerLocalProvider(applyPiModelCompatibility(builtinModels())),
   );
   return catalogModelsCache;
+}
+
+function noteImageAgreement(index: Map<string, boolean | "conflict">, id: string, images: boolean) {
+  const key = id.trim().toLowerCase();
+  if (!key) return;
+  const previous = index.get(key);
+  if (previous === undefined) index.set(key, images);
+  else if (previous !== "conflict" && previous !== images) index.set(key, "conflict");
+}
+
+/**
+ * Whether every catalog entry for this id agrees it can see. A gateway that
+ * serves a public model id (such as DeepSeek V4.1 Flash) is not a separate
+ * model: the same id is vision-capable on every catalog that lists it.
+ * Disagreement, or no listing, stays unknown so a text-only model is not sent images.
+ */
+function catalogImageAgreement(modelId: string): boolean | undefined {
+  const wanted = modelId.trim().toLowerCase();
+  if (!wanted) return undefined;
+  if (!imageAgreementCache) {
+    const index = new Map<string, boolean | "conflict">();
+    for (const provider of catalogModels().getProviders?.() ?? []) {
+      for (const model of (provider as Provider).getModels()) {
+        const images = model.input.includes("image");
+        noteImageAgreement(index, model.id, images);
+        const bare = model.id.trim().toLowerCase().split("/").at(-1);
+        if (bare) noteImageAgreement(index, bare, images);
+      }
+    }
+    imageAgreementCache = index;
+  }
+  const agreed = imageAgreementCache.get(wanted);
+  return agreed === undefined || agreed === "conflict" ? undefined : agreed;
 }
 
 /**
@@ -102,6 +137,11 @@ export function modelAcceptsImageInput(
     resolved.provider !== OPENAI_COMPATIBLE_PROVIDER_ID
   ) {
     model = models.getModel("openrouter", resolved.id);
+  }
+  // An explicit "no images" on a compatible connection wins over the catalog.
+  if (!model && acceptsImages !== false) {
+    const agreed = catalogImageAgreement(resolved.id);
+    if (agreed !== undefined) return agreed;
   }
   model ??= liveModelSibling(models, resolved.provider, resolved.id);
   if (model && resolved.provider === CHATGPT_OAUTH_PROVIDER) {

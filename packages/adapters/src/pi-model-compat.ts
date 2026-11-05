@@ -1,4 +1,4 @@
-import type { Api, Model, MutableModels } from "@earendil-works/pi-ai";
+import type { Api, Model, MutableModels, OAuthAuth, OAuthCredential } from "@earendil-works/pi-ai";
 import { canonicalPiProviderId } from "@rakazo/contracts";
 
 /** Apply provider protocol capabilities before catalog and runtime selection. */
@@ -33,7 +33,42 @@ export function applyPiModelCompatibility(models: MutableModels): MutableModels 
   models.getModel = (provider, id) => getModel(canonicalPiProviderId(provider), id);
   const getProvider = models.getProvider?.bind(models);
   if (getProvider) models.getProvider = (provider) => getProvider(canonicalPiProviderId(provider));
+  routeGrokSubscription(models);
   return models;
+}
+
+/**
+ * A Grok subscription sign-in is the same login Grok Build uses. Those calls go to its
+ * proxy with the subscription auth kind, so usage draws on that subscription. An API key
+ * stays on the provider's own endpoint and its own balance.
+ */
+export const GROK_SUBSCRIPTION_PROXY_URL = "https://cli-chat-proxy.grok.com/v1";
+export const GROK_SUBSCRIPTION_AUTH_HEADER = "x-xai-token-auth";
+export const GROK_SUBSCRIPTION_AUTH_KIND = "xai-grok-cli";
+
+function routeGrokSubscription(models: MutableModels): void {
+  const provider = models.getProvider?.("xai");
+  const oauth = provider?.auth.oauth;
+  if (!provider || !oauth) return;
+  const current = oauth.toAuth as OAuthAuth["toAuth"] & { grokSubscription?: boolean };
+  if (current.grokSubscription) return;
+  const toAuth = oauth.toAuth.bind(oauth);
+  const wrapped: OAuthAuth["toAuth"] & { grokSubscription?: boolean } = async (
+    credential: OAuthCredential,
+  ) => {
+    const auth = await toAuth(credential);
+    return {
+      ...auth,
+      apiKey: auth.apiKey ?? credential.access,
+      baseUrl: GROK_SUBSCRIPTION_PROXY_URL,
+      headers: { ...auth.headers, [GROK_SUBSCRIPTION_AUTH_HEADER]: GROK_SUBSCRIPTION_AUTH_KIND },
+    };
+  };
+  wrapped.grokSubscription = true;
+  models.setProvider({
+    ...provider,
+    auth: { ...provider.auth, oauth: { ...oauth, toAuth: wrapped } },
+  });
 }
 
 const DEVELOPER_ROLE_PROVIDERS = new Set(["openai", "azure", "openrouter"]);

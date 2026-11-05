@@ -5,6 +5,7 @@ import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";
+import { COMPUTER_START_RETRY_ERROR, MODEL_COMPUTER_START_TRIES } from "./run-computer.js";
 import * as runMessages from "./run-messages.js";
 
 const sink = createTestSink();
@@ -219,6 +220,9 @@ async function runRoutine(
         defaultModelId: "deepseek/deepseek-v4-flash-0731",
       })),
     },
+    user: { findUnique: vi.fn(async () => ({ quotaAnchorAt: null })) },
+    usageRecord: { aggregate: vi.fn(async () => ({ _sum: {} })) },
+    containerUsage: { aggregate: vi.fn(async () => ({ _sum: {} })) },
     taughtSkill: { findMany: vi.fn(async () => []) },
     vaultCredential: { findMany: vi.fn(async () => []) },
     agentSkill: { findMany: vi.fn(async () => []) },
@@ -605,6 +609,67 @@ describe("run computer provisioning", () => {
 
     // One from starting the computer, one from the takeover request.
     expect(sleepJobs).toHaveLength(2);
+  });
+
+  it("lets the model retry when the computer pod fails while starting", async () => {
+    provisionComputer.mockRejectedValueOnce(
+      new Error("Kubernetes pod rakazo-bot-example entered phase Failed"),
+    );
+
+    const { finalizeRun, toolResults } = await runRoutine([
+      { name: "list_files", args: { path: "" } },
+    ]);
+
+    expect(toolResults[0]).toEqual({ error: COMPUTER_START_RETRY_ERROR });
+    expect(finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed" }));
+    expect(sink.events.filter((event) => event.message === "run setup failed")).toEqual([]);
+  });
+
+  it("lets the model retry when the computer does not start", async () => {
+    provisionComputer.mockRejectedValueOnce(new Error("could not prepare Kubernetes computer"));
+
+    const { finalizeRun, toolResults } = await runRoutine([
+      { name: "list_files", args: { path: "" } },
+    ]);
+
+    expect(toolResults[0]).toEqual({ error: COMPUTER_START_RETRY_ERROR });
+    expect(finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed" }));
+    expect(sink.events.filter((event) => event.message === "run setup failed")).toEqual([]);
+  });
+
+  it("starts the computer again after telling the model the first start failed", async () => {
+    provisionComputer
+      .mockRejectedValueOnce(new Error("could not prepare Kubernetes computer"))
+      .mockResolvedValueOnce(COMPUTER);
+
+    const { finalizeRun, sandbox, toolResults } = await runRoutine([
+      { name: "list_files", args: { path: "" } },
+      { name: "list_files", args: { path: "" } },
+    ]);
+
+    expect(provisionComputer).toHaveBeenCalledTimes(2);
+    expect(toolResults[0]).toEqual({ error: COMPUTER_START_RETRY_ERROR });
+    expect(toolResults[1]).toMatchObject({ entries: [{ path: "notes.txt" }] });
+    expect(sandbox.listFiles).toHaveBeenCalledOnce();
+    expect(finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed" }));
+  });
+
+  it("keeps retrying a computer that still will not start after the model has tried", async () => {
+    provisionComputer.mockRejectedValue(new Error("could not prepare Kubernetes computer"));
+
+    await expect(
+      runRoutine(
+        Array.from({ length: MODEL_COMPUTER_START_TRIES + 1 }, () => ({
+          name: "list_files",
+          args: { path: "" },
+        })),
+        { priorSetupFailures: 7 },
+      ),
+    ).rejects.toThrow("Run setup failed; retrying");
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "warn", message: "run setup failed" }),
+    );
+    expect(sink.events.filter((event) => event.level === "error")).toEqual([]);
   });
 
   it("keeps setup-failure retry semantics when the computer cannot start", async () => {

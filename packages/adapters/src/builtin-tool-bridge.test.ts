@@ -58,7 +58,7 @@ describe("built-in tool bridge", () => {
     // request_secret carries the card and contact kinds; update_bot carries instructions paging.
     expect(definitionBytes(listed)).toBeLessThanOrEqual(31_878);
     expect(deferred.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
+      expect.arrayContaining(["render_plot", "generate_secret", "scratchpad_add"]),
     );
   });
 
@@ -91,7 +91,7 @@ describe("built-in tool bridge", () => {
 
     const names = (query: string) => findTools(deferred, { query }).tools.map((tool) => tool.name);
     expect(names("chart")).toContain("render_plot");
-    expect(names("new space")[0]).toBe("create_space");
+    expect(names("new space")).not.toContain("create_space");
     expect(names("generate password")[0]).toBe("generate_secret");
     expect(names("scratchpad add")[0]).toBe("scratchpad_add");
     expect(names("scratchpad").length).toBe(3);

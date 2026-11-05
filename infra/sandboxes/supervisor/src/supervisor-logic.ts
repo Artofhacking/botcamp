@@ -6,6 +6,7 @@ import {
   DEFAULT_DESKTOP_ENV,
   BROWSER_APPLICATIONS as DOCKER_BROWSER_ALIASES,
   MAX_DESKTOP_DISPLAY,
+  PAGE_BROWSER_DETACHED,
   resetDesktopRuntimeCommand,
   screenPorts,
   shellQuote,
@@ -369,6 +370,17 @@ export interface ScreenAssignment {
   controlToken?: string;
   /** When the setup script last finished for this screen on the current boot. */
   ensuredAt?: number;
+}
+
+/** The page helper opened a browser of its own instead of the one on the screen. */
+export function pageBrowserDetached(result: { code: number; stdout: string }) {
+  if (result.code !== 0) return false;
+  try {
+    const output = JSON.parse(result.stdout) as { ok?: unknown; error?: unknown };
+    return output.ok === false && output.error === PAGE_BROWSER_DETACHED;
+  } catch {
+    return false;
+  }
 }
 
 /** The page helper reached no browser, before dispatching anything. */

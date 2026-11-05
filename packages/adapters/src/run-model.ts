@@ -49,6 +49,7 @@ import {
   serializeModelSecret,
   withModelCredentialLock,
 } from "./pi-oauth.js";
+import type { SubscriptionRunAuth } from "./subscription-quota.js";
 
 export function runtimeFallbackModel(runtime: AgentRuntime) {
   return runtime.describe().capabilities.scripted ? { provider: "scripted", id: "scripted" } : null;
@@ -156,9 +157,15 @@ export async function modelCreditBillingEnabled(
 
 export async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMaterial>) {
   const [deps, userId, spaceId, , provider] = args;
+  const subscription = args[7]?.subscription;
   const billingEnabled = await modelCreditBillingEnabled(deps);
   const scope = { userId, spaceId };
-  if (billingEnabled && (await hasHostedModelCredits(deps.prisma, scope, provider))) {
+  // A subscription leg brings its own credential, so it is not rewritten onto hosted credits.
+  if (
+    !subscription &&
+    billingEnabled &&
+    (await hasHostedModelCredits(deps.prisma, scope, provider))
+  ) {
     args[3] = null;
     // Funded managed backups use deployment credentials just like the primary.
     args[7] = { ...args[7], requireStoredSecret: false };
@@ -184,16 +191,31 @@ export async function resolveModelKey(...args: Parameters<typeof resolveModelKey
     material.apiKey === undefined && (provider === "openrouter" || provider === "scripted")
       ? process.env.OPENROUTER_API_KEY
       : undefined;
-  if (!material.apiKey?.trim() && !runtimeKey?.trim() && !keyless) {
+  const subscriptionKey = subscription?.apiKey?.trim();
+  if (
+    !material.apiKey?.trim() &&
+    !subscriptionKey &&
+    !subscription?.oauth &&
+    !runtimeKey?.trim() &&
+    !keyless
+  ) {
     throw new UnavailableModelForAuthError(MISSING_MODEL_RUN_ERROR);
   }
   const callObserver =
-    !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
+    !subscription && !credential && billingEnabled
+      ? await hostedModelCreditObserver(deps.prisma, scope)
+      : undefined;
   // Spend is checked here, the one place every run resolves a model before calling it.
   await assertWithinWeeklyQuota(deps.prisma, userId);
   return {
     ...material,
-    apiKey: material.apiKey ?? deploymentEndpoint.apiKey ?? runtimeKey,
+    apiKey: subscription?.oauth
+      ? material.apiKey
+      : (subscriptionKey ?? material.apiKey ?? deploymentEndpoint.apiKey ?? runtimeKey),
+    oauth: subscription?.oauth ?? material.oauth,
+    persistOAuth: subscription?.persistOAuth ?? material.persistOAuth,
+    retireOAuth: subscription?.retireOAuth ?? material.retireOAuth,
+    redact: [...material.redact, ...(subscription?.redact ?? [])],
     baseUrl: material.baseUrl ?? deploymentEndpoint.baseUrl,
     callObserver,
   };
@@ -213,7 +235,9 @@ async function resolveModelKeyMaterial(
   provider: string,
   modelId: string,
   registerSecrets?: (values: string[]) => void,
-  { requireStoredSecret = false }: { requireStoredSecret?: boolean } = {},
+  {
+    requireStoredSecret = false,
+  }: { requireStoredSecret?: boolean; subscription?: SubscriptionRunAuth } = {},
 ): Promise<{
   apiKey?: string;
   accountId?: string;

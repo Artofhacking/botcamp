@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Exec, V1Pod } from "@kubernetes/client-node";
 import type { AdapterContext, ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
+import { SandboxUnavailableError } from "@rakazo/adapter-kit";
 import { shellQuote } from "@rakazo/core/node/desktop-runtime";
 import { describe, expect, it, vi } from "vitest";
 import { encodeTarEntry, TarReader } from "./exec-computer.js";
@@ -380,7 +381,7 @@ describe("KubernetesSandboxProvider", () => {
         },
         containers: [
           {
-            volumeMounts: [{ name: "home", mountPath: "/home/rakazo", subPath: "homes/team-ab12" }],
+            volumeMounts: [{ name: "home", mountPath: "/home/rakazo", subPath: "team-ab12" }],
           },
         ],
       });
@@ -427,7 +428,7 @@ describe("KubernetesSandboxProvider", () => {
       expect(create).not.toHaveBeenCalled();
     });
 
-    it.each(["correct", "missing-mount", "wrong-path", "wrong-home"])(
+    it.each(["correct", "basename", "missing-mount", "wrong-path", "wrong-home"])(
       "checks the actual home mount (%s)",
       async (kind) => {
         const pod = {
@@ -444,7 +445,12 @@ describe("KubernetesSandboxProvider", () => {
                         {
                           name: "home",
                           mountPath: kind === "wrong-path" ? "/other" : "/home/rakazo",
-                          subPath: kind === "wrong-home" ? "homes/other" : "homes/bot-a",
+                          subPath:
+                            kind === "wrong-home"
+                              ? "homes/other"
+                              : kind === "basename"
+                                ? "bot-a"
+                                : "homes/bot-a",
                         },
                       ],
               },
@@ -457,9 +463,65 @@ describe("KubernetesSandboxProvider", () => {
             vi.fn(),
             home,
           ).hasMountedHome(computer, context),
-        ).resolves.toBe(kind === "correct");
+        ).resolves.toBe(kind === "correct" || kind === "basename");
       },
     );
+
+    it("treats the NFS directory the pod mounts as the saved home", async () => {
+      const create = vi.fn().mockResolvedValue(readyPod);
+      const spawning = providerFor(
+        {
+          readNamespacedPod: vi
+            .fn()
+            .mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 404 }))
+            .mockResolvedValue(readyPod),
+          createNamespacedPod: create,
+        },
+        vi.fn(),
+        { nfsHomeServer: "files.internal", nfsHomePath: "/export" },
+      );
+      await spawning.provision(
+        { botId: "team-ab12", homePath: "/data/homes/team-ab12" },
+        context,
+      );
+      const body = create.mock.calls[0]?.[0]?.body as V1Pod;
+      expect(body.spec?.volumes?.[0]?.nfs).toEqual({
+        server: "files.internal",
+        path: "/export",
+        readOnly: false,
+      });
+      expect(body.spec?.containers?.[0]?.volumeMounts).toEqual([
+        { name: "home", mountPath: "/home/rakazo", subPath: "team-ab12" },
+      ]);
+      const mounted = { ...readyPod, spec: body.spec } as V1Pod;
+      const reading = providerFor(
+        { readNamespacedPod: vi.fn().mockResolvedValue(mounted) },
+        vi.fn(),
+        { nfsHomeServer: "files.internal", nfsHomePath: "/export" },
+      );
+      await expect(
+        reading.hasMountedHome({ ...computer, botId: "team-ab12" }, context),
+      ).resolves.toBe(true);
+      const otherVolume = {
+        ...mounted,
+        spec: {
+          ...mounted.spec,
+          volumes: [{ name: "other", nfs: { server: "files.internal", path: "/export" } }],
+          containers: [
+            {
+              name: "computer",
+              volumeMounts: [{ name: "other", mountPath: "/home/rakazo", subPath: "team-ab12" }],
+            },
+          ],
+        },
+      } as V1Pod;
+      await expect(
+        providerFor({ readNamespacedPod: vi.fn().mockResolvedValue(otherVolume) }).hasMountedHome(
+          { ...computer, botId: "team-ab12" },
+          context,
+        ),
+      ).resolves.toBe(false);
+    });
 
     it("does not treat another claim as the configured home", async () => {
       const pod = {
@@ -583,9 +645,13 @@ describe("KubernetesSandboxProvider", () => {
     const provider = providerFor({ readNamespacedPod: read, deleteNamespacedPod: del }, vi.fn(), {
       readyTimeoutMs: 1,
     });
-    await expect(
-      provider.provision({ botId: "bot-a", homePath: "/unused" }, context),
-    ).rejects.toThrow("did not become ready");
+    const error = await provider
+      .provision({ botId: "bot-a", homePath: "/unused" }, context)
+      .catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(SandboxUnavailableError);
+    expect((error as Error).cause).toMatchObject({
+      message: expect.stringContaining("did not become ready"),
+    });
     expect(del).toHaveBeenCalledOnce();
   });
 
@@ -596,9 +662,31 @@ describe("KubernetesSandboxProvider", () => {
       .mockRejectedValue(Object.assign(new Error("gone"), { code: 404 }));
     const del = vi.fn();
     const provider = providerFor({ readNamespacedPod: read, deleteNamespacedPod: del });
-    await expect(
-      provider.provision({ botId: "bot-a", homePath: "/unused" }, context),
-    ).rejects.toThrow("disappeared while starting");
+    const error = await provider
+      .provision({ botId: "bot-a", homePath: "/unused" }, context)
+      .catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(SandboxUnavailableError);
+    expect((error as Error).cause).toMatchObject({
+      message: expect.stringContaining("disappeared while starting"),
+    });
+    expect(del).toHaveBeenCalledOnce();
+  });
+
+  it("treats a terminal pod as a computer that did not start", async () => {
+    const read = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 404 }))
+      .mockResolvedValue({ ...readyPod, status: { phase: "Failed" } });
+    const del = vi.fn().mockResolvedValue({ status: "Success" });
+    const provider = providerFor({ readNamespacedPod: read, deleteNamespacedPod: del });
+    const error = await provider
+      .provision({ botId: "bot-a", homePath: "/unused" }, context)
+      .catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(SandboxUnavailableError);
+    expect(error).toMatchObject({ message: "The computer did not start. Try again." });
+    expect((error as Error).cause).toMatchObject({
+      message: "Kubernetes pod rakazo-bot-a-53ca8050b9fd entered phase Failed",
+    });
     expect(del).toHaveBeenCalledOnce();
   });
 
@@ -620,6 +708,7 @@ describe("KubernetesSandboxProvider", () => {
       capabilities: { drop: ["ALL"] },
       seccompProfile: { type: "RuntimeDefault" },
     });
+    expect(spec?.initContainers).toBeUndefined();
   });
 
   it("parses split UTF-8 output and preserves separate streams", async () => {

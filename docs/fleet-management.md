@@ -1,8 +1,8 @@
 # Bots that manage bots
 
 A bot can manage your other active bots: create groups, organize the sidebar, rewrite
-their instructions, pick their model and schedule them. This works on your active bots in the
-current space, whoever created them. It is controlled per bot and is on for new bots.
+their instructions, pick their model and schedule them. This works on your active bots, whoever
+created them. It is controlled per bot and is on for new bots.
 
 ## Settings
 
@@ -48,7 +48,7 @@ A follow-up counts as yours only when its source message was written by you.
 
 In Ask and Auto, `set_child_instructions` and `set_child_bot_model` always show an approval card.
 Auto-review and "Always allow" do not skip it, and the card offers allow or deny only.
-`create_group`, `update_group`, `create_child_routine` and `archive_bot` follow the space's approval
+`create_group`, `update_group`, `create_child_routine` and `archive_bot` follow your approval
 mode like any other action. Never ask runs all of them. For group, instruction, model and routine
 changes, the card lists what will actually run, resolved before the pause:
 
@@ -72,7 +72,7 @@ require one.
 - Use bot management tools to read, request or change secrets. Instructions, profile fields and
   routine names and prompts containing credentials detected by the run's secret filter are refused.
 - Change another bot's permissions, memory scope, computer, voice or app connections.
-- Move a bot between spaces. Every tool works inside the space and account of the run.
+- Move a bot out of this workspace. Every tool works inside the workspace and account of the run.
 - Remove itself from the group it is running in.
 
 ## Limits

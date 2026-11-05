@@ -1,5 +1,8 @@
 import type { AdapterContext, ComputerRef } from "@rakazo/adapter-kit";
-import { BROWSER_STILL_RUNNING_EXIT } from "@rakazo/core/node/desktop-runtime";
+import {
+  BROWSER_STILL_RUNNING_EXIT,
+  PAGE_BROWSER_DETACHED,
+} from "@rakazo/core/node/desktop-runtime";
 import { describe, expect, it } from "vitest";
 import { BrowserStillRunningError, BrowserStoppedReleaseError } from "./computer-screens.js";
 import { LinuxDesktop } from "./linux-desktop.js";
@@ -114,6 +117,61 @@ describe("LinuxDesktop.connectScreen", () => {
 
     expect(error.message).toBe("computer desktop operation failed");
     expect(error.cause.message).toBe("exit 137");
+  });
+});
+
+describe("LinuxDesktop.pageBrowser", () => {
+  function pageHost(answers: string[]) {
+    const commands: string[] = [];
+    let seen = 0;
+    const desktop = new LinuxDesktop({
+      ...host((command) => {
+        commands.push(command);
+        return { code: 0, stdout: "RAKAZO_DESKTOP=0:viewtoken\n" };
+      }),
+      runWithInput: async () => {
+        const stdout = answers[seen] ?? answers.at(-1) ?? "";
+        seen += 1;
+        return { code: 0, stdout };
+      },
+    });
+    return { desktop, commands, calls: () => seen };
+  }
+
+  const detached = JSON.stringify({
+    ok: false,
+    error: PAGE_BROWSER_DETACHED,
+    fallback: "computer_act",
+    uncertain: false,
+  });
+  const attached = JSON.stringify({
+    ok: true,
+    url: "https://example.com/",
+    title: "Example",
+    tree: "",
+    elements: [],
+  });
+
+  it("drops the helper daemon and attaches to the screen Chrome once", async () => {
+    const { desktop, commands, calls } = pageHost([detached, attached]);
+
+    await expect(desktop.pageBrowser(computer, { command: "snapshot" }, context)).resolves.toMatchObject({
+      ok: true,
+      url: "https://example.com/",
+    });
+
+    expect(calls()).toBe(2);
+    expect(commands.some((command) => command.includes("*/agent-browser"))).toBe(true);
+  });
+
+  it("returns the refusal when a second attach still opens another browser", async () => {
+    const { desktop, calls } = pageHost([detached]);
+
+    await expect(desktop.pageBrowser(computer, { command: "navigate", url: "https://example.com" }, context)).resolves.toMatchObject({
+      ok: false,
+      error: PAGE_BROWSER_DETACHED,
+    });
+    expect(calls()).toBe(2);
   });
 });
 

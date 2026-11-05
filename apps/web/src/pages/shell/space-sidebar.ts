@@ -18,12 +18,12 @@ type SidebarSpace<TBot extends SidebarChat, TGroup extends SidebarChat> = {
   botSections: readonly { id: string; name: string }[];
 };
 
-function spaceHeaderMenu(space: { canRename?: boolean; canDelete?: boolean }, hostsMenu: boolean) {
+/** Spaces are not a product surface: no name, lock, or settings menu in the roster. */
+function spaceHeaderMenu() {
   return {
-    canRenameSpace: hostsMenu && space.canRename === true,
-    canDeleteSpace: hostsMenu && space.canDelete === true,
-    // Every member can open a space's settings, so the menu does not depend on rename or delete.
-    canOpenSpaceSettings: hostsMenu,
+    canRenameSpace: false,
+    canDeleteSpace: false,
+    canOpenSpaceSettings: false,
   };
 }
 
@@ -43,7 +43,8 @@ export function sidebarGroupsForSpaces<TBot extends SidebarChat, TGroup extends 
   labels?: { pinned: string; unassigned: string },
 ) {
   const needle = query.toLowerCase();
-  const showSpaceNames = spaces.length > 1;
+  // More than one membership still lists its chats, without naming them as spaces.
+  const separate = spaces.length > 1;
   return spaces.flatMap((space) => {
     const visibleBots = space.bots.filter((bot) =>
       `${bot.name} ${bot.preview ?? ""}`.toLowerCase().includes(needle),
@@ -83,58 +84,34 @@ export function sidebarGroupsForSpaces<TBot extends SidebarChat, TGroup extends 
       ];
       grouped.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
     }
-    const sections = grouped.map((group, index) => ({
+    const sections = grouped.map((group) => ({
       ...group,
       sectionId: group.key.startsWith("section:") ? group.key.slice("section:".length) : null,
-      key: showSpaceNames ? `space:${space.id}:${group.key}` : group.key,
-      // A header holding the space menu is never blank, even for the only space.
-      title: showSpaceNames ? space.name : index === 0 && !group.title ? space.name : group.title,
-      subtitle: showSpaceNames && group.title ? group.title : undefined,
-      showLock: showSpaceNames,
+      key: separate ? `space:${space.id}:${group.key}` : group.key,
+      title: group.title,
+      subtitle: undefined,
+      showLock: false,
       emptySpaceId: undefined as string | undefined,
       spaceId: space.id,
       spaceName: space.name,
-      ...spaceHeaderMenu(space, index === 0),
+      ...spaceHeaderMenu(),
     }));
     if (sections.length > 0) return sections;
-    // Keep empty spaces selectable; chat clicks are the only switch control.
-    if (needle && (space.bots.length > 0 || space.groups.length > 0)) return [];
-    // Saved sections stay listed under the placeholder so they can still be
-    // renamed or deleted after their last chat leaves.
-    const emptySections = needle
-      ? []
-      : space.botSections.map((section) => ({
-          key: showSpaceNames ? `space:${space.id}:section:${section.id}` : `section:${section.id}`,
-          title: showSpaceNames ? space.name : section.name,
-          subtitle: showSpaceNames ? section.name : undefined,
-          bots: [] as (typeof sections)[number]["bots"],
-          sectionId: section.id as string | null,
-          showLock: showSpaceNames,
-          emptySpaceId: undefined as string | undefined,
-          spaceId: space.id,
-          spaceName: space.name,
-          ...spaceHeaderMenu(space, false),
-        }));
-    // A lone space is the selected one, so its settings stay in the account menu too.
-    const lone = !showSpaceNames && !space.canRename && !space.canDelete;
-    if (lone && (needle || emptySections.length > 0)) {
-      return emptySections;
-    }
-    return [
-      {
-        key: showSpaceNames ? `space:${space.id}:empty` : `space:${space.id}:actions`,
-        title: space.name,
-        subtitle: undefined,
-        bots: [],
-        sectionId: null,
-        showLock: showSpaceNames,
-        emptySpaceId: showSpaceNames ? space.id : undefined,
-        spaceId: space.id,
-        spaceName: space.name,
-        ...spaceHeaderMenu(space, true),
-      },
-      ...emptySections,
-    ];
+    if (needle) return [];
+    // Saved sections stay listed so they can still be renamed or deleted
+    // after their last chat leaves. An empty workspace has no header of its own.
+    return space.botSections.map((section) => ({
+      key: separate ? `space:${space.id}:section:${section.id}` : `section:${section.id}`,
+      title: section.name,
+      subtitle: undefined,
+      bots: [] as (typeof sections)[number]["bots"],
+      sectionId: section.id as string | null,
+      showLock: false,
+      emptySpaceId: undefined as string | undefined,
+      spaceId: space.id,
+      spaceName: space.name,
+      ...spaceHeaderMenu(),
+    }));
   });
 }
 

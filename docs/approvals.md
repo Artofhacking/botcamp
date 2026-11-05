@@ -42,15 +42,10 @@ To stop one bot from ever using a tool, open the bot's settings, expand **Advanc
 
 In **Auto** and **Ask**, these always show a card, and **Always allow** doesn't skip it:
 
-- Changing a bot's instructions or model, and creating a space.
+- Changing a bot's instructions or model.
 - Actions that text you didn't write could be steering, such as changes in a run started by a
   webhook.
 - A routine that watches a command, or that names a site the run found in outside content.
 
 **Never ask** runs all of them. The one exception is accepting another owner's bot connection, which
 it refuses when someone else started the run or outside content entered it.
-
-## Per space
-
-Approval settings are account defaults that every [space](./spaces.md) follows. To give one space
-different rules, open its settings and choose **Customize** next to **Approvals**.

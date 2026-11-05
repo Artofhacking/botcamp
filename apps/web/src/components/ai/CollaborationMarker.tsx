@@ -41,7 +41,7 @@ export function CollaborationMarker({
   );
 }
 
-/** The working bot with what it is doing right now, such as its current tool call. */
+/** The working bot. The label stays a thinking status and does not name the current tool. */
 export function ActiveBotGlyph({ bots, label }: { bots: GroupAvatarMember[]; label: string }) {
   return (
     <div role="status" className="flex min-h-10 min-w-0 items-center gap-2.5 px-1">

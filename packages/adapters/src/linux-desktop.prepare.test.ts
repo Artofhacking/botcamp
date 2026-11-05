@@ -41,15 +41,17 @@ fi
       writeFileSync(path.join(bin, name), script);
       chmodSync(path.join(bin, name), 0o755);
     }
-    // The emoji-font check reads an absolute host path, so the call count depends on
-    // whether this machine has the font. Point it at a file that always exists so the
-    // assertions describe the script, not the host.
+    // The font checks read absolute host paths, so the call count depends on whether
+    // this machine has them. Point both at files that always exist so the assertions
+    // describe the script, not the host.
     const fontPath = path.join(bin, "NotoColorEmoji.ttf");
+    const cjkPath = path.join(bin, "wqy-zenhei.ttc");
     writeFileSync(fontPath, "");
+    writeFileSync(cjkPath, "");
     const prepare = PREPARE_LINUX_DESKTOP.replaceAll(
       "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
       fontPath,
-    );
+    ).replaceAll("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", cjkPath);
     const result = spawnSync("/bin/sh", ["-c", prepare], {
       env: { PATH: bin },
       encoding: "utf8",
@@ -106,6 +108,14 @@ describe("provider desktop preparation", () => {
 
   it("installs the emoji font and writes the policy for every Chrome-family browser", () => {
     expect(PREPARE_LINUX_DESKTOP).toContain("fonts-noto-color-emoji");
+    expect(PREPARE_LINUX_DESKTOP).toContain("fonts-wqy-zenhei");
+    expect(PREPARE_LINUX_DESKTOP).toContain("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc");
+    const dockerfile = readFileSync(
+      new URL("../../../infra/sandboxes/computer/Dockerfile", import.meta.url),
+      "utf8",
+    );
+    expect(dockerfile).toContain("fonts-wqy-zenhei");
+    expect(dockerfile).toContain("90-cjk-fallback.conf");
     for (const dir of [
       "/etc/chromium/policies/managed",
       "/etc/opt/chrome/policies/managed",
@@ -147,11 +157,14 @@ describe("provider desktop preparation", () => {
         writeFileSync(path.join(bin, name), script);
         chmodSync(path.join(bin, name), 0o755);
       }
-      // The host may have the font installed; point the check at a file that never exists.
+      // The host may have the fonts installed; point the checks at files that never exist
+      // for emoji and always exist for CJK, so this case stays about the emoji install.
+      const cjkPath = path.join(bin, "wqy-zenhei.ttc");
+      writeFileSync(cjkPath, "");
       const prepare = PREPARE_LINUX_DESKTOP.replaceAll(
         "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
         path.join(bin, "NotoColorEmoji.ttf"),
-      );
+      ).replaceAll("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", cjkPath);
       const result = spawnSync("/bin/sh", ["-c", prepare], {
         env: { PATH: bin },
         encoding: "utf8",

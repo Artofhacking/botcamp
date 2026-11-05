@@ -9,22 +9,19 @@ import {
   CommandList,
   CommandSeparator,
 } from "@rakazo/ui-web";
-import { Info, Lock, Plus, Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
-import { IconTooltip } from "../../components/IconTooltip";
 
 export function BotCreatePicker({
   bots,
   onCreateBot,
   onOpenBot,
   onCreateGroup,
-  onCreateSpace,
 }: {
   bots: Bot[];
   onCreateBot: () => void;
   onOpenBot: (botId: string) => void;
   onCreateGroup: () => void;
-  onCreateSpace: () => void;
 }) {
   const { t } = useLingui();
   const [query, setQuery] = useState("");
@@ -85,23 +82,6 @@ export function BotCreatePicker({
               </span>
               <Trans>New group chat</Trans>
             </CommandItem>
-            <CommandItem
-              value="create-space"
-              data-testid="create-new-space"
-              onSelect={() => onCreateSpace()}
-              className="gap-2"
-            >
-              <span className="flex size-[22px] shrink-0 items-center justify-center">
-                <Lock size={16} strokeWidth={1.8} aria-hidden="true" />
-              </span>
-              <span className="min-w-0 flex-1 truncate">
-                <Trans>New private space</Trans>
-              </span>
-              <PickerInfo
-                testId="picker-info-space"
-                label={t`Private workspace with its own bots and groups.`}
-              />
-            </CommandItem>
           </CommandGroup>
           <CommandSeparator className="shrink-0" />
           <CommandGroup className="min-h-0 max-h-60 overflow-y-auto">
@@ -127,28 +107,5 @@ export function BotCreatePicker({
         </CommandList>
       </Command>
     </div>
-  );
-}
-
-/** Explains a command row on hover without selecting the row. */
-function PickerInfo({ testId, label }: { testId: string; label: string }) {
-  return (
-    <IconTooltip label={label} side="right">
-      <button
-        type="button"
-        data-testid={testId}
-        aria-label={label}
-        onPointerDown={(event) => event.stopPropagation()}
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation();
-          event.preventDefault();
-        }}
-        onKeyDown={(event) => event.stopPropagation()}
-        className="-mr-2 shrink-0 cursor-default rounded p-1 text-muted-foreground/70 opacity-0 transition-opacity duration-150 group-focus-within/command-item:opacity-100 group-hover/command-item:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        <Info size={14} strokeWidth={1.8} aria-hidden="true" />
-      </button>
-    </IconTooltip>
   );
 }

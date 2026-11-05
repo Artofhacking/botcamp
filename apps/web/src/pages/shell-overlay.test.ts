@@ -18,8 +18,8 @@ describe("readShellOverlay", () => {
     expect(read("?settings=voice")).toEqual({ kind: "settings", section: "voice", spaceId: null });
     expect(read("?settings=space&space=sp_1")).toEqual({
       kind: "settings",
-      section: "space",
-      spaceId: "sp_1",
+      section: "general",
+      spaceId: null,
     });
     expect(read("?settings")).toEqual({ kind: "settings", section: "general", spaceId: null });
     expect(read("?settings=nope")).toEqual({ kind: "settings", section: "general", spaceId: null });
@@ -57,6 +57,12 @@ describe("withShellOverlay", () => {
     expect(write("?integrations&routine=r_1", { kind: "mcp" })).toBe("?routine=r_1&mcp");
     expect(write("", { kind: "mcp", serverId: "srv_1" })).toBe("?mcp=srv_1");
     expect(write("?settings=models&space=sp_1", { kind: "integrations" })).toBe("?integrations");
+  });
+
+  it("drops a workspace settings link instead of opening a space page", () => {
+    expect(write("", { kind: "settings", section: "space", spaceId: "sp_1" })).toBe(
+      "?settings=general",
+    );
   });
 
   it("writes the settings section and space", () => {

@@ -16,8 +16,6 @@ Open **Settings → Voice**, pick a **Provider** and add its **API key**:
 Then choose a **Voice**, and use **Hear a sample** to check it. **Speech model** and
 **Transcription model** let you pick the provider's models.
 
-Voice settings apply to every [space](./spaces.md). A space can customize them in its settings.
-
 ## Talk instead of typing
 
 Hold the microphone in the composer and speak; release to send. Slide up to lock recording so you

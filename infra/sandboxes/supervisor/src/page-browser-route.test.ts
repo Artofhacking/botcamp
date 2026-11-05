@@ -601,4 +601,39 @@ describe("screen setup reuse", () => {
     });
     expect(commands()).toEqual(["helper", "setup", "helper"]);
   });
+
+  it("stops the helper daemon and retries when that daemon opened its own browser", async () => {
+    await snapshot("computer-detached", "detached", "run:1");
+    const defaultExec = mock.exec.getMockImplementation()!;
+    let helperCalls = 0;
+    mock.exec.mockClear();
+    mock.exec.mockImplementation(async (options: { Cmd: string[] }) => {
+      const script = options.Cmd.join(" ");
+      if (script.includes("*/agent-browser")) return defaultExec(options);
+      if (!helper(options) || helperCalls++ > 0) return defaultExec(options);
+      return {
+        start: async () =>
+          Duplex.from({
+            readable: Readable.from([
+              Buffer.from(
+                JSON.stringify({
+                  ok: false,
+                  error: "Page browser is not attached to this computer's Chrome.",
+                  fallback: "computer_act",
+                  uncertain: false,
+                }),
+              ),
+            ]),
+            writable: new Writable({ write: (_chunk, _encoding, callback) => callback() }),
+          }),
+        inspect: async () => ({ ExitCode: 0 }),
+      };
+    });
+    expect(await (await snapshot("computer-detached", "detached", "run:1")).json()).toMatchObject({
+      ok: true,
+    });
+    const scripts = mock.exec.mock.calls.map(([options]) => options.Cmd.join(" "));
+    expect(scripts.filter((script) => script.includes("/usr/local/bin/rakazo-page-browser"))).toHaveLength(2);
+    expect(scripts.some((script) => script.includes("*/agent-browser"))).toBe(true);
+  });
 });

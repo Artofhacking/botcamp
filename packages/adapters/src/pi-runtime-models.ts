@@ -113,6 +113,10 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   }
   if (model && provider === CHATGPT_OAUTH_PROVIDER) {
     model = withLiveImageInput(model, modelConfig.acceptsImages);
+  } else if (model && modelConfig.acceptsImages === true && !model.input.includes("image")) {
+    // The run already decided this id can see, including a gateway id the provider
+    // catalog lists under a different slug.
+    model = withLiveImageInput(model, true);
   }
   const apiKey = modelConfig.oauth
     ? undefined

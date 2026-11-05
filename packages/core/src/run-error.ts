@@ -271,6 +271,18 @@ export function normalizeRunError(
         ? { summary: translate(trimmed), details, recovery: "connection" }
         : { summary: details, details };
   }
+  // A computer that never started is not a model response. The default below would name the
+  // model provider, which is who the user would then go and check.
+  if (
+    /^could not prepare\b/i.test(trimmed) ||
+    trimmed === "The computer did not start. Try again." ||
+    trimmed === "This computer's system is damaged. Recover the computer to rebuild it." ||
+    /^Kubernetes pod \S+ (?:entered phase \S+|disappeared while starting|did not become ready within \d+ ms)$/.test(
+      trimmed,
+    )
+  ) {
+    return { summary: translate("Computer failed to boot"), details };
+  }
   if (trimmed === MODEL_OUTPUT_CUT_ERROR) {
     return {
       summary: translate(MODEL_OUTPUT_CUT_ERROR),

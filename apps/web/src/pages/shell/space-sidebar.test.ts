@@ -37,13 +37,13 @@ describe("sidebarGroupsForSpaces", () => {
     };
     const groups = sidebarGroupsForSpaces([space("space-1", "Personal"), empty], "");
     expect(groups.filter((group) => group.spaceId === empty.id)).toEqual([
-      expect.objectContaining({ emptySpaceId: "space-2", title: "Support" }),
       expect.objectContaining({
         sectionId: "saved",
-        title: "Support",
-        subtitle: "Archived projects",
+        title: "Archived projects",
+        subtitle: undefined,
         bots: [],
         emptySpaceId: undefined,
+        canOpenSpaceSettings: false,
       }),
     ]);
   });
@@ -78,20 +78,21 @@ describe("sidebarGroupsForSpaces", () => {
     ]);
   });
 
-  it("names the only space on the header that holds its menu", () => {
+  it("does not name the workspace or offer a space menu", () => {
     const [group] = sidebarGroupsForSpaces([space("space-1", "Personal", { canRename: true })], "");
 
     expect(group).toMatchObject({
-      title: "Personal",
+      title: null,
       spaceName: "Personal",
-      canRenameSpace: true,
+      canRenameSpace: false,
       canDeleteSpace: false,
+      canOpenSpaceSettings: false,
       showLock: false,
     });
     expect(group?.bots).toHaveLength(1);
   });
 
-  it("still names each space once there is more than one", () => {
+  it("lists chats from more than one membership without space names", () => {
     const groups = sidebarGroupsForSpaces(
       [
         space("space-1", "Personal", { canRename: true }),
@@ -100,42 +101,35 @@ describe("sidebarGroupsForSpaces", () => {
       "",
     );
 
-    expect(groups.map((group) => group.title)).toEqual(["Personal", "Support"]);
-    expect(groups[0]).toMatchObject({ canRenameSpace: true, canDeleteSpace: false });
-    expect(groups[1]).toMatchObject({
-      canRenameSpace: true,
-      canDeleteSpace: true,
-      emptySpaceId: "space-2",
+    expect(groups.map((group) => group.title)).toEqual([null]);
+    expect(groups[0]).toMatchObject({
+      canRenameSpace: false,
+      canDeleteSpace: false,
+      canOpenSpaceSettings: false,
+      showLock: false,
     });
   });
 
-  it("keeps the space menu for a member who cannot rename or delete, for Settings", () => {
+  it("does not add a space menu for a membership that cannot be renamed", () => {
     const groups = sidebarGroupsForSpaces(
       [space("space-1", "Personal", { canRename: true }), space("space-2", "Shared")],
       "",
     );
 
     expect(groups[1]).toMatchObject({
-      title: "Shared",
+      title: null,
       canRenameSpace: false,
       canDeleteSpace: false,
-      canOpenSpaceSettings: true,
+      canOpenSpaceSettings: false,
+      showLock: false,
     });
   });
 
-  it("keeps settings reachable in a member's only empty space", () => {
-    expect(sidebarGroupsForSpaces([space("space-1", "Shared", { bots: [] })], "")).toEqual([
-      expect.objectContaining({
-        title: "Shared",
-        spaceName: "Shared",
-        canRenameSpace: false,
-        canDeleteSpace: false,
-        canOpenSpaceSettings: true,
-      }),
-    ]);
+  it("shows nothing for an empty workspace with no sections", () => {
+    expect(sidebarGroupsForSpaces([space("space-1", "Shared", { bots: [] })], "")).toEqual([]);
   });
 
-  it("hides space actions while a search removes every chat from the only space", () => {
+  it("hides every chat while a search matches nothing", () => {
     expect(
       sidebarGroupsForSpaces([space("space-1", "Personal", { canRename: true })], "missing"),
     ).toEqual([]);

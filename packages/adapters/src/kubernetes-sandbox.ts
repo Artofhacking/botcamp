@@ -19,6 +19,7 @@ import type {
   ScreenSession,
   TerminalRequest,
 } from "@rakazo/adapter-kit";
+import { SandboxUnavailableError } from "@rakazo/adapter-kit";
 import { COMPUTER_CACHE_ENV } from "@rakazo/core/node/desktop-runtime";
 import type { RawExecEvent } from "./exec-computer.js";
 import { ExecComputer, COMPUTER_IMAGE_WORKSPACE as WORKSPACE } from "./exec-computer.js";
@@ -505,10 +506,12 @@ export class KubernetesSandboxProvider implements SandboxProvider {
     const deadline = Date.now() + this.readyTimeoutMs;
     while (true) {
       const pod = await this.readPod(name, signal);
-      if (!pod) throw new Error(`Kubernetes pod ${name} disappeared while starting`);
+      if (!pod) throw computerDidNotStart(`Kubernetes pod ${name} disappeared while starting`);
       if (pod.metadata?.deletionTimestamp) throw sandboxGone(name);
       if (isTerminalPod(pod)) {
-        throw new Error(`Kubernetes pod ${name} entered phase ${pod.status?.phase ?? "Unknown"}`);
+        throw computerDidNotStart(
+          `Kubernetes pod ${name} entered phase ${pod.status?.phase ?? "Unknown"}`,
+        );
       }
       if (
         pod.status?.phase === "Running" &&
@@ -519,7 +522,7 @@ export class KubernetesSandboxProvider implements SandboxProvider {
         return;
       }
       if (Date.now() >= deadline) {
-        throw new Error(
+        throw computerDidNotStart(
           `Kubernetes pod ${name} did not become ready within ${this.readyTimeoutMs} ms`,
         );
       }
@@ -696,23 +699,38 @@ function homeDirectoryName(botId: string, homePath: string | undefined): string 
   return botId;
 }
 
-/** With no claim configured, any claim counts, so pods started with one keep their mount. */
+/**
+ * The pod's home is the directory the API also saves. A checkpoint that misses it exports that
+ * directory and replaces it as the API user. With no claim configured, any claim counts, so a pod
+ * started with one keeps its mount. NFS homes are not claims. The mount's subPath is the home
+ * directory's basename, or the older `homes/<id>`.
+ */
 function podMountsHome(pod: V1Pod, homeKey: string, claimName: string | undefined): boolean {
-  const claims = new Set(
+  if (!/^[A-Za-z0-9_-]+$/.test(homeKey)) return false;
+  const subPaths = new Set([homeKey, `homes/${homeKey}`]);
+  const volumes = new Set(
     pod.spec?.volumes?.flatMap((entry) => {
       const claim = entry.persistentVolumeClaim?.claimName;
-      return claim && (!claimName || claim === claimName) ? [entry.name] : [];
-    }),
+      if (claim && (!claimName || claim === claimName)) return [entry.name];
+      if (entry.nfs && entry.name === HOME_VOLUME) return [entry.name];
+      return [];
+    }) ?? [],
   );
   const container = pod.spec?.containers?.find((entry) => entry.name === CONTAINER_NAME);
   return (
     container?.volumeMounts?.some(
       (mount) =>
-        claims.has(mount.name) &&
+        volumes.has(mount.name) &&
         mount.mountPath === WORKSPACE &&
-        mount.subPath === `homes/${homeKey}`,
+        mount.subPath !== undefined &&
+        subPaths.has(mount.subPath),
     ) === true
   );
+}
+
+/** The pod never became a computer. The detail stays on the cause; the model is told to retry. */
+function computerDidNotStart(detail: string): SandboxUnavailableError {
+  return new SandboxUnavailableError({ cause: new Error(detail) });
 }
 
 function sandboxGone(name: string, cause?: unknown): Error {

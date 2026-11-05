@@ -55,7 +55,6 @@ export function ShellSidebar({
   toggleSidebarSection,
   setPanel,
   navigate,
-  setNewSpaceOpen,
   setCreateBotOpen,
   roster,
   archived,
@@ -83,7 +82,6 @@ export function ShellSidebar({
   toggleSidebarSection: (key: string) => void;
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
-  setNewSpaceOpen: (open: boolean) => void;
   setCreateBotOpen: (open: boolean) => void;
   roster: ReactNode;
   archived: ReactNode;
@@ -170,7 +168,6 @@ export function ShellSidebar({
           setMobileSidebarOpen={setMobileOpen}
           setPanel={setPanel}
           navigate={navigate}
-          setNewSpaceOpen={setNewSpaceOpen}
           setCreateBotOpen={setCreateBotOpen}
         />
         {mini ||

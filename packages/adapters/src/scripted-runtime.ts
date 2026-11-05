@@ -566,11 +566,9 @@ code-b
     lower.includes("new space named") ||
     lower.includes("new private space")
   ) {
-    const name = namedSpace(prompt) ?? "New space";
     return [
       {
-        assistant: "i can create that separate space after you confirm the boundary.",
-        toolCalls: [{ name: "create_space", args: { name } }],
+        assistant: "There is one workspace. I can't create another space.",
         complete: true,
       },
     ];
@@ -926,13 +924,6 @@ function clean(value: string): string {
 
 function namedBot(prompt: string) {
   return /named\s+([A-Za-z0-9][A-Za-z0-9_-]{0,39})/i.exec(prompt)?.[1];
-}
-
-function namedSpace(prompt: string) {
-  return /space\s+(?:named|called)\s+["“]?([^"”\n]{1,60})/i
-    .exec(prompt)?.[1]
-    ?.replace(/[.!?]+$/, "")
-    .trim();
 }
 
 /** The quoted message a reply's prompt opens with (see reply-context.ts). */

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { BotAvatarSet } from "@rakazo/contracts";
-import { DEFAULT_BOT_AVATAR_COLOR } from "@rakazo/ui-web";
+import { resolvePersonaColorDef } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { act, useState } from "react";
 import type { Root } from "react-dom/client";
@@ -72,45 +72,50 @@ async function render(value: string, avatarSet?: BotAvatarSet, key = "initial") 
   await act(async () => root.render(<Harness key={key} value={value} avatarSet={avatarSet} />));
 }
 
-describe("selectable bot icon sets", () => {
-  it("keeps a legacy appearance on open, saves a BotCamp switch, and restores the saved set on reload", async () => {
+describe("avatar studio", () => {
+  it("edits the original look and does not offer another icon set", async () => {
     await render("#10B981");
     await click("Customize bot avatar");
-    expect(button("Original").getAttribute("aria-selected")).toBe("true");
-    expect(document.querySelector(".rakazo-organic-avatar")).not.toBeNull();
+    const studio = document.querySelector("[data-testid='avatar-studio']");
+    expect(studio?.textContent).not.toContain("BotCamp");
+    expect(studio?.querySelector(".rakazo-organic-avatar")).not.toBeNull();
+    expect(studio?.querySelector(".rakazo-logo-avatar")).toBeNull();
     expect(changed).not.toHaveBeenCalled();
-    await click("BotCamp");
-    expect(changed).toHaveBeenLastCalledWith("#10B981", "rakazo");
-    expect(document.querySelector(".rakazo-logo-avatar")).not.toBeNull();
-    await render("#10B981", "rakazo", "reload");
-    await click("Customize bot avatar");
-    expect(button("BotCamp").getAttribute("aria-selected")).toBe("true");
-    await click("Original");
-    expect(changed).toHaveBeenLastCalledWith("#10B981", "organic");
-    expect(document.querySelector(".rakazo-organic-avatar")).not.toBeNull();
     expect(button("wedge")).toBeDefined();
+    await click("Color #00C972");
+    expect(changed).toHaveBeenLastCalledWith("#00C972", undefined);
   });
 
-  it("leaves a photo intact until the user explicitly selects another set", async () => {
+  it("shows the original look when the bot was saved on the other set", async () => {
+    await render("#10B981", "rakazo");
+    await click("Customize bot avatar");
+    const studio = document.querySelector("[data-testid='avatar-studio']");
+    expect(studio?.textContent).not.toContain("BotCamp");
+    expect(studio?.querySelector(".rakazo-logo-avatar")).toBeNull();
+    expect(studio?.querySelector(".rakazo-organic-avatar")).not.toBeNull();
+    await click("Color #00C972");
+    expect(changed).toHaveBeenLastCalledWith("#00C972", "organic");
+  });
+
+  it("leaves a photo intact until a shape is chosen", async () => {
     const photo = "data:image/png;base64,abc";
     await render(photo);
     expect(document.querySelector(`img[src="${photo}"]`)).not.toBeNull();
     await click("Customize bot avatar");
     expect(changed).not.toHaveBeenCalled();
     expect(document.querySelector(`img[src="${photo}"]`)).not.toBeNull();
-    await click("BotCamp");
-    expect(changed).toHaveBeenLastCalledWith(DEFAULT_BOT_AVATAR_COLOR, "rakazo");
+    await click("wedge");
+    // A photo has no stored color, so the picker uses the orange it already draws, and wedge is shape 1.
+    const orange = resolvePersonaColorDef("preview", "#F97316").hex;
+    expect(changed).toHaveBeenLastCalledWith(`${orange}::shape_1`, undefined);
     expect(document.querySelector(`img[src="${photo}"]`)).toBeNull();
   });
 
-  it("keeps explicit original shapes and their chosen set while changing colour", async () => {
+  it("keeps an explicit original shape while changing colour", async () => {
     await render("#8B5CF6::shape_2", "organic");
     await click("Customize bot avatar");
     expect(changed).not.toHaveBeenCalled();
     await click("Color #00C972");
     expect(changed).toHaveBeenLastCalledWith("#00C972::shape_2", undefined);
-    expect(button("Original").getAttribute("aria-selected")).toBe("true");
-    await click("BotCamp");
-    expect(changed).toHaveBeenLastCalledWith("#00C972", "rakazo");
   });
 });

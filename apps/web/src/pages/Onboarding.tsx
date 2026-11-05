@@ -63,6 +63,7 @@ import {
 } from "../lib/model-connection-preflight";
 import { rpc } from "../lib/rpc";
 import { useSignOut } from "../lib/sign-out";
+import { assignAppLocation } from "../lib/static-host-route";
 import { useModelOAuthSignIn } from "../lib/use-model-oauth-signin";
 import { errorText } from "../lib/user-error";
 import { CompatibleKeyField } from "./model-settings/compatible-key-field";
@@ -514,7 +515,7 @@ export function OnboardingPage() {
     setError(null);
     try {
       await rpc.billing.selectFunding({ funding: "credits" });
-      window.location.assign("/onboarding");
+      assignAppLocation("/onboarding");
     } catch {
       setError(t`Could not open billing`);
     }

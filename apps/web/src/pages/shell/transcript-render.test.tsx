@@ -60,7 +60,7 @@ function message(id: string, text: string): ThreadMessage {
   };
 }
 
-function Host({ messages }: { messages: ThreadMessage[] }) {
+function Host({ messages, running = false }: { messages: ThreadMessage[]; running?: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const artifactTarget = useMemo(() => ({ botId: "bot" }), []);
   const none = useMemo(() => new Set<string>(), []);
@@ -90,8 +90,8 @@ function Host({ messages }: { messages: ThreadMessage[] }) {
       loadingOlder={false}
       answerableAskIds={none}
       dismissableAskIds={none}
-      running={false}
-      workingBots={[]}
+      running={running}
+      workingBots={running ? [{ botId: "bot", name: "Ada", color: "#111111" }] : []}
       onLoadOlder={reply}
       onOpenBot={reply}
       onAnswer={answer}
@@ -161,4 +161,15 @@ it("redraws a page card's reply only when a newer card supersedes it", () => {
 
   act(() => root.render(<Host messages={[...earlier, card("card-2", 2)]} />));
   expect(messageRenders.get("reply")).toBe(2);
+});
+
+it("shows thinking without the current tool while a run is live", () => {
+  const live: ThreadMessage = {
+    ...message("progress:run", ""),
+    blocks: [{ kind: "progress", text: "Searching the web: injury news", activity: true }],
+  };
+  act(() => root.render(<Host messages={[live]} running />));
+  const status = container.querySelector('[role="status"]');
+  expect(status?.textContent).toContain("Thinking…");
+  expect(container.textContent).not.toContain("Searching the web");
 });

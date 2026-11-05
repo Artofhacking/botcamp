@@ -77,15 +77,12 @@ describe("scripted runtime", () => {
     expect(script?.some((t) => t.toolCalls?.some((c) => c.args.name === "Scout"))).toBe(true);
   });
 
-  it("proposes a named space", () => {
+  it("does not create a space when asked", () => {
     const script = inferScript("create a space named Customer support");
-    expect(
-      script?.some((turn) =>
-        turn.toolCalls?.some(
-          (call) => call.name === "create_space" && call.args.name === "Customer support",
-        ),
-      ),
-    ).toBe(true);
+    expect(script?.some((turn) => turn.toolCalls?.some((call) => call.name === "create_space"))).toBe(
+      false,
+    );
+    expect(script?.some((turn) => turn.complete)).toBe(true);
   });
 
   it("runs an in-thread subagent", () => {

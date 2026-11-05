@@ -33,6 +33,10 @@ function isSettingsSection(value: string): value is SettingsSection {
 export function readShellOverlay(params: URLSearchParams): ShellOverlay {
   const section = params.get("settings");
   if (section !== null) {
+    // A workspace is not a settings page. Old links to ?settings=space open General.
+    if (section === "space") {
+      return { kind: "settings", section: "general", spaceId: null };
+    }
     return {
       kind: "settings",
       section: isSettingsSection(section) ? section : "general",
@@ -55,8 +59,13 @@ export function withShellOverlay(params: URLSearchParams, overlay: ShellOverlay)
   const next = new URLSearchParams(params);
   for (const key of OVERLAY_KEYS) next.delete(key);
   if (overlay?.kind === "settings") {
-    next.set("settings", overlay.section);
-    if (overlay.spaceId) next.set("space", overlay.spaceId);
+    // Same as readShellOverlay: a workspace is not a settings page.
+    if (overlay.section === "space") {
+      next.set("settings", "general");
+    } else {
+      next.set("settings", overlay.section);
+      if (overlay.spaceId) next.set("space", overlay.spaceId);
+    }
   } else if (overlay?.kind === "mcp") {
     next.set("mcp", overlay.serverId ?? "");
   } else if (overlay) {

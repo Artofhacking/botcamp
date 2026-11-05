@@ -78,8 +78,13 @@ export function computerRoutes(ctx: RouterContext) {
     computer: {
       status: authed.computer.status.handler(async ({ context, input }) => {
         // 空闲停掉的桌面电脑在这里回落到小容器：下次需要时再按需升级，跑完就不再计大容器的费。
+        // 开屏幕会先清掉 provider，把同一台电脑留在 stopped 上等待开机；这里不能把它降回去。
         const seen = await repos.getBot(context.actor, input.botId);
-        if (seen.computer?.state === "stopped" && seen.computer.kind !== "docker") {
+        if (
+          seen.computer?.state === "stopped" &&
+          seen.computer.kind !== "docker" &&
+          seen.computer.providerRef
+        ) {
           await runAsSystem("settle a stopped computer back to its small tier", async () => {
             await deps.prisma.bot.updateMany({
               where: { computerId: seen.computer!.id },

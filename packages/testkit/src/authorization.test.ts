@@ -11,6 +11,7 @@ import type { createApp } from "@rakazo/api/app";
 import type { appContract, Space, SpaceNavigation } from "@rakazo/contracts";
 import {
   claimSpaceDeletionForMember,
+  createSpaceForMember,
   deleteClaimedSpaceForMember,
   listClaimedSpaceComputers,
   pushSessionExpiresAt,
@@ -79,6 +80,15 @@ describeWithDatabase("API authorization and resource isolation", () => {
     await handles?.stop();
     rmSync(dataDir, { recursive: true, force: true });
   });
+
+  async function createFixtureSpace(cookie: string, name: string) {
+    const actor = await rpc<{ userId: string; spaceId: string }>(app, cookie, "me");
+    return createSpaceForMember(db, {
+      currentSpaceId: actor.spaceId,
+      userId: actor.userId,
+      name,
+    });
+  }
 
   it("keeps another member's routine test run keys apart from a send's", async () => {
     const owner = await signup(app, `routine-keys-owner-${stamp}@rakazo.test`, "Owner");
@@ -196,7 +206,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const own = await rpc<Bot>(app, owner, "bots/create", botInput("Own"), space.id);
     const other = await rpc<Bot>(app, peer, "bots/create", botInput("Peer"), space.id);
     const archived = await rpc<Bot>(app, owner, "bots/create", botInput("Archived"), space.id);
-    const second = await rpc<Space>(app, owner, "spaces/create", { name: "Second" });
+    const second = await createFixtureSpace(owner, "Second");
     const cross = await rpc<Bot>(app, owner, "bots/create", botInput("Cross"), second.id);
     for (const [cookie, bot, targetSpace] of [
       [owner, own, space.id],
@@ -1163,9 +1173,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const cookie = await signup(app, `spaces-${stamp}@rakazo.test`, "Space Owner");
     const original = await rpc<Actor>(app, cookie, "me");
     const originalBot = await rpc<Bot>(app, cookie, "bots/create", botInput("Open source"));
-    const support = await rpc<Space>(app, cookie, "spaces/create", {
-      name: "Customer support",
-    });
+    const support = await createFixtureSpace(cookie, "Customer support");
     const storedSpaces = await handles.prisma.space.findMany({
       where: { id: { in: [original.spaceId, support.id] } },
       select: { id: true, organizationId: true },
@@ -1320,18 +1328,17 @@ describeWithDatabase("API authorization and resource isolation", () => {
       })),
     });
 
-    const results = await Promise.allSettled([
-      rpc<Space>(app, cookie, "spaces/create", { name: "Concurrent A" }),
-      rpc<Space>(app, cookie, "spaces/create", { name: "Concurrent B" }),
-    ]);
-
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    await expect(rpc(app, cookie, "spaces/create", { name: "Concurrent A" })).rejects.toThrow(
+      /Spaces cannot be created/,
+    );
+    await expect(rpc(app, cookie, "spaces/create", { name: "Concurrent B" })).rejects.toThrow(
+      /Spaces cannot be created/,
+    );
     await expect(
       handles.prisma.spaceMember.count({
         where: { userId: actor.userId, organizationId: currentSpace.organizationId },
       }),
-    ).resolves.toBe(32);
+    ).resolves.toBe(31);
   });
 
   it("reuses provider credentials and selections in a new Space", async () => {
@@ -1348,7 +1355,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       apiKey: "fake-copy-voice-key",
     });
 
-    const created = await rpc<Space>(app, cookie, "spaces/create", { name: "Copied defaults" });
+    const created = await createFixtureSpace(cookie, "Copied defaults");
     const [modelPreference, voicePreference] = await Promise.all([
       db.userModelPreference.findUnique({
         where: { userId_credentialId: { userId: actor.userId, credentialId: model.id } },
@@ -1417,7 +1424,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("shares model credentials and the main model across spaces until one customizes it", async () => {
     const cookie = await signup(app, `model-defaults-${stamp}@rakazo.test`, "Model Defaults");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const support = await rpc<Space>(app, cookie, "spaces/create", { name: "Support models" });
+    const support = await createFixtureSpace(cookie, "Support models");
     const expectSpaceModelDefault = async (spaceId: string, provider: string, modelId: string) => {
       const main = await rpc<ModelRoleSettings>(
         app,
@@ -1567,7 +1574,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       "routines/create",
       routineInput(keepBot.id),
     );
-    const busy = await rpc<Space>(app, cookie, "spaces/create", { name: "Busy" });
+    const busy = await createFixtureSpace(cookie, "Busy");
     const botA = await rpc<Bot>(app, cookie, "bots/create", botInput("Busy A"), busy.id);
     const botB = await rpc<Bot>(app, cookie, "bots/create", botInput("Busy B"), busy.id);
     const archived = await rpc<Bot>(app, cookie, "bots/create", botInput("Busy old"), busy.id);
@@ -1662,7 +1669,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
 
   it("lets only the owner rename or delete a shared space, removing its members", async () => {
     const cookie = await signup(app, `space-shared-${stamp}@rakazo.test`, "Space Owner");
-    const shared = await rpc<Space>(app, cookie, "spaces/create", { name: "Shared" });
+    const shared = await createFixtureSpace(cookie, "Shared");
     const ownerBot = await rpc<Bot>(app, cookie, "bots/create", botInput("Shared bot"), shared.id);
     const sharedRow = await handles.prisma.space.findUniqueOrThrow({
       where: { id: shared.id },
@@ -1757,7 +1764,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("keeps a bot's sandbox handle when its teardown fails, and finishes on retry", async () => {
     const cookie = await signup(app, `space-strict-${stamp}@rakazo.test`, "Strict Teardown");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Strict" });
+    const space = await createFixtureSpace(cookie, "Strict");
     const bot = await rpc<Bot>(app, cookie, "bots/create", botInput("Sandboxed"), space.id);
     const providerRef = `space-strict-provider-${stamp}`;
     await db.computer.upsert({
@@ -1814,7 +1821,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("resumes a stale space deletion and rejects one still in progress", async () => {
     const cookie = await signup(app, `space-resume-${stamp}@rakazo.test`, "Space Resume");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Resume" });
+    const space = await createFixtureSpace(cookie, "Resume");
     const bot = await rpc<Bot>(app, cookie, "bots/create", botInput("Resume bot"), space.id);
     // A worker that claimed the space and then died.
     await runAsTenant({ spaceId: space.id, userId: actor.userId }, () =>
@@ -1844,7 +1851,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("keeps the Better Auth organization routes closed to product sessions", async () => {
     const cookie = await signup(app, `org-routes-${stamp}@rakazo.test`, "Org Routes");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const marker = await rpc<Space>(app, cookie, "spaces/create", { name: "Marker" });
+    const marker = await createFixtureSpace(cookie, "Marker");
 
     for (const route of ["delete", "leave", "update", "list"]) {
       const res = await app.request(`/api/auth/organization/${route}`, {
@@ -1877,7 +1884,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("blocks bot creation after space deletion is claimed", async () => {
     const cookie = await signup(app, `space-race-${stamp}@rakazo.test`, "Space Race");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Concurrent" });
+    const space = await createFixtureSpace(cookie, "Concurrent");
     await asSystem(handles.prisma).computer.create({
       data: {
         spaceId: space.id,
@@ -1979,7 +1986,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("keeps a space claimed after ambiguous sandbox teardown failure", async () => {
     const cookie = await signup(app, `space-teardown-${stamp}@rakazo.test`, "Teardown");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Teardown" });
+    const space = await createFixtureSpace(cookie, "Teardown");
     await asSystem(handles.prisma).computer.create({
       data: {
         spaceId: space.id,
@@ -2037,7 +2044,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
   it("times out a hung sandbox teardown without unblocking the space", async () => {
     const cookie = await signup(app, `space-deadline-${stamp}@rakazo.test`, "Deadline");
     const actor = await rpc<Actor>(app, cookie, "me");
-    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Deadline" });
+    const space = await createFixtureSpace(cookie, "Deadline");
     await asSystem(handles.prisma).computer.create({
       data: {
         spaceId: space.id,
@@ -2335,7 +2342,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const owner = await signup(app, `audit-owner-${stamp}@rakazo.test`, "Audit Owner");
     const outsider = await signup(app, `audit-outsider-${stamp}@rakazo.test`, "Audit Outsider");
     const account = await rpc<Actor>(app, owner, "me");
-    const space = await rpc<Space>(app, owner, "spaces/create", { name: "Client A" });
+    const space = await createFixtureSpace(owner, "Client A");
     await rpc(app, owner, "spaces/remove", { spaceId: space.id });
 
     type Page = { events: Array<{ action: string; spaceName: string | null }> };

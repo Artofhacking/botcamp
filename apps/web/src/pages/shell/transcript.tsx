@@ -11,7 +11,6 @@ import {
   expandPeerReplies,
   groupVoiceChats,
   isPeerReceiptBlocks,
-  liveActivityLine,
   liveMessageComposing,
   peerExchangeLines,
   projectBotMentions,
@@ -228,7 +227,7 @@ export const Transcript = memo(function Transcript({
   );
   const separatorIds = timeSeparatorIds(shownMessages);
   const unreadDividerId = unreadDividerMessageId(shownMessages, unreadAfterSeq, olderCursor);
-  const workingLabel = liveActivityLine(messages) ?? t`Working…`;
+  const workingLabel = t`Thinking…`;
   const [quoteDraft, setQuoteDraft] = useState<{
     message: ThreadMessage;
     text: string;

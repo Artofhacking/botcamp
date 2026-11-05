@@ -112,10 +112,10 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   );
   await expect(settings.getByRole("heading", { name: "General", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
-  const streamReplies = settings.getByTestId("response-streaming-toggle");
-  await expect(streamReplies).toBeVisible();
-  await expect(streamReplies).not.toBeChecked();
-  await streamReplies.scrollIntoViewIfNeeded();
+  const compactSidebar = settings.getByTestId("bots-sidebar-density-compact");
+  await expect(compactSidebar).toBeVisible();
+  await expect(compactSidebar).toHaveAttribute("aria-pressed", "false");
+  await compactSidebar.scrollIntoViewIfNeeded();
   await captureScreenshot(page, testInfo, "settings-shell-general");
   const scroller = settings.getByTestId("settings-scroll");
   await scroller.evaluate((node) => {
@@ -135,11 +135,11 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   expect(headerEdge.borderStyle).toBe("solid");
   expect(headerEdge.padding).toBeGreaterThanOrEqual(16);
   await captureScreenshot(page, testInfo, "settings-shell-scrolled");
-  await streamReplies.click();
-  await expect(streamReplies).toBeChecked();
+  await compactSidebar.click();
+  await expect(compactSidebar).toHaveAttribute("aria-pressed", "true");
   await expect
-    .poll(() => page.evaluate(() => window.localStorage.getItem("rakazo.responseStreaming")))
-    .toBe("on");
+    .poll(() => page.evaluate(() => window.localStorage.getItem("rakazo.botsSidebarDensity")))
+    .toBe("compact");
   const deleteAccount = settings.getByTestId("delete-account");
   await deleteAccount.scrollIntoViewIfNeeded();
   await expect(deleteAccount).toBeVisible();

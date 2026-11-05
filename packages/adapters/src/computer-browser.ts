@@ -16,11 +16,12 @@ import type {
   SandboxProvider,
 } from "@rakazo/adapter-kit";
 import { SandboxRequestRejectedError } from "@rakazo/adapter-kit";
+import { PAGE_BROWSER_DETACHED } from "@rakazo/core/node/desktop-runtime";
 import { getLogger } from "@rakazo/logging";
 import type { FakeBrowserProviderOptions } from "./fake-browser.js";
 import { FakeBrowserProvider } from "./fake-browser.js";
 
-const DETACHED_MESSAGE = "Page browser is not attached to this computer's Chrome.";
+const DETACHED_MESSAGE = PAGE_BROWSER_DETACHED;
 
 /** A purchase check that failed: the page is unknown, so the card says so and approves no click by itself. */
 const UNCHECKED_PURCHASE: NonNullable<BrowserPurchaseCheckResult["purchase"]> = {

@@ -578,7 +578,9 @@ export default defineConfig(({ command, mode }) => {
         configurePreviewServer(server) {
           server.middlewares.use((req, res, next) => {
             const pathname = req.url?.split("?", 1)[0] ?? "/";
-            if (pathname !== COMPUTER_SCREEN_RUNTIME_PATH)
+            // /novnc is framed by the console, which may be a different origin.
+            const screenProxy = pathname === "/novnc" || pathname.startsWith("/novnc/");
+            if (pathname !== COMPUTER_SCREEN_RUNTIME_PATH && !screenProxy)
               res.setHeader("x-frame-options", "SAMEORIGIN");
             const policy = contentSecurityPolicyFor(pathname, appPolicy, wuyingScreenPolicy);
             if (policy) {

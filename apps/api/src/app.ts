@@ -1,5 +1,3 @@
-import { adminConsoleRoutes } from "./admin-console.js";
-import { legacySignInRoutes } from "./legacy-sign-in.js";
 import { hostname } from "node:os";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
@@ -36,6 +34,7 @@ import type {
 import {
   applyMessagingOutboundStatus,
   auditLogConfig,
+  burstProvisionGuard,
   ChatSdkMessagingSurface,
   CodexCatalogCache,
   ComposioConnector,
@@ -57,8 +56,6 @@ import {
   createProductAnalytics,
   createRunExecutor,
   createRunSandbox,
-  tieredSandbox,
-  burstProvisionGuard,
   createRunSecretWriter,
   createSecretStore,
   createStrategicInitiativeReconciler,
@@ -98,7 +95,11 @@ import {
   SpaceMemoryProviderResolver,
   StripeBillingProvider,
   sandboxProviderOptionsFromEnv,
+  sandboxTierFor,
   stripeBillingConfigFromEnv,
+  subscriptionFallbackFor,
+  subscriptionSecretValues,
+  tieredSandbox,
   toTeamChatInbound,
   UserDeviceHub,
   UserDevices,
@@ -131,15 +132,15 @@ import {
   parsePositiveInteger,
   provisionMessagingIdentity,
   pushSessionExpiresAt,
+  quotaWindow,
   requireMembership,
   rowSecurityWarning,
   runAsSystem,
   securityEventRetentionDays,
   verifyContentKeys,
-  quotaWindow,
   weekEnd,
-  weekStart,
   weeklyPointsUsed,
+  weekStart,
 } from "@rakazo/db";
 import type { Logger } from "@rakazo/logging";
 import {
@@ -156,6 +157,7 @@ import { cors } from "hono/cors";
 import { deleteAccountContent } from "./account-deletion.js";
 import { mountAccountExportRoute } from "./account-export.js";
 import { mountAccountImportRoute } from "./account-import.js";
+import { adminConsoleRoutes } from "./admin-console.js";
 import { mountAppAssociation, nativePasskeys } from "./app-association.js";
 import { storeInboundAttachment } from "./artifacts.js";
 import { mountAuditExportRoute } from "./audit-export.js";
@@ -177,6 +179,7 @@ import { healthRoutes } from "./health.js";
 import { homeRetentionSweep } from "./home-retention.js";
 import { startHourlySweep } from "./hourly-sweep.js";
 import { trackInFlightRequests } from "./in-flight-requests.js";
+import { legacySignInRoutes } from "./legacy-sign-in.js";
 import { mountLocalComputerHost } from "./local-settings.js";
 import { marketingEmailRoutes, sendWelcomeEmail } from "./marketing-email.js";
 import { moveMcpArgsIntoSecrets } from "./mcp-args-migration.js";
@@ -468,14 +471,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       ? tieredSandbox({
           providers,
           beforeBurstProvision: burstProvisionGuard(prisma as never),
-          tierFor: async (botId) => {
-            const bot = await prisma.bot.findUnique({
-              where: { id: botId },
-              select: { computerTier: true },
-            });
-            const tier = bot?.computerTier;
-            return tier === "big" || tier === "desktop" ? tier : "small";
-          },
+          tierFor: (address) => sandboxTierFor(prisma, address),
         })
       : baseSandbox;
   const mcpOAuth = new McpOAuthBroker(
@@ -739,7 +735,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       env.composioApiKey ?? "",
       env.cursorApiKey ?? "",
       process.env.TYPESAFE_API_KEY ?? "",
+      ...subscriptionSecretValues(),
     ].filter(Boolean),
+    subscriptionFallback: subscriptionFallbackFor({ prisma, secretStore: secrets }),
     secretStore: secrets,
     secretHttp: remoteConnectors,
     mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
@@ -1015,10 +1013,12 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       });
       const coreSeconds = Number(containers._sum.coreSeconds ?? 0);
       const coreQuota = Number(
-        (await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { weeklyCoreSecondsQuota: true },
-        }))?.weeklyCoreSecondsQuota ?? 0,
+        (
+          await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { weeklyCoreSecondsQuota: true },
+          })
+        )?.weeklyCoreSecondsQuota ?? 0,
       );
       return c.json({
         plan: user?.plan ?? "free",
@@ -1037,7 +1037,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     adminConsoleRoutes({
       prisma,
       env: {
-        adminEmails: env.adminEmails, adminUserIds: env.adminUserIds },
+        adminEmails: env.adminEmails,
+        adminUserIds: env.adminUserIds,
+      },
       sessionUser: async (request) => {
         const found = await auth.api.getSession({ headers: request.headers });
         return found?.user ? { id: found.user.id, email: found.user.email } : null;

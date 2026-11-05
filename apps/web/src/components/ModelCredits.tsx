@@ -46,6 +46,7 @@ import {
 } from "../lib/billing";
 import { rpc } from "../lib/rpc";
 import { useSignOut } from "../lib/sign-out";
+import { assignAppLocation } from "../lib/static-host-route";
 import { AccountMenu } from "./AccountMenu";
 
 type CreditAmount = (typeof MODEL_CREDIT_AMOUNTS)[number];
@@ -648,7 +649,7 @@ export function ModelCreditsSettings({
           onClick={() =>
             void action(async () => {
               const { url } = await rpc.billing.selectFunding({ funding: "byok" });
-              window.location.assign(url ?? "/app?settings=models");
+              assignAppLocation(url ?? "/app?settings=models");
             })
           }
         >

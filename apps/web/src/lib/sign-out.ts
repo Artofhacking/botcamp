@@ -5,6 +5,7 @@ import { clearAuthToken } from "./auth-token.js";
 import { endCallBeforeSignOut, forgetSignedInUser, sessionChangedUnderPage } from "./call-session";
 import { clearComposerDrafts } from "./composer-draft";
 import { clearSpaceSelection } from "./rpc";
+import { assignAppLocation } from "./static-host-route";
 
 /** Kept across the reload after a failed sign-out, so the fresh page can say it failed. */
 export const LOG_OUT_FAILED_KEY = "rakazo.logOutFailed";
@@ -30,7 +31,7 @@ export async function signOut(destination: string): Promise<void> {
     forgetSignedInUser();
     clearSpaceSelection();
     clearComposerDrafts();
-    window.location.assign(destination);
+    assignAppLocation(destination);
   } else {
     try {
       sessionStorage.setItem(LOG_OUT_FAILED_KEY, "1");

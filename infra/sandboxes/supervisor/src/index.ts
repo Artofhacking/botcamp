@@ -12,6 +12,7 @@ import {
   resolveSupervisorToken,
   uploadSizeFromEnv,
 } from "@rakazo/core";
+import { stopPageBrowserDaemonCommand } from "@rakazo/core/node/desktop-runtime";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { getLogger, SERVICE_NAMES } from "@rakazo/logging";
 import { createRootLogger } from "@rakazo/logging/axiom";
@@ -88,6 +89,7 @@ import {
   nextScreenIndex,
   normalizeWorkspaceRelative,
   oldestIdleScreen,
+  pageBrowserDetached,
   pageBrowserNotReady,
   parseObservation,
   preferComputerControl,
@@ -692,6 +694,15 @@ app.post("/computers/:id/browser", async (c) => {
   try {
     const reusable = await screen(true);
     let result = await runHelper(reusable);
+    // The helper's daemon can still be driving a browser it opened itself, which happens after the
+    // screen is handed back. End that daemon and attach to the screen's Chrome once more.
+    if (pageBrowserDetached(result)) {
+      await runContainerCommand(reusable.container, ["bash", "-c", stopPageBrowserDaemonCommand()], {
+        timeoutMs: 5_000,
+        signal,
+      });
+      result = await runHelper(reusable);
+    }
     // A reused screen skipped setup, so a browser that has since exited gets it before one retry. A
     // purchase check presses nothing and never starts the browser again: no browser has nothing to buy.
     if (reusable.reused && body.command !== "purchase_check" && pageBrowserNotReady(result))

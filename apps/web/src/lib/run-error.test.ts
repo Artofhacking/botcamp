@@ -35,6 +35,17 @@ it("uses the active Lingui catalog for shared run errors", () => {
   ).toBe("Dein Modellanbieter drosselt Anfragen. Versuche es gleich noch einmal.");
 });
 
+it("names a computer that failed to start instead of the model provider", () => {
+  i18n.load("zh", { "Computer failed to boot": "电脑启动失败" });
+  i18n.activate("zh");
+  expect(
+    normalizeRunError("could not prepare Kubernetes computer", translateRunError, i18n.locale),
+  ).toMatchObject({
+    summary: "电脑启动失败",
+    details: "could not prepare Kubernetes computer",
+  });
+});
+
 it("translates the summary of a reply cut off at the output limit", () => {
   i18n.load("de", {
     [MODEL_OUTPUT_CUT_ERROR]:

@@ -2,11 +2,7 @@ import { BotSettingsValuesSchema } from "@rakazo/contracts";
 import {
   appendEventInTransaction,
   commitBotUpdate,
-  createSpaceForMember,
   InstructionConflictError,
-  InvalidSpaceNameError,
-  runAsSystem,
-  SpaceLimitError,
   writeBotInstructions,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -181,25 +177,8 @@ async function commitOwnInstructions(
 
 /** This bot's own settings, Spaces and the bots this bot manages. */
 export const fleetTools: ToolHandlers = {
-  async create_space(ctx, call) {
-    const { deps, run } = ctx;
-    const { args } = call;
-    try {
-      // The new Space's rows are outside the run's tenant until it exists.
-      const space = await runAsSystem("create a Space for its member", () =>
-        createSpaceForMember(deps.prisma, {
-          currentSpaceId: run.spaceId,
-          userId: run.userId,
-          name: String(args.name ?? ""),
-        }),
-      );
-      return call.finish({ ok: true, spaceId: space.id, name: space.name });
-    } catch (error) {
-      if (error instanceof SpaceLimitError || error instanceof InvalidSpaceNameError) {
-        return call.finish({ error: error.message });
-      }
-      throw error;
-    }
+  async create_space(_ctx, call) {
+    return call.finish({ error: "Spaces cannot be created" });
   },
   async spawn_bot(ctx, call) {
     const { deps, run, runId, bot, thread } = ctx;

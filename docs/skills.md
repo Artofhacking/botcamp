@@ -28,8 +28,7 @@ then **Preview** and **Add**.
 ## Bots save skills too
 
 After a multi-step task, ask the bot to "save that as a skill". It writes the skill so it, and your
-other bots, can repeat the task next time. A skill a bot saves stays in the [space](./spaces.md) it
-was made in.
+other bots, can repeat the task next time. A skill a bot saves is available to your bots.
 
 ## Teach a task by showing it
 

@@ -13,7 +13,7 @@ Open **Settings → Models**. Under **Add provider**, pick a provider and connec
   machine. Paste the address, choose **Find models**, and pick one. Under **Advanced** you can set
   its context limit, whether it supports images, and its reasoning effort.
 
-Connected providers are listed under **Providers** and are available in every [space](./spaces.md).
+Connected providers are listed under **Providers**.
 
 > [!NOTE]
 > On BotCamp you can skip this and choose **Use BotCamp credits**, which includes monthly model

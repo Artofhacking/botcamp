@@ -6351,6 +6351,10 @@ msgstr "對方可免費使用 {weeks} 週。"
 msgid "Thinking"
 msgstr "思考"
 
+#: src/pages/shell/transcript.tsx
+msgid "Thinking…"
+msgstr "思考中"
+
 #. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"

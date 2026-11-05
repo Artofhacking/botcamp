@@ -7,6 +7,12 @@ import { authClient } from "../lib/auth";
 import { clearComposerDrafts } from "../lib/composer-draft";
 import { forgetSignedIn } from "../lib/returning-user";
 import { runSsoFlow } from "../lib/sso-flow";
+import {
+  assignAppLocation,
+  hashRoutesEnabled,
+  routeSearch,
+  withRouteSearch,
+} from "../lib/static-host-route";
 import { authErrorText } from "../lib/user-error";
 import { SettingsRow } from "./SettingsRows";
 
@@ -193,7 +199,7 @@ export function DeleteAccountForm({
                   throw new Error(authErrorText(result.error, t`Could not continue`));
                 clearComposerDrafts();
                 forgetSignedIn();
-                window.location.assign("/sign-in");
+                assignAppLocation("/sign-in");
               })
             }
           >
@@ -259,15 +265,19 @@ const LINK_RETURN = "sso-link";
 
 /** This page without an earlier redirect's result; a failed link's return is marked as one. */
 function ssoReturnURL(failedLink: boolean): string {
+  const update = (params: URLSearchParams) => {
+    params.delete("error");
+    params.delete(LINK_RETURN);
+    if (failedLink) params.set(LINK_RETURN, "1");
+  };
+  if (hashRoutesEnabled()) return withRouteSearch(update);
   const url = new URL(window.location.href);
-  url.searchParams.delete("error");
-  url.searchParams.delete(LINK_RETURN);
-  if (failedLink) url.searchParams.set(LINK_RETURN, "1");
+  update(url.searchParams);
   return url.href;
 }
 
 /** The error an SSO redirect came back with, for the flow that started it. */
 function redirectError(flow: "link" | "delete"): string | null {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(routeSearch());
   return params.has(LINK_RETURN) === (flow === "link") ? params.get("error") : null;
 }

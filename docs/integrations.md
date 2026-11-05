@@ -12,8 +12,8 @@ The easiest way is to ask: "connect my Google Calendar". The bot posts a card in
 Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. Search or browse
 **Apps** by category, choose one, and then **Connect**.
 
-Once an app is connected, every bot in the [space](./spaces.md) can use it. You don't set it up per
-bot. From an app's page you can **Reconnect** it, rename an account, or **Uninstall** it.
+Once an app is connected, every bot can use it. You don't set it up per bot. From an app's page you
+can **Reconnect** it, rename an account, or **Uninstall** it.
 
 > [!NOTE]
 > The app catalog depends on your server. A self-hosted server shows it only when the operator has
@@ -52,12 +52,6 @@ Bots pick the apps they need. To add an MCP server to the bot you're chatting wi
 
 When a bot wants a server it hasn't used before, it asks first in the chat. Choose **Approve**, or
 **Authorize** if the server needs you to sign in.
-
-## Available in
-
-If you have more than one [space](./spaces.md), each skill, MCP server and plugin you add has an
-**Available in** choice: **All spaces**, including spaces you create later, or only the spaces you
-pick. App connections stay in the space you connected them in.
 
 ## APIs without an integration
 

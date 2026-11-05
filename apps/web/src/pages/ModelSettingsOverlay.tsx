@@ -372,7 +372,7 @@ export function ModelSettingsOverlay({
               <Trans>Disconnect {disconnectName}?</Trans>
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <Trans>This removes the connection from every space.</Trans>
+              <Trans>This removes the connection.</Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

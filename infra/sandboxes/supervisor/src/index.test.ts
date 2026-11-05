@@ -45,6 +45,7 @@ import {
   nextScreenIndex,
   normalizeWorkspaceRelative,
   oldestIdleScreen,
+  pageBrowserDetached,
   pageBrowserNotReady,
   parseObservation,
   preferComputerControl,
@@ -811,6 +812,15 @@ describe("sandbox supervisor input containment", () => {
 
   it("recognizes only a page helper that reached no browser before acting", () => {
     const output = (value: object) => ({ code: 0, stdout: JSON.stringify(value) });
+    expect(
+      pageBrowserDetached(
+        output({ ok: false, error: "Page browser is not attached to this computer's Chrome." }),
+      ),
+    ).toBe(true);
+    expect(pageBrowserDetached(output({ ok: false, error: "CDP not ready on port 9222: x" }))).toBe(
+      false,
+    );
+    expect(pageBrowserDetached({ code: 1, stdout: "" })).toBe(false);
     expect(pageBrowserNotReady(output({ ok: false, error: "CDP not ready on port 9222: x" }))).toBe(
       true,
     );

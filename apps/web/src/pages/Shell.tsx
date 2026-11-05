@@ -23,7 +23,7 @@ import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
-import { Lock, Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
+import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {
   Suspense,
   useCallback,
@@ -65,6 +65,7 @@ import type { Panel } from "../lib/right-panel-state";
 import { rightPanelStorageKey } from "../lib/right-panel-state";
 import { createSpaceRpc, selectedSpaceId, selectSpace } from "../lib/rpc";
 import { markShellReady, useSpaceEpoch } from "../lib/space-switch";
+import { assignAppLocation } from "../lib/static-host-route";
 import { activeThreadRuns } from "../lib/thread-events";
 import { getToolActivityEnabled, subscribeToolActivity } from "../lib/tool-activity-preference";
 import type { AppearancePreference } from "../lib/ui-appearance";
@@ -471,7 +472,7 @@ function SpaceShell() {
           ? [
               {
                 id: bootstrapMe.spaceId,
-                name: "Personal",
+                name: "",
                 isDefault: true,
                 hasContent: true,
                 canRename: false,
@@ -805,12 +806,6 @@ function SpaceShell() {
       onSelect: () => setPanel("create-group"),
     },
     {
-      id: "new-space",
-      label: t`New private space`,
-      icon: Lock,
-      onSelect: () => dialogs.setNewSpaceOpen(true),
-    },
-    {
       id: "integrations",
       label: t`Connect apps`,
       icon: Plug,
@@ -865,7 +860,7 @@ function SpaceShell() {
     if (effectiveSpaceId === spaceId) {
       // The auth boundary changed, so reload like a space switch.
       if (selectSpace(result.activeSpaceId)) {
-        window.location.assign("/app");
+        assignAppLocation("/app");
         return;
       }
     }
@@ -944,7 +939,6 @@ function SpaceShell() {
         toggleSidebarSection={toggleSidebarSection}
         setPanel={setPanel}
         navigate={navigate}
-        setNewSpaceOpen={dialogs.setNewSpaceOpen}
         setCreateBotOpen={dialogs.setCreateBotOpen}
         roster={
           <SidebarRoster
@@ -1271,7 +1265,6 @@ function SpaceShell() {
           bots={bots}
           activeId={active?.id}
           activeGroupId={activeGroup?.id}
-          alive={alive}
           navigate={navigate}
           setPanel={setPanel}
           refreshBots={refreshBots}
@@ -1306,7 +1299,6 @@ function SpaceShell() {
           setOverlay={setOverlay}
           settingsSpace={settingsSpace}
           showSettings={settingsSpaceId === null || Boolean(settingsSpace)}
-          spaces={spaces}
           renameSpace={renameSpace}
           removeSpace={removeSpace}
           refreshSpaces={() => refreshBots()}

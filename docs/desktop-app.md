@@ -56,7 +56,7 @@ The app checks for updates and downloads them in the background. When one is rea
 
 Windows and Linux use Ctrl where macOS uses Cmd. The desktop app lists them in its menus.
 
-- Cmd+N: create a bot, group or space.
+- Cmd+N: create a bot or a group.
 - Cmd+K: open the command menu to jump to any bot.
 - Cmd+1 to Cmd+9 (desktop app): open one of the first nine bots in the sidebar.
 - Ctrl+Tab / Ctrl+Shift+Tab (desktop app): switch to the next or previous bot.

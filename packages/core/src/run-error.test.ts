@@ -89,6 +89,18 @@ describe("normalizeRunError", () => {
       "The model provider returned an error.",
     ],
     ["Something unexpected happened", "The model provider returned an error."],
+    ["could not prepare Kubernetes computer", "Computer failed to boot"],
+    ["The computer did not start. Try again.", "Computer failed to boot"],
+    ["Kubernetes pod rakazo-bot-example entered phase Failed", "Computer failed to boot"],
+    ["Kubernetes pod rakazo-bot-example disappeared while starting", "Computer failed to boot"],
+    [
+      "Kubernetes pod rakazo-bot-example did not become ready within 120000 ms",
+      "Computer failed to boot",
+    ],
+    [
+      "This computer's system is damaged. Recover the computer to rebuild it.",
+      "Computer failed to boot",
+    ],
     [
       "Provider diagnostic: manage https://example.test/keys/fake-key-id; trace fake-trace",
       "The model provider returned an error.",

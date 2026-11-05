@@ -21,6 +21,7 @@ import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
+import type { SubscriptionFallback } from "./subscription-quota.js";
 import type { TicketChangeNotifier } from "./ticket-changes.js";
 import type { UserDeviceGateway } from "./user-device-protocol.js";
 
@@ -46,6 +47,11 @@ export interface ExecutorDeps {
   deploymentModelKey?: string;
   /** The deployment default model can run; see resolveDeploymentModel. */
   deploymentModelConfigured?: boolean;
+  /**
+   * Shared subscription order for unpinned runs: OpenCode Go, then Grok Build.
+   * Absent in tests, so a run never calls a usage endpoint unless a process wires this.
+   */
+  subscriptionFallback?: SubscriptionFallback;
   dataDir?: string;
   notifications?: NotificationProvider;
   jobs: JobPublisher;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { SandboxDamagedError } from "@rakazo/adapter-kit";
 import type {
   AdapterContext,
   CommandRequest,
@@ -79,7 +80,10 @@ export class ExecComputer {
     ].join("\n");
     const result = await this.run(computer, ["bash", "-c", command], context, 300_000);
     if (result.code !== 0) {
-      throw new Error(result.stderr || `could not prepare ${this.label} computer`);
+      // The machine is up but cannot run anything. Recovery replaces it once; a plain error
+      // would end the run instead, and the empty transport error would name no cause.
+      const detail = result.stderr.trim() || `could not prepare ${this.label} computer`;
+      throw new SandboxDamagedError({ cause: new Error(detail) });
     }
   }
 
