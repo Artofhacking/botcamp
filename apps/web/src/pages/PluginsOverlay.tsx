@@ -1097,9 +1097,14 @@ export function PluginsOverlay({
   }
 
   function renderDeploymentApps() {
+    const needle = query.trim().toLowerCase();
     return (
       <DeploymentApps
-        apps={deploymentAppList}
+        apps={
+          needle
+            ? deploymentAppList.filter((app) => app.name.toLowerCase().includes(needle))
+            : deploymentAppList
+        }
         servers={mcpServers}
         pending={appPending}
         error={appError}
@@ -1615,7 +1620,7 @@ export function PluginsOverlay({
           </div>
         </DialogHeader>
 
-        {browsing && !pinnedApps ? (
+        {browsing ? (
           <div className="space-y-4 px-8 pt-4">
             <Input
               disabled={loading}

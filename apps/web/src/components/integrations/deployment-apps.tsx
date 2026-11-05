@@ -46,7 +46,7 @@ export function DeploymentApps({
           {error}
         </p>
       ) : null}
-      <div data-testid="deployment-apps" className="grid gap-2">
+      <div data-testid="deployment-apps" className="grid grid-cols-2 gap-2">
         {apps.map((app) => {
           const server = servers.find(
             (entry) => !entry.installId && entry.endpoint === app.endpoint,
