@@ -278,6 +278,8 @@ type PersistMaterial = (
 type ProviderOptions = {
   redirectUri?: string;
   state?: string;
+  /** Scopes this one authorization asks for, chosen for it rather than configured on the server. */
+  scope?: string;
   onAuthorization?: (url: URL) => void;
   onPersisted?: (record: { id: string; ref: string; material: OAuthMaterial }) => void;
   /** Renews the grant under the server's credential lock and returns the grant now stored. */
@@ -389,7 +391,7 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
     const applicationType = hostname === "localhost" || hostname === "127.0.0.1" ? "native" : "web";
     return {
       redirect_uris: [redirectUri],
-      client_name: "Rakazo",
+      client_name: "BotCamp",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
@@ -398,9 +400,9 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
     } as OAuthClientMetadata;
   }
 
-  /** The scope configured with the pre-registered client, if any. */
+  /** The scope this grant asks for: the one chosen for this attempt, else the client's. */
   get configuredScope(): string | undefined {
-    return this.material.oauthClient?.scope;
+    return this.options.scope ?? this.material.oauthClient?.scope;
   }
 
   state(): string {
@@ -967,6 +969,7 @@ export class McpOAuthBroker {
     spaceId: string;
     userId: string;
     redirectUri: string;
+    scope?: string;
   }): Promise<
     | { status: "authorization_required"; sessionId: string; authorizationUrl: string }
     | { status: "already_connected" | "authorization_not_requested" }
@@ -1005,6 +1008,7 @@ export class McpOAuthBroker {
     const provider = this.createProvider(server, context, loaded, {
       redirectUri: input.redirectUri,
       state: sessionId,
+      scope: input.scope,
       onAuthorization: (url) => {
         authorizationUrl = url;
       },

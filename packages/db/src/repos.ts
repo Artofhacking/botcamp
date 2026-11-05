@@ -109,6 +109,7 @@ function mapBot(
     dailyCheckIns?: boolean;
     fleetManagement?: boolean;
     isPrimary?: boolean;
+    computerTier?: string;
     disabledBuiltinTools?: string[];
     webhookSecretId?: string | null;
     spawnKey?: string | null;
@@ -156,6 +157,7 @@ function mapBot(
     crossSpaceCommunication: bot.crossSpaceCommunication ?? true,
     dailyCheckIns: bot.dailyCheckIns ?? true,
     fleetManagement: bot.fleetManagement ?? true,
+    computerTier: (bot.computerTier as "small" | "big" | "desktop") ?? "small",
     isPrimary: bot.isPrimary ?? false,
     // Stored lists may name a tool that no longer exists; settings resend what they read.
     disabledBuiltinTools: [...disabledBuiltinToolSet(bot.disabledBuiltinTools)],

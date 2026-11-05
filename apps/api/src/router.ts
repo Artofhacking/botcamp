@@ -133,6 +133,8 @@ export interface RouterDeps {
     deploymentModelConfigured?: boolean;
     deploymentModelHostCredentials?: boolean;
     webOrigin: string;
+    /** Public origin that serves the screen stream; the page may live elsewhere. */
+    screenOrigin?: string;
     privacyPolicyUrl?: string;
     screenProxySecret: string;
     sandboxProvider: string;

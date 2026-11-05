@@ -135,6 +135,8 @@ export const BotSchema = z.object({
   crossSpaceCommunication: z.boolean().optional(),
   dailyCheckIns: z.boolean().optional(),
   fleetManagement: z.boolean().default(true),
+  /** Which computer tier this bot runs on: small local, big/desktop burst to the cluster. */
+  computerTier: z.enum(["small", "big", "desktop"]).default("small"),
   /** The account's primary bot: it manages the others. One per user. */
   isPrimary: z.boolean().optional(),
   disabledBuiltinTools: z.array(z.string()).default([]),
@@ -459,6 +461,10 @@ export const UpdateBotInput = z
     crossSpaceCommunication: z.boolean().optional(),
     dailyCheckIns: z.boolean().optional(),
     fleetManagement: z.boolean().optional(),
+    /** Which computer tier this bot runs on: small stays local, big/desktop burst to TKE. */
+    computerTier: z.enum(["small", "big", "desktop"]).optional(),
+    /** Move this bot between the shared Team computer and its own dedicated one. */
+    computerMode: z.enum(["team", "dedicated"]).optional(),
     /** Make this bot the account's primary bot; the previous one steps down. */
     isPrimary: z.boolean().optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),

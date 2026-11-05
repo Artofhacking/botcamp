@@ -48,6 +48,7 @@ import {
 import { ACTIVE_RUN_STATUSES, scrollDirection } from "@rakazo/core";
 import { addScreenProxyCapability } from "@rakazo/core/node/screen-capability";
 import type { ComputerRunEnd, PrismaClient } from "@rakazo/db";
+import { runAsSystem } from "@rakazo/db";
 import {
   createRepos,
   expireComputerExecutionLeases,
@@ -75,9 +76,23 @@ export function computerRoutes(ctx: RouterContext) {
   const { deps, repos, taughtSkills, authed } = ctx;
   return {
     computer: {
-      status: authed.computer.status.handler(async ({ context, input }) =>
-        computerStatus(deps, context.actor, input.botId),
-      ),
+      status: authed.computer.status.handler(async ({ context, input }) => {
+        // 空闲停掉的桌面电脑在这里回落到小容器：下次需要时再按需升级，跑完就不再计大容器的费。
+        const seen = await repos.getBot(context.actor, input.botId);
+        if (seen.computer?.state === "stopped" && seen.computer.kind !== "docker") {
+          await runAsSystem("settle a stopped computer back to its small tier", async () => {
+            await deps.prisma.bot.updateMany({
+              where: { computerId: seen.computer!.id },
+              data: { computerTier: "small" },
+            });
+            await deps.prisma.computer.update({
+              where: { id: seen.computer!.id },
+              data: { kind: "docker", providerRef: null },
+            });
+          });
+        }
+        return computerStatus(deps, context.actor, input.botId);
+      }),
       boot: authed.computer.boot.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId);
         if (!bot.computer) throw new IsolationError();
@@ -751,7 +766,7 @@ export function computerRoutes(ctx: RouterContext) {
           url: addScreenProxyCapability(
             withViewOnly(session.url, false),
             deps.env.screenProxySecret,
-            deps.env.webOrigin,
+            deps.env.screenOrigin ?? deps.env.webOrigin,
             {
               botId: bot.id,
               computerId: computer.id,
@@ -768,6 +783,21 @@ export function computerRoutes(ctx: RouterContext) {
         let bot = await repos.getBot(context.actor, input.botId);
         if (await expireStaleComputerControl(deps, bot.computer)) {
           bot = await repos.getBot(context.actor, input.botId);
+        }
+        // 小容器没有屏幕：把同一台电脑换成带桌面的运行环境，下一次轮询就会起 Pod 并返回画面。
+        if (bot.computer?.kind === "docker") {
+          await runAsSystem("escalate a computer for its screen", async () => {
+            // provider 由 bot 的档位决定，所以档位和 computer 的 kind 必须一起写。
+            await deps.prisma.bot.update({
+              where: { id: input.botId },
+              data: { computerTier: "desktop" },
+            });
+            await deps.prisma.computer.update({
+              where: { id: bot.computer!.id },
+              data: { kind: "kubernetes", providerRef: null, state: "stopped" },
+            });
+          });
+          return { url: null };
         }
         if (
           !bot.computer?.providerRef ||
@@ -805,7 +835,7 @@ export function computerRoutes(ctx: RouterContext) {
           url: addScreenProxyCapability(
             viewUrl,
             deps.env.screenProxySecret,
-            deps.env.webOrigin,
+            deps.env.screenOrigin ?? deps.env.webOrigin,
             {
               botId: bot.id,
               computerId: computer.id,

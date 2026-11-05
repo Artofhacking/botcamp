@@ -7,10 +7,7 @@ import type {
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
 } from "@rakazo/contracts";
-import {
-  CONNECTION_LABEL_MAX_LENGTH,
-  PluginPreviewSchema,
-} from "@rakazo/contracts";
+import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
@@ -18,6 +15,7 @@ import {
   catalogItemAccounts,
   catalogItemKey,
   connectCatalogItem,
+  deriveMcpSlug,
   filterConnectionCatalogItems,
   humanizeToolName,
   installedPluginParts,
@@ -57,6 +55,7 @@ import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/rea
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DeploymentApps } from "../components/integrations/deployment-apps";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import type {
   ManagedAppLink,
@@ -77,9 +76,12 @@ import {
   useOwnSpaces,
 } from "../components/integrations/space-availability";
 import { connectedAppMarks } from "../lib/connected-apps";
+import { connectMcpOauth } from "../lib/mcp-connect";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
+import type { DeploymentApp, DeploymentAppScope } from "../lib/ui-flags";
+import { offeredApps } from "../lib/ui-flags";
 import { errorText } from "../lib/user-error";
 
 function ConnectorIcon({ name, logo }: { name: string; logo?: string | null }) {
@@ -163,6 +165,12 @@ export function PluginsOverlay({
   const [catalogFeedPending, setCatalogFeedPending] = useState(false);
   const [catalogFeedSearched, setCatalogFeedSearched] = useState(false);
   const [view, setView] = useState<OverlayView>("browse");
+  // A deployment that lists its own apps offers nothing else here.
+  const deploymentAppList = offeredApps();
+  // This build offers only its own apps, so the catalog, plugins and custom sources never show.
+  const pinnedApps = true;
+  const [appPending, setAppPending] = useState<string | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
   // Where a source form returns: the domain search that prefilled it, or browse.
   const [sourceBack, setSourceBack] = useState<OverlayView>("browse");
   const [plugin, setPlugin] = useState<PluginSelection | null>(null);
@@ -203,16 +211,19 @@ export function PluginsOverlay({
     queryKey: [...queries.connections.catalog.queryKey({ input: {} }), "integrations"],
     queryFn: loadIntegrations,
   });
-  const integrations = useQuery(integrationsOptions);
+  // Pinned apps need none of this: the catalog, installs and feed probe only fill the
+  // marketplace the deployment replaced, so opening the panel costs one request.
+  const integrations = useQuery({ ...integrationsOptions, enabled: !pinnedApps });
   const catalogLoaded = integrations.data !== undefined;
   const loading = !catalogLoaded && integrations.isFetching;
   const catalog = integrations.data?.catalog ?? NO_CATALOG;
   const connections = integrations.data?.connections ?? NO_CONNECTIONS;
   const sources = integrations.data?.sources ?? NO_SOURCES;
   const pluginInstalls = integrations.data?.plugins ?? NO_SOURCES;
-  const pluginCatalog = useQuery(
-    queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
-  );
+  const pluginCatalog = useQuery({
+    ...queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
+    enabled: !pinnedApps,
+  });
   const assignmentsQuery = useQuery(
     queries.mcp.assignments.list.queryOptions({
       input: activeBotId ? { botId: activeBotId } : skipToken,
@@ -259,6 +270,7 @@ export function PluginsOverlay({
   async function refresh() {
     void fetchFresh(queryClient, mcpOptions).catch(() => undefined);
     void queryClient.invalidateQueries({ queryKey: queries.mcp.assignments.key() });
+    if (pinnedApps) return;
     await fetchFresh(queryClient, {
       queryKey: integrationsOptions.queryKey,
       queryFn: loadIntegrations,
@@ -269,6 +281,47 @@ export function PluginsOverlay({
     void queryClient.invalidateQueries({
       queryKey: queries.connections.tools.key(),
     });
+  }
+
+  /** The MCP server row one of this deployment's apps owns, once the user connects it. */
+  function appServer(app: DeploymentApp) {
+    return mcpServers.find((server) => !server.installId && server.endpoint === app.endpoint);
+  }
+
+  async function connectDeploymentApp(app: DeploymentApp, scope: DeploymentAppScope | undefined) {
+    setAppError(null);
+    setAppPending(app.endpoint);
+    try {
+      const server =
+        appServer(app) ??
+        (await rpc.mcp.servers.create({
+          slug: deriveMcpSlug(app.name),
+          name: app.name,
+          transport: "streamable_http",
+          endpoint: app.endpoint,
+        }));
+      // A cancelled popup leaves the app as it was; anything else re-reads its state.
+      if ((await connectMcpOauth(server.id, scope?.scope)) !== "cancelled") await refresh();
+    } catch (err) {
+      setAppError(errorText(err, t`Could not connect`));
+    } finally {
+      setAppPending(null);
+    }
+  }
+
+  async function disconnectDeploymentApp(app: DeploymentApp) {
+    const server = appServer(app);
+    if (!server) return;
+    setAppError(null);
+    setAppPending(app.endpoint);
+    try {
+      await rpc.mcp.servers.remove({ id: server.id });
+      await refresh();
+    } catch (err) {
+      setAppError(errorText(err, t`Could not remove connector`));
+    } finally {
+      setAppPending(null);
+    }
   }
 
   useEffect(() => {
@@ -1043,6 +1096,19 @@ export function PluginsOverlay({
     );
   }
 
+  function renderDeploymentApps() {
+    return (
+      <DeploymentApps
+        apps={deploymentAppList}
+        servers={mcpServers}
+        pending={appPending}
+        error={appError}
+        onConnect={(app, scope) => void connectDeploymentApp(app, scope)}
+        onDisconnect={(app) => void disconnectDeploymentApp(app)}
+      />
+    );
+  }
+
   function renderViewTitle(title: ReactNode, onBack: () => void) {
     return (
       <div className="flex items-center gap-2">
@@ -1513,7 +1579,7 @@ export function PluginsOverlay({
             <Trans>Integrations</Trans>
           </DialogTitle>
           <div className="flex items-center gap-2">
-            {browsing && connectedCount > 0 ? (
+            {browsing && !pinnedApps && connectedCount > 0 ? (
               <Button
                 variant="ghost"
                 className="-my-1 h-9 gap-2.5 px-2.5 text-[14px] text-muted-foreground"
@@ -1540,7 +1606,7 @@ export function PluginsOverlay({
                 <ChevronRight />
               </Button>
             ) : null}
-            {browsing || view === "manage" ? renderAddMenu() : null}
+            {!pinnedApps && (browsing || view === "manage") ? renderAddMenu() : null}
             <DialogClose
               render={<Button variant="ghost" size="icon-sm" aria-label={t`Close integrations`} />}
             >
@@ -1549,7 +1615,7 @@ export function PluginsOverlay({
           </div>
         </DialogHeader>
 
-        {browsing ? (
+        {browsing && !pinnedApps ? (
           <div className="space-y-4 px-8 pt-4">
             <Input
               disabled={loading}
@@ -1623,7 +1689,7 @@ export function PluginsOverlay({
           </div>
         ) : null}
 
-        {loading ? (
+        {loading && !pinnedApps ? (
           <div className="grid flex-1 place-items-center" aria-busy="true">
             <Spinner
               className="size-5 text-muted-foreground"
@@ -1634,10 +1700,10 @@ export function PluginsOverlay({
 
         <div
           id="integration-list"
-          hidden={loading}
+          hidden={loading && !pinnedApps}
           className="rk-scroll flex-1 overflow-y-auto px-8 py-6"
         >
-          {catalogError || loadError ? (
+          {!pinnedApps && (catalogError || loadError) ? (
             <div className="mb-4 flex items-center gap-3">
               <p className="text-sm text-destructive">{catalogError ?? loadError}</p>
               {!catalogLoaded || (loadError && !catalogError) ? (
@@ -1648,7 +1714,9 @@ export function PluginsOverlay({
             </div>
           ) : null}
 
-          {plugin ? (
+          {pinnedApps ? (
+            renderDeploymentApps()
+          ) : plugin ? (
             <PluginDetail
               key={plugin.installedSource}
               selection={plugin}

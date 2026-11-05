@@ -40,7 +40,10 @@ import {
   InstructionConflictError,
   IsolationError,
   recordComputerRunEnd,
+  ensureComputerRecord,
+  parseComputerMode,
   recordSecurityEvent,
+  runAsSystem,
   restoreBotUnderComputerQuota,
   SpaceDeletionInProgressError,
   settingsTarget,
@@ -420,6 +423,24 @@ export function botsRoutes(ctx: RouterContext) {
                   select: { botAvatarSet: true },
                 })
                 .then((user) => input.avatarSet !== resolveBotAvatarSet(user.botAvatarSet));
+        // 升级/降级是「同一台电脑换运行环境」：沿用同一条 computer 记录和同一份 home，
+        // 只改 provider 种类并清掉旧的容器引用，下次 boot 由新 provider 接手。
+        if (input.computerTier !== undefined) {
+          const computerId = existing.computer?.id;
+          const kind = input.computerTier === "small" ? "docker" : "kubernetes";
+          if (computerId && existing.computer?.kind !== kind) {
+            await runAsSystem("switch a computer's tier", () =>
+              deps.prisma.computer.update({
+                where: { id: computerId },
+                data: { kind, providerRef: null, state: "stopped" },
+              }),
+            );
+          }
+          await deps.prisma.bot.update({
+            where: { id: input.botId },
+            data: { computerTier: input.computerTier },
+          });
+        }
         // 主 bot 只有一个：换人时先把上一个降下来，再抬起这一个。
         if (input.isPrimary === true && !existing.isPrimary) {
           await deps.prisma.$transaction(async (tx) => {
@@ -477,6 +498,9 @@ export function botsRoutes(ctx: RouterContext) {
               : {}),
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
+              : {}),
+            ...(input.computerTier !== undefined
+              ? { computerTier: input.computerTier }
               : {}),
           },
         }).catch((error) => {

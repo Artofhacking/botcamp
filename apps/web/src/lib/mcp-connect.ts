@@ -17,13 +17,21 @@ export type McpOauthResult =
  *
  * The BroadcastChannel (not window.opener) is the completion signal because
  * provider login pages with COOP sever the opener link. */
-/** Where providers send the user back; a pre-registered client must allow it. */
+/** Where providers send the user back; a pre-registered client must allow it. The app's
+ * base comes first, so a deployment served under a subpath returns to its own callback. */
 export function mcpOAuthRedirectUri(): string {
-  return `${window.location.origin}/mcp/oauth/callback`;
+  return new URL(
+    `${import.meta.env.BASE_URL}mcp/oauth/callback`,
+    window.location.origin,
+  ).toString();
 }
 
-export async function connectMcpOauth(serverId: string): Promise<McpOauthResult> {
-  const started = await rpc.mcp.oauth.begin({ serverId, redirectUri: mcpOAuthRedirectUri() });
+export async function connectMcpOauth(serverId: string, scope?: string): Promise<McpOauthResult> {
+  const started = await rpc.mcp.oauth.begin({
+    serverId,
+    redirectUri: mcpOAuthRedirectUri(),
+    ...(scope ? { scope } : {}),
+  });
   if (started.status !== "authorization_required") return started.status;
   const popup = window.open(
     started.authorizationUrl,

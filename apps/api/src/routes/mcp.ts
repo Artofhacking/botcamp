@@ -66,6 +66,24 @@ import {
 import type { RouterContext } from "./context.js";
 import { computerContext, isUniqueViolation } from "./shared.js";
 
+/**
+ * The web callback a browser may return to. A deployment served under a subpath puts its
+ * router base in front of the path, so anything on this origin ending in the callback path
+ * is the same page; another origin is not.
+ */
+function allowedOAuthRedirect(value: string, webOrigin: URL): string {
+  const url = new URL(value);
+  if (
+    url.origin !== webOrigin.origin ||
+    !url.pathname.endsWith("/mcp/oauth/callback") ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("MCP OAuth redirect URI is not allowed");
+  }
+  return url.toString();
+}
+
 export function mcpRoutes(ctx: RouterContext) {
   const {
     deps,
@@ -899,14 +917,16 @@ export function mcpRoutes(ctx: RouterContext) {
       oauth: {
         begin: authed.mcp.oauth.begin.handler(async ({ context, input }) => {
           try {
-            const expectedRedirect = new URL("/mcp/oauth/callback", deps.env.webOrigin).toString();
-            // Native clients omit the redirect; the registered web callback is always used.
-            if (input.redirectUri && new URL(input.redirectUri).toString() !== expectedRedirect) {
-              throw new Error("MCP OAuth redirect URI is not allowed");
-            }
+            const webOrigin = new URL(deps.env.webOrigin);
+            const expectedRedirect = new URL("/mcp/oauth/callback", webOrigin).toString();
+            // A deployment under a subpath returns into its own base, so the path may sit
+            // behind one; only the origin is fixed. Native clients omit it and use the default.
+            const redirectUri = input.redirectUri
+              ? allowedOAuthRedirect(input.redirectUri, webOrigin)
+              : expectedRedirect;
             return await mcpOAuth.begin({
               ...input,
-              redirectUri: expectedRedirect,
+              redirectUri,
               spaceId: context.actor.spaceId,
               userId: context.actor.userId,
             });

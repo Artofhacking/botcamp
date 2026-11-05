@@ -76,7 +76,15 @@ export class LocalAgentHomeStore implements AgentHomeStore {
         if (!staged) return copyDir(src, staging);
         await removeExcludedStagedEntries(src);
         await rm(staging, { recursive: true, force: true });
-        await rename(src, staging);
+        try {
+          await rename(src, staging);
+        } catch (error) {
+          // Staging can sit on a different filesystem than the homes (local disk vs NFS),
+          // where rename cannot cross the device boundary.
+          if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+          await copyDir(src, staging);
+          await rm(src, { recursive: true, force: true });
+        }
       });
       return this.writeRevision(botId);
     });

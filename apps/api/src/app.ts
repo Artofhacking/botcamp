@@ -915,6 +915,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       deploymentModelConfigured: env.deploymentModelConfigured,
       deploymentModelHostCredentials: env.deploymentModelHostCredentials,
       webOrigin: env.webOrigin,
+      screenOrigin: new URL(env.authUrl).origin,
       privacyPolicyUrl: env.privacyPolicyUrl,
       screenProxySecret: env.screenProxySecret,
       sandboxProvider: env.sandboxProvider,
@@ -1035,7 +1036,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     "/",
     adminConsoleRoutes({
       prisma,
-      env: { adminEmails: env.adminEmails, adminUserIds: env.adminUserIds },
+      env: {
+        adminEmails: env.adminEmails, adminUserIds: env.adminUserIds },
       sessionUser: async (request) => {
         const found = await auth.api.getSession({ headers: request.headers });
         return found?.user ? { id: found.user.id, email: found.user.email } : null;
