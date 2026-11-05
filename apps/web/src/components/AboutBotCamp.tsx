@@ -21,24 +21,29 @@ type Release = {
   ios?: string;
 };
 
-const PLATFORM_LABEL: Record<string, string> = {
+/** Clients that publish an installer. A browser is none of these, whatever its user agent says. */
+export type ClientPlatform = "windows" | "mac" | "android";
+
+const PLATFORM_LABEL: Record<ClientPlatform, string> = {
   android: "Android",
   mac: "macOS",
   windows: "Windows",
-  ios: "iOS",
-  web: "网页版",
 };
 
-function platform(): string {
-  if (typeof window === "undefined") return "web";
-  const injected = window.__BOTCAMP_APP__?.platform?.trim();
-  if (injected) return injected;
-  const agent = navigator.userAgent;
-  if (/Android/i.test(agent)) return "android";
-  if (/iPhone|iPad|iPod/i.test(agent)) return "ios";
-  if (/Macintosh/i.test(agent)) return "mac";
-  if (/Windows/i.test(agent)) return "windows";
-  return "web";
+export function clientPlatform(value: string | undefined): ClientPlatform | null {
+  switch (value?.trim().toLowerCase()) {
+    case "win32":
+    case "windows":
+      return "windows";
+    case "darwin":
+    case "mac":
+    case "macos":
+      return "mac";
+    case "android":
+      return "android";
+    default:
+      return null;
+  }
 }
 
 /** Numeric parts only: `2.1.0` beats `2.0.49`, and a missing part counts as zero. */
@@ -61,53 +66,32 @@ function isNewer(candidate: string, current: string): boolean {
   return false;
 }
 
-/** The shell's own version when native, otherwise the web build this page came from. */
-function currentVersion(): string {
-  const injected = window.__BOTCAMP_APP__?.version?.trim();
-  return injected || "";
-}
-
 /** A published client release. A web build id is a timestamp and is not comparable to one. */
-function isReleaseVersion(version: string): boolean {
-  return /^\d+\.\d+\.\d+(?:[-+].*)?$/.test(version.trim());
+export function releaseVersion(value: string | undefined): string {
+  const version = value?.trim().replace(/^v/i, "") ?? "";
+  return /^\d+\.\d+\.\d+(?:[-+].*)?$/.test(version) ? version : "";
 }
 
-export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
-  const [version, setVersion] = useState(() => appVersion?.trim() || currentVersion());
+export function AboutBotCamp({
+  client,
+}: {
+  /** Set only for an installed Windows, Mac, or Android app. */
+  client?: { platform: ClientPlatform; version: string };
+}) {
+  const version = releaseVersion(client?.version);
   const [checking, setChecking] = useState(false);
   const [release, setRelease] = useState<Release | null>(null);
   const [upToDate, setUpToDate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // A plain browser has no native version; its build id identifies what it is running.
-  // The desktop app passes its own release, which must not be replaced by that build id.
   useEffect(() => {
-    const override = appVersion?.trim();
-    if (override) {
-      setVersion(override);
-      setRelease(null);
-      setUpToDate(false);
-      setError(null);
-      return;
-    }
-    if (currentVersion()) return;
-    let cancelled = false;
-    fetch(`${import.meta.env.BASE_URL}build-id`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.text() : ""))
-      .then((text) => {
-        if (!cancelled && text.trim()) setVersion(text.trim());
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [appVersion]);
-
-  const platformId = platform();
-  const releaseVersion = isReleaseVersion(version);
+    setRelease(null);
+    setUpToDate(false);
+    setError(null);
+  }, [client?.platform, version]);
 
   async function check() {
-    if (checking) return;
+    if (!client || !version || checking) return;
     setChecking(true);
     setError(null);
     setUpToDate(false);
@@ -118,14 +102,11 @@ export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
       const data = (await response.json()) as Release;
       // Desktop and Android ship on separate version lines; older feeds only had `version`.
       const latest =
-        platformId === "android"
+        client.platform === "android"
           ? (data.androidVersion ?? data.version)
-          : platformId === "mac" || platformId === "windows"
-            ? (data.desktopVersion ?? data.version)
-            : data.version;
-      if (!latest || !version || !isReleaseVersion(version) || !isReleaseVersion(latest)) {
-        throw new Error("no version");
-      }
+          : data.desktopVersion ?? data.version;
+      const download = data[client.platform];
+      if (!latest || !releaseVersion(latest) || !download) throw new Error("no release");
       if (isNewer(latest, version)) setRelease({ ...data, version: latest });
       else setUpToDate(true);
     } catch {
@@ -135,12 +116,7 @@ export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
     }
   }
 
-  const downloadUrl = release
-    ? ((release as unknown as Record<string, string | undefined>)[platformId] ??
-      release.android ??
-      release.mac ??
-      release.windows)
-    : undefined;
+  const downloadUrl = client && release ? release[client.platform] : undefined;
 
   return (
     <div className="space-y-3">
@@ -148,11 +124,11 @@ export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
         label={<span className="font-medium">BotCamp</span>}
         control={
           <span className="text-[13px] text-muted-foreground">
-            {version ? `${PLATFORM_LABEL[platformId] ?? platformId} · ${version}` : "…"}
+            {client && version ? `${PLATFORM_LABEL[client.platform]} · ${version}` : "网页端"}
           </span>
         }
       />
-      {releaseVersion ? (
+      {client && version ? (
         <SettingsRow
           label={
             <div>
@@ -169,21 +145,20 @@ export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
             </div>
           }
           control={
-            <div className="flex items-center gap-2">
+            downloadUrl ? (
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 items-center rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
+              >
+                下载
+              </a>
+            ) : (
               <Button variant="secondary" size="sm" disabled={checking} onClick={() => void check()}>
                 {checking ? "检查中…" : "检查更新"}
               </Button>
-              {downloadUrl ? (
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-8 items-center rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
-                >
-                  下载
-                </a>
-              ) : null}
-            </div>
+            )
           }
         />
       ) : null}

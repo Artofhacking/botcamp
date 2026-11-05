@@ -96,7 +96,7 @@ export function SettingsOverlay({
       keepComputerRecovery ||
       computersAreUnavailable(sandboxProvider) ||
       canChooseOwnComputer(sandboxProvider));
-  // 网页端和安卓壳也要看版本、查更新，不只是桌面客户端。
+  // 关于页始终在。网页只标明网页端；检查更新只出现在能安装新版本的客户端里。
   const showUpdates = true;
   // A section that isn't available yet (billing before its flag loads) shows General until it is.
   const section =

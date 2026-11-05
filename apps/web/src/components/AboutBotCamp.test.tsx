@@ -44,7 +44,7 @@ afterEach(() => {
   delete window.__RAKAZO_API_ORIGIN__;
 });
 
-it("checks the desktop release instead of the web build id", async () => {
+it("checks the installed desktop release and offers that platform's installer", async () => {
   installWindowsAgent();
   window.__RAKAZO_API_ORIGIN__ = "https://api.test";
   const fetchMock = vi.fn(async (url: string) => {
@@ -55,17 +55,21 @@ it("checks the desktop release instead of the web build id", async () => {
           version: "2.1.2",
           desktopVersion: "0.7.2",
           windows: "https://downloads.test/BotCamp-Setup-0.7.2.exe",
+          mac: "https://downloads.test/BotCamp-0.7.2-arm64.dmg",
         }),
       };
     }
     return { ok: false, text: async () => "", json: async () => ({}) };
   });
   vi.stubGlobal("fetch", fetchMock);
-  const view = render(createElement(AboutBotCamp, { appVersion: "0.7.1" }));
+  const view = render(
+    createElement(AboutBotCamp, { client: { platform: "windows", version: "0.7.1" } }),
+  );
   try {
     await view.show();
     expect(view.container.textContent).toContain("Windows · 0.7.1");
     expect(view.container.textContent).not.toContain("20261105134607");
+    expect(view.container.textContent).not.toContain("网页端");
     const button = [...view.container.querySelectorAll("button")].find((item) =>
       item.textContent?.includes("检查更新"),
     );
@@ -75,6 +79,7 @@ it("checks the desktop release instead of the web build id", async () => {
     });
     expect(view.container.textContent).toContain("有新版本 0.7.2");
     expect(view.container.textContent).not.toContain("已是最新版本");
+    expect(view.container.querySelector("button")).toBeNull();
     expect(view.container.querySelector("a")?.getAttribute("href")).toBe(
       "https://downloads.test/BotCamp-Setup-0.7.2.exe",
     );
@@ -84,21 +89,22 @@ it("checks the desktop release instead of the web build id", async () => {
   }
 });
 
-it("does not treat a web build id as a desktop release", async () => {
+it("names the web console without a version or an update button", async () => {
   installWindowsAgent();
-  vi.stubGlobal("fetch", async (url: string) => {
-    if (String(url).includes("build-id")) return { ok: true, text: async () => "20261105134607\n" };
-    return { ok: false, text: async () => "", json: async () => ({}) };
-  });
+  const fetchMock = vi.fn(async () => ({ ok: true, text: async () => "20261105134607\n" }));
+  vi.stubGlobal("fetch", fetchMock);
   const view = render(createElement(AboutBotCamp));
   try {
     await view.show();
     await act(async () => {
       await Promise.resolve();
     });
-    expect(view.container.textContent).toContain("20261105134607");
+    expect(view.container.textContent).toContain("网页端");
+    expect(view.container.textContent).not.toContain("20261105134607");
+    expect(view.container.textContent).not.toContain("Windows");
     expect(view.container.querySelector("button")).toBeNull();
-    expect(view.container.textContent).not.toContain("已是最新版本");
+    expect(view.container.querySelector("a")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   } finally {
     await view.cleanup();
   }
@@ -116,6 +122,7 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     checkedAt: null,
   };
   window.rakazoDesktop = {
+    platform: "win32",
     update: {
       state: async () => unsupported,
       check: async () => unsupported,
@@ -150,7 +157,68 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     const buttons = [...view.container.querySelectorAll("button")];
     expect(buttons).toHaveLength(1);
     expect(buttons[0]?.textContent).toContain("检查更新");
+    expect(view.container.textContent).not.toContain("网页端");
   } finally {
+    await view.cleanup();
+  }
+});
+
+it("does not send a Windows app to another platform's installer", async () => {
+  window.__RAKAZO_API_ORIGIN__ = "https://api.test";
+  vi.stubGlobal("fetch", async () => ({
+    ok: true,
+    json: async () => ({
+      desktopVersion: "0.7.2",
+      mac: "https://downloads.test/BotCamp-0.7.2-arm64.dmg",
+    }),
+  }));
+  const view = render(
+    createElement(AboutBotCamp, { client: { platform: "windows", version: "0.7.1" } }),
+  );
+  try {
+    await view.show();
+    await act(async () => {
+      view.container.querySelector("button")?.click();
+    });
+    expect(view.container.textContent).toContain("检查更新失败，请稍后再试");
+    expect(view.container.querySelector("a")).toBeNull();
+    expect(view.container.textContent).not.toContain("有新版本");
+  } finally {
+    await view.cleanup();
+  }
+});
+
+it("checks the Android release against the Android installer", async () => {
+  window.__BOTCAMP_APP__ = { platform: "android", version: "2.1.1" };
+  window.__RAKAZO_API_ORIGIN__ = "https://api.test";
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (String(url).endsWith("/downloads/latest.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          version: "2.1.2",
+          desktopVersion: "0.7.2",
+          android: "https://downloads.test/BotCamp-2.1.2.apk",
+          windows: "https://downloads.test/BotCamp-Setup-0.7.2.exe",
+        }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
+  try {
+    await view.show();
+    expect(view.container.textContent).toContain("Android · 2.1.1");
+    const button = view.container.querySelector("button");
+    await act(async () => {
+      button?.click();
+    });
+    expect(view.container.textContent).toContain("有新版本 2.1.2");
+    expect(view.container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://downloads.test/BotCamp-2.1.2.apk",
+    );
+  } finally {
+    delete window.__BOTCAMP_APP__;
     await view.cleanup();
   }
 });
