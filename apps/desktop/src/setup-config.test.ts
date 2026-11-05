@@ -5,6 +5,8 @@ import {
   BOTCAMP_CLOUD_URL,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
+  deviceServerOrigin,
+  deviceSessionHeaders,
   isBotCampHealth,
   managedLocalOpenUrl,
   maySendDesktopStackToken,
@@ -157,6 +159,31 @@ describe("saved setup", () => {
     });
     expect(parseSetupInput({ mode: "new", serverUrl: BOTCAMP_CLOUD_URL })).toBeNull();
     expect(servesBundledRenderer(BOTCAMP_CLOUD_URL, false)).toBe(false);
+  });
+});
+
+describe("device server", () => {
+  it("pairs a split host with the API, and a single host with the page", () => {
+    expect(deviceServerOrigin("https://botcamp.demox.site", BOTCAMP_CLOUD_API_URL)).toBe(
+      BOTCAMP_CLOUD_API_URL,
+    );
+    expect(deviceServerOrigin("https://rakazo.example.com", undefined)).toBe(
+      "https://rakazo.example.com",
+    );
+    expect(deviceServerOrigin(null, BOTCAMP_CLOUD_API_URL)).toBeNull();
+  });
+
+  it("sends the page session without replacing a device token", () => {
+    expect(
+      deviceSessionHeaders(undefined, "signed.token", { "CF-Access-Client-Id": "id.access" }),
+    ).toEqual({
+      authorization: "Bearer signed.token",
+      "CF-Access-Client-Id": "id.access",
+    });
+    expect(deviceSessionHeaders({ authorization: "Bearer device-token" }, "signed.token")).toEqual({
+      authorization: "Bearer device-token",
+    });
+    expect(deviceSessionHeaders(undefined, "bad\r\ntoken")).toEqual({});
   });
 });
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Signed session bearer kept in the page's localStorage. The desktop reads the same key. */
+export const SESSION_BEARER_STORAGE_KEY = "bc_auth_token";
+
 export const authCapabilitiesSchema = z.object({
   sso: z
     .object({

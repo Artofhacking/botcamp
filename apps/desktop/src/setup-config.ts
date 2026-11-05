@@ -137,6 +137,36 @@ export function parseSetupInput(value: unknown): DesktopSetup | null {
   return setup;
 }
 
+/**
+ * Where a desktop pairs this computer. A split host checks the sign-in on the API, not on the
+ * site that serves the page.
+ */
+export function deviceServerOrigin(pageOrigin: string | null, apiUrl?: string): string | null {
+  if (pageOrigin === null) return null;
+  if (apiUrl === undefined || apiUrl === "") return pageOrigin;
+  return normalizeServerUrl(apiUrl) ?? pageOrigin;
+}
+
+/** Adds the page's session bearer without replacing a device token the caller already set. */
+export function deviceSessionHeaders(
+  init: Record<string, string> | undefined,
+  sessionToken: string | null,
+  proxyHeaders: Record<string, string> = {},
+): Record<string, string> {
+  const headers = { ...proxyHeaders, ...init };
+  const names = new Set(Object.keys(headers).map((name) => name.toLowerCase()));
+  if (
+    sessionToken !== null &&
+    sessionToken.length > 0 &&
+    sessionToken.length <= 8192 &&
+    /^[\x21-\x7E]+$/.test(sessionToken) &&
+    !names.has("authorization")
+  ) {
+    headers.authorization = `Bearer ${sessionToken}`;
+  }
+  return headers;
+}
+
 /** Configured headers for a request to the saved server, including its websockets; none elsewhere. */
 export function serverHeadersFor(url: string, setup: DesktopSetup | null): Record<string, string> {
   if (!setup?.headers) return {};

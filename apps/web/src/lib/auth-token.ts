@@ -1,3 +1,5 @@
+import { SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
+
 /**
  * The session token lives here instead of a cookie, because the app is served from one site
  * and the API from another: browsers drop third-party cookies, and Safari refuses outright.
@@ -5,7 +7,7 @@
  * The backend's bearer plugin turns `Authorization: Bearer <token>` into a session, so every
  * request that needs auth sends this header.
  */
-const TOKEN_KEY = "bc_auth_token";
+const TOKEN_KEY = SESSION_BEARER_STORAGE_KEY;
 
 export function getAuthToken(): string | null {
   try {

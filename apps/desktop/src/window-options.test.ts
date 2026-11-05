@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   browserWindowOptions,
@@ -5,6 +7,8 @@ import {
   developmentIconFile,
   setupWindowOptions,
   warmWindowTtlMs,
+  WINDOWS_APP_USER_MODEL_ID,
+  windowsAppUserModelId,
 } from "./window-options.js";
 
 const laptop = { width: 1440, height: 875 };
@@ -103,6 +107,32 @@ describe("development icon", () => {
     for (const platform of ["win32", "linux"] as const) {
       expect(developmentIconFile(platform)).toBe("icon.png");
     }
+  });
+});
+
+describe("windows shell identity", () => {
+  it("uses the installer app id only for a packaged Windows app", () => {
+    const pkg = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, "../package.json"), "utf8"),
+    ) as { build: { appId: string } };
+    expect(WINDOWS_APP_USER_MODEL_ID).toBe(pkg.build.appId);
+    expect(windowsAppUserModelId("win32", true)).toBe(pkg.build.appId);
+    expect(windowsAppUserModelId("win32", false)).toBeUndefined();
+    expect(windowsAppUserModelId("darwin", true)).toBeUndefined();
+    expect(windowsAppUserModelId("linux", true)).toBeUndefined();
+  });
+
+  it("points Start menu and taskbar shortcuts at a per-version icon", () => {
+    const script = readFileSync(
+      path.join(import.meta.dirname, "../assets/installer.nsh"),
+      "utf8",
+    );
+    expect(script).toContain("!macro customInstall");
+    expect(script).toContain("BotCamp-${VERSION}.ico");
+    expect(script).toContain("${BUILD_RESOURCES_DIR}\\icon.ico");
+    expect(script).toContain("$newStartMenuLink");
+    expect(script).toContain("User Pinned\\TaskBar\\${SHORTCUT_NAME}.lnk");
+    expect(script).toContain('WinShell::SetLnkAUMI "${link}" "${APP_ID}"');
   });
 });
 

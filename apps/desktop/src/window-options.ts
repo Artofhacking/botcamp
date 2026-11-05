@@ -43,6 +43,17 @@ export function developmentIconFile(platform: NodeJS.Platform) {
   return platform === "darwin" ? "icon-macos.png" : "icon.png";
 }
 
+/**
+ * Windows Start menu, taskbar pins, and jump lists group on this id.
+ * The installer writes the same id onto those shortcuts (package.json build.appId).
+ */
+export const WINDOWS_APP_USER_MODEL_ID = "site.botcamp.desktop";
+
+/** Packaged Windows only. A dev window must not take over the installed app's taskbar pin. */
+export function windowsAppUserModelId(platform: NodeJS.Platform, packaged: boolean) {
+  return platform === "win32" && packaged ? WINDOWS_APP_USER_MODEL_ID : undefined;
+}
+
 /** The first-run setup window is smaller and keeps the same platform chrome. */
 export function setupWindowOptions(platform: NodeJS.Platform, workArea: WorkArea) {
   const width = Math.min(720, workArea.width);

@@ -3,8 +3,14 @@ import type { UserDeviceSummary } from "@rakazo/contracts";
 import { USER_DEVICE_PATH, userDeviceListSchema } from "@rakazo/contracts";
 import { readBoundedJsonResponse } from "@rakazo/core";
 
+import { apiUrl } from "./api-origin.js";
+import { authHeaders } from "./auth-token.js";
+
 export async function listUserDevices(): Promise<UserDeviceSummary[]> {
-  const response = await fetch(USER_DEVICE_PATH, { signal: AbortSignal.timeout(8_000) });
+  const response = await fetch(apiUrl(USER_DEVICE_PATH), {
+    headers: authHeaders(),
+    signal: AbortSignal.timeout(8_000),
+  });
   // Servers without user devices have no such route.
   if (response.status === 404) return [];
   if (!response.ok) throw new Error(t`Could not load`);
@@ -17,8 +23,9 @@ export async function listUserDevices(): Promise<UserDeviceSummary[]> {
 }
 
 export async function removeUserDevice(deviceId: string): Promise<void> {
-  const response = await fetch(`${USER_DEVICE_PATH}/${encodeURIComponent(deviceId)}`, {
+  const response = await fetch(apiUrl(`${USER_DEVICE_PATH}/${encodeURIComponent(deviceId)}`), {
     method: "DELETE",
+    headers: authHeaders(),
     signal: AbortSignal.timeout(8_000),
   });
   await response.body?.cancel();

@@ -11,7 +11,7 @@ import type {
   DesktopReachability,
   DesktopSetup,
 } from "@rakazo/contracts";
-import { parseServerHeaders } from "@rakazo/contracts";
+import { parseServerHeaders, SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
 import type { Session } from "electron";
 import {
   app,
@@ -90,6 +90,8 @@ import {
   botcampCloudSetup,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
+  deviceServerOrigin,
+  deviceSessionHeaders,
   isBotCampHealth,
   managedLocalOpenUrl,
   maySendDesktopStackToken,
@@ -113,6 +115,7 @@ import {
   developmentIconFile,
   setupWindowOptions,
   warmWindowTtlMs,
+  windowsAppUserModelId,
 } from "./window-options.js";
 
 process.setSourceMapsEnabled(true);
@@ -1138,7 +1141,7 @@ function syncHostComputerAccess() {
       !mainWindow.isDestroyed() &&
       appWindowTargets.get(mainWindow) === localStack.webUrl(),
   );
-  void userDevices?.select(remoteServerOrigin()).catch(() => undefined);
+  void userDevices?.select(pairedDeviceOrigin()).catch(() => undefined);
   installApplicationMenu();
 }
 
@@ -1147,6 +1150,46 @@ function remoteServerOrigin() {
   if (currentSetup?.mode === "new" || mainWindow === null || mainWindow.isDestroyed()) return null;
   const target = appWindowTargets.get(mainWindow);
   return target === undefined ? null : safeOrigin(target);
+}
+
+/** The API this computer pairs with. A split host is not the page that shows the switch. */
+function pairedDeviceOrigin() {
+  return deviceServerOrigin(remoteServerOrigin(), currentSetup?.apiUrl);
+}
+
+/** The page's signed session bearer, when this window has one. */
+async function readPageSessionToken(): Promise<string | null> {
+  const win = mainWindow;
+  if (win === null || win.isDestroyed()) return null;
+  try {
+    const value = await win.webContents.executeJavaScript(
+      `localStorage.getItem(${JSON.stringify(SESSION_BEARER_STORAGE_KEY)})`,
+      true,
+    );
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function headerRecord(headers: RequestInit["headers"] | undefined): Record<string, string> | undefined {
+  if (headers == null) return undefined;
+  const record: Record<string, string> = {};
+  if (Array.isArray(headers)) {
+    for (const [name, value] of headers) record[name] = value;
+    return record;
+  }
+  const listed = headers as { forEach?: (fn: (value: string, key: string) => void) => void };
+  if (typeof listed.forEach === "function") {
+    listed.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }
+  for (const [name, value] of Object.entries(headers)) {
+    if (typeof value === "string") record[name] = value;
+  }
+  return record;
 }
 
 /** The trust boundary: only a click on Allow here lets bots use this computer. */
@@ -1304,6 +1347,13 @@ function safeOrigin(targetUrl: string) {
   }
 }
 
+// Group this process with the Start menu shortcut and the taskbar pin. The
+// installer stamps the same id on those shortcuts and points them at this
+// version's icon, which is what the Start menu and the taskbar's right-click
+// menu draw.
+const windowsAppId = windowsAppUserModelId(process.platform, app.isPackaged);
+if (windowsAppId !== undefined) app.setAppUserModelId(windowsAppId);
+
 // A second launch on Linux/Windows would rerun host-computer setup, overwrite
 // the saved token and restart the local stack under the running instance.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -1382,13 +1432,26 @@ app.whenReady().then(async () => {
       platform:
         process.platform === "win32" || process.platform === "linux" ? process.platform : "darwin",
     }),
-    confirm: (host) => confirmRemoteComputerAccess(host),
-    // The app window's session carries the sign-in for that server; the token never reaches it.
-    fetch: (url, init) =>
-      (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.session : net).fetch(url, {
-        ...init,
-        bypassCustomProtocolHandlers: true,
-      }),
+    confirm: (host) => {
+      const page = remoteServerOrigin();
+      return confirmRemoteComputerAccess(page === null ? host : new URL(page).host);
+    },
+    // The sign-in for a split host lives in the page, not in a cookie on the API.
+    fetch: async (url, init) => {
+      const headers = deviceSessionHeaders(
+        headerRecord(init?.headers),
+        await readPageSessionToken(),
+        serverHeadersFor(url, currentSetup),
+      );
+      return (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.session : net).fetch(
+        url,
+        {
+          ...init,
+          headers,
+          bypassCustomProtocolHandlers: true,
+        },
+      );
+    },
     connect: (origin, token, events) =>
       startUserDeviceClient({
         serverUrl: origin,
@@ -1554,25 +1617,27 @@ app.whenReady().then(async () => {
     }
   });
   /** The remote server's own page in the app window, never a frame or another window. */
-  const remoteDeviceOrigin = (event: Electron.IpcMainInvokeEvent) => {
+  const fromRemotePage = (event: Electron.IpcMainInvokeEvent) => {
     const origin = remoteServerOrigin();
-    return fromMainWindow(event) &&
+    return (
+      fromMainWindow(event) &&
       event.senderFrame === event.sender.mainFrame &&
       origin !== null &&
       safeOrigin(event.senderFrame.url) === origin
-      ? origin
-      : null;
+    );
   };
   const deviceState = async (origin: string | null): Promise<BotCampDesktopDevice | null> => {
     const state = origin === null ? null : userDevices?.state(origin);
     return state ? { ...state, name: await deviceName() } : null;
   };
-  ipcMain.handle("desktop.device.state", (event) => deviceState(remoteDeviceOrigin(event)));
+  ipcMain.handle("desktop.device.state", (event) =>
+    fromRemotePage(event) ? deviceState(pairedDeviceOrigin()) : null,
+  );
   ipcMain.handle("desktop.device.setAllowed", async (event, allowed: unknown) => {
-    const origin = remoteDeviceOrigin(event);
-    if (origin === null || typeof allowed !== "boolean") return null;
+    const origin = pairedDeviceOrigin();
+    if (!fromRemotePage(event) || origin === null || typeof allowed !== "boolean") return null;
     await userDevices?.setAllowed(origin, allowed);
-    return deviceState(remoteDeviceOrigin(event));
+    return deviceState(pairedDeviceOrigin());
   });
   ipcMain.handle(
     "desktop.locale.set",
