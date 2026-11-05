@@ -83,20 +83,33 @@ test.afterEach(async () => {
   await rm(userData, { recursive: true, force: true });
 });
 
-function launch(extraEnv: Record<string, string> = {}) {
+async function launch(extraEnv: Record<string, string> = {}) {
   const env = { ...process.env, RAKAZO_PERFORMANCE_USER_DATA: userData };
   // A stale RAKAZO_WEB_URL from the developer's shell would bypass setup entirely.
   delete env.RAKAZO_WEB_URL;
+  let savedSetup = false;
+  try {
+    await readFile(path.join(userData, "setup.json"), "utf8");
+    savedSetup = true;
+  } catch {
+    savedSetup = false;
+  }
   const executablePath = process.env.RAKAZO_E2E_EXECUTABLE;
   return electron.launch({
     ...(executablePath ? { executablePath: path.resolve(executablePath) } : {}),
     args: executablePath ? [] : ["."],
     cwd: path.resolve(import.meta.dirname, ".."),
-    env: { ...env, ...extraEnv },
+    env: {
+      ...env,
+      // A download with no saved server opens BotCamp Cloud. These specs still
+      // exercise the chooser, which stays available from the Change Server menu.
+      ...(!savedSetup && extraEnv.RAKAZO_WEB_URL === undefined ? { RAKAZO_FORCE_SETUP: "1" } : {}),
+      ...extraEnv,
+    },
   });
 }
 
-test("first run offers BotCamp Cloud first, with local and existing instances", async () => {
+test("the server chooser offers BotCamp Cloud first, with local and existing instances", async () => {
   app = await launch();
   if (process.env.RAKAZO_E2E_EXECUTABLE) {
     expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true);

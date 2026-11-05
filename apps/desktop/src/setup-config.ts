@@ -17,8 +17,18 @@ export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
 export const SETUP_FILE_NAME = "setup.json";
 
 export type StartupTarget =
-  | { kind: "app"; url: string; source: "env" | "saved" }
+  | { kind: "app"; url: string; source: "env" | "saved" | "cloud" }
   | { kind: "setup" };
+
+/** The hosted instance a fresh install opens, stored like a chosen existing server. */
+export function botcampCloudSetup(): DesktopSetup {
+  return {
+    mode: "existing",
+    serverUrl: BOTCAMP_CLOUD_URL,
+    apiUrl: BOTCAMP_CLOUD_API_URL,
+    pageUrl: BOTCAMP_CLOUD_PAGE_URL,
+  };
+}
 
 const SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
@@ -156,16 +166,18 @@ export function serializeSetup(setup: DesktopSetup): string {
 }
 
 /**
- * Decides between the first-run setup window and the app window. An explicit
- * `RAKAZO_WEB_URL` still wins over saved configuration so test and performance
- * harnesses can point the shell anywhere without touching a user's real setup.
- */
-/**
- * A product build points at its own server instead of asking the user for one, so opening the
- * app goes straight to the console. Overridden by RAKAZO_WEB_URL and by a saved setup.
+ * Replaces BotCamp Cloud when nothing is saved. `RAKAZO_WEB_URL` and a saved setup still win.
  */
 export const DEFAULT_SERVER_URL = (process.env.RAKAZO_DEFAULT_SERVER_URL ?? "").trim();
 
+/**
+ * Decides between the server chooser and the app window.
+ * `RAKAZO_WEB_URL` still wins over saved configuration so test and performance
+ * harnesses can point the shell anywhere without touching a user's real setup.
+ * `RAKAZO_FORCE_SETUP` shows the chooser. A fresh install opens BotCamp Cloud's
+ * console. A saved choice is reopened at its page when it has one. An unusable
+ * saved address shows the chooser.
+ */
 export function resolveStartupTarget(input: {
   envUrl?: string;
   saved?: DesktopSetup | null;
@@ -182,9 +194,14 @@ export function resolveStartupTarget(input: {
 
   if (input.saved != null) {
     const saved = parseSetupInput(input.saved);
-    if (saved !== null) return { kind: "app", url: saved.serverUrl, source: "saved" };
+    if (saved !== null) {
+      return { kind: "app", url: saved.pageUrl ?? saved.serverUrl, source: "saved" };
+    }
+    return { kind: "setup" };
   }
-  return { kind: "setup" };
+
+  const cloud = botcampCloudSetup();
+  return { kind: "app", url: cloud.pageUrl ?? cloud.serverUrl, source: "cloud" };
 }
 
 /** Turns a network failure into something a person can act on. */

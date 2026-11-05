@@ -87,6 +87,7 @@ import {
   BOTCAMP_CLOUD_API_URL,
   BOTCAMP_CLOUD_PAGE_URL,
   BOTCAMP_CLOUD_URL,
+  botcampCloudSetup,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
   isBotCampHealth,
@@ -1800,6 +1801,21 @@ app.whenReady().then(async () => {
 
   if (target.kind === "setup") {
     showSetupWindow();
+  } else if (target.source === "cloud") {
+    // A fresh install is BotCamp Cloud. Persist only after the console opens.
+    const cloud = botcampCloudSetup();
+    currentSetup = cloud;
+    if (await appOpener.open(cloud.pageUrl ?? cloud.serverUrl)) {
+      try {
+        await writeSetup(userDataDir, cloud);
+      } catch (error) {
+        reportDesktopError(error, "desktop.startup");
+      }
+      commitPendingAppSwitch();
+      destroySetupWindow();
+    } else {
+      currentSetup = null;
+    }
   } else if (target.source === "saved") {
     if (currentSetup?.mode === "new") {
       const managedUrl = managedLocalOpenUrl(target.url, localStack.webUrl());

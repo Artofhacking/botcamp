@@ -85,7 +85,7 @@ export async function writeUiLocale(userDataDir: string, locale: string): Promis
   await writePrivateFile(path.join(userDataDir, UI_LOCALE_FILE_NAME), `${locale}\n`);
 }
 
-/** Removes saved setup so the next launch runs first-run again. */
+/** Removes saved setup so the next launch has no saved server. */
 export async function clearSetup(userDataDir: string): Promise<void> {
   await rm(setupFilePath(userDataDir), { force: true });
 }

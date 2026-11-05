@@ -131,11 +131,21 @@ async function launch(mode: FakeDockerMode | "missing") {
   const env: NodeJS.ProcessEnv = { ...process.env, RAKAZO_PERFORMANCE_USER_DATA: userData };
   // A stale RAKAZO_WEB_URL from the developer's shell would bypass setup entirely.
   delete env.RAKAZO_WEB_URL;
+  let savedSetup = false;
+  try {
+    await readFile(path.join(userData, "setup.json"), "utf8");
+    savedSetup = true;
+  } catch {
+    savedSetup = false;
+  }
   return electron.launch({
     args: ["."],
     cwd: path.resolve(import.meta.dirname, ".."),
     env: {
       ...env,
+      // A download with no saved server opens BotCamp Cloud. These specs still
+      // exercise the chooser, which stays available from the Change Server menu.
+      ...(savedSetup ? {} : { RAKAZO_FORCE_SETUP: "1" }),
       RAKAZO_DOCKER_BINARY:
         mode === "missing" ? "/nonexistent/docker" : await writeFakeDocker(mode),
       RAKAZO_LOCAL_WEB_URL: serverUrl,

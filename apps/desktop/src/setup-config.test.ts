@@ -197,14 +197,41 @@ describe("server request headers", () => {
 describe("startup target", () => {
   const saved = { mode: "existing", serverUrl: "https://rakazo.example.com" } as const;
 
-  it("runs setup on a first launch", () => {
-    expect(resolveStartupTarget({})).toEqual({ kind: "setup" });
+  it("opens BotCamp Cloud on a first launch", () => {
+    expect(resolveStartupTarget({})).toEqual({
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
+    });
+    expect(resolveStartupTarget({ saved: null })).toEqual({
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
+    });
+    expect(resolveStartupTarget({ forceSetup: true })).toEqual({ kind: "setup" });
   });
 
   it("opens the saved instance on later launches", () => {
     expect(resolveStartupTarget({ saved })).toEqual({
       kind: "app",
       url: "https://rakazo.example.com",
+      source: "saved",
+    });
+  });
+
+  it("reopens a saved page instead of the server origin", () => {
+    expect(
+      resolveStartupTarget({
+        saved: {
+          mode: "existing",
+          serverUrl: BOTCAMP_CLOUD_URL,
+          apiUrl: BOTCAMP_CLOUD_API_URL,
+          pageUrl: BOTCAMP_CLOUD_PAGE_URL,
+        },
+      }),
+    ).toEqual({
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
       source: "saved",
     });
   });
