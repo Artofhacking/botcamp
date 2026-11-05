@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
+import type { JobPublisher, JobWorkerHost, SandboxProvider } from "@rakazo/adapter-kit";
 import {
   ComposioConnector,
   IntegrationProviderSettings,
