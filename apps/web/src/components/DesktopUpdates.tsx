@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/desktop";
 import { AboutBotCamp, clientPlatform, releaseVersion } from "./AboutBotCamp";
+import type { ClientPlatform } from "./AboutBotCamp";
+import { SettingsRow } from "./SettingsRows";
 
 function useDesktopUpdates() {
   const { t } = useLingui();
@@ -162,11 +164,72 @@ export function useSidebarUpdate() {
   };
 }
 
+const PLATFORM_LABEL: Record<ClientPlatform, string> = {
+  android: "Android",
+  mac: "macOS",
+  windows: "Windows",
+};
+
 /**
- * One update control. The web console names itself and stops there. An installed
- * app shows its own release and can download the newer installer for that platform.
- * The native updater stays unused here: these builds have no update feed, so its
- * "unsupported" line is not a second check.
+ * Download and install inside the app. Used once the installed build has an
+ * update feed; older builds fall through to the public installer link.
+ */
+function InstalledUpdate({ platform, version }: { platform: ClientPlatform; version: string }) {
+  const updates = useContext(UpdatesContext);
+  if (!updates?.state) return null;
+  const { state, busy, error, act, confirmedCheck } = updates;
+  const ready = state.phase === "ready";
+  const downloading = state.phase === "available" || state.phase === "downloading";
+  const checking = busy || state.phase === "checking";
+  const upToDate =
+    state.phase === "idle" &&
+    confirmedCheck !== null &&
+    state.checkedAt === confirmedCheck &&
+    !state.message;
+  const status = error ?? (state.phase === "error" ? state.message : null);
+  return (
+    <div className="space-y-3">
+      <SettingsRow
+        label={<span className="font-medium">BotCamp</span>}
+        control={
+          <span className="text-[13px] text-muted-foreground">
+            {PLATFORM_LABEL[platform]} · {version}
+          </span>
+        }
+      />
+      <SettingsRow
+        label={
+          <div>
+            <p>检查更新</p>
+            {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
+            {downloading ? (
+              <p className="text-[13px] text-muted-foreground">{Math.round(state.percent ?? 0)}%</p>
+            ) : null}
+            {status ? (
+              <p role="alert" className="text-[13px] text-destructive">
+                {status}
+              </p>
+            ) : null}
+          </div>
+        }
+        control={
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={checking || downloading}
+            onClick={() => void act(ready ? "install" : "check")}
+          >
+            {ready ? "重启并更新" : downloading ? "下载中…" : checking ? "检查中…" : "检查更新"}
+          </Button>
+        }
+      />
+    </div>
+  );
+}
+
+/**
+ * One update control. A build with an update feed downloads and installs in
+ * the app. An older build, which has no feed, links to that platform's installer.
  */
 export function DesktopAbout() {
   const updates = useContext(UpdatesContext);
@@ -176,6 +239,9 @@ export function DesktopAbout() {
   const platform =
     clientPlatform(bridge?.platform) ?? clientPlatform(window.__BOTCAMP_APP__?.platform);
   const version = releaseVersion(native?.currentVersion || window.__BOTCAMP_APP__?.version);
+  if (native && native.phase !== "unsupported" && platform && version) {
+    return <InstalledUpdate platform={platform} version={version} />;
+  }
   if (!platform || !version) return <AboutBotCamp />;
   return <AboutBotCamp client={{ platform, version }} />;
 }

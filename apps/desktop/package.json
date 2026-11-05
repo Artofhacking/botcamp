@@ -65,6 +65,12 @@
       "name": "rakazo",
       "main": "dist/main.js"
     },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://botcamp.aigc.sx.cn/downloads/"
+      }
+    ],
     "mac": {
       "icon": "assets/icon.png",
       "category": "public.app-category.productivity",
@@ -120,7 +126,7 @@
       "target": [
         "nsis"
       ],
-      "verifyUpdateCodeSignature": true
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "executableName": "botcamp",

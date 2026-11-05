@@ -163,6 +163,79 @@ it("shows one check for an installed app that has no auto-update feed", async ()
   }
 });
 
+it("offers a newer Windows installer without moving the Mac release", async () => {
+  window.__RAKAZO_API_ORIGIN__ = "https://api.test";
+  vi.stubGlobal("fetch", async () => ({
+    ok: true,
+    json: async () => ({
+      desktopVersion: "0.7.2",
+      windowsVersion: "0.7.3",
+      windows: "https://downloads.test/BotCamp-Setup-0.7.3.exe",
+      mac: "https://downloads.test/BotCamp-0.7.2-arm64.dmg",
+    }),
+  }));
+  const windows = render(
+    createElement(AboutBotCamp, { client: { platform: "windows", version: "0.7.2" } }),
+  );
+  const mac = render(
+    createElement(AboutBotCamp, { client: { platform: "mac", version: "0.7.2" } }),
+  );
+  try {
+    await windows.show();
+    await act(async () => {
+      windows.container.querySelector("button")?.click();
+    });
+    expect(windows.container.textContent).toContain("有新版本 0.7.3");
+    expect(windows.container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://downloads.test/BotCamp-Setup-0.7.3.exe",
+    );
+    await mac.show();
+    await act(async () => {
+      mac.container.querySelector("button")?.click();
+    });
+    expect(mac.container.textContent).toContain("已是最新版本");
+    expect(mac.container.querySelector("a")).toBeNull();
+  } finally {
+    await windows.cleanup();
+    await mac.cleanup();
+  }
+});
+
+it("downloads a newer build inside an app that has an update feed", async () => {
+  const ready: DesktopUpdateState = {
+    phase: "ready",
+    currentVersion: "0.7.3",
+    availableVersion: "0.7.4",
+    percent: null,
+    message: null,
+    checkedAt: "2026-11-05T00:00:00.000Z",
+  };
+  const install = vi.fn(async () => ready);
+  window.rakazoDesktop = {
+    platform: "win32",
+    update: {
+      state: async () => ready,
+      check: async () => ready,
+      download: async () => ready,
+      install,
+    },
+  };
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
+  try {
+    await view.show();
+    expect(view.container.textContent).toContain("Windows · 0.7.3");
+    expect(view.container.querySelector("a")).toBeNull();
+    const button = view.container.querySelector("button");
+    expect(button?.textContent).toContain("重启并更新");
+    await act(async () => {
+      button?.click();
+    });
+    expect(install).toHaveBeenCalledOnce();
+  } finally {
+    await view.cleanup();
+  }
+});
+
 it("does not send a Windows app to another platform's installer", async () => {
   window.__RAKAZO_API_ORIGIN__ = "https://api.test";
   vi.stubGlobal("fetch", async () => ({

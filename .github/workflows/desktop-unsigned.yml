@@ -10,6 +10,10 @@ on:
         description: 版本号覆盖（留空用 apps/desktop/package.json 里的）
         required: false
         default: ""
+      platform:
+        description: 只构建一个系统（windows 或 mac，留空为全部）
+        required: false
+        default: ""
 
 jobs:
   build:
@@ -21,10 +25,13 @@ jobs:
             target: --mac
             arch: --arm64
             artifact: botcamp-macos
+            platform: mac
           - os: windows-latest
             target: --win
             arch: --x64
             artifact: botcamp-windows
+            platform: windows
+    if: inputs.platform == '' || inputs.platform == matrix.platform
     runs-on: ${{ matrix.os }}
     env:
       # 没有证书：让 electron-builder 直接出未签名包，别去找钥匙串里的身份。
@@ -106,3 +113,5 @@ jobs:
             apps/desktop/out/*.exe
             apps/desktop/out/*.msi
             apps/desktop/out/*.AppImage
+            apps/desktop/out/latest*.yml
+            apps/desktop/out/*.blockmap

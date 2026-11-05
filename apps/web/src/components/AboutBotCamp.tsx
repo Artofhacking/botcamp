@@ -15,6 +15,9 @@ type Release = {
   version?: string;
   androidVersion?: string;
   desktopVersion?: string;
+  /** Set when Windows and Mac are not on the same desktop release. */
+  windowsVersion?: string;
+  macVersion?: string;
   android?: string;
   mac?: string;
   windows?: string;
@@ -104,7 +107,9 @@ export function AboutBotCamp({
       const latest =
         client.platform === "android"
           ? (data.androidVersion ?? data.version)
-          : data.desktopVersion ?? data.version;
+          : client.platform === "windows"
+            ? (data.windowsVersion ?? data.desktopVersion ?? data.version)
+            : (data.macVersion ?? data.desktopVersion ?? data.version);
       const download = data[client.platform];
       if (!latest || !releaseVersion(latest) || !download) throw new Error("no release");
       if (isNewer(latest, version)) setRelease({ ...data, version: latest });
