@@ -4,6 +4,7 @@ import { Button, toast } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/desktop";
+import { AboutBotCamp } from "./AboutBotCamp";
 
 function useDesktopUpdates() {
   const { t } = useLingui();
@@ -159,6 +160,19 @@ export function useSidebarUpdate() {
       void updates?.act("install");
     },
   };
+}
+
+/**
+ * One update control. An installed app whose feed is the download page has no
+ * auto-updater file, so the native "unsupported" line is not a second check.
+ */
+export function DesktopAbout() {
+  const updates = useContext(UpdatesContext);
+  const bridge = desktopBridge()?.update;
+  const native = updates?.state ?? null;
+  if (bridge && !native) return null;
+  if (native && native.phase !== "unsupported") return <DesktopUpdateSection />;
+  return <AboutBotCamp appVersion={native?.currentVersion} />;
 }
 
 export function DesktopUpdateSection() {

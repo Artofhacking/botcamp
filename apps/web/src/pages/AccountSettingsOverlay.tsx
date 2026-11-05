@@ -27,7 +27,7 @@ import {
 } from "@rakazo/ui-web/components/ui/table";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { AboutBotCamp } from "../components/AboutBotCamp";
+
 import { AccountAccess, LinkSsoRow } from "../components/AccountAccess";
 import { AccountDataSettings } from "../components/AccountDataSettings";
 import { SuccessPop } from "../components/ai/primitives";
@@ -37,7 +37,7 @@ import {
   ComputersUnavailableHint,
   computersAreUnavailable,
 } from "../components/ComputersUnavailableHint";
-import { DesktopUpdateSection } from "../components/DesktopUpdates";
+import { DesktopAbout } from "../components/DesktopUpdates";
 import { PasskeySettings } from "../components/PasskeySettings";
 import { SettingsGroup, SettingsRow } from "../components/SettingsRows";
 import { TrustedLinkSitesSettings } from "../components/TrustedLinkSitesSettings";
@@ -469,12 +469,7 @@ export function ComputerSettingsPanel({
 }
 
 export function UpdatesSettingsPanel() {
-  return (
-    <div className="space-y-5">
-      <AboutBotCamp />
-      <DesktopUpdateSection />
-    </div>
-  );
+  return <DesktopAbout />;
 }
 
 function ChangePasswordRow({ email }: { email?: string | null }) {

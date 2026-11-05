@@ -67,16 +67,30 @@ function currentVersion(): string {
   return injected || "";
 }
 
-export function AboutBotCamp() {
-  const [version, setVersion] = useState(currentVersion);
+/** A published client release. A web build id is a timestamp and is not comparable to one. */
+function isReleaseVersion(version: string): boolean {
+  return /^\d+\.\d+\.\d+(?:[-+].*)?$/.test(version.trim());
+}
+
+export function AboutBotCamp({ appVersion }: { appVersion?: string }) {
+  const [version, setVersion] = useState(() => appVersion?.trim() || currentVersion());
   const [checking, setChecking] = useState(false);
   const [release, setRelease] = useState<Release | null>(null);
   const [upToDate, setUpToDate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // A plain browser has no native version; its build id identifies what it is running.
+  // The desktop app passes its own release, which must not be replaced by that build id.
   useEffect(() => {
-    if (version) return;
+    const override = appVersion?.trim();
+    if (override) {
+      setVersion(override);
+      setRelease(null);
+      setUpToDate(false);
+      setError(null);
+      return;
+    }
+    if (currentVersion()) return;
     let cancelled = false;
     fetch(`${import.meta.env.BASE_URL}build-id`, { cache: "no-store" })
       .then((response) => (response.ok ? response.text() : ""))
@@ -87,9 +101,10 @@ export function AboutBotCamp() {
     return () => {
       cancelled = true;
     };
-  }, [version]);
+  }, [appVersion]);
 
   const platformId = platform();
+  const releaseVersion = isReleaseVersion(version);
 
   async function check() {
     if (checking) return;
@@ -108,8 +123,10 @@ export function AboutBotCamp() {
           : platformId === "mac" || platformId === "windows"
             ? (data.desktopVersion ?? data.version)
             : data.version;
-      if (!latest) throw new Error("no version");
-      if (version && isNewer(latest, version)) setRelease({ ...data, version: latest });
+      if (!latest || !version || !isReleaseVersion(version) || !isReleaseVersion(latest)) {
+        throw new Error("no version");
+      }
+      if (isNewer(latest, version)) setRelease({ ...data, version: latest });
       else setUpToDate(true);
     } catch {
       setError("检查更新失败，请稍后再试");
@@ -135,39 +152,41 @@ export function AboutBotCamp() {
           </span>
         }
       />
-      <SettingsRow
-        label={
-          <div>
-            <p>检查更新</p>
-            {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
-            {error ? (
-              <p role="alert" className="text-[13px] text-destructive">
-                {error}
-              </p>
-            ) : null}
-            {release ? (
-              <p className="text-[13px] text-muted-foreground">有新版本 {release.version}</p>
-            ) : null}
-          </div>
-        }
-        control={
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" disabled={checking} onClick={() => void check()}>
-              {checking ? "检查中…" : "检查更新"}
-            </Button>
-            {downloadUrl ? (
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-8 items-center rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
-              >
-                下载
-              </a>
-            ) : null}
-          </div>
-        }
-      />
+      {releaseVersion ? (
+        <SettingsRow
+          label={
+            <div>
+              <p>检查更新</p>
+              {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
+              {error ? (
+                <p role="alert" className="text-[13px] text-destructive">
+                  {error}
+                </p>
+              ) : null}
+              {release ? (
+                <p className="text-[13px] text-muted-foreground">有新版本 {release.version}</p>
+              ) : null}
+            </div>
+          }
+          control={
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" disabled={checking} onClick={() => void check()}>
+                {checking ? "检查中…" : "检查更新"}
+              </Button>
+              {downloadUrl ? (
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
+                >
+                  下载
+                </a>
+              ) : null}
+            </div>
+          }
+        />
+      ) : null}
     </div>
   );
 }
