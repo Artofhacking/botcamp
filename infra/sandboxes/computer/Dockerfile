@@ -56,8 +56,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xsel \
     poppler-utils \
     pandoc \
-    libreoffice-writer \
-    libreoffice-calc \
     python3-openpyxl \
     python3-docx \
     python3-pypdf \
@@ -66,7 +64,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && pdftotext -v \
   && pdfinfo -v \
   && pandoc --version \
-  && soffice --version \
   && python3 -c 'import openpyxl, docx, pypdf, reportlab; print(openpyxl.__version__)' \
   && groupadd --gid 1000 rakazo \
   && useradd --uid 1000 --gid rakazo --create-home --shell /bin/bash rakazo \
