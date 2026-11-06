@@ -2044,7 +2044,10 @@ describe("Pi runtime ordered model fallback", () => {
 
   it("reads images on the image model even when the text model can see", async () => {
     const image = model("provider-image", "vision", 16_384);
-    providerState.models.set(`${image.provider}/${image.id}`, image);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
     const input = request([
       { provider: backupA.provider, id: backupA.id, apiKey: "text-backup-key" },
     ]);
@@ -2072,7 +2075,10 @@ describe("Pi runtime ordered model fallback", () => {
 
   it("uses the image model's key when the text model has no backups", async () => {
     const image = model("provider-image", "vision", 16_384);
-    providerState.models.set(`${image.provider}/${image.id}`, image);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
     const input = request([]);
     input.imageModel = {
       provider: image.provider,
@@ -2097,7 +2103,10 @@ describe("Pi runtime ordered model fallback", () => {
 
   it("does not hand an image-model failure to a text backup", async () => {
     const image = model("provider-image", "vision", 16_384);
-    providerState.models.set(`${image.provider}/${image.id}`, image);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
     const input = request([
       { provider: backupA.provider, id: backupA.id, apiKey: "text-backup-key" },
     ]);
@@ -2129,7 +2138,10 @@ describe("Pi runtime ordered model fallback", () => {
       input: ["text"],
     });
     const image = model("provider-image", "vision", 16_384);
-    providerState.models.set(`${image.provider}/${image.id}`, image);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
     const input = request([
       { provider: backupA.provider, id: backupA.id, apiKey: "text-only-key" },
     ]);
