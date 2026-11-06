@@ -246,7 +246,10 @@ export function DesktopAbout() {
   const version = releaseVersion(native?.currentVersion || window.__BOTCAMP_APP__?.version);
   // A macOS build installs by opening the downloaded disk image, so the in-app control offers
   // that instead of a restart; both platforms reach it once the build has an update feed.
-  if (native && native.phase !== "unsupported" && platform && version) {
+  // A failed update falls back to the download link below: one bad check or checksum should not
+  // leave an installed build with no way to move forward.
+  const usable = native !== null && native.phase !== "unsupported" && native.phase !== "error";
+  if (usable && platform && version) {
     return <InstalledUpdate platform={platform} version={version} />;
   }
   if (!platform || !version) return <AboutBotCamp />;
