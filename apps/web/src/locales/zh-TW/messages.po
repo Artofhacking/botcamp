@@ -4524,6 +4524,10 @@ msgstr "OAuth 已過期"
 msgid "Offline"
 msgstr ""
 
+#: src/pages/shell/takeover-prompt.tsx
+msgid "OK"
+msgstr "確定"
+
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Ollama API key"
