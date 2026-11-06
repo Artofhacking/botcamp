@@ -31,7 +31,7 @@ jobs:
           PLATFORM: ${{ inputs.platform }}
         run: |
           set -euo pipefail
-          mac='{"os":"macos-14","target":"--mac","arch":"--arm64","artifact":"botcamp-macos","platform":"mac"}'
+          mac='{"os":"macos-26","target":"--mac","arch":"--arm64","artifact":"botcamp-macos","platform":"mac"}'
           windows='{"os":"windows-latest","target":"--win","arch":"--x64","artifact":"botcamp-windows","platform":"windows"}'
           case "$PLATFORM" in
             mac) matrix="[$mac]" ;;
