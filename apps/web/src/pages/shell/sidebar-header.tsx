@@ -11,7 +11,7 @@ import { BotCreatePicker } from "./bot-picker";
 
 const BRAND = "BotCamp";
 
-/** Icon and name. A new page keeps the console where it is. */
+/** The mark alone: the window and the page title already say what this is. */
 function BrandHome({ mini }: { mini: boolean }) {
   return (
     <a
@@ -19,7 +19,7 @@ function BrandHome({ mini }: { mini: boolean }) {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="brand-home"
-      aria-label={mini ? BRAND : undefined}
+      aria-label={BRAND}
       className={`app-no-drag flex min-w-0 items-center rounded-md text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring ${mini ? "justify-center" : "gap-2"}`}
     >
       <img
@@ -29,9 +29,6 @@ function BrandHome({ mini }: { mini: boolean }) {
         height={22}
         className="size-[22px] shrink-0 rounded-md"
       />
-      {mini ? null : (
-        <span className="truncate text-[14px] leading-5 font-medium tracking-tight">{BRAND}</span>
-      )}
     </a>
   );
 }
