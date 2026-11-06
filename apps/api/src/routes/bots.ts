@@ -219,25 +219,35 @@ export function botIntroPrompt(input: {
 }): string {
   const canAsk = !input.disabledBuiltinTools.includes("ask_user");
   const canUpdate = !input.disabledBuiltinTools.includes("update_bot");
-  const options =
-    "two to four short options that fit your name, anything your description or instructions already say, and what you know about them, never a stock list";
-  return [
-    [
-      "You were just created.",
-      input.userName ? `${input.userName} made you.` : undefined,
-      input.spaceName ? `Their team space is called "${input.spaceName}".` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" "),
-    // The greeting goes in the question itself, so the card stands on its own.
+  const who = [
+    "你刚被创建。",
+    input.userName ? `${input.userName} 创建了你。` : undefined,
+    input.spaceName ? `所在的团队空间叫“${input.spaceName}”。` : undefined,
+  ]
+    .filter(Boolean)
+    .join("");
+  // The greeting is the question itself, so the card stands on its own in a fresh thread.
+  const options = [
+    "A 日程与消息 —— 帮你盯日历、邮件和待办",
+    "B 文档与写作 —— 起草、改写、整理资料",
+    "C 查资料做功课 —— 上网查清楚再给结论",
+    "D 先说说手头的事 —— 你讲，我判断从哪切",
+  ].join("\n");
+  const ask = [
     canAsk
-      ? `Call ask_user right away, with no text before it. Its question greets them by first name in a few words and asks what they want you for, with ${options}. They can also type their own answer.`
-      : `Greet them by first name in a few words and ask in one sentence what they want you for, suggesting ${options}.`,
-    "If your profile already makes that clear, say in one line what you will do instead of asking.",
+      ? "立刻调用 ask_user，在此之前不要输出任何文字。问题分两行：第一行用“你好，{用户名}。我是{你的名字}。”打招呼，第二行问“想让我先做什么？”。四个选项用下面这四行原文，一字不改，作为选项传给 ask_user，不要写进问题正文："
+      : "用两行回复：第一行用“你好，{用户名}。我是{你的名字}。”打招呼，第二行问“想让我先做什么？”，并把下面四行原文逐条列成选项：",
+    options,
+  ].join("\n");
+  return [
+    who,
+    ask,
+    "全程只用简体中文。不要英文单词，不要表情符号，不要用感叹号，不要自称 AI 助手。",
+    "如果你的设定已经说明了你要做什么，就改用一句话说明你能做什么，不用提问。",
     canUpdate
-      ? 'Once you know what you are for, use update_bot to set what is already clear: a one-line description of what you do, your instructions on how you do it, and a short name if yours is still a placeholder like "New Bot". Leave anything vague unset to fill in later as the work becomes clearer, and otherwise keep your name and look.'
+      ? "确定职责之后，用 update_bot 写清：一句话描述你负责什么、你的做事方式、以及名字还是“新 Bot”这类占位名时换一个短名字。没把握的先空着，等活儿清楚了再补。形象保持不动。"
       : undefined,
-    "Then get started, asking one follow-up only if you cannot start without it.",
+    "然后直接开始干活，只有在确实没法开工时才追问一句。",
   ]
     .filter(Boolean)
     .join("\n");
