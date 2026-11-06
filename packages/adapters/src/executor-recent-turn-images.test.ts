@@ -491,11 +491,15 @@ describe("recent turn images follow model vision", () => {
           },
         }),
       );
-      expect(prisma.secret.findFirst).toHaveBeenCalledExactlyOnceWith({
-        where: { id: "missing-secret", userId: "user-1", spaceId: null },
-      });
+      const secretLookups = () =>
+        prisma.secret.findFirst.mock.calls.filter(
+          (call) => call[0]?.where?.id === "missing-secret",
+        );
+      expect(secretLookups()).toEqual([
+        [{ where: { id: "missing-secret", userId: "user-1", spaceId: null } }],
+      ]);
       await expect(resolve("openai", "gpt-4o")).rejects.toThrow("Backup model is not selected");
-      expect(prisma.secret.findFirst).toHaveBeenCalledTimes(1);
+      expect(secretLookups()).toHaveLength(1);
     } finally {
       vi.unstubAllEnvs();
     }

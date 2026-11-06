@@ -133,7 +133,10 @@ describe("server image publish workflow", () => {
     expect(workflow.on).toHaveProperty("workflow_call");
     const publish = ci.jobs["publish-server-image"];
     expect(publish?.uses).toBe("./.github/workflows/publish-server-image.yml");
-    expect(publish?.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/main'");
+    expect(publish?.needs).toEqual(["checks", "test-integration"]);
+    expect(publish?.if).toBe(
+      "github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.checks.result == 'success' && needs.test-integration.result == 'success'",
+    );
     expect(ci.jobs["deploy-production"]?.needs).toEqual([
       "checks",
       "test-integration",
@@ -173,14 +176,11 @@ describe("server image publish workflow", () => {
     }
     // Release prerequisites start with their run, so they reach these locks in push order and an
     // older revision cannot replace a newer one that is already waiting.
-    for (const name of [
-      "static-checks",
-      "unit-tests-shard",
-      "test-integration-shard",
-      "publish-server-image",
-    ]) {
+    for (const name of ["static-checks", "unit-tests-shard", "test-integration-shard"]) {
       expect(ci.jobs[name]?.needs, name).toBeUndefined();
     }
+    // Image publish starts only after those checks, so a red main never reaches this lock.
+    expect(ci.jobs["publish-server-image"]?.needs).toEqual(["checks", "test-integration"]);
   });
 
   it("keeps pull requests read-only and every action pinned to a commit", () => {

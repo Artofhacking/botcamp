@@ -2087,7 +2087,7 @@ describe("BoatSandboxProvider", () => {
     expect(seen).toEqual([
       {
         command: expect.stringMatching(
-          /^DISPLAY=:20 RAKAZO_CDP_PORT=9241 HOME='\/home\/user\/rakazo-home' RAKAZO_BROWSER_ARGS_STDIN=1 \/usr\/local\/bin\/rakazo-page-browser act$/,
+          /^DISPLAY=:20 RAKAZO_CDP_PORT=9241 HOME='\/home\/user\/rakazo-home' RAKAZO_BROWSER_ARGS_STDIN=1 bash -c '.*\/usr\/local\/bin\/rakazo-page-browser.*\$HOME\/\.local\/bin\/rakazo-page-browser.*\bact\b/,
         ),
         input: `${JSON.stringify({ command: "act", actions: [fill] })}\n`,
       },

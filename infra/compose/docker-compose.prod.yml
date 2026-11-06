@@ -566,6 +566,7 @@ services:
     environment:
       <<: *app-environment
       GRAPHILE_WORKER_CONCURRENCY:
+      MANAGED_MODELS_ONLY:
     volumes:
       - appdata:/data
     networks:
