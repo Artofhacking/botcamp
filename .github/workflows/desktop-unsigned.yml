@@ -133,43 +133,14 @@ jobs:
 
       # Handing the artifact over by hand is where a release stops matching its feed: the
       # installers land but latest-mac.yml still names the old version, or the other way round.
-      - name: Join the tailnet
-        if: inputs.publish == true
-        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
-        with:
-          oauth-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
-          audience: ${{ vars.TAILSCALE_AUDIENCE }}
-          tags: tag:ci
-          ping: ${{ secrets.PRODUCTION_SSH_HOST }}
-
-      - name: Configure the download host identity
+      - name: Publish to the update feed
         if: inputs.publish == true
         shell: bash
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
         run: |
           set -euo pipefail
-          test -n "$SSH_PRIVATE_KEY"
-          test -n "$SSH_KNOWN_HOSTS"
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/rakazo-production"
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/rakazo-production" "$HOME/.ssh/known_hosts"
-          ssh-keygen -y -f "$HOME/.ssh/rakazo-production" >/dev/null
-
-      - name: Publish to the download host
-        if: inputs.publish == true
-        shell: bash
-        env:
-          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
-          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
-          DOWNLOAD_DIR: ${{ vars.DESKTOP_DOWNLOAD_DIR }}
-        run: |
-          set -euo pipefail
-          test -n "$SSH_HOST"
-          test -n "$SSH_USER"
-          test -n "$DOWNLOAD_DIR"
           version="${{ inputs.version }}"
           if [ -z "$version" ]; then
             version=$(node -p "require('./apps/desktop/package.json').version")
@@ -179,11 +150,8 @@ jobs:
             windows) target=win ;;
             *) echo "::error::unknown platform ${{ matrix.platform }}"; exit 1 ;;
           esac
-          ssh_options="ssh -F /dev/null -i $HOME/.ssh/rakazo-production -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
-          $ssh_options "$SSH_USER@$SSH_HOST" "mkdir -p '$DOWNLOAD_DIR'"
-          node scripts/publish-desktop.mjs \
+          python3 -m pip install --quiet cos-python-sdk-v5
+          python3 scripts/publish-desktop.py \
             --out apps/desktop/out \
             --platform "$target" \
-            --version "$version" \
-            --remote "$SSH_USER@$SSH_HOST:$DOWNLOAD_DIR" \
-            --ssh "$ssh_options"
+            --version "$version"

@@ -68,7 +68,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://botcamp.aigc.sx.cn/downloads/"
+        "url": "https://camp.aigc.sx.cn/botcamp/updates/desktop/"
       }
     ],
     "mac": {
