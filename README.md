@@ -25,15 +25,28 @@ pnpm dev
 
 `docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set. Self-hosting is [docs/self-host.md](./docs/self-host.md).
 
+## Releases
+
+`node scripts/ship-plan.mjs` reads the current diff and prints each place that diff has to reach, with the command. Pass paths to ask about those files instead. A merge to `main` only moves the image registry, and only after the server checks pass.
+
+| Place | What it serves |
+|---|---|
+| Demox, [botcamp.demox.site](https://botcamp.demox.site) | `/` download page, `/console/` console, `/admin/` operator page |
+| CVM, [botcamp.aigc.sx.cn](https://botcamp.aigc.sx.cn) | API, worker, computer supervisor, `/downloads/` |
+| `ghcr.io/<owner>/<repo>/{app,computer,updater}` | Images. `edge` moves on a green `main`. The CVM does not run `app`. |
+| Update feed, `publish` in `apps/desktop/package.json` | In-app desktop updates |
+
+The download button, the file in `/downloads/`, and the update feed are three writes. The console and the Android shell load `/console/` from Demox, so a console publish reaches them on the next load. `config.js` and `computer-screen/WuyingWebSDK.js` stay on Demox across a console overlay. A full site zip replaces every object.
+
 ## Desktop
 
 The macOS build targets Apple silicon:
 
 ```sh
-pnpm --filter @rakazo/web build
-pnpm --filter @rakazo/desktop build
+pnpm --filter @botcamp/web build
+pnpm --filter @botcamp/desktop build
 CSC_IDENTITY_AUTO_DISCOVERY=false \
-  pnpm --filter @rakazo/desktop exec electron-builder --mac --arm64 --publish never -c.mac.identity=-
+  pnpm --filter @botcamp/desktop exec electron-builder --mac --arm64 --publish never -c.mac.identity=-
 ```
 
 The installer lands in `apps/desktop/out/`.

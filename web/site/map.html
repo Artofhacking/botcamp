@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BotCamp</title>
+<style>
+  :root {
+    --field: #101614;
+    --tray: rgba(16, 24, 21, 0.78);
+    --block: #1c2823;
+    --block-lit: #24332c;
+    --extrude: #0c1210;
+    --extrude-lit: #1a2621;
+    --frame: rgba(238, 242, 238, 0.22);
+    --frame-hot: rgba(238, 242, 238, 0.62);
+    --ticket: #f3efe4;
+    --ink: #1a1e1b;
+    --mist: #8d9a93;
+    --paper: #eef2ee;
+    --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, "Sarasa Mono SC", Menlo, Consolas, monospace;
+    --chamfer: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--field);
+    color: var(--paper);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -8%;
+    background:
+      radial-gradient(ellipse at 46% 42%, rgba(238, 242, 238, 0.06), transparent 58%),
+      linear-gradient(rgba(238, 242, 238, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(238, 242, 238, 0.04) 1px, transparent 1px);
+    background-size: auto, 28px 28px, 28px 28px;
+    animation: drift 18s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .viewport {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .scaler { transform-origin: 0 0; }
+  .board {
+    width: 1160px;
+    display: grid;
+    grid-template-columns: 380px minmax(0, 1fr) 268px;
+    grid-template-areas:
+      "demox devices github"
+      "qcloud qcloud qcloud";
+    gap: 36px 24px;
+    padding: 58px 46px 64px 58px;
+    align-items: start;
+  }
+  svg.wires {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .wire { fill: none; stroke: rgba(198, 208, 202, 0.55); stroke-width: 1.4; }
+  .bead {
+    fill: none;
+    stroke: var(--paper);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-dasharray: 12 148;
+    animation: flow 6.5s linear infinite;
+  }
+  .plat {
+    position: relative;
+    grid-area: auto;
+    border-radius: 26px;
+    background:
+      linear-gradient(155deg, rgba(238, 242, 238, 0.07), transparent 38%),
+      var(--tray);
+    padding: 26px 14px 16px;
+    border: 1px solid var(--frame);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+    animation: breath 9.5s ease-in-out infinite;
+  }
+  #demox { grid-area: demox; margin-top: 34px; animation-delay: -2s; }
+  #github { grid-area: github; margin-top: 6px; animation-delay: -5s; }
+  #qcloud { grid-area: qcloud; margin-left: 22px; margin-right: 6px; animation-delay: -3.4s; }
+  .plat h2 {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    margin: 0;
+    padding: 5px 12px 6px;
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 720;
+    letter-spacing: 0.16em;
+    line-height: 1;
+  }
+  #qcloud h2 { letter-spacing: 0.28em; }
+  .devices {
+    grid-area: devices;
+    justify-self: center;
+    align-self: end;
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .zone {
+    display: flex;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+  }
+  .row { display: flex; gap: 12px; align-items: flex-start; }
+  .row.spread { justify-content: space-between; }
+  .slab { position: relative; }
+
+  .extrude {
+    position: absolute;
+    inset: 0;
+    transform: translate(9px, 11px);
+    background: linear-gradient(128deg, #31463d, #0c1210 50%);
+    clip-path: var(--chamfer);
+  }
+  .face {
+    position: relative;
+    background:
+      linear-gradient(155deg, rgba(238, 242, 238, 0.16), transparent 34%),
+      var(--block-lit);
+    clip-path: var(--chamfer);
+    padding: 10px 10px 11px;
+    box-shadow: inset 0 0 0 1px rgba(238, 242, 238, 0.2);
+  }
+  .cap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 18px;
+    margin: 2px 2px 8px;
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 680;
+    letter-spacing: 0.16em;
+  }
+  .glyph { width: 15px; height: 15px; flex: none; color: var(--paper); }
+  .mods, .pad { display: flex; flex-direction: column; gap: 6px; }
+  .pad { min-height: 0; }
+  .mod {
+    background: var(--ticket);
+    color: var(--ink);
+    border-radius: 9px;
+    padding: 6px 8px 7px;
+  }
+  .devices .mod {
+    padding: 8px 12px;
+    box-shadow: 5px 7px 0 rgba(0, 0, 0, 0.28);
+  }
+  .mod .name {
+    display: block;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+  .pkgs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .pkgs i {
+    font-style: normal;
+    font-size: 10px;
+    line-height: 1;
+    padding: 3px 5px;
+    border-radius: 999px;
+    background: rgba(26, 30, 27, 0.07);
+    color: #3c463f;
+  }
+  #res-cvm { width: 352px; flex: none; }
+  #res-cdb { width: 196px; }
+  #res-tke { width: 176px; }
+  #res-tcr { width: 168px; }
+  #res-cfs { width: 176px; }
+  #res-ghcr { width: 100%; }
+  @keyframes breath {
+    0%, 100% { border-color: var(--frame); }
+    50% { border-color: var(--frame-hot); }
+  }
+  @keyframes rise {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes flow { to { stroke-dashoffset: -160; } }
+  @keyframes drift {
+    0%, 100% { background-position: 0 0, 0 0, 0 0; opacity: 0.85; }
+    50% { background-position: 0 0, 18px 10px, -14px 16px; opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="viewport">
+  <div class="scaler" id="scaler">
+    <div class="board" id="board">
+      <div class="devices">
+        <div class="mod" data-pin="desk" data-shell="desk"><span class="name">桌面端</span></div>
+        <div class="mod" data-pin="apk" data-shell="apk"><span class="name">安卓</span></div>
+      </div>
+
+      <section class="plat" id="demox">
+        <h2>Demox</h2>
+        <div class="pad" data-shell="demox">
+          <div class="mod" data-pin="site"><span class="name">下载页</span></div>
+          <div class="mod" data-pin="web">
+            <span class="name">控制台</span>
+            <span class="pkgs"><i>契约</i><i>核心</i><i>日志</i><i>界面</i><i>令牌</i><i>对话</i></span>
+          </div>
+          <div class="mod" data-pin="admin"><span class="name">管理台</span></div>
+          <div class="mod" data-pin="cfg"><span class="name">配置</span></div>
+        </div>
+      </section>
+
+      <section class="plat" id="github">
+        <h2>GitHub</h2>
+        <div class="slab rise" id="res-ghcr" data-shell="ghcr">
+          <i class="extrude"></i>
+          <div class="face">
+            <div class="cap">
+              <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 13.5 4.6 8 7.6 2.5 4.6Z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 4.6V11.2L8 14.2V7.6M13.5 4.6V11.2L8 14.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+              GHCR
+            </div>
+            <div class="mods">
+              <div class="mod"><span class="name">应用</span></div>
+              <div class="mod" data-pin="ghcr"><span class="name">电脑</span></div>
+              <div class="mod"><span class="name">更新</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="plat" id="qcloud">
+        <h2>腾讯云</h2>
+        <div class="zone">
+          <div class="slab rise" id="res-cvm" data-shell="cvm">
+            <i class="extrude"></i>
+            <div class="face">
+              <div class="cap">
+                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h11v2.2h-11zM2.5 6.9h11v2.2h-11zM2.5 10.8h11v2.2h-11z" fill="currentColor"/></svg>
+                CVM
+              </div>
+              <div class="mods">
+                <div class="mod" data-pin="nginx"><span class="name">网关</span></div>
+                <div class="mod" data-pin="api">
+                  <span class="name">接口</span>
+                  <span class="pkgs"><i>契约</i><i>核心</i><i>适配</i><i>适配层</i><i>认证</i><i>数据</i><i>日志</i><i>记忆</i><i>页面</i></span>
+                </div>
+                <div class="mod" data-pin="worker">
+                  <span class="name">后台</span>
+                  <span class="pkgs"><i>核心</i><i>适配</i><i>适配层</i><i>数据</i><i>日志</i><i>记忆</i></span>
+                </div>
+                <div class="mod" data-pin="sup"><span class="name">调度</span></div>
+                <div class="mod" data-pin="slim"><span class="name">小容器</span></div>
+                <div class="mod" data-pin="dl">
+                  <span class="name">下载</span>
+                  <span class="pkgs"><i data-pin="feed">安装包</i><i>差分</i><i>清单</i></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="side">
+            <div class="row">
+          <div class="slab rise" id="res-cdb" data-shell="cdb">
+            <i class="extrude"></i>
+            <div class="face">
+              <div class="cap">
+                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="4" rx="5" ry="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+                CDB
+              </div>
+              <div class="mods">
+                <div class="mod" data-pin="pg"><span class="name">Postgres数据库</span></div>
+              </div>
+            </div>
+          </div>
+
+            </div>
+            <div class="row spread">
+          <div class="slab rise" id="res-tke" data-shell="tke">
+            <i class="extrude"></i>
+            <div class="face">
+              <div class="cap">
+                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="1.5" fill="currentColor"/><circle cx="3.4" cy="12" r="1.5" fill="currentColor"/><circle cx="12.6" cy="12" r="1.5" fill="currentColor"/><path d="M8 4.8 4.2 10.6M8 4.8l3.8 5.8M4.8 12h6.4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+                TKE
+              </div>
+              <div class="mods">
+                <div class="mod" data-pin="tke"><span class="name">大容器</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="slab rise" id="res-tcr" data-shell="tcr">
+            <i class="extrude"></i>
+            <div class="face">
+              <div class="cap">
+                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h7M7.2 5.2 10 8 7.2 10.8" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="10" y="4" width="3.5" height="8" rx="0.6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+                TCR
+              </div>
+              <div class="mods">
+                <div class="mod" data-pin="tcr"><span class="name">电脑</span></div>
+              </div>
+            </div>
+          </div>
+            </div>
+            <div class="row">
+          <div class="slab rise" id="res-cfs" data-shell="cfs">
+            <i class="extrude"></i>
+            <div class="face">
+              <div class="cap">
+                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 11.5h12M3 8.5h10M4 5.5h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                CFS
+              </div>
+              <div class="mods">
+                <div class="mod" data-pin="cfs"><span class="name">主目录</span></div>
+              </div>
+            </div>
+          </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<svg class="wires" id="wires"></svg>
+<script>
+  const board = document.getElementById("board");
+  const scaler = document.getElementById("scaler");
+  const wires = document.getElementById("wires");
+  const links = [
+    ["desk", "web"],
+    ["apk", "web"],
+    ["site", "dl", "west"],
+    ["cfg", "nginx"],
+    ["api", "pg"],
+    ["worker", "pg"],
+    ["sup", "slim"],
+    ["sup", "tke"],
+    ["slim", "cfs"],
+    ["tke", "cfs"],
+    ["ghcr", "tcr"],
+    ["tcr", "tke"],
+    ["desk", "feed", "around"],
+  ];
+
+  function fit() {
+    scaler.style.transform = "none";
+    const w = board.offsetWidth;
+    const h = board.offsetHeight;
+    const scale = Math.min((innerWidth - 16) / w, (innerHeight - 16) / h);
+    scaler.style.width = w * scale + "px";
+    scaler.style.height = h * scale + "px";
+    scaler.style.transform = "scale(" + scale + ")";
+  }
+
+  function box(el) {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+  }
+
+  function center(r) {
+    return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
+  }
+
+  function shell(el) {
+    return el.closest("[data-shell]") || el;
+  }
+
+  function dock(rect, toward) {
+    const c = center(rect);
+    const dx = toward.x - c.x;
+    const dy = toward.y - c.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return { x: dx > 0 ? rect.right : rect.left, y: c.y, nx: dx > 0 ? 1 : -1, ny: 0 };
+    }
+    return { x: c.x, y: dy > 0 ? rect.bottom : rect.top, nx: 0, ny: dy > 0 ? 1 : -1 };
+  }
+
+  function draw() {
+    wires.setAttribute("viewBox", "0 0 " + innerWidth + " " + innerHeight);
+    wires.replaceChildren();
+    links.forEach(function (pair, index) {
+      const from = document.querySelector('[data-pin="' + pair[0] + '"]');
+      const to = document.querySelector('[data-pin="' + pair[1] + '"]');
+      if (!from || !to) return;
+      const same = shell(from) === shell(to);
+      const fromRect = box(same ? from : shell(from));
+      const toRect = box(same ? to : shell(to));
+      const modA = box(from);
+      const modB = box(to);
+      const lane = pair[2];
+      let a = dock(fromRect, center(modB));
+      let b = dock(toRect, center(modA));
+      if (lane === "north") {
+        a = { x: center(modA).x, y: fromRect.top, nx: 0, ny: -1 };
+        b = { x: center(modB).x, y: toRect.top, nx: 0, ny: -1 };
+      } else if (lane === "west") {
+        a = { x: fromRect.left, y: center(modA).y, nx: -1, ny: 0 };
+        b = { x: toRect.left, y: center(modB).y, nx: -1, ny: 0 };
+      } else if (!same) {
+        if (a.ny === 0) a.y = Math.min(fromRect.bottom - 8, Math.max(fromRect.top + 8, center(modA).y));
+        if (b.ny === 0) b.y = Math.min(toRect.bottom - 8, Math.max(toRect.top + 8, center(modB).y));
+        if (a.nx === 0) a.x = Math.min(fromRect.right - 8, Math.max(fromRect.left + 8, center(modA).x));
+        if (b.nx === 0) b.x = Math.min(toRect.right - 8, Math.max(toRect.left + 8, center(modB).x));
+      }
+      let d;
+      if (lane === "north") {
+        const y = Math.min(a.y, b.y) - 22;
+        d = "M " + a.x + " " + a.y + " L " + a.x + " " + y + " L " + b.x + " " + y + " L " + b.x + " " + b.y;
+      } else if (lane === "west") {
+        const x = Math.min(a.x, b.x) - 20;
+        d = "M " + a.x + " " + a.y + " L " + x + " " + a.y + " L " + x + " " + b.y + " L " + b.x + " " + b.y;
+      } else if (lane === "around") {
+        const demox = box(document.getElementById("demox"));
+        const cloud = box(document.getElementById("qcloud"));
+        const y = (demox.bottom + cloud.top) / 2;
+        const x = Math.min(demox.left, cloud.left, fromRect.left) - 36;
+        d = "M " + center(modA).x + " " + fromRect.bottom
+          + " L " + center(modA).x + " " + y
+          + " L " + x + " " + y
+          + " L " + x + " " + center(modB).y
+          + " L " + toRect.left + " " + center(modB).y;
+      } else {
+        const lead = same ? 26 : 20;
+        d = "M " + a.x + " " + a.y
+          + " C " + (a.x + a.nx * lead) + " " + (a.y + a.ny * lead)
+          + ", " + (b.x + b.nx * lead) + " " + (b.y + b.ny * lead)
+          + ", " + b.x + " " + b.y;
+      }
+      const base = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      base.setAttribute("class", "wire");
+      base.setAttribute("d", d);
+      const bead = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      bead.setAttribute("class", "bead");
+      bead.setAttribute("d", d);
+      bead.style.animationDelay = (-index * 0.55) + "s";
+      bead.style.animationDuration = (7.2 + (index % 4) * 0.6) + "s";
+      wires.append(base, bead);
+    });
+  }
+
+  addEventListener("resize", function () { fit(); draw(); });
+  function boot() { fit(); draw(); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot);
+  else boot();
+</script>
+</body>
+</html>
