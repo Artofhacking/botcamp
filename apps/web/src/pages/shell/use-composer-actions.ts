@@ -21,7 +21,6 @@ import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestBrowserNotificationPermission } from "../../lib/browser-notifications";
 import { setComposerUnsavedWork } from "../../lib/composer-draft";
-import { scheduleFocusPrompt } from "../../lib/focus-prompt";
 import type { PageSession } from "../../lib/pages";
 import {
   readFileAsBase64,
@@ -122,8 +121,6 @@ export function useComposerActions({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dismissedRunErrorIds, setDismissedRunErrorIds] =
     useState<ReadonlySet<string>>(readSeenRunErrorIds);
-  const focusPromptAbortRef = useRef<AbortController | null>(null);
-  const focusPromptBotIdRef = useRef<string | null>(null);
 
   const activePendingAttachments = useMemo(
     () => attachmentsForThread(pendingAttachments, inGroup ? groupId : activeId),
@@ -144,55 +141,6 @@ export function useComposerActions({
   const handleRunErrorPresented = useCallback((runId: string) => {
     rememberSeenRunErrorId(runId);
   }, []);
-
-  function cancelFocusPrompt() {
-    focusPromptAbortRef.current?.abort();
-    focusPromptAbortRef.current = null;
-    focusPromptBotIdRef.current = null;
-  }
-
-  /** Starts a new bot's onboarding, then offers its focus card unless the user engages first. */
-  async function startFocusPrompt(botId: string, immediate: boolean) {
-    // Register cancellation before awaiting start so leaving the bot during
-    // startup cannot miss the abort and still schedule a late focus card.
-    cancelFocusPrompt();
-    const controller = new AbortController();
-    focusPromptAbortRef.current = controller;
-    focusPromptBotIdRef.current = botId;
-    const started = await rpc.onboarding
-      .start({ botId })
-      .then(() => true)
-      .catch(() => false);
-    if (!started || controller.signal.aborted || focusPromptBotIdRef.current !== botId) {
-      if (focusPromptAbortRef.current === controller) {
-        focusPromptAbortRef.current = null;
-        focusPromptBotIdRef.current = null;
-      }
-      return;
-    }
-    void scheduleFocusPrompt({
-      immediate,
-      signal: controller.signal,
-      shouldSkip: () => sendingRef.current,
-      prompt: async () => {
-        if (focusPromptBotIdRef.current !== botId || activeBotId.current !== botId) return;
-        await rpc.onboarding.promptFocus({ botId }).catch(() => undefined);
-      },
-    }).finally(() => {
-      if (focusPromptAbortRef.current === controller) {
-        focusPromptAbortRef.current = null;
-        focusPromptBotIdRef.current = null;
-      }
-    });
-  }
-
-  useEffect(() => {
-    if (focusPromptBotIdRef.current && focusPromptBotIdRef.current !== activeId) {
-      cancelFocusPrompt();
-    }
-  }, [activeId]);
-
-  useEffect(() => () => cancelFocusPrompt(), []);
 
   useEffect(() => {
     const threadKey = inGroup ? groupId : activeId;
@@ -361,9 +309,6 @@ export function useComposerActions({
       setSentCount((count) => count + 1);
       const dropDelayedSetup = () => {
         // Only after successful engagement so a failed upload/send keeps the setup card.
-        if (initialBotTarget && focusPromptBotIdRef.current === initialBotTarget) {
-          cancelFocusPrompt();
-        }
       };
       // Keep the draft cleared once the submission is confirmed accepted.
       let accepted = false;
@@ -601,6 +546,5 @@ export function useComposerActions({
     displayedRunErrorId,
     handleRunErrorPresented,
     dismissComposerError,
-    startFocusPrompt,
   };
 }

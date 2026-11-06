@@ -5773,12 +5773,12 @@ describe("bot intro run", () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it("names only the intro tools the bot still has", () => {
+  it("asks for a greeting with no menu, and only names tools the bot still has", () => {
     const prompt = (disabledBuiltinTools: string[]) =>
       botIntroPrompt({ userName: "Ada", spaceName: null, disabledBuiltinTools });
-    expect(prompt([])).toContain("ask_user");
+    // A first screen that offers choices reads as a form, so the intro never asks for one.
+    expect(prompt([])).not.toContain("ask_user");
     expect(prompt([])).toContain("update_bot");
-    expect(prompt(["ask_user", "update_bot"])).not.toContain("ask_user");
     expect(prompt(["ask_user", "update_bot"])).not.toContain("update_bot");
   });
 });

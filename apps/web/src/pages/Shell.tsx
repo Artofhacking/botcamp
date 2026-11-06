@@ -874,11 +874,9 @@ function SpaceShell() {
   }
 
   async function createBot(input: CreateBotDialogInput) {
-    const isFirstBot = botsRef.current.length === 0;
     const bot = await rpc.bots.create({ ...input, notifyOnFinish: true });
     openCreatedBot(bot);
     dialogs.setCreateBotOpen(false);
-    await composer.startFocusPrompt(bot.id, isFirstBot);
     await refreshBots().catch(() => undefined);
   }
 

@@ -36,15 +36,15 @@ import {
   botProfileLabelsChanged,
   ComputerLimitError,
   commitBotUpdate,
+  ensureComputerRecord,
   expireComputerExecutionLeases,
   InstructionConflictError,
   IsolationError,
-  recordComputerRunEnd,
-  ensureComputerRecord,
   parseComputerMode,
+  recordComputerRunEnd,
   recordSecurityEvent,
-  runAsSystem,
   restoreBotUnderComputerQuota,
+  runAsSystem,
   SpaceDeletionInProgressError,
   settingsTarget,
 } from "@rakazo/db";
@@ -52,9 +52,9 @@ import { getLogger } from "@rakazo/logging";
 import type { AgentImportServices } from "../agent-import.js";
 import { agentImportSetupState, createImportedBot, previewAgentImport } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";
+import { requirePrimaryBot } from "../bot-primary.js";
 import { changedBotSettings } from "../bot-setting-analytics.js";
 import { requireIdentityConfirmation } from "../identity-confirmation.js";
-import { requirePrimaryBot } from "../bot-primary.js";
 import type { RouterDeps } from "../router.js";
 import { loadMessagePage } from "../thread-message-pages.js";
 import type { RouterContext } from "./context.js";
@@ -217,7 +217,6 @@ export function botIntroPrompt(input: {
   spaceName: string | null;
   disabledBuiltinTools: readonly string[];
 }): string {
-  const canAsk = !input.disabledBuiltinTools.includes("ask_user");
   const canUpdate = !input.disabledBuiltinTools.includes("update_bot");
   const who = [
     "你刚被创建。",
@@ -226,28 +225,16 @@ export function botIntroPrompt(input: {
   ]
     .filter(Boolean)
     .join("");
-  // The greeting is the question itself, so the card stands on its own in a fresh thread.
-  const options = [
-    "A 日程与消息 —— 帮你盯日历、邮件和待办",
-    "B 文档与写作 —— 起草、改写、整理资料",
-    "C 查资料做功课 —— 上网查清楚再给结论",
-    "D 先说说手头的事 —— 你讲，我判断从哪切",
-  ].join("\n");
-  const ask = [
-    canAsk
-      ? "立刻调用 ask_user，在此之前不要输出任何文字。问题分两行：第一行用“你好，{用户名}。我是{你的名字}。”打招呼，第二行问“想让我先做什么？”。四个选项用下面这四行原文，一字不改，作为选项传给 ask_user，不要写进问题正文："
-      : "用两行回复：第一行用“你好，{用户名}。我是{你的名字}。”打招呼，第二行问“想让我先做什么？”，并把下面四行原文逐条列成选项：",
-    options,
-  ].join("\n");
   return [
     who,
-    ask,
-    "全程只用简体中文。不要英文单词，不要表情符号，不要用感叹号，不要自称 AI 助手。",
-    "如果你的设定已经说明了你要做什么，就改用一句话说明你能做什么，不用提问。",
+    "用一句话打招呼，格式是“你好，{用户名}。我是{你的名字}。”，紧接一句问对方想办什么事。",
+    // A menu of guesses makes a first conversation feel like a form, so there is none.
+    "不要弹选项卡，不要列选项，不要编号，不要提议你先帮忙做哪几类事。",
+    "全文只用简体中文：不要英文单词，不要表情符号，不要感叹号，不要自称 AI 助手。",
     canUpdate
-      ? "确定职责之后，用 update_bot 写清：一句话描述你负责什么、你的做事方式、以及名字还是“新 Bot”这类占位名时换一个短名字。没把握的先空着，等活儿清楚了再补。形象保持不动。"
-      : undefined,
-    "然后直接开始干活，只有在确实没法开工时才追问一句。",
+      ? "对方说完要办的事之后，再用 update_bot 补上你负责什么、怎么做，名字还是“新 Bot”这类占位名时换一个短名字。形象保持不动。"
+      : "你没有修改自己资料的权限，先照着对方的要求做。",
+    "然后直接开始做，只有在缺信息确实没法动手时才追问一句。",
   ]
     .filter(Boolean)
     .join("\n");
@@ -509,9 +496,7 @@ export function botsRoutes(ctx: RouterContext) {
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
-            ...(input.computerTier !== undefined
-              ? { computerTier: input.computerTier }
-              : {}),
+            ...(input.computerTier !== undefined ? { computerTier: input.computerTier } : {}),
           },
         }).catch((error) => {
           if (input.expectedSettings && isRecordNotFound(error))
