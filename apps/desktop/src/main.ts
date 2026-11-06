@@ -777,15 +777,21 @@ function installApplicationMenu() {
     visible: updaterSupport(updaterEnvironment).supported,
     click: () => void checkForUpdatesFromMenu(),
   };
+  // Someone signed in to a hosted server has no stack to run and nothing to gain from
+  // pointing the app elsewhere, so these stay out of the menu unless the app runs its own.
+  const runsLocalStack = currentSetup?.mode === "new";
   const changeServer: Electron.MenuItemConstructorOptions = {
     id: "change-rakazo-server",
     label: t("Change BotCamp Server…"),
+    // The chord stays registered, so an operator who knows it can still reach the setup window.
     accelerator: "CmdOrCtrl+Shift+K",
+    visible: runsLocalStack,
     click: () => showSetupWindow(),
   };
   const stopStack: Electron.MenuItemConstructorOptions = {
     id: "stop-local-stack",
     label: t("Stop Local Stack"),
+    visible: runsLocalStack,
     // The stack keeps running after quit (bots are always on); this is the explicit off switch.
     click: () => {
       if (currentSetup?.mode === "new") {
