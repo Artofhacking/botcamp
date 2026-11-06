@@ -4615,6 +4615,10 @@ msgstr "लिंक खोलें"
 msgid "Open navigation"
 msgstr "नेविगेशन खोलें"
 
+#: src/components/DesktopUpdates.tsx
+msgid "Open the installer"
+msgstr "इंस्टॉलर खोलें"
+
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

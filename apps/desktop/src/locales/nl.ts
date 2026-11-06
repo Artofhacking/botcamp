@@ -37,6 +37,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Bring All to Front": "Alles op voorgrond",
   "BotCamp {version} is ready to install.": "BotCamp {version} is klaar om te installeren.",
   Restart: "Herstart",
+  "Open the installer": "Installatieprogramma openen",
   Later: "Later",
   "Could not install the update.": "De update kon niet worden geïnstalleerd.",
   "Could not check for updates.": "Er kon niet worden gezocht naar updates.",

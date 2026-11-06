@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { HostScreen } from "@rakazo/adapters/host-screen";
@@ -64,6 +64,7 @@ import {
   stackDir,
   stackResourceDir,
 } from "./local-stack.js";
+import { MacInstaller } from "./mac-installer.js";
 import {
   configureDesktopMonitoring,
   desktopReportsErrors,
@@ -153,12 +154,24 @@ let warmWindowTimer: NodeJS.Timeout | undefined;
 let liveProbeWindows = 0;
 const WARM_WINDOW_TTL_MS = warmWindowTtlMs(process.env.RAKAZO_WARM_WINDOW_TTL_MS);
 
+const UPDATE_FEED_FILE = path.join(process.resourcesPath, "app-update.yml");
+
+/** The feed address electron-builder wrote, from which a disk image is downloaded when needed. */
+function updateFeedUrl(): string | undefined {
+  try {
+    return /^url:\s*(\S+)\s*$/m.exec(readFileSync(UPDATE_FEED_FILE, "utf8"))?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
 const reportsErrors = desktopReportsErrors(app.isPackaged);
 const updaterEnvironment = {
   // A `--dir` build has no update feed to read.
-  packaged: app.isPackaged && existsSync(path.join(process.resourcesPath, "app-update.yml")),
+  packaged: app.isPackaged && existsSync(UPDATE_FEED_FILE),
   version: app.getVersion(),
   disabled: process.env.RAKAZO_DISABLE_AUTO_UPDATE === "1",
+  feedUrl: app.isPackaged ? updateFeedUrl() : undefined,
 };
 /** Created once the app's language is known, so its first message is in it. */
 let desktopUpdater: DesktopUpdateController;
@@ -691,11 +704,13 @@ async function runMenuUpdateCheck() {
       ? dialog.showMessageBox(mainWindow, options)
       : dialog.showMessageBox(options);
   if (state.phase === "ready") {
+    // macOS opens the downloaded disk image, so the button names that step instead of a restart.
+    const install = process.platform === "darwin" ? t("Open the installer") : t("Restart");
     const { response } = await alert({
       message: t("BotCamp {version} is ready to install.", {
         version: state.availableVersion ?? "",
       }),
-      buttons: [t("Restart"), t("Later")],
+      buttons: [install, t("Later")],
       defaultId: 0,
       cancelId: 1,
       noLink: true,
@@ -759,8 +774,7 @@ function installApplicationMenu() {
   };
   const checkForUpdates: Electron.MenuItemConstructorOptions = {
     label: t("Check for Updates…"),
-    // macOS rejects the install without a Developer ID, so the menu offers nothing there.
-    visible: process.platform !== "darwin" && updaterSupport(updaterEnvironment).supported,
+    visible: updaterSupport(updaterEnvironment).supported,
     click: () => void checkForUpdatesFromMenu(),
   };
   const changeServer: Electron.MenuItemConstructorOptions = {
@@ -1391,6 +1405,15 @@ app.whenReady().then(async () => {
     },
     process.platform === "linux"
       ? (update) => verifyDownloadedLinuxUpdate(update, (url, signal) => net.fetch(url, { signal }))
+      : undefined,
+    // Release builds carry no Developer ID, so Squirrel cannot swap the bundle; the update
+    // hands over the disk image a first install uses instead.
+    process.platform === "darwin"
+      ? new MacInstaller({
+          dir: path.join(userDataDir, "updates"),
+          fetch: (url, signal) => net.fetch(url, { signal }),
+          open: (file) => shell.openPath(file),
+        })
       : undefined,
   );
   try {

@@ -37,6 +37,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Bring All to Front": "Все окна — на передний план",
   "BotCamp {version} is ready to install.": "BotCamp {version} готов к установке.",
   Restart: "Перезапустить",
+  "Open the installer": "Открыть установщик",
   Later: "Позже",
   "Could not install the update.": "Не удалось установить обновление.",
   "Could not check for updates.": "Не удалось проверить обновления.",
@@ -74,7 +75,8 @@ export const RU_MESSAGES: Record<string, string> = {
     "Не удалось открыть вход в браузере. Закройте другие попытки входа и повторите.",
   "Sign-in callback rejected. Return to BotCamp to retry.":
     "Ответ на вход отклонён. Вернитесь в BotCamp, чтобы повторить попытку.",
-  "You can close this tab and return to BotCamp.": "Можно закрыть эту вкладку и вернуться в BotCamp.",
+  "You can close this tab and return to BotCamp.":
+    "Можно закрыть эту вкладку и вернуться в BotCamp.",
   "Set up BotCamp": "Настройка BotCamp",
   "Quit BotCamp": "Завершить BotCamp",
   "Welcome to BotCamp": "Добро пожаловать в BotCamp",

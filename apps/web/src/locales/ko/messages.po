@@ -4615,6 +4615,10 @@ msgstr "링크 열기"
 msgid "Open navigation"
 msgstr "메뉴 열기"
 
+#: src/components/DesktopUpdates.tsx
+msgid "Open the installer"
+msgstr "설치 관리자 열기"
+
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

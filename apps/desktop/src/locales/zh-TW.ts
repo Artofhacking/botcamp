@@ -37,6 +37,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Bring All to Front": "將此程式所有視窗移至最前",
   "BotCamp {version} is ready to install.": "BotCamp {version} 已可安裝。",
   Restart: "重新啟動",
+  "Open the installer": "開啟安裝程式",
   Later: "稍後",
   "Could not install the update.": "無法安裝更新項目。",
   "Could not check for updates.": "無法檢查更新項目。",
@@ -67,7 +68,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "已有登入正在進行。請取消後再試一次。",
   "Could not open browser sign-in. Close other sign-in attempts and retry.":
     "無法開啟瀏覽器登入。請關閉其他登入嘗試後再試一次。",
-  "Sign-in callback rejected. Return to BotCamp to retry.": "登入回應遭拒。請返回 BotCamp 再試一次。",
+  "Sign-in callback rejected. Return to BotCamp to retry.":
+    "登入回應遭拒。請返回 BotCamp 再試一次。",
   "You can close this tab and return to BotCamp.": "你可以關閉此分頁並返回 BotCamp。",
   "Set up BotCamp": "設定 BotCamp",
   "Quit BotCamp": "結束 BotCamp",

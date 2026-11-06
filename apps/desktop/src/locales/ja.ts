@@ -37,6 +37,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Bring All to Front": "すべてを手前に移動",
   "BotCamp {version} is ready to install.": "BotCamp {version}をインストールする準備ができました。",
   Restart: "再起動",
+  "Open the installer": "インストーラを開く",
   Later: "あとで",
   "Could not install the update.": "アップデートをインストールできませんでした。",
   "Could not check for updates.": "アップデートを確認できませんでした。",

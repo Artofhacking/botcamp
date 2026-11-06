@@ -4620,6 +4620,10 @@ msgstr "開啟連結"
 msgid "Open navigation"
 msgstr "開啟導覽"
 
+#: src/components/DesktopUpdates.tsx
+msgid "Open the installer"
+msgstr "開啟安裝程式"
+
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

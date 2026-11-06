@@ -27,7 +27,10 @@ export interface BotCampDesktopUpdate {
   state: () => Promise<DesktopUpdateState>;
   check: () => Promise<DesktopUpdateState>;
   download: () => Promise<DesktopUpdateState>;
-  /** Quits and relaunches into the downloaded release; only useful once `phase` is `ready`. */
+  /**
+   * Installs the downloaded release once `phase` is `ready`. A signed build quits and relaunches
+   * into it; a build that cannot swap its own bundle opens the disk image to drag in instead.
+   */
   install: () => Promise<DesktopUpdateState>;
 }
 
