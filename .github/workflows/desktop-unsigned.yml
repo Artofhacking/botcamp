@@ -14,6 +14,11 @@ on:
         description: 只构建一个系统（windows 或 mac，留空为全部）
         required: false
         default: ""
+      publish:
+        description: 上传到下载目录并更新 latest.json（需要 COS_BUCKET / COS_REGION 变量）
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   select:
@@ -125,3 +130,60 @@ jobs:
             apps/desktop/out/*.AppImage
             apps/desktop/out/latest*.yml
             apps/desktop/out/*.blockmap
+
+      # Handing the artifact over by hand is where a release stops matching its feed: the
+      # installers land but latest-mac.yml still names the old version, or the other way round.
+      - name: Join the tailnet
+        if: inputs.publish == true
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
+          audience: ${{ vars.TAILSCALE_AUDIENCE }}
+          tags: tag:ci
+          ping: ${{ secrets.PRODUCTION_SSH_HOST }}
+
+      - name: Configure the download host identity
+        if: inputs.publish == true
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/rakazo-production"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/rakazo-production" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/rakazo-production" >/dev/null
+
+      - name: Publish to the download host
+        if: inputs.publish == true
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DOWNLOAD_DIR: ${{ vars.DESKTOP_DOWNLOAD_DIR }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$DOWNLOAD_DIR"
+          version="${{ inputs.version }}"
+          if [ -z "$version" ]; then
+            version=$(node -p "require('./apps/desktop/package.json').version")
+          fi
+          case "${{ matrix.platform }}" in
+            mac) target=mac ;;
+            windows) target=win ;;
+            *) echo "::error::unknown platform ${{ matrix.platform }}"; exit 1 ;;
+          esac
+          ssh_options="ssh -F /dev/null -i $HOME/.ssh/rakazo-production -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          $ssh_options "$SSH_USER@$SSH_HOST" "mkdir -p '$DOWNLOAD_DIR'"
+          node scripts/publish-desktop.mjs \
+            --out apps/desktop/out \
+            --platform "$target" \
+            --version "$version" \
+            --remote "$SSH_USER@$SSH_HOST:$DOWNLOAD_DIR" \
+            --ssh "$ssh_options"
