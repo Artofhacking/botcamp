@@ -10,7 +10,7 @@ chat/API -> one Pi agent session -> BotCamp computer tools -> SandboxProvider ->
 SandboxProvider workspace <-> AgentHomeStore <-> BotCamp-owned DATA_DIR
 ```
 
-Pi runs in the BotCamp API/worker process. It is not installed in, or executed by, E2B. The built-in tools are ordinary Pi tools, not Claude- or MCP-specific tools, so any model exposed through Pi can call them. Screen operation still requires a model that can accept image tool results and reason about screenshots.
+Pi runs in the BotCamp API/worker process. It is not installed in, or executed by, E2B. The built-in tools are ordinary Pi tools, not Claude- or MCP-specific tools, so any model exposed through Pi can call them. Screen operation still requires a model that can accept image tool results and reason about screenshots. On a managed deployment that model is the separate vision model; the text model is not asked to read the images.
 
 ## Computer contract
 

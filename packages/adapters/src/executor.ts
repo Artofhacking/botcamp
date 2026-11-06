@@ -92,7 +92,7 @@ import {
 } from "./connection-context.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
-import { runnableDeploymentModels } from "./deployment-model-chain.js";
+import { DEPLOYMENT_IMAGE_MODEL, runnableDeploymentModels } from "./deployment-model-chain.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetRun } from "./fleet-tools.js";
 import { loadBotGroupDirectory, loadGroupContext } from "./group-handoff.js";
@@ -1153,6 +1153,33 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             data: { modelProvider: runModelProvider, modelId: runModelId },
           });
         }
+        // Images never ride the text chain, even when that model could see them.
+        let imageModel: AgentRunRequest["model"] | undefined;
+        if (managedChain && runDeployment?.provider === DEPLOYMENT_IMAGE_MODEL.provider) {
+          try {
+            const imageResolved = await resolveModelKey(
+              deps,
+              run.userId,
+              run.spaceId,
+              null,
+              DEPLOYMENT_IMAGE_MODEL.provider,
+              DEPLOYMENT_IMAGE_MODEL.modelId,
+              (values) => runSecrets.push(...values),
+            );
+            runSecrets.push(...imageResolved.redact);
+            imageModel = {
+              provider: DEPLOYMENT_IMAGE_MODEL.provider,
+              id: DEPLOYMENT_IMAGE_MODEL.modelId,
+              ...resolvedModelRunFields(imageResolved),
+              acceptsImages: true,
+              // Stay off. A text model's thinking level must not turn this call into
+              // a reasoning-only response that comes back empty.
+              thinkingLevel: "off",
+            };
+          } catch (error) {
+            getLogger().warn("image model channel could not be prepared", { runId, error });
+          }
+        }
 
         if (!bot.computer) throw new Error("Bot has no computer");
         const storedComputer = bot.computer;
@@ -1265,7 +1292,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           runModelId,
           resolved.acceptsImages,
         );
-        const acceptsImages = deps.runtime.describe().capabilities.scripted || modelSeesImages;
+        // Screenshot tools stay available when a separate model reads the images.
+        const acceptsImages =
+          deps.runtime.describe().capabilities.scripted || modelSeesImages || Boolean(imageModel);
         const groupContext = thread.groupId
           ? await loadGroupContext(deps.prisma, thread.groupId, {
               id: bot.id,
@@ -1713,12 +1742,13 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             : Math.max(0, resolved.maxImagesPerPrompt - (currentTurnImages?.length ?? 0));
         // A text-only model keeps the [image:] marker. Putting image parts in
         // history makes the provider reject a follow-up that used to be text.
-        const historyWithImages = modelSeesImages
-          ? await withRecentTurnImages(deps, history, historyMessages, context, {
-              skipMessageId: currentTurnMessage?.id,
-              maxImages: modelImageBudget,
-            })
-          : history;
+        const historyWithImages =
+          modelSeesImages || imageModel
+            ? await withRecentTurnImages(deps, history, historyMessages, context, {
+                skipMessageId: currentTurnMessage?.id,
+                maxImages: modelImageBudget,
+              })
+            : history;
         const runtimeHistory = [...historicalContext, ...historyWithImages];
         // Without a roster a bot only knows the bots it spawned itself.
         const [teammates, groupDirectory] = await Promise.all([
@@ -1902,6 +1932,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 acceptsImages: modelSeesImages,
                 thinkingLevel: thinkingLevel ?? resolved.thinkingLevel ?? null,
               },
+              ...(imageModel ? { imageModel } : {}),
               fallbackModels: fallbackModels.map(({ provider, modelId, credentialId }) => ({
                 provider,
                 id: modelId,

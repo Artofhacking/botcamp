@@ -7,6 +7,15 @@ import { findConnectedModelCredential } from "./model-selection.js";
 import { parseModelSecret } from "./pi-oauth.js";
 import { OPENCODE_GO_PROVIDER, openCodeUsageVerdict } from "./subscription-quota.js";
 
+/**
+ * Reads every image. Text models never receive image parts, including ones that
+ * could see them, so a text timeout can still move to a text backup.
+ */
+export const DEPLOYMENT_IMAGE_MODEL = {
+  provider: "openai-compatible",
+  modelId: "deepseek/deepseek-v4-flash-vision-exp",
+} as const;
+
 /** The order a managed deployment starts with. An admin can reorder or disable these. */
 export const INITIAL_DEPLOYMENT_MODELS = [
   { provider: "opencode-go", modelId: "deepseek-v4.1-flash" },

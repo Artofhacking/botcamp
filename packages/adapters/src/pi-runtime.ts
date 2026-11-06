@@ -399,7 +399,19 @@ export class PiAgentRuntime implements AgentRuntime {
           selfRecoveries: 0,
           cutReplies: new WeakMap(),
           stream: (target, ctx, options) => {
-            if (hasCurrentImages && !target.model.input.includes("image")) {
+            // Images in this call go to the image model. A later text call may
+            // belong to a run that also had images, and that model does not see them.
+            const callSeesImages = ctx.messages.some(
+              (message) =>
+                "content" in message &&
+                Array.isArray(message.content) &&
+                message.content.some((part) => part.type === "image"),
+            );
+            if (
+              hasCurrentImages &&
+              !target.model.input.includes("image") &&
+              !(request.imageModel && !callSeesImages)
+            ) {
               throw new Error(MODEL_IMAGE_INPUT_ERROR);
             }
             return withPiThinkingActivity(

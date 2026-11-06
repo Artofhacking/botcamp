@@ -2042,6 +2042,119 @@ describe("Pi runtime ordered model fallback", () => {
     },
   );
 
+  it("reads images on the image model even when the text model can see", async () => {
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(`${image.provider}/${image.id}`, image);
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "text-backup-key" },
+    ]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    input.currentTurnImages = [
+      { name: "fixture.png", mimeType: "image/png", data: new Uint8Array([1]) },
+    ];
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [{ type: "text", text: "saw it" }], "stop")),
+    );
+
+    const events = await run(input);
+
+    expect(events.at(-1)).toEqual({ type: "done", text: "saw it" });
+    expect(
+      providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
+    ).toEqual([image.id]);
+    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({ apiKey: "image-key" });
+  });
+
+  it("uses the image model's key when the text model has no backups", async () => {
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(`${image.provider}/${image.id}`, image);
+    const input = request([]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    input.currentTurnImages = [
+      { name: "fixture.png", mimeType: "image/png", data: new Uint8Array([1]) },
+    ];
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [{ type: "text", text: "saw it" }], "stop")),
+    );
+
+    await run(input);
+
+    expect(
+      providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
+    ).toEqual([image.id]);
+    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({ apiKey: "image-key" });
+  });
+
+  it("does not hand an image-model failure to a text backup", async () => {
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(`${image.provider}/${image.id}`, image);
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "text-backup-key" },
+    ]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    input.currentTurnImages = [
+      { name: "fixture.png", mimeType: "image/png", data: new Uint8Array([1]) },
+    ];
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", "Request timed out")),
+    );
+
+    await expect(run(input)).rejects.toThrow(/Request timed out/);
+    expect(
+      providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
+    ).not.toContain(primary.id);
+    expect(
+      providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
+    ).not.toContain(backupA.id);
+  });
+
+  it("lets a text backup take a screenshot-tool turn when images have their own model", async () => {
+    providerState.models.set(`${backupA.provider}/${backupA.id}`, {
+      ...backupA,
+      input: ["text"],
+    });
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(`${image.provider}/${image.id}`, image);
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "text-only-key" },
+    ]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    input.tools = [{ ...input.tools[0]!, name: "computer_observe" }];
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate_limit_error"))
+        : stream(target, message(target, [{ type: "text", text: "backup answer" }], "stop")),
+    );
+
+    await run(input);
+
+    expect(
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      ),
+    ).toEqual([primary.provider, backupA.provider]);
+  });
+
   it("skips backups that cannot accept the current image input", async () => {
     const textOnlyBackup = { ...backupA, input: ["text"] as ["text"] };
     providerState.models.set(`${backupA.provider}/${backupA.id}`, textOnlyBackup);

@@ -15,6 +15,12 @@ picks the provider and `PI_DEFAULT_MODEL` the model:
 
 Pick a vision-capable model so screenshot computer tools stay available.
 
+When `MANAGED_MODELS_ONLY` is set and the deployment provider is OpenAI-compatible, a call
+whose context contains an image uses a separate vision model on that same endpoint
+(`deepseek/deepseek-v4-flash-vision-exp`). The deployment list stays on text, including a
+listed model that could read images. A failure of the vision call does not move those
+images to a listed model. Text calls keep the list and can still move to a text backup.
+
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
 `PI_DEFAULT_PROVIDER=amazon-bedrock`, `PI_DEFAULT_MODEL` and `AWS_REGION`. With an instance

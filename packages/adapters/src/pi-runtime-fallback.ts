@@ -208,7 +208,25 @@ function lengthRecovery(
   return lower ? { thinkingLevel: lower } : undefined;
 }
 
-function contextImageCount(context: Context): number {
+/** The model that reads images for one call. Text calls keep the active model. */
+function imageChannelTarget(
+  config: AgentRunRequest["imageModel"],
+  seeing: boolean,
+): RuntimeModelTarget | undefined {
+  if (!config || !seeing) return undefined;
+  const resolved = resolveRuntimeModel({ ...config, acceptsImages: true });
+  if (!resolved.model?.input.includes("image")) return undefined;
+  return {
+    config: { ...config, acceptsImages: true },
+    models: resolved.models,
+    model: modelForCompletion(resolved.model, config.maxTokens),
+    cardMaxTokens: cardOutputCeiling(resolved.model),
+    apiKey: resolved.apiKey,
+    credentials: resolved.credentials,
+  };
+}
+
+export function contextImageCount(context: Context): number {
   return context.messages.reduce((total, message) => {
     if (!("content" in message) || !Array.isArray(message.content)) return total;
     return total + message.content.filter((part) => part.type === "image").length;
@@ -233,6 +251,7 @@ function fallbackIncompatibility(
   context: TranscriptContext,
   options: ModelsSimpleStreamOptions | undefined,
   tools: readonly ConnectorTool[],
+  imageChannel: boolean,
 ): string | undefined {
   // The backup's own context policy prunes on its first call; judge what it would send. Too
   // many user images for its limit throws, and the caller skips the backup.
@@ -261,9 +280,11 @@ function fallbackIncompatibility(
   const contextSafetyMargin = Math.max(256, Math.ceil(inputTokens * 0.1));
   if (candidate.model.contextWindow <= inputTokens + outputTokens + contextSafetyMargin)
     return "Conversation exceeds the backup model's context limit.";
-  const imageCount = contextImageCount(context);
+  // The image model reads every image, so a text backup is not asked to see.
+  const imageCount = imageChannel ? 0 : contextImageCount(context);
   if (
-    (imageCount > 0 || tools.some((tool) => IMAGE_RETURNING_COMPUTER_TOOLS.has(tool.name))) &&
+    (imageCount > 0 ||
+      (!imageChannel && tools.some((tool) => IMAGE_RETURNING_COMPUTER_TOOLS.has(tool.name)))) &&
     !fallbackSeesImages(candidate)
   ) {
     return "The backup model cannot use the images required by this request.";
@@ -304,6 +325,8 @@ export function fallbackAwareModelStream(
   const signalAborted = () => signal.aborted;
   const recordFailure = (target: RuntimeModelTarget, error: string) => {
     if (sameModelTarget(target.config, state.request.model)) return;
+    if (state.request.imageModel && sameModelTarget(target.config, state.request.imageModel))
+      return;
     state.backupOutcomes.set(modelTargetKey(target.config), {
       provider: target.config.provider,
       modelId: target.config.id,
@@ -401,6 +424,7 @@ export function fallbackAwareModelStream(
           requestContext(true),
           options,
           state.request.tools,
+          Boolean(state.request.imageModel),
         );
         if (incompatibility) {
           skip(incompatibility);
@@ -415,6 +439,12 @@ export function fallbackAwareModelStream(
     return undefined;
   };
   const run = async () => {
+    const seeing = contextImageCount(requestContext()) > 0;
+    const imageTarget = imageChannelTarget(state.request.imageModel, seeing);
+    if (seeing && state.request.imageModel && !imageTarget) {
+      finishWithThrownError(state.getActive(), new Error("The image model is unavailable."));
+      return;
+    }
     let buffered: AssistantMessageEvent[] = [];
     let retries = 0;
     let recoveredIdle = false;
@@ -439,7 +469,7 @@ export function fallbackAwareModelStream(
         output.end(failure.error);
         return;
       }
-      const active = state.getActive();
+      const active = imageTarget ?? state.getActive();
       const targetKey = JSON.stringify([active.config.provider, active.config.id]);
       const connectionKey = modelTargetKey(active.config);
       const thinkingLevelMap = state.thinkingLevelMaps?.get(connectionKey);
@@ -483,8 +513,9 @@ export function fallbackAwareModelStream(
         stream = state.stream(
           sentTarget,
           requestContext(),
-          // With backups the switch replaces the SDK's retry, so a hung model is not waited on twice.
-          state.request.fallbackModels?.length
+          // Backups replace the SDK's retry, so a hung model is not waited on twice.
+          // An image call uses that model's key, not the text model's.
+          imageTarget || state.request.fallbackModels?.length
             ? { ...attemptOptions, apiKey, reasoning, maxRetries: 0 }
             : thinkingOverride
               ? { ...attemptOptions, reasoning }
@@ -615,22 +646,24 @@ export function fallbackAwareModelStream(
                 isRetryableProviderUnavailable(event.error) ||
                 isModelCredentialRejected(event.error))
             ) {
-              state.primaryFailure ??= sanitizeProviderError(
-                target.config.provider,
-                terminalEvent.error.errorMessage ?? "Model request failed.",
-              );
-              const next = await resolveNext(target);
-              if (failIfAborted(target)) return;
-              if (next) {
-                state.messagesBeforeSwitch = context.messages.length;
-                await state.onSwitch(next);
+              if (!imageTarget) {
+                state.primaryFailure ??= sanitizeProviderError(
+                  target.config.provider,
+                  terminalEvent.error.errorMessage ?? "Model request failed.",
+                );
+                const next = await resolveNext(target);
                 if (failIfAborted(target)) return;
-                // A raised budget or lower thinking level fitted the failed model, not this one.
-                outputBudget = undefined;
-                thinkingOverride = undefined;
-                buffered = [];
-                restart = true;
-                break;
+                if (next) {
+                  state.messagesBeforeSwitch = context.messages.length;
+                  await state.onSwitch(next);
+                  if (failIfAborted(target)) return;
+                  // A raised budget or lower thinking level fitted the failed model, not this one.
+                  outputBudget = undefined;
+                  thinkingOverride = undefined;
+                  buffered = [];
+                  restart = true;
+                  break;
+                }
               }
               // An exhausted quota, usage window or rejected credential can move to a backup
               // but will not clear within the retry budget, so only transient failures retry the same model.

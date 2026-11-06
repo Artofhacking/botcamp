@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEPLOYMENT_IMAGE_MODEL,
   INITIAL_DEPLOYMENT_MODELS,
   parseDeploymentModelList,
   selectableDeploymentModels,
@@ -19,6 +20,16 @@ describe("deployment model list", () => {
       "tencent/deepseek-v4-flash",
       "openrouter/deepseek-v4.1-flash-1017",
     ]);
+    expect(INITIAL_DEPLOYMENT_MODELS.map((model) => model.modelId)).not.toContain(
+      DEPLOYMENT_IMAGE_MODEL.modelId,
+    );
+  });
+
+  it("keeps image reading on a model outside the text failover list", () => {
+    expect(DEPLOYMENT_IMAGE_MODEL).toEqual({
+      provider: "openai-compatible",
+      modelId: "deepseek/deepseek-v4-flash-vision-exp",
+    });
   });
 
   it("keeps enabled models in order and drops a skipped provider", () => {
