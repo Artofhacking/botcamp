@@ -237,7 +237,9 @@ export function DesktopAbout() {
   const platform =
     clientPlatform(bridge?.platform) ?? clientPlatform(window.__BOTCAMP_APP__?.platform);
   const version = releaseVersion(native?.currentVersion || window.__BOTCAMP_APP__?.version);
-  if (native && native.phase !== "unsupported" && platform && version) {
+  // macOS cannot replace a build that lacks a Developer ID, so offering the in-app
+  // updater there only produces a download that fails to install. The installer link works.
+  if (native && native.phase !== "unsupported" && platform && platform !== "mac" && version) {
     return <InstalledUpdate platform={platform} version={version} />;
   }
   if (!platform || !version) return <AboutBotCamp />;

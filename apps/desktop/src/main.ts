@@ -759,7 +759,8 @@ function installApplicationMenu() {
   };
   const checkForUpdates: Electron.MenuItemConstructorOptions = {
     label: t("Check for Updates…"),
-    visible: updaterSupport(updaterEnvironment).supported,
+    // macOS rejects the install without a Developer ID, so the menu offers nothing there.
+    visible: process.platform !== "darwin" && updaterSupport(updaterEnvironment).supported,
     click: () => void checkForUpdatesFromMenu(),
   };
   const changeServer: Electron.MenuItemConstructorOptions = {
@@ -1172,7 +1173,9 @@ async function readPageSessionToken(): Promise<string | null> {
   }
 }
 
-function headerRecord(headers: RequestInit["headers"] | undefined): Record<string, string> | undefined {
+function headerRecord(
+  headers: RequestInit["headers"] | undefined,
+): Record<string, string> | undefined {
   if (headers == null) return undefined;
   const record: Record<string, string> = {};
   if (Array.isArray(headers)) {
