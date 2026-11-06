@@ -140,6 +140,8 @@ The guard does not protect arbitrary direct `ufw` commands or SSH daemon configu
 
 ## Deploying from CI
 
+`ci.yml` runs this deploy on a push to `main` only after its server checks and image publish succeed, and only when the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`. Until that variable is set, merging does not update a host. The job, and the secret names it reads, are [CI](./ci.md).
+
 To deploy from CI, install `infra/compose/deploy-launcher.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
 (`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). CI deploys a main commit

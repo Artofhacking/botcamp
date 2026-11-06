@@ -1,22 +1,26 @@
-# 架构
+# Architecture
 
-## 三个角色
+The current product is the Node server, the web console, the Electron shell, and the Android WebView shell. The retired phone-to-desktop relay is [legacy](./legacy.md). Do not extend it.
 
-1. **网关**（服务器）：账号、会话、设备注册、计量。内核之前只有这一层做隔离。
-2. **中继**（每台设备）：把本机 host 的 127.0.0.1 端口通过 SSH 反向隧道暴露到服务器的 `127.0.0.1:1876N`。
-3. **客户端**（桌面/手机/网页）：登录、选设备、进入会话。
+## Processes
 
-## 设备槽位
+1. **API** (`apps/api`). Accounts, sessions, bots, and chats. When a message or routine becomes due, this process starts the run before the HTTP request returns. See [run execution](./run-execution.md).
+2. **Worker** (`apps/worker`). Scheduled and maintenance jobs, plus any run the API hands over on shutdown or memory pressure. It also scans for runs whose owner died. That scan is recovery, not the path a new run takes.
+3. **Web**. `apps/web` in development. In production it is a static build. It can live on another origin from the API; `config.js` is that switch (`apps/web/public/config.js`).
+4. **Supervisor and computer**. Bot computers are containers or a configured remote sandbox, owned by the supervisor in `infra/sandboxes/supervisor`. The API does not receive the Docker socket. The image and the limits are [sandbox providers](./self-host-sandbox-providers.md).
+5. **Desktop** (`apps/desktop`). Electron around the same web UI, plus the native computer on the person's own machine.
+6. **Android** (`android/`). A WebView around the hosted console. It is not a second client implementation.
 
-- 每账号最多 10 台，槽位 `d1..d10` 对应端口 `18765..18774`。
-- nginx 为每个槽位生成静态 location（`/desk/d1/` …），互不影响。
-- 鉴权子请求 `/botcamp/api/relay/check/dN` 校验：登录态 → 设备归属 → 心跳新鲜度。
+Postgres is the source of truth (`packages/db`). Several API and worker processes may run. A run is claimed with a lease so it executes once. Do not add a global queue or a single-flight lock in front of that start path. The rule is in `AGENTS.md`.
 
-> 为什么不用 `auth_request` 传变量：nginx 的 `auth_request` 不支持在 URI 里插变量，
-> 所以用「每槽位一个静态 location」代替动态 map。
+## Shared code
 
-## 可信边界
+`packages/contracts` is the wire shape. `packages/core` is product logic. `packages/adapters` talks to providers and to operating systems. A provider name does not appear outside adapters and composition roots. UI that both web and desktop render lives in `packages/`, not in one app.
 
-- 设备身份 = 硬件 UUID + hostname 的哈希；凭证由服务端在登录后签发，只存哈希。
-- 客户端上报的 host token 只用于把浏览器带进 DSH，不暴露给用户。
-- 浏览器拿到的是 `botcamp_relay` cookie（7 天，HttpOnly）+ DSH 自己的会话 cookie。
+## Computers
+
+A workspace has one shared Team Computer unless a bot is set to Private. Team bots share files and installed tools. Each bot still has its own screen and browser profile. The container is the security boundary. Directories inside it are organization, not isolation. Details and the takeover flow are [the computer](./computer.md) and [computer runtime](./computer-runtime.md).
+
+## Clients and the server
+
+Frontends send intent and render state. The API authorizes, validates, retries, and translates providers. A workflow that exists on the web also exists on desktop, or it degrades for a reason written down in the change.

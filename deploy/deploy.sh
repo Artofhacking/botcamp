@@ -1,5 +1,7 @@
 #!/bin/bash
-# BotCamp 发布：/opt/botcamp/deploy.sh <app.py> <version>
+# 只发布 server/app.py 里的旧 Python 网关。当前产品是 apps/api 与 apps/worker，
+# 走 infra/compose/deploy-main.sh，见 docs/legacy.md 与 docs/ci.md。
+# 用法：/opt/botcamp/deploy.sh <app.py> <version>
 set -euo pipefail
 SRC=${1:?用法: deploy.sh <app.py> <version>}
 VER=${2:?用法: deploy.sh <app.py> <version>}

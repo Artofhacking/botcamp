@@ -148,6 +148,8 @@ jobs:
       - name: Changed-area classification tests
         if: steps.areas.outputs.all_packages != 'false'
         run: python3 .github/scripts/changed-areas.test.py
+      - name: CI docs name every workflow
+        run: python3 .github/scripts/ci-docs.test.py
       - name: App Store review submission tests
         if: steps.areas.outputs.all_packages != 'false'
         run: node --test .github/scripts/app-store-review.test.mjs
@@ -308,11 +310,17 @@ jobs:
       # Skipped inside the called workflow so the required "Web E2E / Web E2E" check still reports.
       skip: ${{ needs.changes.outputs.e2e != 'true' }}
 
-  # Publishes sha-<commit> and edge alongside the checks, so the production deploy pulls the
-  # image this run built instead of building on the production host.
+  # `edge` is the default computer image. Publish sha-<commit> and edge only after the server
+  # checks pass, so a red main does not become what new computers pull. The deploy job then
+  # pulls the image this run pushed instead of building on the host.
   publish-server-image:
     name: Publish server images
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [checks, test-integration]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.checks.result == 'success' &&
+      needs.test-integration.result == 'success'
     concurrency:
       group: ci-images-main
     uses: ./.github/workflows/publish-server-image.yml
@@ -326,7 +334,10 @@ jobs:
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
-      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
+      needs.checks.result == 'success' &&
+      needs.test-integration.result == 'success' &&
+      needs.publish-server-image.result == 'success'
     # The host pulls the image published for this commit; it builds only if that pull fails.
     # Only checks that catch a broken server gate the deploy; lint, E2E, and Docker drills report on their own.
     needs: [checks, test-integration, publish-server-image]

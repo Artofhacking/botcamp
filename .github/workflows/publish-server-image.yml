@@ -1,10 +1,10 @@
 name: publish-server-image
 
 # Release tags publish the source-addressed image used by in-app updates plus the human-readable
-# semver tags. Main commits publish `sha-<commit>` and `edge` through ci.yml, which calls this
-# workflow so a production deploy starts only once its image exists. Pull requests build with a
-# read-only token and an isolated cache, so untrusted code can validate the images without
-# receiving package-publish authority.
+# semver tags. A green main push publishes `sha-<commit>` and `edge` through ci.yml, which calls
+# this workflow only after Checks and Postgres journeys pass, so a red main does not move `edge`.
+# Pull requests build with a read-only token and an isolated cache, so untrusted code can
+# validate the images without receiving package-publish authority.
 #
 # Published builds run on Depot when the DEPOT_PROJECT_ID repository variable names a project, and
 # on GitHub's runners otherwise (forks) or when a Depot build fails. Pull requests never use Depot.

@@ -5,16 +5,14 @@
 
 ## 产物
 
-```
-dist/BotCamp-2.1.0.apk        # 已签名，可直接安装
-android/build/manual/         # 构建中间产物
-```
+实际打包脚本是 `build-apk.sh`。版本号是它顶部的 `VERSION_CODE` 和 `VERSION_NAME`。
+`app/build.gradle.kts` 是可选的 Gradle 路径，可能落后于脚本；发新壳时两处一起改。
+签名包在 `android/build/manual/BotCamp-<VERSION_NAME>.apk`。仓库根的 `dist/` 只是本地拷贝。
 
-下载地址：<https://botcamp.aigc.sx.cn/downloads/BotCamp-2.1.0.apk>
-（Demox 不托管 .apk，由 CVM 的 nginx `/downloads/` 目录发文件；新增版本时把 apk 放进 `/var/www/downloads/`）
+下载文件名跟 `VERSION_NAME` 走，放到现有的 `/downloads/` 目录。密钥库不入库：
+`android/.gitignore` 忽略 `*.keystore` 和 `keystore.properties`。
 
-- 包名 `site.demox.botcamp`，versionCode `2050`，versionName `2.1.0`，minSdk 26（Android 8）
-- 签名密钥 `android/botcamp-android.keystore`（密码在 `keystore.properties`）
+- 包名 `site.demox.botcamp`，minSdk 26（Android 8）
 - **同一个包名 + 同一个密钥**才能覆盖安装；换密钥必须先卸载旧版
 
 ## 构建

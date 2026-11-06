@@ -15,13 +15,15 @@ and computers; the product runs as a web console, an Electron desktop app, and a
 
 ## Development
 
-Requires Node 22.22 or newer and pnpm 9.15.
+Node and pnpm versions are `package.json` `engines` and `packageManager`. `.npmrc` rejects anything older.
 
 ```sh
 pnpm install
 pnpm db:generate
 pnpm dev
 ```
+
+`docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set. Self-hosting is [docs/self-host.md](./docs/self-host.md).
 
 ## Desktop
 
