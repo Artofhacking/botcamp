@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseDay } from "./calendar.js";
+import { show } from "./items.js";
 import type { Words } from "./labels.js";
 import { useWords, wordsFor } from "./labels.js";
 
@@ -30,13 +31,13 @@ export function ChartTip({ tip, width }: { tip: TipState | null; width: number }
   return (
     <div className="rk-tip" style={{ left, top: tip.y }} role="presentation">
       {tip.title != null && tip.title !== "" ? (
-        <div className="rk-tip-title">{tip.title}</div>
+        <div className="rk-tip-title">{show(tip.title)}</div>
       ) : null}
       {tip.rows.map((row, index) => (
         <div className="rk-tip-row" key={index}>
           {row.color ? <span className="rk-tip-swatch" style={{ background: row.color }} /> : null}
-          {row.name != null && row.name !== "" ? <span>{row.name}</span> : null}
-          <b>{row.value}</b>
+          {row.name != null && row.name !== "" ? <span>{show(row.name)}</span> : null}
+          <b>{show(row.value)}</b>
         </div>
       ))}
     </div>
@@ -216,7 +217,7 @@ export function SeriesLegend({ items, small }: { items: LegendItem[]; small?: bo
               aria-hidden="true"
             />
           )}
-          {item.name}
+          {show(item.name)}
         </li>
       ))}
     </ul>
@@ -358,7 +359,7 @@ export function Columns({
                     y={top - 6}
                     textAnchor="middle"
                   >
-                    {point.display ?? point.value}
+                    {show(point.display ?? point.value)}
                   </text>
                 ) : null}
                 {labelled.has(index) ? (
@@ -368,7 +369,7 @@ export function Columns({
                     y={PLOT.height - 4}
                     textAnchor="middle"
                   >
-                    {point.label}
+                    {show(point.label)}
                   </text>
                 ) : null}
               </g>
@@ -656,7 +657,7 @@ export function StackedBars({
       >
         {rows.map((bar, index) => (
           <div className="rk-stacked-row" key={index}>
-            <span className="rk-stacked-label">{bar.label}</span>
+            <span className="rk-stacked-label">{show(bar.label)}</span>
             <span className="rk-stacked-track">
               <span
                 className="rk-stacked-bar"
@@ -1415,7 +1416,7 @@ export function Matrix2x2({
             >
               <span className="rk-matrix-dot" />
               <span className="rk-matrix-label" title={text(p.label)}>
-                {p.label}
+                {show(p.label)}
               </span>
             </span>
           ))}

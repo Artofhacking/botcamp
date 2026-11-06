@@ -171,6 +171,12 @@ export function normalizeAgentToolName(name: string): string {
 
 const ACTIVITY_DETAIL_LIMIT = 90;
 
+/**
+ * Live shell status. The command is never included: the thread shows a thinking
+ * status instead of the text the shell is running.
+ */
+const SHELL_ACTIVITY = "Thinking…";
+
 /** One human-readable line describing a tool call, shown live in the thread. */
 export function describeToolActivity(toolName: string, args: unknown): string {
   const record = args && typeof args === "object" ? (args as Record<string, unknown>) : {};
@@ -182,9 +188,7 @@ export function describeToolActivity(toolName: string, args: unknown): string {
       .trim();
     return text.length > ACTIVITY_DETAIL_LIMIT ? `${text.slice(0, ACTIVITY_DETAIL_LIMIT)}…` : text;
   };
-  if (toolName === "shell") return `Running: ${detail(record.command)}`;
-  if (toolName === "user_computer_shell")
-    return `Running on your computer: ${detail(record.command)}`;
+  if (toolName === "shell" || toolName === "user_computer_shell") return SHELL_ACTIVITY;
   if (toolName === "user_computer_observe") return `Looking at ${detail(record.app)}`;
   if (toolName === "user_computer_act") return `Using ${detail(record.app)}`;
   if (toolName === "read_file") return `Reading ${detail(record.path)}`;

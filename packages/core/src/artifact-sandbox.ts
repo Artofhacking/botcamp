@@ -65,7 +65,8 @@ export function pageViewerDocument(input: {
       : "",
     inset,
     "</head>",
-    `<body><div id="root"></div><script>BotCampPage.mount(${boot})</script></body></html>`,
+    // A runtime built before the rename installs itself as RakazoPage.
+    `<body><div id="root"></div><script>window.BotCampPage=window.BotCampPage||window.RakazoPage;BotCampPage.mount(${boot})</script></body></html>`,
   ].join("");
 }
 

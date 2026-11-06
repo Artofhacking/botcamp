@@ -77,7 +77,7 @@ describe("ToolActivityDisclosure", () => {
     expect(visibleText(markup({ live: false, stepCount: 1, durationMs: 850 }))).toContain(
       "Done 1 tool 850ms",
     );
-    expect(visibleText(markup({ live: true, stepCount: 1 }))).toContain("Working… 1 tool");
+    expect(visibleText(markup({ live: true, stepCount: 1 }))).toContain("Thinking… 1 tool");
   });
 
   it("omits the duration when it is not usable", () => {
@@ -88,7 +88,7 @@ describe("ToolActivityDisclosure", () => {
 
   it("shows the live label while working", () => {
     const html = markup({ live: true, stepCount: 2 });
-    expect(visibleText(html)).toContain("Working… 2 tools");
+    expect(visibleText(html)).toContain("Thinking… 2 tools");
     expect(html).toContain('data-live="true"');
   });
 
@@ -122,7 +122,7 @@ describe("ToolActivityDisclosure", () => {
 
     card.render(true, 3);
     expect(card.details()?.getAttribute("aria-expanded")).toBe("false");
-    expect(card.summary()?.textContent).toContain("Working…3 tools");
+    expect(card.summary()?.textContent).toContain("Thinking…3 tools");
 
     card.render(false, 3);
     expect(card.details()?.getAttribute("aria-expanded")).toBe("false");
@@ -224,7 +224,7 @@ describe("ToolOnlyNarration", () => {
       <ToolOnlyNarration live blocks={[{ kind: "steps", steps: stepsOf(2) }]} />,
     );
     expect(html).toContain('data-testid="tool-activity-line"');
-    expect(visibleText(html)).toContain("Working… 2 tools");
+    expect(visibleText(html)).toContain("Thinking… 2 tools");
     expect(html).toMatch(OPEN_TRIGGER);
     expect(html).not.toContain("bg-muted");
   });

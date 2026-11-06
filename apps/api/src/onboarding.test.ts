@@ -244,3 +244,57 @@ it("updates the authorized card's own message even outside the bounded scan", as
     data: { blocks: [{ ...card, status: "connected" }] },
   });
 });
+
+it("marks a mailbox card only after the sign-in is saved", async () => {
+  const { deps, actor, tx } = fixture([]);
+  const mailbox = {
+    kind: "app_connect",
+    connectorId: "mailbox",
+    provider: "mailbox",
+    name: "QQ邮箱",
+    status: "pending",
+  };
+  const slack = {
+    kind: "app_connect",
+    connectorId: "pipedream",
+    provider: "slack",
+    name: "Slack",
+    status: "pending",
+  };
+  tx.message.findMany = vi.fn(async () => [{ id: "cards", blocks: [slack, mailbox] }]) as never;
+  const catalog = vi.fn(async () => []);
+  deps.connectors.managed = () => ({ catalog }) as never;
+  const code = "abcdefghijklmnop";
+  const secretStore = {
+    load: vi.fn(async () =>
+      JSON.stringify({
+        address: "person@example.com",
+        authCode: code,
+        scope: "alias:read mail:read",
+      }),
+    ),
+  };
+  Object.assign(deps, { secretStore });
+  Object.assign(deps.prisma, {
+    secret: { findFirst: vi.fn(async () => ({ id: "secret", ciphertext: "cipher" })) },
+  });
+  await markAppConnected(deps, actor, "bot", "mailbox", "mailbox");
+  expect(catalog).not.toHaveBeenCalled();
+  expect(tx.message.update).toHaveBeenCalledWith({
+    where: { id: "cards" },
+    data: { blocks: [slack, { ...mailbox, status: "connected" }] },
+  });
+  expect(JSON.stringify(tx.message.update.mock.calls)).not.toContain(code);
+});
+
+it("does not mark a mailbox card when nothing is saved", async () => {
+  const { deps, actor, tx } = fixture([]);
+  const secretStore = { load: vi.fn() };
+  const findFirst = vi.fn(async () => null);
+  Object.assign(deps, { secretStore });
+  Object.assign(deps.prisma, { secret: { findFirst } });
+  await markAppConnected(deps, actor, "bot", "mailbox", "mailbox", "thread");
+  expect(findFirst).toHaveBeenCalled();
+  expect(secretStore.load).not.toHaveBeenCalled();
+  expect(tx.message.update).not.toHaveBeenCalled();
+});

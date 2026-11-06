@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Readable } from "node:stream";
-import { PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import type * as KubernetesClient from "@kubernetes/client-node";
 import type { CoreV1Api, Exec, V1Pod, V1PodSpec, V1Status } from "@kubernetes/client-node";
 import type {
@@ -12,6 +11,8 @@ import type {
   ComputerObservation,
   ComputerRef,
   ControlLeaseRef,
+  PageBrowserCommand,
+  PageBrowserResult,
   PortableFile,
   ProcessEvent,
   SandboxProvider,
@@ -24,6 +25,14 @@ import { COMPUTER_CACHE_ENV } from "@rakazo/core/node/desktop-runtime";
 import type { RawExecEvent } from "./exec-computer.js";
 import { ExecComputer, COMPUTER_IMAGE_WORKSPACE as WORKSPACE } from "./exec-computer.js";
 import { LinuxDesktop, onBotScreen } from "./linux-desktop.js";
+import {
+  installUserAgentBrowserCommand,
+  installUserPageBrowserCommand,
+  pageBrowserFilesVersion,
+  pageBrowserProbeCommand,
+  planPageBrowserInstall,
+  readAgentBrowserBinary,
+} from "./page-browser-install.js";
 
 const DISPLAY_START = 20;
 const DEFAULT_NAMESPACE = "rakazo-sandboxes";
@@ -111,6 +120,21 @@ export class KubernetesSandboxProvider implements SandboxProvider {
       // leaving a black screen. The image's embed.html is the page the Docker
       // provider serves for the same frame.
       return `http://${host}:${port}/embed.html`;
+    },
+    runWithInput: async (computer, command, input, timeoutMs, context) => {
+      const stdout: Buffer[] = [];
+      let code = 1;
+      for await (const event of this.execRaw(
+        computer,
+        ["bash", "-c", command],
+        context.signal,
+        timeoutMs,
+        Readable.from(Buffer.from(input)),
+      )) {
+        if (event.type === "stdout") stdout.push(Buffer.from(event.data));
+        else if (event.type === "exit") code = event.code;
+      }
+      return { code, stdout: Buffer.concat(stdout).toString("utf8") };
     },
   });
 
@@ -297,6 +321,50 @@ export class KubernetesSandboxProvider implements SandboxProvider {
 
   async act(computer: ComputerRef, request: ComputerActionRequest, context: AdapterContext) {
     return this.desktops.act(computer, request, context);
+  }
+
+  async pageBrowser(
+    computer: ComputerRef,
+    request: PageBrowserCommand,
+    context: AdapterContext,
+  ): Promise<PageBrowserResult> {
+    await this.ensureUserPageBrowser(computer, context);
+    return this.desktops.pageBrowser(computer, request, context);
+  }
+
+  /** An older desktop image has neither the helper nor its browser driver. */
+  private async ensureUserPageBrowser(computer: ComputerRef, context: AdapterContext) {
+    const probe = await this.shell.run(
+      computer,
+      ["bash", "-c", pageBrowserProbeCommand()],
+      context,
+    );
+    if (probe.code !== 0) {
+      throw new Error(installFailure(probe.stderr));
+    }
+    const plan = planPageBrowserInstall(probe.stdout, pageBrowserFilesVersion());
+    if (plan.action === "ready") return;
+    if (plan.binary) {
+      const binary = await readAgentBrowserBinary(plan.arch);
+      const written = await this.shell.collect(
+        computer,
+        ["bash", "-c", installUserAgentBrowserCommand(plan.arch)],
+        context,
+        4096,
+        Readable.from(binary),
+        120_000,
+      );
+      if (written.code !== 0) throw new Error(installFailure(written.stderr.toString("utf8")));
+    }
+    if (plan.files) {
+      const files = await this.shell.run(
+        computer,
+        ["bash", "-c", installUserPageBrowserCommand()],
+        context,
+        120_000,
+      );
+      if (files.code !== 0) throw new Error(installFailure(files.stderr));
+    }
   }
 
   async releaseScreen(computer: ComputerRef, context: AdapterContext): Promise<void> {
@@ -753,6 +821,11 @@ function exitCode(status: V1Status): number {
 function isApiStatus(error: unknown, code: number): boolean {
   // ApiException carries the HTTP status as `code`.
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
+}
+
+function installFailure(stderr: string): string {
+  const detail = stderr.trim().split("\n").at(-1)?.slice(0, 300);
+  return detail || "Page browser is not installed on this computer.";
 }
 
 function positiveInteger(value: number | undefined, fallback: number): number {

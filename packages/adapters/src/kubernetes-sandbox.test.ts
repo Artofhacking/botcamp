@@ -1062,6 +1062,60 @@ describe("KubernetesSandboxProvider", () => {
     },
   );
 
+  it("runs the page browser against the screen Chrome and keeps the request on stdin", async () => {
+    const commands: string[] = [];
+    let request = "";
+    const exec = vi.fn(async (...args: Parameters<Exec["exec"]>) => {
+      const command = args[3];
+      const stdout = args[4];
+      const stdin = args[6];
+      const text = Array.isArray(command) ? command.join("\n") : "";
+      commands.push(text);
+      const finish = () => args[8]?.({ status: "Success" });
+      if (text.includes("echo image_ok")) {
+        queueMicrotask(() => {
+          stdout?.write(Buffer.from("image_ok\n"));
+          finish();
+        });
+      } else if (text.includes("RAKAZO_CDP_PORT=")) {
+        const chunks: Buffer[] = [];
+        stdin?.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+        stdin?.on("end", () => {
+          request = Buffer.concat(chunks).toString("utf8");
+          stdout?.write(
+            Buffer.from(
+              JSON.stringify({
+                ok: true,
+                url: "https://example.com/",
+                title: "Example",
+                tree: "",
+                elements: [],
+              }),
+            ),
+          );
+          finish();
+        });
+      } else {
+        queueMicrotask(() => {
+          stdout?.write(Buffer.from("RAKAZO_DESKTOP=0:viewtoken\n"));
+          finish();
+        });
+      }
+      return { close: vi.fn(), onclose: null, onerror: null } as unknown as Awaited<
+        ReturnType<Exec["exec"]>
+      >;
+    });
+
+    await expect(
+      providerFor({}, exec).pageBrowser(computer, { command: "snapshot" }, context),
+    ).resolves.toMatchObject({ ok: true, url: "https://example.com/" });
+    expect(commands.some((command) => command.includes("RAKAZO_CDP_PORT=9241"))).toBe(true);
+    expect(commands.some((command) => command.includes(".local/bin/rakazo-page-browser"))).toBe(
+      true,
+    );
+    expect(JSON.parse(request)).toMatchObject({ command: "snapshot" });
+  });
+
   it("describes contract and capabilities", () => {
     expect(providerFor().describe()).toMatchObject({
       contractVersion: "1",

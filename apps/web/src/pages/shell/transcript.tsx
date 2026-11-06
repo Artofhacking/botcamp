@@ -139,7 +139,7 @@ export const Transcript = memo(function Transcript({
   voiceReady: boolean;
   speakingMessageId: string | null;
   onSpeak: (message: ThreadMessage) => void;
-  onOpenComputer: (botId?: string) => void;
+  onOpenComputer: (botId?: string, takeControl?: boolean) => void;
   onOpenImportSetup?: (target: ImportSetupTarget) => void;
   rpc: ReturnType<typeof createSpaceRpc>;
 }) {

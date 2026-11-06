@@ -92,6 +92,7 @@ import {
 } from "./connection-context.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
+import { runnableDeploymentModels } from "./deployment-model-chain.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetRun } from "./fleet-tools.js";
 import { loadBotGroupDirectory, loadGroupContext } from "./group-handoff.js";
@@ -109,6 +110,8 @@ import {
   neutralizeSpeakerLabels,
   USER_SPEAKER,
 } from "./history-speakers.js";
+import { mailboxCanSend } from "./mailbox-app.js";
+import { loadSavedMailbox } from "./mailbox-connection.js";
 import { createMediaGenerationProvider } from "./media-generation-factory.js";
 import { loadAgentMemoryContext } from "./memory-context.js";
 import { HostedModelCreditsRequiredError } from "./model-credit-observer.js";
@@ -616,6 +619,17 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 sourceClientNonce: messagingSource?.clientNonce,
               }))
             : false);
+        let mailboxMode: "read" | "send" | undefined;
+        if (!nonOwnerChatRun) {
+          const connectedMailbox = await loadSavedMailbox(deps.prisma, deps.secretStore, {
+            userId: run.userId,
+            spaceId: run.spaceId,
+          }).catch(() => null);
+          if (connectedMailbox) {
+            runSecrets.push(connectedMailbox.authCode);
+            mailboxMode = mailboxCanSend(connectedMailbox.scope) ? "send" : "read";
+          }
+        }
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
             ? (messages.find((message) => message.id === run.sourceMessageId)?.seq ??
@@ -897,6 +911,19 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         let subscriptionAuth: SubscriptionRunAuth | undefined;
         let subscriptionExhausted = false;
         const subscriptionSkip = new Set<string>();
+        const scripted = deps.runtime.describe().capabilities.scripted;
+        // A saved deployment list is the only order every bot follows. Pins and the
+        // subscription replacement stay for deployments that have not saved one.
+        let managedChain = false;
+        let chainFallbacks: ModelRoleChoice[] | undefined;
+        let managedModels: Awaited<ReturnType<typeof runnableDeploymentModels>> = null;
+        if (!scripted) {
+          try {
+            managedModels = await runnableDeploymentModels(deps, run);
+          } catch (error) {
+            getLogger().warn("deployment model chain could not be read", { runId, error });
+          }
+        }
         // A missing or refused connection of the user's own fails every scheduled run alike.
         const failRunBeforeModel = async (message: string, accountFailure = false) => {
           const failed = await failRunBeforeTurn(
@@ -910,11 +937,37 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             await backOffRoutineAfterAccountError(deps, run.routineId);
           }
         };
-        if (pinError) {
+        if (managedModels) {
+          managedChain = true;
+          const first = managedModels[0];
+          if (!first) {
+            await failRunBeforeModel("No model is enabled.", true);
+            return;
+          }
+          const rest = managedModels.slice(1);
+          if (first.provider !== selectedProvider || first.modelId !== selectedModelId) {
+            selectedThinking = null;
+          }
+          selectedProvider = first.provider;
+          selectedModelId = first.modelId;
+          selectedCredential =
+            runDeployment && first.provider === runDeployment.provider
+              ? null
+              : await findConnectedModelCredential(
+                  deps.prisma,
+                  deps.secretStore,
+                  run,
+                  first.provider,
+                  first.modelId,
+                );
+          chainFallbacks = rest.map((slot) => ({
+            provider: slot.provider,
+            modelId: slot.modelId,
+          }));
+        } else if (pinError) {
           await failRunBeforeModel(pinError, pinError === PINNED_PROVIDER_NOT_CONNECTED);
           return;
-        }
-        if (
+        } else if (
           run.modelPinned &&
           (selected.provider !== modelChoice.modelProvider || selected.id !== modelChoice.modelId)
         ) {
@@ -924,8 +977,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const modelAccessDenied = async () =>
           (await modelCreditBillingEnabled(deps)) &&
           !(await spaceHasModelAccess(deps.prisma, run.spaceId));
-        const scripted = deps.runtime.describe().capabilities.scripted;
-        if (!run.modelPinned && !scripted && deps.subscriptionFallback) {
+        if (!managedChain && !run.modelPinned && !scripted && deps.subscriptionFallback) {
           const choice = await subscriptionChoice(deps, run.id, (provider) => {
             const fromSettings =
               settings?.defaultModelProvider === provider
@@ -958,31 +1010,43 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         }
         let backupChoices: Promise<ModelRoleChoice[]> | undefined;
         const loadBackups = () =>
-          (backupChoices ??= scripted
-            ? Promise.resolve([])
-            : effectiveModelRole(deps.prisma, run, "main", {
-                settings,
-                deployment: runDeployment,
-              }).then(
-                (role) => role.backups,
-                (error: unknown) => {
-                  getLogger().warn("Backup models could not be loaded", { runId, error });
-                  return [];
-                },
-              ));
+          (backupChoices ??= chainFallbacks
+            ? Promise.resolve(chainFallbacks)
+            : scripted
+              ? Promise.resolve([])
+              : effectiveModelRole(deps.prisma, run, "main", {
+                  settings,
+                  deployment: runDeployment,
+                }).then(
+                  (role) => role.backups,
+                  (error: unknown) => {
+                    getLogger().warn("Backup models could not be loaded", { runId, error });
+                    return [];
+                  },
+                ));
         // Backups that could not start here are not offered again once the model runs.
         const backupsUnavailable = new Set<ModelRoleChoice>();
         // A main model with no connection, or whose provider refused its sign-in, runs on the
         // first backup that starts. A pinned run asked for its model and keeps it.
-        const startOnBackup = async () => {
-          if (run.modelPinned) return undefined;
-          for (const choice of await loadBackups()) {
-            if (subscriptionSkip.has(choice.provider)) {
-              backupsUnavailable.add(choice);
-              continue;
-            }
-            try {
-              const backup = await resolveConnectedModelKey(
+        const resolveBackupKey = (choice: {
+          provider: string;
+          modelId: string;
+          credentialId?: string;
+        }) =>
+          managedChain &&
+          runDeployment &&
+          choice.provider === runDeployment.provider &&
+          !choice.credentialId
+            ? resolveModelKey(
+                deps,
+                run.userId,
+                run.spaceId,
+                null,
+                choice.provider,
+                choice.modelId,
+                (values) => runSecrets.push(...values),
+              ).then((resolved) => ({ credential: null, resolved }))
+            : resolveConnectedModelKey(
                 deps,
                 run,
                 choice.provider,
@@ -991,6 +1055,15 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 true,
                 choice.credentialId,
               );
+        const startOnBackup = async () => {
+          if (run.modelPinned && !managedChain) return undefined;
+          for (const choice of await loadBackups()) {
+            if (subscriptionSkip.has(choice.provider)) {
+              backupsUnavailable.add(choice);
+              continue;
+            }
+            try {
+              const backup = await resolveBackupKey(choice);
               getLogger().warn("model.primary_unavailable.backup_used", {
                 runId,
                 "model.provider": choice.provider,
@@ -1302,6 +1375,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             followUpFromUser: sourceMessage?.role === "user",
             userComputer: userComputer === "connected",
             userComputerScreen,
+            mailbox: mailboxMode,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
@@ -1838,6 +1912,28 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                     const key = fallbackKey(provider, modelId, connectionId);
                     if (!fallbackModelKeys.has(key))
                       throw new Error("Backup model is not selected");
+                    if (
+                      managedChain &&
+                      runDeployment &&
+                      provider === runDeployment.provider &&
+                      !connectionId
+                    ) {
+                      const resolved = await resolveModelKey(
+                        deps,
+                        run.userId,
+                        run.spaceId,
+                        null,
+                        provider,
+                        modelId,
+                        (values) => runSecrets.push(...values),
+                      );
+                      return {
+                        provider,
+                        id: modelId,
+                        ...resolvedModelRunFields(resolved),
+                        thinkingLevel: null,
+                      };
+                    }
                     return resolveConnectedModel(
                       { userId: run.userId, spaceId: run.spaceId },
                       provider,

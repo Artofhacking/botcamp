@@ -1,57 +1,21 @@
 # Connect apps
 
-Connect Gmail, Slack, Notion, GitHub and other apps so bots can read and act in them for you.
+Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱**.
 
-## Connect from chat
+## Connect QQ邮箱
 
-The easiest way is to ask: "connect my Google Calendar". The bot posts a card in the chat; choose
-**Connect** or **Sign in** and finish signing in with the app.
+1. Choose **Connect** on **QQ邮箱**.
+2. Under **Mailbox**, enter the mailbox address.
+3. Under **Authorization code**, enter the 16-character authorization code from QQ Mail. This is that code, not the password you use to sign in on the web.
+4. Under **Permission**, choose **只读** or **可发信**. **只读** is read-only. **可发信** includes sending.
+5. Choose **Test and save**. BotCamp signs in to the mailbox and keeps the connection only when that sign-in works. The code is stored encrypted and is not shown again.
 
-## Connect from Integrations
+A saved mailbox shows **Connected**. Choose **Disconnect** to remove it. To replace the code, disconnect, then connect again with the new one. You can also revoke the code in QQ Mail's authorization-code settings.
 
-Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. Search or browse
-**Apps** by category, choose one, and then **Connect**.
-
-Once an app is connected, every bot can use it. You don't set it up per bot. From an app's page you
-can **Reconnect** it, rename an account, or **Uninstall** it.
+Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a card. After that card is saved, the bot can list, open, and search the mailbox. It can send only when **可发信** was the permission you saved. Those tools show up on the bot's next turn.
 
 > [!NOTE]
-> The app catalog depends on your server. A self-hosted server shows it only when the operator has
-> configured an app catalog. See [Self-hosting](./self-host.md). Custom sources, below, work on any
-> server.
-
-## Add your own tools
-
-The **+** in **Integrations** adds tools that aren't in the catalog:
-
-- **MCP server**: any remote MCP server at an HTTPS address. **Browse MCP servers** searches a public
-  directory of them.
-- **OpenAPI** and **GraphQL**: point at an API's description and the bot can call it.
-- **Treg** and **Executor**: tool gateways that connect with one access token.
-- **From GitHub**: install a plugin from its repository. See [Build a plugin](./build-a-plugin.md).
-
-Choose an authentication method (**No auth**, **Bearer token** or **API key header**) and then
-**Verify and add**. Credentials are encrypted and never sent to the model.
-
-**Manage MCP servers** lists every server you've added, with **Test connection**, OAuth sign-in, and
-which bots can use each one.
-
-During one bot run, every call to an MCP server added under **Integrations** (Treg, Executor or
-your own MCP URL) reuses one session, so servers that keep state in the session (a paused step
-you confirm mid-run, for example) see the same session until the run ends. Two runs never share
-such a session, and each closes when its run ends or after about ten minutes without a call. A
-paused step can be resumed only while the run continues in the same BotCamp instance, within that
-window and within the server's own pause window (Executor keeps a pause for about four minutes).
-After ten idle minutes, or when the run continues on another instance, the next call opens a fresh
-session.
-
-## Choose which bots use what
-
-Bots pick the apps they need. To add an MCP server to the bot you're chatting with, open it in
-**Integrations** and choose **Use in this bot**.
-
-When a bot wants a server it hasn't used before, it asks first in the chat. Choose **Approve**, or
-**Authorize** if the server needs you to sign in.
+> The permission you pick is stored with the connection. Saving it does not open a catalog of other apps.
 
 ## APIs without an integration
 

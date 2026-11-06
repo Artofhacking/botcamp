@@ -309,7 +309,7 @@ describe("Dictation recorder fallback", () => {
       mediaDevices: {
         getUserMedia: vi.fn(async () => ({ getTracks: () => [track] })),
       },
-      language: "es-ES",
+      language: "zh-CN",
     });
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
       Response.json({ text: "hola" }),
@@ -338,7 +338,7 @@ describe("Dictation recorder fallback", () => {
     await vi.waitFor(() => expect(onFinal).toHaveBeenCalledWith("hola"));
 
     const sent = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined;
-    expect(JSON.parse(String(sent?.body)).language).toBe("es");
+    expect(JSON.parse(String(sent?.body)).language).toBe("zh");
   });
 
   it("rejects oversized transcription responses without waiting for cancellation", async () => {
@@ -887,7 +887,7 @@ describe("Dictation web speech", () => {
 
   it("listens in the language the app is set to", async () => {
     vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "rakazo.uiLocale" ? "nl" : null),
+      getItem: (key: string) => (key === "rakazo.uiLocale" ? "zh-CN" : null),
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
@@ -896,7 +896,7 @@ describe("Dictation web speech", () => {
     const dictation = new Dictation();
     await dictation.listen({ mode: "hold", onFinal: () => undefined });
 
-    expect(instances[0]?.lang).toBe("nl-NL");
+    expect(instances[0]?.lang).toBe("zh-CN");
   });
 
   it("hears the browser's regional variant of the app's language", async () => {
@@ -911,7 +911,7 @@ describe("Dictation web speech", () => {
   it("keeps the app's language when the browser speaks another one", async () => {
     vi.stubGlobal("navigator", { language: "de-DE" });
     vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "rakazo.uiLocale" ? "es" : null),
+      getItem: (key: string) => (key === "rakazo.uiLocale" ? "zh-CN" : null),
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
@@ -920,7 +920,7 @@ describe("Dictation web speech", () => {
     const dictation = new Dictation();
     await dictation.listen({ mode: "hold", onFinal: () => undefined });
 
-    expect(instances[0]?.lang).toBe("es-ES");
+    expect(instances[0]?.lang).toBe("zh-CN");
   });
 
   it.each([
@@ -1779,6 +1779,12 @@ describe("Dictation web speech", () => {
 describe("transcriptionLanguage", () => {
   it("hints the provider with the language the caller picked", () => {
     vi.stubGlobal("navigator", { language: "es-ES" });
-    expect(transcriptionLanguage()).toBe("es");
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "rakazo.uiLocale" ? "zh-CN" : null),
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+    });
+    expect(transcriptionLanguage()).toBe("zh");
   });
 });

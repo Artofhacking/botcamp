@@ -5,6 +5,7 @@
 <script>
   // This host returns this page for a path that is not a file. A console
   // route has to live in the hash, or a reload of /console/app/<id> stays here.
+  // A shared page is the same kind of path: /p/<token> has no file of its own.
   // Shipped desktop builds open the site origin, which is this page.
   (function () {
     var path = location.pathname.replace(/\/+$/, "") || "/";
@@ -14,6 +15,10 @@
     }
     if (path === "/mcp/oauth/callback" || path === "/console/mcp/oauth/callback") {
       location.replace("/console/#/mcp/oauth/callback" + location.search);
+      return;
+    }
+    if (path.indexOf("/p/") === 0) {
+      location.replace("/console/#" + path + location.search);
       return;
     }
     if (path.indexOf("/console/") !== 0) return;
@@ -70,8 +75,19 @@
   .links a { color: var(--muted); text-decoration: none; }
   .links a:hover { color: var(--ink); }
   .spacer { flex: 1; }
+  .session { display: flex; align-items: center; gap: 14px; margin-left: auto; }
   .account { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
   .account .email { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account a.admin-entry {
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--ticket);
+  }
+  .account a.admin-entry:hover { border-color: var(--ink); }
   .account button {
     font: inherit;
     background: none;
@@ -337,6 +353,8 @@
   @media (max-width: 640px) {
     .links { display: none; }
     .account .email { display: none; }
+    .nav { height: auto; min-height: 64px; flex-wrap: wrap; row-gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+    .session { flex-wrap: wrap; justify-content: flex-end; }
     .release { grid-template-columns: 1fr; }
     .release .btn { justify-self: start; }
   }
@@ -367,8 +385,10 @@
       <a href="#download">下载</a>
     </nav>
     <span class="spacer"></span>
-    <div class="account" id="account"></div>
-    <div id="account-cta"></div>
+    <div class="session">
+      <div class="account" id="account"></div>
+      <div id="account-cta"></div>
+    </div>
   </div>
 </header>
 
@@ -573,6 +593,23 @@
     };
   };
 
+  // The admin API refuses everyone else. A 200 is the only signal that this
+  // account may see the extra entry; the link is not stored on the device.
+  const paintAdmin = (admin) => {
+    const current = accountNode.querySelector("[data-admin-entry]");
+    if (!admin) {
+      if (current) current.remove();
+      return;
+    }
+    if (current) return;
+    const link = document.createElement("a");
+    link.dataset.adminEntry = "true";
+    link.className = "admin-entry";
+    link.href = "/admin/";
+    link.textContent = "管理后台";
+    accountNode.appendChild(link);
+  };
+
   const token = (() => {
     try { return localStorage.getItem("bc_auth_token"); } catch (e) { return null; }
   })();
@@ -584,7 +621,14 @@
       .then((response) => (response.ok ? response.json() : null))
       .then((session) => {
         const email = session && session.user && session.user.email;
-        if (email) showUser(email);
+        if (!email) return null;
+        showUser(email);
+        return fetch(API + "/admin/api/overview", {
+          headers: { authorization: "Bearer " + token },
+        });
+      })
+      .then((response) => {
+        if (response && response.ok) paintAdmin(true);
       })
       .catch(() => {});
   }

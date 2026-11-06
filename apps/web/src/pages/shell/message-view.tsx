@@ -116,7 +116,7 @@ export const MessageView = memo(function MessageView({
   voiceReady: boolean;
   speaking: boolean;
   onSpeak: (message: ThreadMessage) => void;
-  onOpenComputer: (botId?: string) => void;
+  onOpenComputer: (botId?: string, takeControl?: boolean) => void;
   /** Opens where an imported item's setup is finished. */
   onOpenImportSetup?: (target: ImportSetupTarget) => void;
   rpc: ReturnType<typeof createSpaceRpc>;
@@ -650,14 +650,16 @@ export const MessageView = memo(function MessageView({
                 <div className="my-2.5 text-[14.5px] leading-[1.5] text-foreground/75">
                   <ChatMarkdown>{block.text}</ChatMarkdown>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  data-testid="computer-card-open"
-                  onClick={() => onOpenComputer(message.botId)}
-                >
-                  <Trans>Open</Trans>
-                </Button>
+                {block.state === "Needs you" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="computer-card-takeover"
+                    onClick={() => onOpenComputer(message.botId, true)}
+                  >
+                    <Trans>Take control</Trans>
+                  </Button>
+                ) : null}
               </div>
             );
           }

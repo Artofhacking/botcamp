@@ -5,6 +5,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
+  confirmTakeoverPrompt,
   expectCardWidth,
   openBotPanelTab,
   realSandboxTimeout,
@@ -40,14 +41,11 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   const computerCard = page.getByTestId("computer-card");
   await expect(computerCard).toBeVisible();
   await expect(computerCard.getByText("Needs you", { exact: true })).toBeVisible();
-  await expect(computerCard.getByTestId("computer-card-open")).toBeVisible();
+  await expect(computerCard.getByTestId("computer-card-takeover")).toBeVisible();
   await expectCardWidth(computerCard, 340);
   await captureScreenshot(page, testInfo, "08-protected-input-request");
-  await computerCard.getByTestId("computer-card-open").click();
-  await page
-    .getByTestId("computer-chrome")
-    .getByRole("button", { name: "Take control", exact: true })
-    .click();
+  await computerCard.getByTestId("computer-card-takeover").click();
+  await confirmTakeoverPrompt(page);
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Skip", exact: true }).last()).toBeVisible();
   await expect(page.getByRole("button", { name: "I’m done", exact: true }).last()).toBeVisible();
@@ -93,6 +91,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     .getByTestId("computer-chrome")
     .getByRole("button", { name: "Take control", exact: true })
     .click();
+  await confirmTakeoverPrompt(page);
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();
   await page.getByRole("button", { name: "Skip", exact: true }).last().click();
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();

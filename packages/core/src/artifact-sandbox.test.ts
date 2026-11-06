@@ -68,6 +68,9 @@ describe("pageViewerDocument", () => {
       "<html data-touch data-reply>",
     );
     expect(pageViewerDocument(base)).toContain("<html><head>");
+    expect(pageViewerDocument(base)).toContain(
+      "window.BotCampPage=window.BotCampPage||window.RakazoPage;BotCampPage.mount(",
+    );
   });
 
   it("carries page code that tries to close its script as inert JSON", () => {

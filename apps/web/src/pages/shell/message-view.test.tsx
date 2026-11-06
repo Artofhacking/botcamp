@@ -68,6 +68,7 @@ function renderView(
     threadId: "thread",
     seq: 1,
     role,
+    botId: "parent",
     createdAt: new Date().toISOString(),
     blocks,
   };
@@ -111,6 +112,24 @@ function renderMessage(
   act(() => mention.click());
   return { mention, onOpenBot };
 }
+
+it("offers takeover on a computer that needs you, and no button once that ask is finished", () => {
+  const onOpenComputer = vi.fn();
+  const card = (state: string) => {
+    renderView("bot", [{ kind: "computer", state, text: "Sign in to continue." }], {
+      onOpenComputer,
+    });
+    return container.querySelector('[data-testid="computer-card"]')!;
+  };
+  const pending = card("Needs you");
+  const takeover = pending.querySelector("button")!;
+  expect(takeover.textContent).toBe("Take control");
+  act(() => takeover.click());
+  expect(onOpenComputer).toHaveBeenCalledWith("parent", true);
+
+  expect(card("Done").querySelector("button")).toBeNull();
+  expect(card("Skipped").querySelector("button")).toBeNull();
+});
 
 it("keeps a received peer marker off the user's side while user replies align to the end", () => {
   renderView("user", [

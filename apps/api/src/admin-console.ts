@@ -2,6 +2,7 @@
 //
 // Deliberately plain HTTP + JSON rather than another RPC surface: the console is one page,
 // it ships with no build step, and every route here is gated on RAKAZO_ADMIN_EMAILS.
+import { listDeploymentModels, replaceDeploymentModels } from "@rakazo/adapters";
 import { Hono } from "hono";
 import type { PrismaClient } from "@rakazo/db";
 import {
@@ -283,6 +284,22 @@ export function adminConsoleRoutes(deps: AdminConsoleDeps) {
         weeklyCoreHours: Number(updated.weeklyCoreSecondsQuota) / 3600,
         listValueUsd: listValueUsd(updated.weeklyTokenQuota),
       });
+    }),
+  );
+
+  app.get("/admin/api/models", async (c) =>
+    runAsSystem("operator console model list", async () => {
+      const models = await listDeploymentModels(deps.prisma);
+      return c.json({ models });
+    }),
+  );
+
+  app.put("/admin/api/models", async (c) =>
+    runAsSystem("operator console model order", async () => {
+      const body = (await c.req.json().catch(() => null)) as { models?: unknown } | null;
+      const saved = await replaceDeploymentModels(deps.prisma, body?.models);
+      if (!Array.isArray(saved)) return c.json(saved, 400);
+      return c.json({ models: saved });
     }),
   );
 

@@ -48,6 +48,7 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "update_group",
   "create_child_routine",
   "feedback",
+  "mailbox_send",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
   "respond_agent_connection",
@@ -74,6 +75,9 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "skill_read",
   "web_fetch",
   "web_search",
+  "mailbox_list",
+  "mailbox_get",
+  "mailbox_search",
 ]);
 
 const READ_ONLY_CONNECTOR_PATTERN = /(^|[_-])(get|list|search|find|read)([_-]|$)/i;

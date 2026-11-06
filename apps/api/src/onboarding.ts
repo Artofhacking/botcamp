@@ -1,4 +1,6 @@
+import type { SecretStore } from "@rakazo/adapter-kit";
 import type { ConnectorRegistry } from "@rakazo/adapters";
+import { loadSavedMailbox, MAILBOX_CONNECTOR_ID } from "@rakazo/adapters";
 import type { Actor, MessageBlock } from "@rakazo/contracts";
 import {
   appConnectCard,
@@ -25,6 +27,8 @@ type OnboardingDeps = {
   prisma: PrismaClient;
   events: ThreadEvents;
   connectors: ConnectorRegistry;
+  /** Mailbox cards are not in a connector catalog, so completion checks this secret. */
+  secretStore?: SecretStore;
 };
 
 type FocusOption = {
@@ -302,6 +306,42 @@ export async function chooseFocus(
   ]);
 }
 
+/** The catalog slug to flip, or null when this connection is not actually saved. */
+async function connectedAppSlug(
+  deps: OnboardingDeps,
+  actor: Actor,
+  botId: string,
+  provider: string,
+  connectorId: string,
+): Promise<string | null> {
+  if (connectorId === MAILBOX_CONNECTOR_ID) {
+    if (!deps.secretStore) return null;
+    const saved = await loadSavedMailbox(deps.prisma, deps.secretStore, {
+      userId: actor.userId,
+      spaceId: actor.spaceId,
+    });
+    return saved ? provider : null;
+  }
+  const providerAdapter = deps.connectors.managed(connectorId);
+  if (!providerAdapter) return null;
+  const catalog = await providerAdapter.catalog(
+    {
+      operationId: "onboarding.appConnected",
+      traceId: "onboarding.appConnected",
+      spaceId: actor.spaceId,
+      userId: actor.userId,
+      botId,
+      signal: AbortSignal.timeout(15_000),
+    },
+    provider,
+  );
+  const entry = matchAppCatalog(
+    catalog.filter((item) => item.connectorId === connectorId),
+    provider,
+  );
+  return entry?.connected ? entry.slug : null;
+}
+
 export async function markAppConnected(
   deps: OnboardingDeps,
   actor: Actor,
@@ -322,24 +362,8 @@ export async function markAppConnected(
     if (target.kind !== "group" || !target.memberBotIds.includes(botId)) throw new IsolationError();
     thread = { ...ownThread, id: target.threadId };
   }
-  const providerAdapter = deps.connectors.managed(connectorId);
-  if (!providerAdapter) return;
-  const catalog = await providerAdapter.catalog(
-    {
-      operationId: "onboarding.appConnected",
-      traceId: "onboarding.appConnected",
-      spaceId: actor.spaceId,
-      userId: actor.userId,
-      botId,
-      signal: AbortSignal.timeout(15_000),
-    },
-    provider,
-  );
-  const entry = matchAppCatalog(
-    catalog.filter((item) => item.connectorId === connectorId),
-    provider,
-  );
-  if (!entry?.connected) return;
+  const slug = await connectedAppSlug(deps, actor, botId, provider, connectorId);
+  if (!slug) return;
   const target = { spaceId: actor.spaceId, botId: bot.id, threadId: thread.id };
   const updates = await deps.prisma.$transaction(async (tx) => {
     // Two authorizations may finish together on an onboarding message with multiple cards.
@@ -368,12 +392,11 @@ export async function markAppConnected(
       const blocks = message.blocks as MessageBlock[];
       if (
         !blocks.some(
-          (block) =>
-            matchesAppConnection(block, connectorId, entry.slug) && block.status !== "connected",
+          (block) => matchesAppConnection(block, connectorId, slug) && block.status !== "connected",
         )
       )
         continue;
-      const next = connectedAppBlocks(blocks, connectorId, entry.slug);
+      const next = connectedAppBlocks(blocks, connectorId, slug);
       await tx.message.update({ where: { id: message.id }, data: { blocks: next } });
       events.push(
         await appendEventInTransaction(tx, {

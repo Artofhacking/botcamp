@@ -40,7 +40,7 @@ test("tool activity shows for live and finished runs when the user turned it on"
       "aria-expanded",
       "true",
     );
-    await expect(liveCard.locator("button[aria-expanded]")).toContainText(/Working…\s*8 tools/);
+    await expect(liveCard.locator("button[aria-expanded]")).toContainText(/Thinking…\s*8 tools/);
     await expect(page.getByTestId("tool-rows-hidden")).toHaveText("+2 earlier steps");
     await expect(page.getByTestId("tool-rows")).not.toContainText("Open calendar");
     await expect(page.getByTestId("tool-rows")).toContainText("Check conflicts");

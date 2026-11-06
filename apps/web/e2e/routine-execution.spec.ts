@@ -10,32 +10,30 @@ import {
 } from "./helpers";
 
 test(
-  "Korean webhook routine keeps technical field labels in English",
+  "Simplified Chinese webhook routine keeps technical field labels in English",
   { tag: "@nightly" },
   async ({ page }, testInfo) => {
     const stamp = Date.now();
-    const userName = `Korean Routine ${stamp}`;
-    await signup(page, `routine-ko-${stamp}@rakazo.test`, "password12", userName);
+    const userName = `Chinese Routine ${stamp}`;
+    await signup(page, `routine-zh-${stamp}@rakazo.test`, "password12", userName);
     await completeOnboarding(page);
 
     await page.getByRole("button", { name: new RegExp(userName) }).click();
     await page.getByRole("button", { name: "Settings" }).click();
     const settings = page.getByTestId("user-settings");
     await settings.getByTestId("ui-locale-select").click();
-    await page.getByRole("option", { name: "한국어", exact: true }).click();
-    await page.getByRole("button", { name: "계정 설정 닫기" }).click();
+    await page.getByRole("option", { name: "简体中文", exact: true }).click();
+    await page.getByRole("button", { name: "关闭用户设置" }).click();
 
-    await openBotPanelTab(page, "자동 실행");
-    await page.getByRole("button", { name: "자동 실행 만들기" }).click();
-    await page.getByPlaceholder("이 루틴의 이름을 정하세요").fill("한국어 웹훅 확인");
-    await page
-      .getByPlaceholder("이 루틴이 실행될 때마다 무엇을 해야 하나요?")
-      .fill("웹훅을 확인합니다.");
-    await page.getByRole("button", { name: "트리거 추가" }).click();
-    await page.getByRole("menuitem", { name: "웹훅", exact: true }).click();
+    await openBotPanelTab(page, "例行任务");
+    await page.getByRole("button", { name: "新建例行任务" }).click();
+    await page.getByPlaceholder("给这个例行任务命名").fill("中文 Webhook 确认");
+    await page.getByPlaceholder("每次运行时，这个例行任务应做什么？").fill("确认 Webhook。");
+    await page.getByRole("button", { name: "添加触发器" }).click();
+    await page.getByRole("menuitem", { name: "Webhook", exact: true }).click();
 
-    await expect(page.getByText("웹훅이 실행될 때", { exact: true })).toBeVisible();
-    await expect(page.getByText("POST 대상")).toBeVisible();
+    await expect(page.getByText("当 Webhook 触发时", { exact: true })).toBeVisible();
+    await expect(page.getByText("POST 到")).toBeVisible();
     await expect(page.getByText("key", { exact: true })).toBeVisible();
     await expect(page.getByText("header")).toBeVisible();
     await captureScreenshot(page, testInfo, "routine-webhook-ko");

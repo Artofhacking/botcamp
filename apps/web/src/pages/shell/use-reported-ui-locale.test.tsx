@@ -25,7 +25,7 @@ beforeEach(async () => {
       UI_LOCALES.map((locale) => [locale, async () => ({ messages: {} })]),
     ) as never,
   );
-  await activateUiLocale("es");
+  await activateUiLocale("zh-CN");
   update.mockClear();
   container = document.createElement("div");
   document.body.append(container);
@@ -41,15 +41,15 @@ afterEach(() => {
 
 it("saves the app language when the account has another, then each one picked", async () => {
   act(() => root.render(<Reporter saved="en" />));
-  expect(update).toHaveBeenCalledWith({ locale: "es" });
+  expect(update).toHaveBeenCalledWith({ locale: "zh-CN" });
 
-  await act(() => activateUiLocale("de"));
-  expect(update).toHaveBeenLastCalledWith({ locale: "de" });
+  await act(() => activateUiLocale("en"));
+  expect(update).toHaveBeenLastCalledWith({ locale: "en" });
   expect(update).toHaveBeenCalledTimes(2);
 });
 
 it("leaves a matching account and an older server alone", async () => {
-  act(() => root.render(<Reporter saved="es" />));
+  act(() => root.render(<Reporter saved="zh-CN" />));
   act(() => root.render(<Reporter saved={undefined} />));
   await act(() => activateUiLocale("fr"));
   expect(update).not.toHaveBeenCalled();

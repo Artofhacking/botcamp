@@ -18,6 +18,7 @@ import { screenIframeSandbox } from "../../lib/computer-screen";
 import { computerTakeoverBlocked } from "../../lib/thread-events";
 import { ComputerReleaseActions } from "./computer-release-actions";
 import { computerLabel, DesktopKindEmptyState } from "./computer-view";
+import { TakeoverPrompt } from "./takeover-prompt";
 
 type ComputerOverlayProps = {
   bot: Bot;
@@ -41,6 +42,9 @@ type ComputerOverlayProps = {
   onStopRun: () => void;
   onRelease: (reason?: ComputerReleaseReason) => Promise<void>;
   onTakeControl: () => void;
+  /** Set while control waits for the person to confirm the note at the top. */
+  takeoverPrompt?: boolean;
+  onConfirmTakeover?: (remember: boolean) => void;
   onStart: () => void;
   onRefreshTeaching: () => Promise<void>;
   onRefreshComputer: () => Promise<void>;
@@ -68,11 +72,17 @@ export function ComputerOverlay({
   onStopRun,
   onRelease,
   onTakeControl,
+  takeoverPrompt = false,
+  onConfirmTakeover,
   onStart,
   onRefreshTeaching,
   onRefreshComputer,
   onClose,
 }: ComputerOverlayProps) {
+  const showTakeControl =
+    !takeoverPrompt &&
+    computer?.state === "running" &&
+    !computerTakeoverBlocked(computer, runStatus);
   return (
     <div className="fixed inset-0 z-30 bg-background">
       <div
@@ -141,7 +151,7 @@ export function ComputerOverlay({
                 takeoverRequested={Boolean(computer?.takeoverRequested)}
                 onRelease={onRelease}
               />
-            ) : computer?.state === "running" && !computerTakeoverBlocked(computer, runStatus) ? (
+            ) : showTakeControl ? (
               <Button
                 type="button"
                 variant="outline"
@@ -181,6 +191,12 @@ export function ComputerOverlay({
             </Button>
           </div>
         </div>
+        {takeoverPrompt && onConfirmTakeover ? (
+          <TakeoverPrompt
+            disabled={booting || computer?.state !== "running"}
+            onConfirm={onConfirmTakeover}
+          />
+        ) : null}
         {sendError ? (
           <div
             role="alert"

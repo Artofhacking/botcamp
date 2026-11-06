@@ -264,6 +264,16 @@ describe("skill tools", () => {
       // / picker truncates at 72; keep descriptions short so "review only" stays visible.
       expect(skill.description.length).toBeLessThanOrEqual(72);
     }
+    const botcamp = BUILTIN_AGENT_SKILLS.find((skill) => skill.name === "BotCamp");
+    expect(botcamp?.description).toBe("如何使用 BotCamp");
+    expect(botcamp?.content.toLowerCase()).not.toContain("rakazo");
+    expect(botcamp?.content).toContain("# Getting started");
+    expect(botcamp?.content).toContain("QQ邮箱");
+    expect(botcamp?.content).toContain("**Test and save**");
+    expect(botcamp?.content).not.toContain("**Browse**");
+    expect(botcamp?.content).not.toContain("Settings → Models");
+    expect(botcamp?.content).not.toContain("## Billing on BotCamp");
+    expect(botcamp!.content.length).toBeGreaterThan(20_000);
 
     const records = await listAgentSkillRecords(prisma as never, owner);
     const interrogate = records.find((row) => row.name === "Interrogate");

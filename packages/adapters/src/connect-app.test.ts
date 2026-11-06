@@ -143,3 +143,41 @@ it("treats an app connected through a later provider as connected", async () => 
   expect(result).toMatchObject({ status: "connected" });
   expect(stored).toHaveLength(0);
 });
+
+it("shows a mailbox card without asking a connector catalog", async () => {
+  const f = fixture();
+  const result = await connectApp(f.deps, f.providers, f.context, f.target, "QQ邮箱", "effect");
+  expect(f.catalog).not.toHaveBeenCalled();
+  expect(result).toMatchObject({ status: "pending" });
+  expect(stored[0]?.blocks[0]).toMatchObject({
+    kind: "app_connect",
+    connectorId: "mailbox",
+    provider: "mailbox",
+    name: "QQ邮箱",
+    description: "Read mail. Sending works only when that permission was saved.",
+    status: "pending",
+  });
+});
+
+it("reports a saved mailbox as already connected", async () => {
+  const f = fixture();
+  const result = await connectApp(
+    f.deps,
+    f.providers,
+    f.context,
+    f.target,
+    "qq mail",
+    "effect",
+    true,
+  );
+  expect(f.catalog).not.toHaveBeenCalled();
+  expect(result).toMatchObject({ status: "connected" });
+  expect(stored).toHaveLength(0);
+});
+
+it("does not treat an unrelated name as the mailbox", async () => {
+  const f = fixture([]);
+  await expect(f.call("qq")).resolves.toHaveProperty("error");
+  expect(f.catalog).toHaveBeenCalled();
+  expect(stored).toHaveLength(0);
+});

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import type {
   AgentModelOAuthCredential,
@@ -207,6 +208,18 @@ async function probeCached(
     });
   inflight.set(key, request);
   return request;
+}
+
+/** OpenCode Go usage for one key. A failed read is `unknown`, not empty. */
+export async function openCodeUsageVerdict(
+  apiKey: string,
+  fetcher: typeof fetch = globalThis.fetch,
+  now = Date.now(),
+): Promise<ProbeVerdict> {
+  const key = usableKey(apiKey);
+  if (!key) return "unavailable";
+  const digest = createHash("sha256").update(key).digest("hex").slice(0, 12);
+  return probeCached(`opencode-go:${digest}`, () => probeOpenCode(key, fetcher), now);
 }
 
 async function probeOpenCode(apiKey: string, fetcher: typeof fetch): Promise<ProbeVerdict> {

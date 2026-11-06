@@ -5,6 +5,9 @@ export const UI_LOCALES = AppLocaleSchema.options;
 
 export type UiLocale = (typeof UI_LOCALES)[number];
 
+/** The settings switch offers only these. Other tags resolve to one of them. */
+export const UI_LOCALE_CHOICES = ["zh-CN", "en"] as const satisfies readonly UiLocale[];
+
 export const UI_LOCALE_STORAGE_KEY = "rakazo.uiLocale";
 
 export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
@@ -24,9 +27,13 @@ export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
   ja: "日本語",
 };
 
-/** Normalize BCP-47 tags (`de-DE`, `ko-KR`, `pt-BR`, `zh-CN`, `es-ES`) to a supported UI locale, else `en`. */
+/**
+ * Normalize a BCP-47 tag to a language the switch offers.
+ * Any Chinese tag, including Traditional, becomes Simplified Chinese. Anything else becomes English.
+ */
 export function normalizeUiLocale(raw: string | null | undefined): UiLocale {
-  return matchUiLocale(raw, UI_LOCALES);
+  const matched = matchUiLocale(raw, UI_LOCALES);
+  return matched === "zh-CN" || matched === "zh-TW" ? "zh-CN" : "en";
 }
 
 function readStoredLocale(storage: Pick<Storage, "getItem"> | null | undefined): string | null {

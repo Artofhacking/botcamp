@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { DesktopUpdateState } from "@rakazo/contracts";
+import type { BotCampDesktop, DesktopUpdateState } from "@rakazo/contracts";
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -43,6 +43,20 @@ afterEach(() => {
   delete window.rakazoDesktop;
   delete window.__RAKAZO_API_ORIGIN__;
 });
+
+function desktopBridge(update: BotCampDesktop["update"]): BotCampDesktop {
+  return {
+    platform: "win32",
+    window: {
+      close: async () => {},
+      minimize: async () => {},
+      toggleMaximize: async () => {},
+      state: async () => ({ minimized: false, maximized: false, fullScreen: false }),
+    },
+    oauth: { onCallback: () => () => {} },
+    update,
+  };
+}
 
 it("checks the installed desktop release and offers that platform's installer", async () => {
   installWindowsAgent();
@@ -121,15 +135,12 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     message: "自动更新仅在已安装的版本中运行。",
     checkedAt: null,
   };
-  window.rakazoDesktop = {
-    platform: "win32",
-    update: {
-      state: async () => unsupported,
-      check: async () => unsupported,
-      download: async () => unsupported,
-      install: async () => unsupported,
-    },
-  };
+  window.rakazoDesktop = desktopBridge({
+    state: async () => unsupported,
+    check: async () => unsupported,
+    download: async () => unsupported,
+    install: async () => unsupported,
+  });
   vi.stubGlobal("fetch", async (url: string) => {
     if (String(url).endsWith("/downloads/latest.json")) {
       return {
@@ -211,15 +222,12 @@ it("downloads a newer build inside an app that has an update feed", async () => 
     checkedAt: "2026-11-05T00:00:00.000Z",
   };
   const install = vi.fn(async () => ready);
-  window.rakazoDesktop = {
-    platform: "win32",
-    update: {
-      state: async () => ready,
-      check: async () => ready,
-      download: async () => ready,
-      install,
-    },
-  };
+  window.rakazoDesktop = desktopBridge({
+    state: async () => ready,
+    check: async () => ready,
+    download: async () => ready,
+    install,
+  });
   const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
   try {
     await view.show();

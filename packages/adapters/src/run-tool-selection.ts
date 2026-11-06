@@ -38,6 +38,9 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "list_secrets",
   "cloud_agent_status",
   "purchase_status",
+  "mailbox_list",
+  "mailbox_get",
+  "mailbox_search",
 ]);
 
 /** Offered only to a user who connected a wallet. */
@@ -56,6 +59,20 @@ export const FLEET_WRITE_TOOL_NAMES_SET: ReadonlySet<string> = new Set(FLEET_WRI
  * every tool (see commitAnswerRunInput).
  */
 const CREATED_RUN_TOOL_NAMES = new Set(["ask_user", "update_bot"]);
+
+const MAILBOX_READ_TOOLS = new Set(["mailbox_list", "mailbox_get", "mailbox_search"]);
+
+function mailboxToolAllowed(
+  name: string,
+  mode: "read" | "send" | undefined,
+  messagingChannelRun: boolean,
+): boolean {
+  const mailboxTool = MAILBOX_READ_TOOLS.has(name) || name === "mailbox_send";
+  if (!mailboxTool) return true;
+  if (messagingChannelRun || !mode) return false;
+  if (name === "mailbox_send") return mode === "send";
+  return true;
+}
 
 export function selectBuiltinToolsForRun(options: {
   ticketBoardEnabled?: boolean;
@@ -86,9 +103,12 @@ export function selectBuiltinToolsForRun(options: {
   userComputer?: boolean;
   /** That desktop can look at and drive its apps. */
   userComputerScreen?: boolean;
+  /** A mailbox saved for this run's user. Sending is offered only when the connection includes it. */
+  mailbox?: "read" | "send";
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   const ownerStartedRun = isOwnerStartedRun(options.trigger, Boolean(options.followUpFromUser));
+  const mailboxMode = options.mailbox;
   return selectCloudAgentTools(
     selectMemoryTools(
       filterBuiltinToolsForRun(
@@ -140,6 +160,7 @@ export function selectBuiltinToolsForRun(options: {
         tool.name !== "call_user") &&
       (options.historyRetrievalEnabled ||
         !["search_history", "read_history"].includes(tool.name)) &&
+      mailboxToolAllowed(tool.name, mailboxMode, options.messagingChannelRun) &&
       (!options.messagingChannelRun ||
         (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
           !SKILL_TOOL_NAMES.has(tool.name) &&

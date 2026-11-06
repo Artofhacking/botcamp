@@ -12,8 +12,6 @@ Open **Settings → Approvals** and pick a **Mode**:
   ahead; the bot asks when one is off-task, or can't be undone and you didn't ask for it.
 - **Never ask**: every action runs without waiting.
 
-**Auto** needs an **Approval model**, set in **Settings → Models**. See [Models](./models.md).
-
 > [!TIP]
 > Start with **Ask** or **Auto**. As you approve the same action again and again, choose
 > **Always allow** on the card and the bot stops asking for that one.

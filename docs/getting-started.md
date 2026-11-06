@@ -5,16 +5,15 @@ computer, and keeps working on the web, desktop, and mobile apps.
 
 ## Create your first bot
 
-1. Sign in at [botcamp.demox.site](https://botcamp.demox.site), or run your own instance with the
-   [self-hosting guide](./self-host.md).
+1. Sign in at [botcamp.demox.site](https://botcamp.demox.site). To run BotCamp on your own computer,
+   use the [desktop app](./desktop-app.md).
 2. Tell the bot its job in plain words. It asks for anything else it needs.
 
 More in [Bots and chats](./bots-and-chats.md).
 
 ## Connect your apps
 
-Bots work in the apps you already use: Gmail, Slack, Notion, GitHub, and
-[1,400+ more](/integrations/). Ask a bot to connect one and approve the sign-in it sends you. See
+Choose **Connect apps** and connect **QQ邮箱** when you want that mailbox saved on the account. See
 [Connect apps](./integrations.md).
 
 ## Give it a schedule

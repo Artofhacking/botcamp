@@ -21,7 +21,12 @@ export function shouldOpenInAppPopup(
   if (childUrl === "about:blank" && frameName === "rakazo-sso-oauth") return true;
 
   const isHttp = target.protocol === "http:" || target.protocol === "https:";
-  if (appOrigin !== null && target.origin === appOrigin) return isHttp;
+  // The public homepage is a different page. A new window for it opens in the
+  // system browser, which does not carry the app's user agent.
+  if (appOrigin !== null && target.origin === appOrigin) {
+    if (target.pathname === "/" || target.pathname === "") return false;
+    return isHttp;
+  }
   return target.protocol === "https:" && OAUTH_POPUP_NAMES.has(frameName);
 }
 

@@ -42,6 +42,7 @@ import {
   screenReadLoaded,
   userHoldsComputerControl,
 } from "../../lib/thread-events";
+import { dismissTakeoverHint, takeoverHintDismissed, takeoverNeedsConfirm } from "./takeover-hint";
 import { errorText } from "../../lib/user-error";
 
 // Caps the per-bot computer cache so a long session that opens many distinct bots
@@ -420,6 +421,7 @@ export function useComputerControls({
   const { t } = useLingui();
   const {
     computer,
+    computerRef,
     commitComputer,
     computerCacheRef,
     cacheComputerFor,
@@ -473,6 +475,10 @@ export function useComputerControls({
   }, [computerBot?.id, screenUrl]);
   const computerBootEpoch = useRef(0);
   const autoBooted = useRef<string | null>(null);
+  const [takeoverPrompt, setTakeoverPrompt] = useState(false);
+  useEffect(() => {
+    if (!computerOpen) setTakeoverPrompt(false);
+  }, [computerOpen]);
 
   async function bootComputer({
     botId: targetBotId,
@@ -628,8 +634,11 @@ export function useComputerControls({
     return () => window.clearInterval(timer);
   }, [panel, computerOpen, computerBot?.id, active?.id, computer?.state]);
 
-  /** Open the computer view. Only an explicit Take control asks for the lease. */
-  async function openComputer(botId?: string, takeControl = false) {
+  /**
+   * Open the computer view. Take control asks for the lease, after the note at the top
+   * until that note is turned off. `confirmed` is that note's own button.
+   */
+  async function openComputer(botId?: string, takeControl = false, confirmed = false) {
     const id = botId ?? active?.id;
     if (!id) return false;
     const bot = botsRef.current.find((candidate) => candidate.id === id);
@@ -648,20 +657,38 @@ export function useComputerControls({
     const bootInFlight = bootsInFlight.current.has(id) || targetComputer?.state === "booting";
     setComputerOpen(true);
     computerVisible.current = true;
+    const holdsControl = userHoldsComputerControl(targetComputer, id);
+    const blocked = computerTakeoverBlocked(targetComputer, runStatus);
+    if (confirmed && blocked) {
+      setComputerError(t`Could not take control`);
+      setComputerErrorFromScreen(false);
+      return false;
+    }
+    const confirmFirst = takeoverNeedsConfirm({
+      requested: takeControl,
+      holdsControl,
+      blocked,
+      dismissed: confirmed || takeoverHintDismissed(),
+    });
+    if (confirmFirst) setTakeoverPrompt(true);
+    else if (!takeControl) setTakeoverPrompt(false);
     if (bootInFlight && !takeControl) {
       // An external boot may have finished since this snapshot was cached.
       if (!bootsInFlight.current.has(id)) await refreshComputerFor(id).catch(() => undefined);
       return true;
     }
-    const needsTakeover = takeControl && !userHoldsComputerControl(targetComputer, id);
-    const blocked = computerTakeoverBlocked(targetComputer, runStatus);
+    const grant = takeControl && !holdsControl && !blocked && !confirmFirst;
     try {
       await bootComputer({
         botId: id,
-        takeControl: needsTakeover && !blocked,
-        showProgress: (needsTakeover && !blocked) || targetComputer?.state !== "running",
+        takeControl: grant,
+        showProgress: grant || targetComputer?.state !== "running",
         force: targetComputer?.state !== "running",
       });
+      // A boot can report that control is already held. The note is no longer the gate.
+      if (confirmFirst && userHoldsComputerControl(computerRef.current, id)) {
+        setTakeoverPrompt(false);
+      }
       return true;
     } catch {
       // computerError already set in bootComputer
@@ -670,9 +697,18 @@ export function useComputerControls({
   }
   const openComputerRef = useRef(openComputer);
   openComputerRef.current = openComputer;
-  const onOpenComputer = useCallback((botId?: string) => {
-    void openComputerRef.current(botId);
+  const onOpenComputer = useCallback((botId?: string, takeControl?: boolean) => {
+    void openComputerRef.current(botId, takeControl === true);
   }, []);
+
+  async function confirmTakeover(remember: boolean) {
+    const id = computerBotIdRef.current ?? activeBotId.current;
+    if (!id) return;
+    const opened = await openComputer(id, true, true);
+    if (!opened || !userHoldsComputerControl(computerRef.current, id)) return;
+    if (remember) dismissTakeoverHint();
+    setTakeoverPrompt(false);
+  }
 
   async function releaseComputer(reason?: ComputerReleaseReason) {
     const botId = computerBotIdRef.current ?? activeBotId.current;
@@ -783,6 +819,8 @@ export function useComputerControls({
     computerBot,
     openComputer,
     onOpenComputer,
+    takeoverPrompt,
+    confirmTakeover,
     releaseComputer,
     refreshComputerFor,
     holdComputerRecovery,

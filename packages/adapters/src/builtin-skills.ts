@@ -1,4 +1,83 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildSkillMd } from "@rakazo/core";
+
+/** Walk up from this module so a bundled server file still finds the repo docs. */
+function docsDirectory(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, "docs", "getting-started.md"))) return join(dir, "docs");
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("BotCamp docs directory was not found.");
+}
+
+const DOC_FILES = [
+  "getting-started.md",
+  "bots-and-chats.md",
+  "import-an-agent.md",
+  "integrations.md",
+  "messaging-apps.md",
+  "routines.md",
+  "computer.md",
+  "memory.md",
+  "skills.md",
+  "approvals.md",
+  "groups.md",
+  "spaces.md",
+  "bot-secrets.md",
+  "account.md",
+  "desktop-app.md",
+  "mobile-app.md",
+  "fleet-management.md",
+  "build-a-plugin.md",
+] as const;
+
+/** Operator env names stay in the docs. The skill text must not carry the old product name. */
+function skillPage(file: string, text: string): string {
+  let page = text.trim();
+  if (file === "account.md") {
+    const billing = page.indexOf("\n## Billing on BotCamp");
+    if (billing >= 0) page = page.slice(0, billing).trim();
+  }
+  if (file === "bot-secrets.md") {
+    page = page
+      .replace(
+        "Self-hosted deployments can set `RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP=1` to also allow",
+        "Self-hosted deployments can also allow",
+      )
+      .replace(
+        "names beginning with `LD_`, `DYLD_`, `RAKAZO_`, `GIT_CONFIG_` or `NPM_CONFIG_`",
+        "names beginning with `LD_`, `DYLD_`, `GIT_CONFIG_` or `NPM_CONFIG_`, and the server's own reserved prefix",
+      )
+      .replace(
+        "The origin must be HTTPS: `RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP` does not apply to website logins.",
+        "The origin must be HTTPS. Allowing private HTTP does not apply to website logins.",
+      );
+  }
+  if (page.toLowerCase().includes("rakazo")) {
+    page = page
+      .split(/\n{2,}/)
+      .filter((paragraph) => !paragraph.toLowerCase().includes("rakazo"))
+      .join("\n\n")
+      .trim();
+  }
+  return page;
+}
+
+function documentation(): string {
+  const root = docsDirectory();
+  return DOC_FILES.map((file) => {
+    const path = join(root, file);
+    if (!existsSync(path)) throw new Error(`BotCamp doc ${file} was not found.`);
+    return skillPage(file, readFileSync(path, "utf8"));
+  })
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+}
 
 const BOTCAMP_DOCS: ReadonlyArray<readonly [topics: string, url: string]> = [
   ["Getting started, first bot, what BotCamp does", "https://botcamp.demox.site/docs.md"],
@@ -66,10 +145,10 @@ const SKILLS: Array<{ name: string; description: string; body: string }> = [
   },
   {
     name: "BotCamp",
-    description: "How to use or set up BotCamp: chat apps, your computer, billing, hosting",
-    body: `Answer questions about BotCamp itself from its docs. Fetch the matching page with web_fetch before answering, then answer briefly in your own words and link the page. If fetching fails or is unavailable, answer only what this index says and link the page. Never invent menus, buttons, or steps the page doesn't show. Account-specific facts (credit balance, plan, usage) aren't in the docs: point to the screen that shows them.
+    description: "如何使用 BotCamp",
+    body: `Answer questions about BotCamp itself from the documentation below. Answer briefly in your own words. Never invent menus, buttons, or steps the documentation doesn't show. The documentation is already included here. This console's Settings does not include Models, Voice, or Billing. Account-specific facts (credit balance, plan, usage) aren't in the documentation: point to the screen that shows them.
 
-${BOTCAMP_DOCS.map(([topics, url]) => `- ${topics}: ${url}`).join("\n")}`,
+${documentation()}`,
   },
 ];
 

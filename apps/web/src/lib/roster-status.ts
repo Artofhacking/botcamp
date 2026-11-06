@@ -15,7 +15,7 @@ export function rosterWorkStatusLabel(status: string): string | null {
     case "leased":
       return t`Starting…`;
     case "running":
-      return t`Working…`;
+      return t`Thinking…`;
     default:
       return null;
   }

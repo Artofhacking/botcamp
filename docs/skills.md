@@ -14,7 +14,6 @@ Open the account menu (your avatar at the bottom of the sidebar) and choose **Sk
 
 - **Your skills** lists skills you or your bots have saved.
 - **Plugins** lists skill sets you've added from plugins.
-- **Browse** finds ready-made skills. Open one and choose **Add skills**.
 
 Skills you add are available to all your bots. Choose **New skill** to write one yourself: a name,
 a short description of when to use it, and the steps.
@@ -34,7 +33,7 @@ other bots, can repeat the task next time. A skill a bot saves is available to y
 
 Some tasks are easier to show than describe.
 
-1. Open the bot's computer with **Agent computer**.
+1. Open the bot's computer with **Computer**.
 2. Choose **Teach a task** and describe the result you will demonstrate, such as "Export this week's
    list from the CRM and drop it in the shared folder".
 3. Choose **Start recording** and do the task on the bot's screen. The bot watches but does not act.

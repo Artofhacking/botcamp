@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   captureScreenshot,
   completeOnboarding,
+  confirmTakeoverPrompt,
   expectCardWidth,
   openBotPanelTab,
   signup,
@@ -32,6 +33,7 @@ test("teach a task records interaction and saves a draft", async ({ page }, test
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();
   const chrome = page.getByTestId("computer-chrome");
   await chrome.getByRole("button", { name: "Take control", exact: true }).click();
+  await confirmTakeoverPrompt(page);
   await expect(chrome.getByText("You have control", { exact: true })).toBeVisible();
   await expect(chrome.getByRole("button", { name: "Release control", exact: true })).toBeVisible();
   await expect(chrome.getByTestId("teach-start-button")).toBeVisible();

@@ -4,6 +4,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
+  confirmTakeoverPrompt,
   openBotPanelTab,
   rpc,
   signup,
@@ -177,6 +178,7 @@ test("Retry screen clears a failed takeover on a running computer", async ({ pag
     .getByTestId("computer-chrome")
     .getByRole("button", { name: "Take control", exact: true })
     .click();
+  await confirmTakeoverPrompt(page);
   const alert = page.getByRole("alert");
   await expect(alert).toContainText("Takeover failed");
   await expect(screen).toHaveCount(0);

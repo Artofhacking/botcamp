@@ -639,8 +639,8 @@ export class PiAgentRuntime implements AgentRuntime {
             finishedCalls.delete(event.toolCallId);
             if (host.toolCallBudget.exceeded) return;
             toolCalls += 1;
-            // Live activity feedback: without this the thread shows a bare
-            // "working…" for the whole tool call with nothing actionable.
+            // Live status for the tool call. Shell lines are "Thinking…" and
+            // do not include the command.
             toolActivityShowing = true;
             queue.push({
               type: "progress",

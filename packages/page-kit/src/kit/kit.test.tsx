@@ -275,6 +275,24 @@ describe("page kit", () => {
     expect(phrases).toContain('<th scope="col">Rebate</th>');
   });
 
+  it("draws a {key, label} column and reads an object row through that key", () => {
+    const markup = html(
+      <Table
+        columns={[
+          { key: "name", label: "Name" },
+          { key: "mrr", label: "MRR" },
+        ]}
+        rows={[{ name: "Acme", mrr: 12 }, ["Globex", 4]]}
+      />,
+    );
+    expect(markup).toContain("<th scope=\"col\">Name</th>");
+    expect(markup).toContain('<th scope="col" class="rk-align-end">MRR</th>');
+    expect(markup).toContain("<td>Acme</td>");
+    expect(markup).toContain('<td class="rk-align-end">12</td>');
+    expect(markup).toContain("<td>Globex</td>");
+    expect(markup).not.toContain("[object Object]");
+  });
+
   it("marks a line chart's floor, middle and ceiling and thins x labels to fit", () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const markup = html(

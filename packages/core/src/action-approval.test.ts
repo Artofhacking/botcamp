@@ -72,6 +72,17 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresExplicitApproval("archive_bot")).toBe(false);
   });
 
+  it("asks before sending mail and lets mailbox reads through", () => {
+    expect(toolRequiresApproval("mailbox_send", false)).toBe(true);
+    expect(toolRequiresApproval("mailbox_list", false)).toBe(false);
+    expect(toolRequiresApproval("mailbox_get", false)).toBe(false);
+    expect(toolRequiresApproval("mailbox_search", false)).toBe(false);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_send", false)).toBe(true);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_list", false)).toBe(false);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_get", false)).toBe(false);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_search", false)).toBe(false);
+  });
+
   it("does not gate read-only or local work", () => {
     for (const name of [
       "list_files",

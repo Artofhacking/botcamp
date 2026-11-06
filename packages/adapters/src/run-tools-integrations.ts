@@ -2,6 +2,8 @@ import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
+import { isMailboxAppName } from "./mailbox-app.js";
+import { loadSavedMailbox } from "./mailbox-connection.js";
 import { addMcpServerFromTool } from "./mcp-server-tool.js";
 import type { RunContext } from "./run-context.js";
 import { runScopedToolExecutionId } from "./run-effects.js";
@@ -93,6 +95,15 @@ export const integrationTools: ToolHandlers = {
     const { args, executionId, applied } = call;
     await flushProgress(ctx);
     await showNarrationStatus(ctx, await publishMidTurnNarration(ctx, true));
+    const mailboxConnected =
+      typeof args.app === "string" && isMailboxAppName(args.app)
+        ? Boolean(
+            await loadSavedMailbox(deps.prisma, deps.secretStore, {
+              userId: run.userId,
+              spaceId: run.spaceId,
+            }).catch(() => null),
+          )
+        : false;
     return call.finish(
       await connectApp(
         deps,
@@ -101,6 +112,7 @@ export const integrationTools: ToolHandlers = {
         run,
         args.app,
         applied?.effect.id ?? runScopedToolExecutionId(runId, executionId),
+        mailboxConnected,
       ),
     );
   },

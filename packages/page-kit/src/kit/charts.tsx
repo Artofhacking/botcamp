@@ -16,7 +16,7 @@ import {
   ValueGrid,
   valueScale,
 } from "./dataviz.js";
-import { objectItems } from "./items.js";
+import { objectItems, show } from "./items.js";
 import { useWords } from "./labels.js";
 
 const PLOT = { top: 10, bottom: 22, right: 4 };
@@ -423,7 +423,7 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
             data-emphasis={chosen === "none" || chosen === index}
             data-negative={value < 0 || undefined}
           >
-            <span className="rk-bar-label">{bar.label}</span>
+            <span className="rk-bar-label">{show(bar.label)}</span>
             <span className="rk-bar-track">
               <span className="rk-bar-fill" style={{ width: `${(share * 100).toFixed(2)}%` }} />
             </span>
@@ -534,7 +534,7 @@ export function Pie({
           <div className="rk-pie-total" aria-hidden="true">
             <span className="rk-pie-total-figure">{totalText}</span>
             {label != null && label !== "" ? (
-              <span className="rk-pie-total-label">{label}</span>
+              <span className="rk-pie-total-label">{show(label)}</span>
             ) : null}
           </div>
         ) : null}
@@ -547,9 +547,9 @@ export function Pie({
             data-emphasis={index === largest || undefined}
           >
             <span className="rk-pie-value">
-              {part.display ?? formatValue(part.value, undefined, undefined, words)}
+              {show(part.display) ?? formatValue(part.value, undefined, undefined, words)}
             </span>
-            <span className="rk-pie-label">{part.label}</span>
+            <span className="rk-pie-label">{show(part.label)}</span>
             <span className="rk-pie-share">{percent(share)}</span>
           </li>
         ))}

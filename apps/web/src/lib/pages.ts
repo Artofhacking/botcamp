@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { apiOrigin, apiUrl } from "./api-origin";
 import { useSpaceQueries } from "./query";
 import { errorCode } from "./user-error";
 
@@ -47,10 +48,29 @@ function subscribeTheme(onChange: () => void) {
   return () => observer.disconnect();
 }
 
+function runtimeUrl(): string {
+  const api = apiUrl(PAGE_RUNTIME_PATH);
+  const here = window.location?.origin ?? "";
+  // The console and the API are different hosts. Serve the kit this console was built with,
+  // so a page still draws when the API process is running an older one.
+  return here && apiOrigin() !== here ? new URL("/page-runtime.js", here).href : api;
+}
+
+function isPageRuntime(text: string): boolean {
+  return text.includes("BotCampPage") || text.includes("RakazoPage");
+}
+
 async function fetchPageRuntime(): Promise<string> {
-  const response = await fetch(PAGE_RUNTIME_PATH);
-  if (!response.ok) throw new Error(`Page runtime returned ${response.status}`);
-  return response.text();
+  const api = apiUrl(PAGE_RUNTIME_PATH);
+  const shipped = runtimeUrl();
+  const response = await fetch(shipped, { credentials: "omit" });
+  const text = response.ok ? await response.text() : "";
+  // A missing file on the static host comes back as the site's HTML.
+  if (response.ok && (shipped === api || isPageRuntime(text))) return text;
+  if (shipped === api) throw new Error(`Page runtime returned ${response.status}`);
+  const fallback = await fetch(api, { credentials: "omit" });
+  if (!fallback.ok) throw new Error(`Page runtime returned ${fallback.status}`);
+  return fallback.text();
 }
 
 /**

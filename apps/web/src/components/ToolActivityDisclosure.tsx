@@ -107,7 +107,7 @@ export function ToolActivityDisclosure({
           className="transition-transform duration-150 group-data-panel-open:rotate-90 motion-reduce:transition-none"
         />
         <span className="flex items-center gap-2">
-          <span>{live ? <Trans>Working…</Trans> : <Trans>Done</Trans>}</span>
+          <span>{live ? <Trans>Thinking…</Trans> : <Trans>Done</Trans>}</span>
           <span>
             <Plural value={toolCount} one="# tool" other="# tools" />
           </span>

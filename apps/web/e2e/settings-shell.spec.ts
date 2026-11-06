@@ -9,18 +9,15 @@ test("changing language updates settings overflow without resizing", async ({ pa
   // Below the desktop breakpoint, where the section list scrolls sideways.
   await page.setViewportSize({ width: 640, height: 700 });
   const nav = settings.getByTestId("settings-nav");
-  const next = settings.getByRole("button", { name: "Next settings sections" });
   const overflow = () => nav.evaluate((node) => node.scrollWidth - node.clientWidth);
   const english = await overflow();
 
   const language = settings.getByTestId("ui-locale-select");
   await language.click();
-  await page.getByRole("option", { name: "Deutsch", exact: true }).click();
-  await expect(settings.getByRole("heading", { name: "Allgemein", exact: true })).toBeVisible();
-  // Longer German labels overflow further, and the scroll control follows without a resize.
-  await expect.poll(overflow).toBeGreaterThan(english);
-  await expect(next).toBeVisible();
-  await expect(next).toBeEnabled();
+  await page.getByRole("option", { name: "简体中文", exact: true }).click();
+  await expect(settings.getByRole("heading", { name: "通用", exact: true })).toBeVisible();
+  // Shorter Chinese labels overflow less, and the scroll measurement follows without a resize.
+  await expect.poll(overflow).toBeLessThan(english);
   await captureScreenshot(page, testInfo, "settings-tabs-language-overflow");
 
   await language.click();

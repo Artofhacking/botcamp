@@ -30,12 +30,12 @@ test("needs-you computer card opens a group member bot computer", async ({ page 
   await expect(card).toBeVisible();
   await expect(card.getByText("Computer", { exact: true })).toBeVisible();
   await expect(card.getByText("Needs you", { exact: true })).toBeVisible();
-  const open = card.getByTestId("computer-card-open");
-  await expect(open).toBeVisible();
-  await expect(open).toHaveText("Open");
+  const takeover = card.getByTestId("computer-card-takeover");
+  await expect(takeover).toBeVisible();
+  await expect(takeover).toHaveText("Take control");
   await captureScreenshot(page, testInfo, "computer-needs-you-card-group");
 
-  await open.click();
+  await takeover.click();
   await expect(page).toHaveURL(new RegExp(`/app/g/${group.id}`));
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();
   await expect(page.getByTestId("computer-viewport")).toBeVisible();

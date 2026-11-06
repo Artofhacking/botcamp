@@ -3,96 +3,319 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
     <title>BotCamp 管理后台</title>
+    <link rel="icon" href="/console/favicon.ico" sizes="any" />
     <style>
-      :root { color-scheme: dark; }
+      :root {
+        color-scheme: light;
+        --ground: #e6e8e4;
+        --ticket: #f3efe4;
+        --ink: #1a1e1b;
+        --muted: #4e5852;
+        --line: #c5cbc6;
+        --chassis: #1a2420;
+        --chassis-text: #eef2ee;
+        --chassis-muted: #b7c2bb;
+        --danger: #8d2f2a;
+        --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+        --mono: "SF Mono", ui-monospace, "Sarasa Mono SC", Menlo, Consolas, monospace;
+      }
       * { box-sizing: border-box; }
-      body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif;
-             background: #0b0c0f; color: #e7e9ee; }
-      header { display: flex; align-items: center; gap: 16px; padding: 16px 24px;
-               border-bottom: 1px solid #23252b; position: sticky; top: 0; background: #0b0c0f; }
-      h1 { font-size: 16px; margin: 0; font-weight: 600; }
-      .muted { color: #8b90a0; }
-      main { padding: 24px; max-width: 1100px; margin: 0 auto; }
-      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-      .card { background: #14161b; border: 1px solid #23252b; border-radius: 10px; padding: 14px; }
-      .card .label { font-size: 12px; color: #8b90a0; }
-      .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #14161b;
-              border: 1px solid #23252b; border-radius: 10px; overflow: hidden; }
-      th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #23252b; font-size: 13px; }
-      th { background: #171a20; color: #9aa0b0; font-weight: 500; }
-      tr:last-child td { border-bottom: none; }
-      select { background: #0b0c0f; color: #e7e9ee; border: 1px solid #2c3039;
-               border-radius: 6px; padding: 6px 8px; }
-      input[type="number"] { width: 120px; background: #0b0c0f; color: #e7e9ee;
-                             border: 1px solid #2c3039; border-radius: 6px; padding: 6px 8px; }
-      button { background: #2b6cff; color: #fff; border: none; border-radius: 6px;
-               padding: 6px 12px; cursor: pointer; font-size: 13px; }
-      button:hover { background: #3f7bff; }
-      button.ghost { background: #1d2027; border: 1px solid #2c3039; }
-      .bar { height: 6px; background: #23252b; border-radius: 3px; overflow: hidden; width: 120px; }
-      .bar > i { display: block; height: 100%; background: #2b6cff; }
-      .row { display: flex; align-items: center; gap: 8px; }
-      .toast { position: fixed; bottom: 20px; right: 20px; background: #14161b;
-               border: 1px solid #2c3039; padding: 10px 14px; border-radius: 8px; opacity: 0;
-               transition: opacity .2s; }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font: 15px/1.5 var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: inherit; }
+      :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: color-mix(in srgb, var(--ground) 88%, transparent);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--line);
+      }
+      .bar, main { max-width: 1120px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+      .bar { min-height: 64px; display: flex; align-items: center; gap: 14px; }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.02em; text-decoration: none; }
+      .brand img { width: 28px; height: 28px; border-radius: 8px; display: block; }
+      .title { font-weight: 640; letter-spacing: -0.03em; }
+      .spacer { flex: 1; }
+      #who { font: 12px/1.3 var(--mono); color: var(--muted); white-space: nowrap; }
+      main { padding-top: 28px; padding-bottom: 72px; }
+      button, select, input { font: inherit; color: var(--ink); }
+      button { cursor: pointer; }
+      button.ghost, button.search {
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 7px 14px;
+      }
+      button.ghost:hover, button.search:hover, select:hover { border-color: var(--ink); }
+      button.save {
+        background: var(--ink);
+        color: var(--ticket);
+        border: 0;
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-weight: 600;
+      }
+      button:disabled { opacity: 0.45; cursor: default; }
+
+      .chassis {
+        background: var(--chassis);
+        color: var(--chassis-text);
+        border-radius: 18px;
+        padding: 18px 20px 16px;
+      }
+      .chassis-head { display: flex; align-items: center; gap: 10px; }
+      .chassis-head strong { font-size: 18px; font-weight: 620; letter-spacing: -0.03em; }
+      .lamp {
+        width: 8px;
+        height: 8px;
+        border: 1.5px solid var(--ticket);
+        border-radius: 1px;
+        flex: none;
+      }
+      .lamp[data-on="true"] { background: var(--ticket); }
+      #live-note { margin: 12px 0 2px; color: var(--chassis-muted); }
+      .pods { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+      .pods:empty { display: none; }
+      .pod {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1 1 240px;
+        max-width: 100%;
+        padding: 10px 12px;
+        border: 1px solid color-mix(in srgb, var(--chassis-text) 18%, transparent);
+        border-radius: 12px;
+      }
+      .pod strong { display: block; font-weight: 620; }
+      .pod .id, .pod .run { font: 12px/1.3 var(--mono); color: var(--chassis-muted); }
+      .pod .id { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pod .run { margin-left: auto; white-space: nowrap; }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        margin-top: 22px;
+        background: var(--ticket);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .stat { padding: 14px 16px 16px; box-shadow: inset -1px -1px 0 var(--line); }
+      .stat .label { font: 12px/1.2 var(--mono); color: var(--muted); }
+      .stat .value { margin-top: 8px; font-size: 22px; font-weight: 620; letter-spacing: -0.03em; }
+
+      .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
+      .toolbar label { font-weight: 640; letter-spacing: -0.02em; }
+      .toolbar input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 9px 14px;
+      }
+      .sheet {
+        margin-top: 12px;
+        background: var(--ticket);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: auto;
+      }
+      .models { margin-top: 22px; }
+      .models .sheet { margin-top: 10px; }
+      .models table { width: 100%; }
+      .models .row-actions { display: flex; gap: 6px; }
+      .models button.ghost { padding: 4px 10px; }
+      table { width: max(100%, 960px); border-collapse: collapse; }
+      th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+      th { font: 12px/1.2 var(--mono); font-weight: 500; color: var(--muted); }
+      tr:last-child td { border-bottom: 0; }
+      .who strong { font-weight: 620; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .danger { color: var(--danger); white-space: nowrap; }
+      .meter { height: 4px; margin-top: 6px; background: var(--line); border-radius: 1px; }
+      .meter > i { display: block; height: 100%; background: var(--ink); }
+      select {
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+      .quota { white-space: nowrap; }
+
+      .gate {
+        background: var(--ticket);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 28px;
+      }
+      .gate p { margin: 0; }
+      .gate a {
+        display: inline-block;
+        margin-top: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        border-bottom: 1px solid var(--ink);
+      }
+      .toast {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        max-width: min(360px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: var(--chassis);
+        color: var(--chassis-text);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
       .toast.show { opacity: 1; }
-      .danger { color: #ff6b6b; }
+      .toast.error { color: #f0c8c4; }
+      @media (max-width: 720px) {
+        .bar { flex-wrap: wrap; align-items: center; row-gap: 8px; padding-top: 12px; padding-bottom: 12px; }
+        .spacer { display: none; }
+        #refresh { margin-left: auto; }
+        #who { order: 1; flex-basis: 100%; white-space: normal; }
+        .stats { grid-template-columns: 1fr 1fr; }
+        .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+        .pod { flex-basis: 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .toast { transition: none; }
+      }
     </style>
   </head>
   <body>
     <header>
-      <h1>BotCamp 管理后台</h1>
-      <span class="muted" id="who"></span>
-      <span style="flex:1"></span>
-      <button class="ghost" id="refresh">刷新</button>
+      <div class="bar">
+        <a class="brand" href="/">
+          <img src="/console/icon-192.png" alt="" width="28" height="28" />
+          <span>BotCamp</span>
+        </a>
+        <span class="title">管理后台</span>
+        <span class="spacer"></span>
+        <span id="who"></span>
+        <button class="ghost" id="refresh" type="button">刷新</button>
+      </div>
     </header>
     <main>
-      <section class="cards" id="cards"></section>
-      <h2 style="font-size:14px;margin:24px 0 8px">正在运行的容器</h2>
-      <table>
-        <thead>
-          <tr><th>Bot</th><th>档位</th><th>核</th><th>已运行</th><th>核·秒</th></tr>
-        </thead>
-        <tbody id="live"><tr><td colspan="5" class="muted">加载中…</td></tr></tbody>
-      </table>
-
-      <div class="row" style="margin-top:20px">
-        <input id="q" placeholder="按邮箱或名字搜索" style="flex:1;background:#0b0c0f;color:#e7e9ee;border:1px solid #2c3039;border-radius:6px;padding:8px 10px" />
+      <div class="gate" id="gate" hidden></div>
+      <div id="work">
+        <section class="chassis" aria-label="正在运行的容器">
+          <div class="chassis-head">
+            <span class="lamp" id="live-lamp" data-on="false"></span>
+            <strong>正在运行</strong>
+          </div>
+          <p id="live-note">加载中…</p>
+          <div class="pods" id="live"></div>
+        </section>
+        <section class="models" aria-label="模型">
+          <div class="toolbar">
+            <label>模型</label>
+            <span class="spacer"></span>
+            <button class="save" id="save-models" type="button">保存顺序</button>
+          </div>
+          <div class="sheet">
+            <table>
+              <thead>
+                <tr>
+                  <th>顺序</th>
+                  <th>来源</th>
+                  <th>模型</th>
+                  <th>启用</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="model-rows">
+                <tr><td colspan="5" class="muted">加载中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="stats" id="cards" aria-label="本周"></section>
+        <div class="toolbar">
+          <label for="q">用户</label>
+          <input id="q" type="search" placeholder="邮箱或名字" autocomplete="off" />
+          <button class="search" id="search" type="button">搜索</button>
+        </div>
+        <div class="sheet">
+          <table>
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>注册</th>
+                <th>Bots</th>
+                <th>档位</th>
+                <th>本周用量</th>
+                <th>费用</th>
+                <th>周额度</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="8" class="muted">加载中…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>用户</th><th>注册时间</th><th>Bots</th><th>本周用量</th>
-            <th>本周积分</th><th>大容器核·秒</th><th>档位</th><th>周额度（积分）</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="rows"><tr><td colspan="9" class="muted">加载中…</td></tr></tbody>
-      </table>
     </main>
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status"></div>
     <script src="./config.js"></script>
     <script>
-      const fmt = (n) => new Intl.NumberFormat("zh-CN").format(n);
-      const usd = (n) => "$" + (n ?? 0).toFixed(6);
-      // Core-seconds are the stored unit; hours are the friendlier reading.
-      const cores = (seconds) => {
-        const whole = Math.round(seconds ?? 0);
-        return whole >= 3600
-          ? `${fmt(whole)} <span class="muted">(${(whole / 3600).toFixed(2)} 核时)</span>`
-          : fmt(whole);
+      const PLANS = [
+        ["free", "Free"],
+        ["pro", "Pro"],
+        ["plus", "Plus"],
+        ["max", "Max"],
+        ["max_plus", "Max+"],
+      ];
+      const TIERS = { small: "小容器", big: "大容器", desktop: "桌面" };
+      const fmt = (n) => new Intl.NumberFormat("zh-CN").format(Math.round(Number(n) || 0));
+      const yuan = (n) => "¥" + (Number(n) || 0).toFixed(2);
+      const usd = (n) => "$" + (Number(n) || 0).toFixed(2);
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+      const duration = (seconds) => {
+        const whole = Math.max(0, Math.round(Number(seconds) || 0));
+        if (whole < 60) return whole + " 秒";
+        if (whole < 3600) return Math.round(whole / 60) + " 分钟";
+        const hours = whole / 3600;
+        return (hours >= 10 ? Math.round(hours) : hours.toFixed(1)) + " 小时";
       };
-      let users = [];
+      const coreLabel = (hours, seconds) => {
+        const value = Number(hours);
+        if (value >= 1) return (value >= 10 ? Math.round(value) : value.toFixed(1)) + " 核时";
+        return duration(seconds);
+      };
+      const allowanceHours = (hours) => {
+        const value = Number(hours);
+        if (!Number.isFinite(value)) return "0 核时";
+        const rounded = Math.round(value * 10) / 10;
+        return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + " 核时";
+      };
 
-      // The page is served by Demox while the API lives on its own host, so every call is
-      // absolute; config.js next to this page points at it.
       const API_BASE = (window.__RAKAZO_ADMIN_API__ || window.__RAKAZO_API_ORIGIN__ || "").replace(/\/+$/, "");
-
-      // 认证走 Bearer token：管理后台和前端一样托管在 Demox，与 API 不同站。
       const token = (() => {
         try { return localStorage.getItem("bc_auth_token") || ""; } catch { return ""; }
       })();
+      const MODEL_SOURCES = {
+        "opencode-go": "OpenCode",
+        "openai-compatible": "kite-aihub",
+      };
+      let users = [];
+      let models = [];
+      let liveTimer = 0;
 
       async function api(path, init) {
         const headers = new Headers(init && init.headers ? init.headers : undefined);
@@ -100,7 +323,7 @@
         const response = await fetch(API_BASE + path, { ...init, headers, credentials: "omit" });
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(response.status + " " + text.slice(0, 120));
+          throw new Error(response.status + " " + text.slice(0, 180));
         }
         return response.json();
       }
@@ -108,56 +331,173 @@
       function toast(message, isError) {
         const el = document.getElementById("toast");
         el.textContent = message;
-        el.style.color = isError ? "#ff6b6b" : "#e7e9ee";
+        el.classList.toggle("error", Boolean(isError));
         el.classList.add("show");
-        setTimeout(() => el.classList.remove("show"), 2200);
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => el.classList.remove("show"), 2400);
+      }
+
+      function showGate(message, href, label) {
+        document.getElementById("work").hidden = true;
+        const gate = document.getElementById("gate");
+        gate.hidden = false;
+        gate.replaceChildren();
+        const text = document.createElement("p");
+        text.textContent = message;
+        gate.appendChild(text);
+        if (!href) return;
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = label;
+        gate.appendChild(link);
+      }
+
+      function showWork() {
+        document.getElementById("gate").hidden = true;
+        document.getElementById("work").hidden = false;
       }
 
       function renderCards(data) {
         const cards = [
           ["用户", fmt(data.users)],
           ["Bots", fmt(data.bots)],
-          ["沙箱", fmt(data.computers)],
-          ["本周 tokens", fmt(data.weekTokens)],
-          ["本周积分", fmt(Math.round(data.creditsUsed ?? 0))],
+          ["电脑", fmt(data.computers)],
           ["本周调用", fmt(data.weekCalls)],
-          ["大容器核·秒", fmt(Math.round(data.weekCoreSeconds ?? 0))],
+          ["本周 tokens", fmt(data.weekTokens)],
+          ["本周核时", coreLabel(data.weekCoreHours, data.weekCoreSeconds)],
+          ["模型费用", usd(data.weekCostUsd)],
         ];
         document.getElementById("cards").innerHTML = cards
-          .map(([label, value]) => `<div class="card"><div class="label">${label}</div><div class="value">${value}</div></div>`)
+          .map(([label, value]) => `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`)
           .join("");
       }
 
-      function renderRows() {
-        const tbody = document.getElementById("rows");
-        if (!users.length) {
-          tbody.innerHTML = '<tr><td colspan="9" class="muted">没有匹配的用户</td></tr>';
+      function planOptions(current) {
+        const list = PLANS.slice();
+        if (current && !list.some(([id]) => id === current)) list.push([current, current]);
+        return list
+          .map(([id, label]) => `<option value="${escapeHtml(id)}"${id === current ? " selected" : ""}>${escapeHtml(label)}</option>`)
+          .join("");
+      }
+
+      function renderModels() {
+        const body = document.getElementById("model-rows");
+        if (!models.length) {
+          body.innerHTML = '<tr><td colspan="5" class="muted">还没有模型</td></tr>';
           return;
         }
-        tbody.innerHTML = users
-          .map((u) => {
-            const quota = Number(u.weeklyTokenQuota) || 0;
-            const pct = quota > 0 ? Math.min(100, Math.round((u.weekTokens / quota) * 100)) : 0;
-            return `<tr data-id="${u.id}">
-              <td><div>${u.name || "-"}</div><div class="muted">${u.email}${u.emailVerified ? "" : ' <span class="danger">未验证</span>'}</div></td>
-              <td class="muted">${new Date(u.createdAt).toLocaleDateString("zh-CN")}</td>
-              <td>${u.bots}</td>
-              <td><div>${fmt(u.weekTokens)}</div><div class="bar"><i style="width:${pct}%"></i></div></td>
-              <td>${fmt(u.usedCredits ?? 0)} <span class="muted">/ ${fmt(u.weeklyCredits ?? 0)}</span></td>
-              <td>${cores(u.weekCoreSeconds)}</td>
-              <td>
-                <select data-plan>
-                  ${["free", "pro", "plus", "max", "max_plus"]
-                    .map((id) => `<option value="${id}"${u.plan === id ? " selected" : ""}>${id}</option>`)
-                    .join("")}
-                </select>
-              </td>
-              <td><input type="number" min="0" step="100" value="${u.weeklyCredits ?? 0}" />
-                <div class="muted" style="font-size:11px">≈¥${(u.creditsYuan ?? 0).toFixed(2)} / $${(u.creditsUsd ?? 0).toFixed(2)}</div></td>
-              <td><button data-save>保存</button></td>
-            </tr>`;
-          })
-          .join("");
+        body.innerHTML = models.map((model, index) => {
+          const source = MODEL_SOURCES[model.provider] || model.provider;
+          return `<tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(source)}</td>
+            <td><span class="muted">${escapeHtml(model.modelId)}</span></td>
+            <td><input type="checkbox" data-enabled ${model.enabled ? "checked" : ""} aria-label="启用 ${escapeHtml(source)} ${escapeHtml(model.modelId)}" /></td>
+            <td><div class="row-actions">
+              <button class="ghost" type="button" data-move="up" ${index === 0 ? "disabled" : ""}>上移</button>
+              <button class="ghost" type="button" data-move="down" ${index === models.length - 1 ? "disabled" : ""}>下移</button>
+            </div></td>
+          </tr>`;
+        }).join("");
+      }
+
+      function renderRows() {
+        const body = document.getElementById("rows");
+        if (!users.length) {
+          body.innerHTML = '<tr><td colspan="8" class="muted">没有匹配的用户</td></tr>';
+          return;
+        }
+        body.innerHTML = users.map((user) => {
+          const pct = Math.max(0, Math.min(100, Math.round(Number(user.usedPercent) || 0)));
+          const verified = user.emailVerified ? "" : ' <span class="danger">未验证</span>';
+          return `<tr data-id="${escapeHtml(user.id)}">
+            <td class="who"><strong>${escapeHtml(user.name || "—")}</strong><div class="muted">${escapeHtml(user.email)}${verified}</div></td>
+            <td class="muted">${escapeHtml(new Date(user.createdAt).toLocaleDateString("zh-CN"))}</td>
+            <td>${fmt(user.bots)}</td>
+            <td><select data-plan aria-label="档位">${planOptions(user.plan)}</select></td>
+            <td>
+              <div>${pct}%</div>
+              <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
+              <div class="muted">${fmt(user.weekTokens)} tokens · ${escapeHtml(coreLabel(user.weekCoreHours, user.weekCoreSeconds))}</div>
+            </td>
+            <td>${yuan(user.weekTotalYuan)}<div class="muted">模型 ${yuan(user.weekModelYuan)} · 容器 ${yuan(user.weekContainerYuan)}</div></td>
+            <td class="quota">${fmt(user.weeklyTokenQuota)} tokens<div class="muted">${escapeHtml(allowanceHours(user.weeklyCoreHours))}</div></td>
+            <td><button class="save" type="button" data-save>保存</button></td>
+          </tr>`;
+        }).join("");
+      }
+
+      function renderLive(data) {
+        const rows = data.sandboxes || [];
+        const note = document.getElementById("live-note");
+        const list = document.getElementById("live");
+        document.getElementById("live-lamp").dataset.on = rows.length ? "true" : "false";
+        if (!rows.length) {
+          list.innerHTML = "";
+          note.hidden = false;
+          note.textContent = "当前没有运行中的容器";
+          return;
+        }
+        note.hidden = true;
+        list.innerHTML = rows.map((row) => {
+          const name = TIERS[row.tier] || row.tier;
+          return `<article class="pod">
+            <span class="lamp" data-on="true"></span>
+            <div>
+              <strong>${escapeHtml(name)}</strong>
+              <div class="id" title="${escapeHtml(row.botId)}">${escapeHtml(row.botId)}</div>
+            </div>
+            <div class="run">${fmt(row.cores)} 核 · ${escapeHtml(duration(row.runningSeconds))}</div>
+          </article>`;
+        }).join("");
+      }
+
+      async function loadLive() {
+        try {
+          renderLive(await api("/admin/api/live"));
+        } catch (error) {
+          document.getElementById("live-lamp").dataset.on = "false";
+          document.getElementById("live").innerHTML = "";
+          const note = document.getElementById("live-note");
+          note.hidden = false;
+          note.textContent = String(error.message || error);
+        }
+      }
+
+      async function load() {
+        if (!token) {
+          showGate("请先登录。", "/", "回到首页");
+          return;
+        }
+        const query = document.getElementById("q").value.trim();
+        try {
+          const [overview, list] = await Promise.all([
+            api("/admin/api/overview"),
+            api("/admin/api/users" + (query ? "?q=" + encodeURIComponent(query) : "")),
+          ]);
+          showWork();
+          renderCards(overview);
+          users = list.users || [];
+          renderRows();
+          try {
+            const modelList = await api("/admin/api/models");
+            models = modelList.models || [];
+          } catch (error) {
+            models = [];
+            toast(String(error.message || error), true);
+          }
+          renderModels();
+          const day = (value) => new Date(value).toLocaleDateString("zh-CN");
+          document.getElementById("who").textContent =
+            "本周 " + day(overview.weekStart) + " 至 " + day(overview.weekEnd);
+          await loadLive();
+          if (!liveTimer) liveTimer = setInterval(loadLive, 10000);
+        } catch (error) {
+          const message = String(error.message || error);
+          if (message.startsWith("401")) showGate("登录已失效。", "/", "回到首页重新登录");
+          else if (message.startsWith("403")) showGate("这个账号不能打开管理后台。", "/", "回到首页");
+          else showGate(message);
+        }
       }
 
       document.getElementById("rows").addEventListener("click", async (event) => {
@@ -165,90 +505,82 @@
         if (!button) return;
         const row = button.closest("tr");
         const id = row.dataset.id;
-        const quota = Number(row.querySelector("input").value);
-        const plan = row.querySelector("[data-plan]").value;
         const user = users.find((entry) => entry.id === id);
+        if (!user) return;
+        const plan = row.querySelector("[data-plan]").value;
+        if (user.plan === plan) {
+          toast("没有改动");
+          return;
+        }
+        button.disabled = true;
         try {
-          if (!user || user.plan !== plan) {
-            await api(`/admin/api/users/${id}/plan`, {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ plan }),
-            });
-            if (user) user.plan = plan;
-            toast(`已切换到 ${plan}`);
-            void load();
-            return;
-          }
-          await api(`/admin/api/users/${id}/quota`, {
+          await api("/admin/api/users/" + encodeURIComponent(id) + "/plan", {
             method: "PATCH",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ weeklyTokenQuota: quota }),
+            body: JSON.stringify({ plan }),
           });
-          if (user) user.weeklyTokenQuota = quota;
-          toast("已更新额度");
+          const label = (PLANS.find(([value]) => value === plan) || [plan, plan])[1];
+          toast("已切换到 " + label);
+          await load();
         } catch (error) {
           toast(String(error.message || error), true);
+          button.disabled = false;
         }
       });
 
-      function renderLive(data) {
-        const body = document.getElementById("live");
-        if (!data.sandboxes || !data.sandboxes.length) {
-          body.innerHTML = '<tr><td colspan="5" class="muted">当前没有运行中的容器</td></tr>';
-          return;
-        }
-        body.innerHTML = data.sandboxes
-          .map((s) => `<tr>
-            <td>${s.botId}</td>
-            <td>${s.tier}</td>
-            <td>${s.cores}</td>
-            <td>${s.runningSeconds < 60 ? s.runningSeconds + " 秒" : Math.round(s.runningSeconds / 60) + " 分钟"}</td>
-            <td>${fmt(s.coreSeconds)}</td>
-          </tr>`)
-          .join("");
-      }
-
-      async function loadLive() {
+      document.getElementById("model-rows").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-move]");
+        if (!button) return;
+        const row = button.closest("tr");
+        const index = Array.from(row.parentNode.children).indexOf(row);
+        const next = button.dataset.move === "up" ? index - 1 : index + 1;
+        if (next < 0 || next >= models.length) return;
+        const swapped = models.slice();
+        const moved = swapped[index];
+        swapped[index] = swapped[next];
+        swapped[next] = moved;
+        models = swapped;
+        renderModels();
+      });
+      document.getElementById("model-rows").addEventListener("change", (event) => {
+        const input = event.target.closest("[data-enabled]");
+        if (!input) return;
+        const row = input.closest("tr");
+        const index = Array.from(row.parentNode.children).indexOf(row);
+        if (!models[index]) return;
+        models[index] = { ...models[index], enabled: input.checked };
+      });
+      document.getElementById("save-models").addEventListener("click", async () => {
+        const button = document.getElementById("save-models");
+        button.disabled = true;
         try {
-          renderLive(await api("/admin/api/live"));
+          const saved = await api("/admin/api/models", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              models: models.map((model) => ({
+                provider: model.provider,
+                modelId: model.modelId,
+                enabled: model.enabled,
+              })),
+            }),
+          });
+          models = saved.models || models;
+          renderModels();
+          toast("模型顺序已保存");
         } catch (error) {
-          document.getElementById("live").innerHTML =
-            `<tr><td colspan="5" class="danger">${String(error.message || error)}</td></tr>`;
+          toast(String(error.message || error), true);
+        } finally {
+          button.disabled = false;
         }
-      }
-
-      async function load() {
-        if (!token) {
-          document.getElementById("rows").innerHTML =
-            '<tr><td colspan="9">请先登录：<a style="color:#2b6cff" href="/console/">打开控制台</a>，登录后再回到本页。</td></tr>';
-          return;
-        }
-        try {
-          const [overview, list] = await Promise.all([
-            api("/admin/api/overview"),
-            api("/admin/api/users" + (document.getElementById("q").value.trim() ? "?q=" + encodeURIComponent(document.getElementById("q").value.trim()) : "")),
-          ]);
-          renderCards(overview);
-          users = list.users;
-          renderRows();
-          void loadLive();
-          document.getElementById("who").textContent =
-            "本周 " + new Date(overview.weekStart).toLocaleString("zh-CN") +
-            " → " + new Date(overview.weekEnd).toLocaleString("zh-CN");
-        } catch (error) {
-          document.getElementById("rows").innerHTML =
-            `<tr><td colspan="9" class="danger">${String(error.message || error)}</td></tr>`;
-        }
-      }
+      });
 
       document.getElementById("refresh").addEventListener("click", load);
+      document.getElementById("search").addEventListener("click", load);
       document.getElementById("q").addEventListener("keydown", (event) => {
         if (event.key === "Enter") load();
       });
       load();
-      // Running containers accrue cost continuously: refresh the live table on its own.
-      setInterval(loadLive, 10000);
     </script>
   </body>
 </html>

@@ -72,6 +72,20 @@ export interface LinuxDesktopHost {
 
 /** The supervisor's limit on one page-browser call, which the helper's own waits fit inside. */
 const PAGE_BROWSER_TIMEOUT_MS = 25_000;
+
+/** The image copy when this computer has one, otherwise the copy installed in its home. */
+function pageBrowserShell(command: string): string {
+  return [
+    "if [ -x /usr/local/bin/agent-browser ]; then export RAKAZO_AGENT_BROWSER=/usr/local/bin/agent-browser",
+    'elif [ -x "$HOME/.local/bin/agent-browser" ]; then export RAKAZO_AGENT_BROWSER="$HOME/.local/bin/agent-browser"',
+    "fi",
+    "if [ -x /usr/local/bin/rakazo-page-browser ]; then helper=/usr/local/bin/rakazo-page-browser",
+    'elif [ -x "$HOME/.local/bin/rakazo-page-browser" ]; then helper="$HOME/.local/bin/rakazo-page-browser"',
+    'else echo "Page browser is not installed on this computer." >&2; exit 127',
+    "fi",
+    `exec "$helper" ${shellQuote(command)}`,
+  ].join("; ");
+}
 const PAGE_BROWSER_MAX_OUTPUT = 512 * 1024;
 
 /** Point a bot's commands at its own screen, as Docker computers do, unless the caller chose a display. */
@@ -276,8 +290,8 @@ export class LinuxDesktop {
         // Uploads are confined to the bot's home, which is the workspace here.
         `HOME=${shellQuote(env.workspaceDir)}`,
         "RAKAZO_BROWSER_ARGS_STDIN=1",
-        "/usr/local/bin/rakazo-page-browser",
-        request.command,
+        "bash -c",
+        shellQuote(pageBrowserShell(request.command)),
       ].join(" "),
       // Origin-bound fills carry saved logins and cards.
       `${JSON.stringify(request)}\n`,

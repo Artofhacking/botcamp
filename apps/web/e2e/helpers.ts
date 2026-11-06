@@ -17,6 +17,15 @@ export function realSandboxTimeout(real: number, emulated: number) {
   return isRealSandboxProvider() ? real : emulated;
 }
 
+/** Confirm the note shown before control is granted. */
+export async function confirmTakeoverPrompt(page: Page) {
+  const prompt = page.getByTestId("takeover-prompt");
+  await expect(prompt).toBeVisible();
+  const confirm = prompt.getByRole("button", { name: "Take control", exact: true });
+  await expect(confirm).toBeEnabled({ timeout: realSandboxTimeout(90_000, 20_000) });
+  await confirm.click();
+}
+
 export function activeBotId(page: Page) {
   const id = new URL(page.url()).pathname.split("/").filter(Boolean).at(-1);
   if (!id || id === "app") throw new Error(`missing bot id in ${page.url()}`);

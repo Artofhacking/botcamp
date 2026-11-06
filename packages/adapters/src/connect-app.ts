@@ -1,8 +1,14 @@
 import type { AdapterContext, ManagedConnectorProvider } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
+import type { ConnectionCatalogItem, MessageBlock } from "@rakazo/contracts";
 import { appConnectCard, matchAppCatalog, matchesAppConnection } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
+import {
+  isMailboxAppName,
+  MAILBOX_APP_NAME,
+  MAILBOX_CONNECTOR_ID,
+  MAILBOX_PROVIDER,
+} from "./mailbox-app.js";
 
 const RECENT_MESSAGES = 50;
 
@@ -14,30 +20,46 @@ export async function connectApp(
   target: { id: string; spaceId: string; threadId: string; botId: string },
   app: unknown,
   effectId: string,
+  mailboxConnected = false,
 ) {
   if (typeof app !== "string" || !app.trim() || app.length > 100) {
     return { error: "Provide an app name or slug of at most 100 characters." };
   }
-  const catalog = (
-    await Promise.all(
-      providers.map(async (provider) => {
-        try {
-          const query = await provider.catalog(context, app.trim());
-          // A provider's text search may not recognize a featured alias such as gcal.
-          const entries = matchAppCatalog(query, app) ? query : await provider.catalog(context);
-          return entries.filter((entry) => entry.connectorId === provider.describe().id);
-        } catch {
-          return [];
+  const mailboxEntry: ConnectionCatalogItem | undefined =
+    typeof app === "string" && isMailboxAppName(app)
+      ? {
+          connectorId: MAILBOX_CONNECTOR_ID,
+          slug: MAILBOX_PROVIDER,
+          name: MAILBOX_APP_NAME,
+          logo: null,
+          connected: mailboxConnected,
+          noAuth: false,
         }
-      }),
-    )
-  ).flat();
+      : undefined;
+  const catalog = mailboxEntry
+    ? []
+    : (
+        await Promise.all(
+          providers.map(async (provider) => {
+            try {
+              const query = await provider.catalog(context, app.trim());
+              // A provider's text search may not recognize a featured alias such as gcal.
+              const entries = matchAppCatalog(query, app) ? query : await provider.catalog(context);
+              return entries.filter((entry) => entry.connectorId === provider.describe().id);
+            } catch {
+              return [];
+            }
+          }),
+        )
+      ).flat();
   // An app connected through any provider counts, even if another provider lists it first.
   const entry =
+    mailboxEntry ??
     matchAppCatalog(
       catalog.filter((item) => item.connected),
       app,
-    ) ?? matchAppCatalog(catalog, app);
+    ) ??
+    matchAppCatalog(catalog, app);
   if (!entry) return { error: "No such app is available in the connector catalog." };
   if (entry.connected)
     return {

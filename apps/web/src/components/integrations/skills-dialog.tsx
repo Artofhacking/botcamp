@@ -1,7 +1,7 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { CapabilityInstall, PluginMarketplaceEntry } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
-import { installedPluginParts, matchesPluginQuery } from "@rakazo/core";
+import { installedPluginParts } from "@rakazo/core";
 import {
   Button,
   Dialog,
@@ -12,7 +12,6 @@ import {
   Field,
   FieldLabel,
   Input,
-  Spinner,
 } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, X } from "lucide-react";
@@ -20,13 +19,7 @@ import { useState } from "react";
 import { useSpaceQueries } from "../../lib/query";
 import { AgentSkills } from "../../pages/KnowledgeSection";
 import type { PluginSelection } from "./plugin-marketplace";
-import {
-  PluginDetail,
-  PluginLogo,
-  PluginRow,
-  pluginSelection,
-  ROW_HOVER,
-} from "./plugin-marketplace";
+import { PluginDetail, PluginLogo, pluginSelection, ROW_HOVER } from "./plugin-marketplace";
 
 const NO_ENTRIES: PluginMarketplaceEntry[] = [];
 const NO_SERVERS: never[] = [];
@@ -37,26 +30,23 @@ function skillCount(install: CapabilityInstall) {
   return parsed.success ? parsed.data.skills.length : 0;
 }
 
-/** Your skills in this space, the skills plugins added, and skill packs to browse. */
+/** Your skills in this space, and the skills plugins added. */
 export function SkillsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const queryClient = useQueryClient();
-  const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<PluginSelection | null>(null);
   const [importing, setImporting] = useState(false);
   const [gitSource, setGitSource] = useState("");
-  const catalog = useQuery(
-    queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
-  );
   const installs = useQuery(queries.capabilities.list.queryOptions());
-  const packs = (catalog.data?.entries ?? NO_ENTRIES).filter(
-    (entry) => !entry.hasConnector && matchesPluginQuery(entry, query),
-  );
   const pluginInstalls = (installs.data ?? []).filter((row) => row.kind === "plugin");
   const skillSets = pluginInstalls.filter(
     (row) => installedPluginParts(row.config).includes("skills") && skillCount(row) > 0,
   );
+  const catalog = useQuery({
+    ...queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
+    enabled: skillSets.length > 0,
+  });
   const catalogEntries = catalog.data?.entries ?? NO_ENTRIES;
   function installedSelection(install: CapabilityInstall): PluginSelection {
     const entry = catalogEntries.find((row) => row.installedSource === install.source);
@@ -181,51 +171,6 @@ export function SkillsDialog({ onClose }: { onClose: () => void }) {
             </div>
           </section>
         ) : null}
-        <section data-testid="skill-packs-section">
-          <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
-            <Trans>Browse</Trans>
-          </h3>
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label={t`Search skills`}
-            placeholder={t`Search skills`}
-            maxLength={200}
-            className="mb-5 h-11 rounded-xl"
-          />
-          {catalog.isPending ? (
-            <div className="grid place-items-center py-10">
-              <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading…`} />
-            </div>
-          ) : null}
-          {catalog.error || catalog.data?.unavailableRegistries.length ? (
-            <div
-              role="alert"
-              className="mb-4 flex items-center gap-3 text-sm text-muted-foreground"
-            >
-              <Trans>Some plugins could not be loaded.</Trans>
-              <Button variant="outline" size="sm" onClick={() => void catalog.refetch()}>
-                <Trans>Retry</Trans>
-              </Button>
-            </div>
-          ) : null}
-          <div data-testid="skill-packs" className="grid grid-cols-2 gap-2">
-            {packs.map((entry) => {
-              const pack = pluginSelection(entry);
-              return (
-                <PluginRow
-                  key={entry.id}
-                  name={entry.displayName}
-                  description={entry.description}
-                  logo={entry.logo}
-                  site={pack.site}
-                  installed={pluginInstalls.some((row) => row.source === entry.installedSource)}
-                  onOpen={() => setSelection(pack)}
-                />
-              );
-            })}
-          </div>
-        </section>
       </div>
     );
   }

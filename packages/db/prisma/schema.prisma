@@ -564,6 +564,17 @@ model DeploymentSettings {
   @@map("deployment_settings")
 }
 
+/// The deployment-wide model order. Position 0 is tried first. Disabled rows stay listed.
+model DeploymentModelChoice {
+  position Int     @id
+  provider String
+  modelId  String
+  enabled  Boolean @default(true)
+
+  @@unique([provider, modelId])
+  @@map("deployment_model_choices")
+}
+
 /// Append-only security audit trail. No foreign keys, so an account deletion
 /// keeps the record of what happened; retention pruning is the only delete.
 /// Never stores message content, secrets, or tokens.

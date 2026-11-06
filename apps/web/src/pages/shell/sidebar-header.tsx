@@ -3,10 +3,38 @@ import type { Bot } from "@rakazo/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
 import { Bell, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { IconTooltip } from "../../components/IconTooltip";
-import { desktopBridge } from "../../lib/desktop";
+import { desktopBridge, windowChromeKind } from "../../lib/desktop";
 import type { Panel } from "../../lib/right-panel-state";
+import { brandIconSrc, siteHomeHref } from "../../lib/static-host-route";
 import { WindowChrome } from "../WindowChrome";
 import { BotCreatePicker } from "./bot-picker";
+
+const BRAND = "BotCamp";
+
+/** Icon and name. A new page keeps the console where it is. */
+function BrandHome({ mini }: { mini: boolean }) {
+  return (
+    <a
+      href={siteHomeHref(window.location.origin)}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid="brand-home"
+      aria-label={mini ? BRAND : undefined}
+      className={`app-no-drag flex min-w-0 items-center rounded-md text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring ${mini ? "justify-center" : "gap-2"}`}
+    >
+      <img
+        src={brandIconSrc(import.meta.env.BASE_URL)}
+        alt=""
+        width={22}
+        height={22}
+        className="size-[22px] shrink-0 rounded-md"
+      />
+      {mini ? null : (
+        <span className="truncate text-[14px] leading-5 font-medium tracking-tight">{BRAND}</span>
+      )}
+    </a>
+  );
+}
 
 export function SidebarHeader({
   mini = false,
@@ -38,14 +66,25 @@ export function SidebarHeader({
   setCreateBotOpen: (open: boolean) => void;
 }) {
   const { t } = useLingui();
-  const hasWindowChrome = Boolean(desktopBridge());
+  const desktop = desktopBridge();
+  const hasWindowChrome = Boolean(desktop);
+  // The shared spacer is 72px. Traffic lights end sooner, and that extra gap
+  // pushes the name into the buttons at the sidebar's normal width.
+  const compactLights = !mini && windowChromeKind(desktop) === "darwin";
   const toggleLabel = mini ? t`Show bots` : t`Minimize bots`;
   return (
     <div
-      className={`app-drag flex items-center ${mini ? `flex-col gap-2 px-0 pb-2 ${hasWindowChrome ? "pt-4" : "pt-2"}` : "justify-between px-[18px] pb-3 pt-4"}`}
+      className={`app-drag flex items-center ${mini ? `flex-col gap-2 px-0 pb-2 ${hasWindowChrome ? "pt-4" : "pt-2"}` : "w-full gap-1 px-[18px] pb-3 pt-4"}`}
     >
-      {!mini || hasWindowChrome ? <WindowChrome /> : null}
-      <div className={`relative flex items-center ${mini ? "flex-col gap-0.5" : "gap-1"}`}>
+      {hasWindowChrome ? (
+        <div className={compactLights ? "w-14 shrink-0 overflow-hidden" : "shrink-0"}>
+          <WindowChrome />
+        </div>
+      ) : null}
+      <BrandHome mini={mini} />
+      <div
+        className={`relative flex shrink-0 items-center ${mini ? "flex-col gap-0.5" : "ms-auto gap-1"}`}
+      >
         {onSearch ? (
           <IconTooltip label={t`Search`}>
             <Button

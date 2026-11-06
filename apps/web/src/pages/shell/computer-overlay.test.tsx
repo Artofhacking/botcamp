@@ -20,6 +20,22 @@ vi.mock("@rakazo/ui-web", () => ({
   }: ComponentProps<"button"> & { variant?: string; size?: string }) => (
     <button type="button" {...props} />
   ),
+  Checkbox: ({
+    checked,
+    onCheckedChange,
+    id,
+  }: {
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+    id?: string;
+  }) => (
+    <input
+      id={id}
+      type="checkbox"
+      checked={checked}
+      onChange={(event) => onCheckedChange?.(event.target.checked)}
+    />
+  ),
 }));
 vi.mock("../../components/ComputerMaintenanceActions", () => ({
   ComputerMaintenanceActions: () => null,
@@ -108,6 +124,52 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+});
+
+it("asks for confirmation before granting control, and can turn the note off", async () => {
+  const onConfirmTakeover = vi.fn();
+  await act(async () => {
+    root.render(
+      <ComputerOverlay
+        bot={bot}
+        computer={{ ...computer("running"), takeoverRequested: true }}
+        computerViewport={null}
+        recordingSkill={null}
+        teachBusy={false}
+        hasControl={false}
+        composerRunning={false}
+        sending={false}
+        booting={false}
+        sendError={null}
+        embeddedScreenUrl="https://screen.test/view"
+        screenFrameRef={() => undefined}
+        computerScreenError={null}
+        computerBooting={null}
+        onStopTeaching={() => undefined}
+        onStopRun={() => undefined}
+        onRelease={async () => undefined}
+        onTakeControl={() => undefined}
+        takeoverPrompt
+        onConfirmTakeover={onConfirmTakeover}
+        onStart={() => undefined}
+        onRefreshTeaching={async () => undefined}
+        onRefreshComputer={async () => undefined}
+        onClose={() => undefined}
+      />,
+    );
+  });
+  const prompt = container.querySelector('[data-testid="takeover-prompt"]')!;
+  expect(prompt.textContent).toContain("When you are finished, choose I’m done.");
+  expect(container.querySelector('[data-testid="computer-chrome"]')?.textContent).not.toContain(
+    "Take control",
+  );
+  const box = prompt.querySelector("input")!;
+  await act(async () => box.click());
+  const confirm = [...prompt.querySelectorAll("button")].find(
+    (button) => button.textContent === "Take control",
+  )!;
+  await act(async () => confirm.click());
+  expect(onConfirmTakeover).toHaveBeenCalledWith(true);
 });
 
 it("offers Start for a stopped computer instead of a bare label", async () => {

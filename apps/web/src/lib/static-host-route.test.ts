@@ -1,14 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptHashRoute,
+  brandIconSrc,
+  directShareUrl,
   documentPath,
   hashRouteReplacement,
   routeSearch,
+  siteHomeHref,
   toAppDocument,
   withRouteSearch,
 } from "./static-host-route";
 
 const CONSOLE = "/console/";
+
+describe("site home", () => {
+  it("opens the host root and the console's own icon", () => {
+    expect(siteHomeHref("https://botcamp.example")).toBe("https://botcamp.example/");
+    expect(siteHomeHref("https://botcamp.example/console/")).toBe("https://botcamp.example/");
+    expect(brandIconSrc("/")).toBe("/icon-192.png");
+    expect(brandIconSrc("/console/")).toBe("/console/icon-192.png");
+    expect(brandIconSrc("/console")).toBe("/console/icon-192.png");
+  });
+});
 
 describe("static host routes", () => {
   it("leaves a root deploy on path routing", () => {
@@ -66,6 +79,20 @@ describe("static host routes", () => {
     expect(routeSearch({ search: "", hash: "#/app/bot?m=1" }, CONSOLE)).toBe("?m=1");
     expect(routeSearch({ search: "?ref=abc", hash: "#/app/bot?m=1" }, CONSOLE)).toBe("?m=1");
     expect(routeSearch({ search: "?ref=abc", hash: "" }, CONSOLE)).toBe("?ref=abc");
+  });
+
+  it("gives a shared page the console address, with no hop through the homepage", () => {
+    const token = "a".repeat(43);
+    expect(directShareUrl(`https://app.example/p/plan-${token}`, "/")).toBe(
+      `https://app.example/p/plan-${token}`,
+    );
+    expect(directShareUrl(`https://app.example/p/plan-${token}?x=1`, CONSOLE)).toBe(
+      `https://app.example/console/#/p/plan-${token}?x=1`,
+    );
+    expect(directShareUrl(`https://app.example/console/#/p/plan-${token}`, CONSOLE)).toBe(
+      `https://app.example/console/#/p/plan-${token}`,
+    );
+    expect(directShareUrl("not a url", CONSOLE)).toBe("not a url");
   });
 
   it("keeps a full navigation on the entry document", () => {

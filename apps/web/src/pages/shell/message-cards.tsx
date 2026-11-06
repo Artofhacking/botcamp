@@ -1,10 +1,27 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useLinkPrompt } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
+import {
+  MAILBOX_AUTH_REJECTED,
+  MAILBOX_UNREACHABLE,
+  MailboxSaveInput,
+  mailboxAuthCode,
+} from "@rakazo/contracts";
 import { appConnectedInput, waitForConnection } from "@rakazo/core";
-import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+} from "@rakazo/ui-web";
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BuiCard, SuccessPop } from "../../components/ai/primitives";
 import { OptionRow } from "../../components/OptionRow";
 import type { ArtifactTarget } from "../../lib/artifact-open";
@@ -12,6 +29,7 @@ import { chartViewport } from "../../lib/chart-viewport";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { importChunk } from "../../lib/preload-recovery";
 import { rpc } from "../../lib/rpc";
+import { BUILTIN_APPS } from "../../lib/ui-flags";
 import { useArtifactImage } from "../../lib/use-artifact-image";
 import { errorText } from "../../lib/user-error";
 
@@ -152,6 +170,7 @@ export function AppConnectCard({
   const [error, setError] = useState<string | null>(null);
   const connectionAttempt = useRef<AbortController | null>(null);
   const status = block.status === "connected" ? "connected" : localStatus;
+  const mailbox = block.connectorId === "mailbox" || block.provider === "mailbox";
   useEffect(() => () => connectionAttempt.current?.abort(), []);
 
   async function authorize() {
@@ -220,14 +239,138 @@ export function AppConnectCard({
         </span>
         {status === "connected" ? (
           <SuccessPop label={t`Connected`} />
-        ) : (
+        ) : mailbox ? null : (
           <Button disabled={busy} onClick={() => void authorize()}>
             {busy ? t`Waiting…` : t`Connect`}
           </Button>
         )}
       </div>
+      {mailbox && status !== "connected" ? (
+        <MailboxSignIn
+          onSaved={async () => {
+            setLocalStatus("connected");
+            await rpc.onboarding
+              .appConnected(appConnectedInput(botId, threadId, block, messageId))
+              .catch(() => undefined);
+          }}
+        />
+      ) : null}
       {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
     </BuiCard>
+  );
+}
+
+const MAILBOX_SCOPES = BUILTIN_APPS.find((app) => app.name === "QQ邮箱")?.scopes ?? [];
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Authorization-code sign-in for a mailbox card. Other apps keep the OAuth button. */
+function MailboxSignIn({ onSaved }: { onSaved: () => Promise<void> }) {
+  const { t } = useLingui();
+  const emailId = useId();
+  const codeId = useId();
+  const permissionId = useId();
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [scope, setScope] = useState(MAILBOX_SCOPES[0]?.scope ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function signInError(err: unknown): string {
+    const message = errorText(err, t`Could not sign in`);
+    if (message === MAILBOX_AUTH_REJECTED) return t`Authorization code was rejected`;
+    if (message === MAILBOX_UNREACHABLE) return t`Could not reach the mailbox`;
+    return message;
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (saving) return;
+    const address = email.trim().toLowerCase();
+    const authCode = mailboxAuthCode(code);
+    if (!EMAIL.test(address) || address.length > 254) {
+      setError(t`Enter a valid email`);
+      return;
+    }
+    if (!authCode) {
+      setError(t`Enter the 16-character authorization code`);
+      return;
+    }
+    if (!scope) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await rpc.mailbox.save(MailboxSaveInput.parse({ address, authCode, scope }));
+      await onSaved();
+    } catch (err) {
+      setError(signInError(err));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void submit(event)} className="mt-3 grid gap-3">
+      <div className="grid gap-1.5">
+        <Label htmlFor={emailId}>
+          <Trans>Mailbox</Trans>
+        </Label>
+        <Input
+          id={emailId}
+          type="email"
+          autoComplete="email"
+          required
+          disabled={saving}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor={codeId}>
+          <Trans>Authorization code</Trans>
+        </Label>
+        <Input
+          id={codeId}
+          type="password"
+          autoComplete="off"
+          required
+          disabled={saving}
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+      </div>
+      {MAILBOX_SCOPES.length > 0 ? (
+        <div className="grid gap-1.5">
+          <p id={permissionId} className="text-sm font-medium text-muted-foreground">
+            <Trans>Permission</Trans>
+          </p>
+          <RadioGroup
+            aria-labelledby={permissionId}
+            value={scope}
+            disabled={saving}
+            onValueChange={(value) => setScope(value)}
+          >
+            {MAILBOX_SCOPES.map((option) => (
+              // The radio is the control inside the label.
+              // biome-ignore lint/a11y/noLabelWithoutControl: the wrapped RadioGroupItem is the control.
+              <label
+                key={option.scope}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2"
+              >
+                <RadioGroupItem value={option.scope} />
+                <span className="text-sm text-foreground">{option.label}</span>
+              </label>
+            ))}
+          </RadioGroup>
+        </div>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit" disabled={saving || !email.trim() || !code.trim() || !scope}>
+        {saving ? <Trans>Testing…</Trans> : <Trans>Test and save</Trans>}
+      </Button>
+    </form>
   );
 }
 

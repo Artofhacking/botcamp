@@ -14,6 +14,7 @@ import { feedbackTools } from "./run-tools-feedback.js";
 import { fileTools } from "./run-tools-files.js";
 import { fleetTools } from "./run-tools-fleet.js";
 import { cloudAgentTool, connectorTool, integrationTools } from "./run-tools-integrations.js";
+import { mailboxTools } from "./run-tools-mailbox.js";
 import { memoryTools } from "./run-tools-memory.js";
 import { messagingTools } from "./run-tools-messaging.js";
 import { pageTools } from "./run-tools-pages.js";
@@ -38,6 +39,7 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(pageTools),
   ...Object.entries(memoryTools),
   ...Object.entries(integrationTools),
+  ...Object.entries(mailboxTools),
   ...Object.entries(taskTools),
   ...Object.entries(messagingTools),
   ...Object.entries(secretTools),

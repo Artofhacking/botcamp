@@ -115,7 +115,7 @@ test("compact bot sidebar hides previews and preserves roster status accessibly"
   try {
     await composer.fill("keep working until I stop you");
     await composer.press("Enter");
-    await expect(previewRow.locator('[data-roster-status="running"]')).toHaveText("Working…", {
+    await expect(previewRow.locator('[data-roster-status="running"]')).toHaveText("Thinking…", {
       timeout: 30_000,
     });
     await expect(previewRow.locator('[data-working="true"]')).toBeVisible();

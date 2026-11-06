@@ -6,6 +6,12 @@ const appOrigin = "https://rakazo.example.com";
 describe("desktop child windows", () => {
   it("keeps same-origin app routes in Electron", () => {
     expect(shouldOpenInAppPopup(appOrigin, `${appOrigin}/mcp/oauth/callback`, "_blank")).toBe(true);
+    expect(shouldOpenInAppPopup(appOrigin, `${appOrigin}/console/`, "_blank")).toBe(true);
+  });
+
+  it("sends the public homepage to the system browser", () => {
+    expect(shouldOpenInAppPopup(appOrigin, `${appOrigin}/`, "_blank")).toBe(false);
+    expect(shouldOpenInAppPopup(appOrigin, `${appOrigin}/#how`, "_blank")).toBe(false);
   });
 
   it("opens ordinary external links outside Electron", () => {

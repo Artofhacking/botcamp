@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { isValidElement, useContext, useEffect, useRef, useState } from "react";
 import { finite } from "./dataviz.js";
 import { Inline } from "./inline.js";
-import { objectItems } from "./items.js";
+import { columnKey, objectItems, show } from "./items.js";
 import { useWords } from "./labels.js";
 import { InGrid } from "./layout.js";
 
@@ -350,6 +350,16 @@ function useScrollEdges() {
   return { ref, edges };
 }
 
+/** An array of cells, or one object row read through column keys such as `{key, label}`. */
+function rowCells(row: unknown, columns: readonly unknown[]): TableCell[] | null {
+  if (Array.isArray(row)) return row;
+  if (!row || typeof row !== "object") return null;
+  const keys = columns.map(columnKey);
+  if (!keys.some((key) => key !== undefined)) return null;
+  const record = row as Record<string, TableCell>;
+  return keys.map((key) => (key === undefined ? undefined : record[key]));
+}
+
 export function Table({
   columns = [],
   rows = [],
@@ -357,17 +367,19 @@ export function Table({
   emphasis,
   sortable = false,
 }: {
-  columns?: ReactNode[];
-  rows?: TableCell[][];
+  columns?: readonly unknown[];
+  rows?: readonly unknown[];
   align?: Align[];
   emphasis?: number;
   sortable?: boolean;
 }) {
   const words = useWords();
-  const heads = Array.isArray(columns) ? columns : [];
-  const body = (Array.isArray(rows) ? rows : []).filter((row): row is TableCell[] =>
-    Array.isArray(row),
-  );
+  const source = Array.isArray(columns) ? columns : [];
+  const heads = source.map((column) => show(column));
+  const body = (Array.isArray(rows) ? rows : []).flatMap((row) => {
+    const cells = rowCells(row, source);
+    return cells ? [cells] : [];
+  });
   const [sort, setSort] = useState<{ column: number; descending: boolean } | null>(null);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE_ROWS);

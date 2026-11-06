@@ -13,6 +13,7 @@ import {
 import { ArrowUpRight, Check, Globe, Lock, Share } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCopyText } from "../../lib/copy-text";
+import { directShareUrl } from "../../lib/static-host-route";
 
 const TILE = "grid size-8 shrink-0 place-items-center rounded-[8px] bg-foreground/[0.04]";
 const LINK_PILL =
@@ -74,6 +75,7 @@ export function SharePopover({
   const shownOwner = accountDisplay(owner, t`You`);
   const [copied, copy, copyFailed] = useCopyText();
   const shared = visibility === "link";
+  const link = shareUrl === null ? null : directShareUrl(shareUrl);
   const options: { value: PageVisibility; title: string; detail?: string; icon: ReactNode }[] = [
     {
       value: "private",
@@ -168,27 +170,27 @@ export function SharePopover({
             ))}
           </RadioGroup>
         </div>
-        {shared && shareUrl !== null ? (
+        {shared && link !== null ? (
           <div className="mt-0.5 flex flex-col gap-2 px-4">
             <div className="flex gap-2">
               <Button
                 variant="ghost"
                 className={`${LINK_PILL} ${copied ? "text-success" : ""}`}
-                onClick={() => copy(shareUrl)}
+                onClick={() => copy(link)}
               >
                 {copied ? <Check className="size-[14px]" strokeWidth={1.8} /> : <CopyGlyph />}
                 <span className="truncate">
                   {copied ? <Trans>Copied</Trans> : <Trans>Copy link</Trans>}
                 </span>
               </Button>
-              <a href={shareUrl} target="_blank" rel="noopener noreferrer" className={LINK_PILL}>
+              <a href={link} target="_blank" rel="noopener noreferrer" className={LINK_PILL}>
                 <ArrowUpRight className="size-4" strokeWidth={1.6} />
                 <span className="truncate">
                   <Trans>Open link</Trans>
                 </span>
               </a>
             </div>
-            {copyFailed ? <ManualCopy url={shareUrl} /> : null}
+            {copyFailed ? <ManualCopy url={link} /> : null}
             <span role="status" className="sr-only">
               {copied ? t`Link copied` : ""}
             </span>

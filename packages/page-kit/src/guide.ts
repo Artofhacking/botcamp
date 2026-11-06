@@ -57,7 +57,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 - Status {tone?}: a short status word in a tinted pill, e.g. <Status tone="success">Shipped</Status>; tone "neutral" or none is grey.
 - Rows {rows: [{title, lead?, detail?, meta?, status?: {label, tone}}]}: a list; lead sits in a narrow column before the title, the status follows the title in its tone, meta sits at the right.
 - Steps {steps: [{title, detail?}]}: a numbered sequence. Checklist {items: [{text, done, meta?}]}: read-only progress.
-- Table {columns: string[], rows: cell[][], align?: ("auto" | "start" | "end" | "center")[], emphasis?: column, sortable?: boolean}: a cell is text, a number, {text, tone?} or a Status. Figures and single short words align to the end. Wide tables scroll sideways; long ones get a filter box and a sticky header; sortable makes headers sort.
+- Table {columns: string[], rows: cell[][], align?: ("auto" | "start" | "end" | "center")[], emphasis?: column, sortable?: boolean}: a column may instead be {key, label} when each row is an object with those keys. A cell is text, a number, {text, tone?} or a Status. Figures and single short words align to the end. Wide tables scroll sideways; long ones get a filter box and a sticky header; sortable makes headers sort.
 
 ### Charts
 - LineChart {points: [{label, value}], floor?, ceiling?, unit?, format?: (n) => string, labels?: [seriesName], lines?: [{label, values}], secondary?: {label, values}, annotations?: [{at: index | "zero", label}], legend?}: a trend; one series gets an area fill, lines add series, secondary adds a grey dashed comparison. A missing value leaves a gap.

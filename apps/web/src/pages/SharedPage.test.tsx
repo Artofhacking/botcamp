@@ -6,6 +6,7 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { apiUrl } from "../lib/api-origin";
 import { SharedPagePage } from "./SharedPage";
 
 vi.mock("@lingui/react/macro", () => ({
@@ -28,11 +29,13 @@ let container: HTMLDivElement;
 let root: Root;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  window.__RAKAZO_API_ORIGIN__ = "https://api.example.test";
   container = document.createElement("div");
   root = createRoot(container);
 });
 afterEach(() => {
   act(() => root.unmount());
+  delete window.__RAKAZO_API_ORIGIN__;
   vi.unstubAllGlobals();
 });
 
@@ -60,6 +63,10 @@ it("keeps the page being read when a background refresh fails", async () => {
     ),
   );
   await settle();
+  expect(fetch).toHaveBeenNthCalledWith(1, apiUrl(`/api/v1/pages/shared/${token}`), {
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+  });
   expect(container.querySelector("h1")?.textContent).toBe("Plan");
 
   fetch.mockResolvedValueOnce(new Response("", { status: 503 }));

@@ -1339,6 +1339,8 @@ function SpaceShell() {
           onStopRun={() => void stopRun()}
           onRelease={computerControls.releaseComputer}
           onTakeControl={() => void openComputer(computerBot.id, true)}
+          takeoverPrompt={computerControls.takeoverPrompt}
+          onConfirmTakeover={(remember) => void computerControls.confirmTakeover(remember)}
           onStart={() => void openComputer(computerBot.id)}
           onRefreshTeaching={refreshActiveTeaching}
           onRefreshComputer={async () => {

@@ -191,8 +191,8 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await captureScreenshot(page, testInfo, "messaging-team-conversation-settings");
   await settings.getByTestId("settings-nav-general").click();
   await settings.getByTestId("ui-locale-select").click();
-  await page.getByRole("option", { name: "한국어", exact: true }).click();
-  await expect(settings.getByTestId("settings-nav-messaging")).toHaveText("메시징");
+  await page.getByRole("option", { name: "简体中文", exact: true }).click();
+  await expect(settings.getByTestId("settings-nav-messaging")).toHaveText("消息");
   await settings.getByTestId("settings-nav-messaging").click();
 
   await expect(messagingSettings).toBeVisible();
@@ -201,9 +201,9 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await expect(messagingSettings.getByText("Family")).toBeVisible();
   await expect(messagingSettings.getByText("Dana's Assistant")).toBeVisible();
   // Scoped to the panel: the settings nav has its own 승인 (Approvals).
-  await expect(messagingSettings.getByRole("button", { name: "승인" })).toHaveCount(2);
+  await expect(messagingSettings.getByRole("button", { name: "审批" })).toHaveCount(2);
 
-  await messagingSettings.getByRole("button", { name: "채팅 앱 연결" }).click();
+  await messagingSettings.getByRole("button", { name: "连接聊天应用" }).click();
   await page.getByRole("menuitem", { name: "iMessage", exact: true }).click();
   await expect(page.getByTestId("messaging-link-code")).toContainText("ABCD-2345");
   await expect(page.getByTestId("messaging-link-code")).toContainText("+15550001111");

@@ -3,8 +3,9 @@ import { describeToolActivity } from "./pi-runtime-tools.js";
 
 describe("describeToolActivity", () => {
   it("summarizes builtin tools with their most informative argument", () => {
-    expect(describeToolActivity("shell", { command: "pnpm test --filter web" })).toBe(
-      "Running: pnpm test --filter web",
+    expect(describeToolActivity("shell", { command: "pnpm test --filter web" })).toBe("Thinking…");
+    expect(describeToolActivity("user_computer_shell", { command: "Get-ChildItem" })).toBe(
+      "Thinking…",
     );
     expect(describeToolActivity("read_file", { path: "notes/plan.md" })).toBe(
       "Reading notes/plan.md",
@@ -44,24 +45,24 @@ describe("describeToolActivity", () => {
 
   it("truncates long details and collapses whitespace", () => {
     const long = `x${"y".repeat(200)}`;
-    const line = describeToolActivity("shell", { command: `a\n\t${long}` });
-    expect(line.length).toBeLessThanOrEqual("Running: ".length + 91);
+    const line = describeToolActivity("read_file", { path: `a\n\t${long}` });
+    expect(line.length).toBeLessThanOrEqual("Reading ".length + 91);
     expect(line).toContain("…");
     expect(line).not.toContain("\n");
-    expect(line).toMatch(/^Running: a x/);
+    expect(line).toMatch(/^Reading a x/);
   });
 
-  it("redacts credentials from activity details", () => {
+  it("does not show a shell command, including one that carries credentials", () => {
     const token = "fake-token";
-    const line = describeToolActivity("shell", {
-      command: `curl -H 'Authorization: Bearer ${token}' https://example.test?api_key=fake-key password=fake-password`,
-    });
-
-    expect(line).toContain("Bearer [redacted]");
-    expect(line).toContain("api_key=[redacted]");
-    expect(line).not.toContain(token);
-    expect(line).not.toContain("fake-key");
-    expect(line).not.toContain("fake-password");
+    const command = `curl -H 'Authorization: Bearer ${token}' https://example.test?api_key=fake-key password=fake-password`;
+    for (const toolName of ["shell", "user_computer_shell"]) {
+      const line = describeToolActivity(toolName, { command });
+      expect(line).toBe("Thinking…");
+      expect(line).not.toContain(token);
+      expect(line).not.toContain("fake-key");
+      expect(line).not.toContain("fake-password");
+      expect(line).not.toContain("curl");
+    }
   });
 
   it("strips signed-URL query and fragment from web_fetch activity", () => {

@@ -460,7 +460,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "shell",
     description:
-      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it.",
+      "Run a command inside this bot's computer, not the user's own computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it.",
     inputSchema: {
       type: "object",
       properties: {
@@ -473,7 +473,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "user_computer_shell",
     description:
-      "Run a command on the user's own computer. Use only when the task needs their local files, credentials, or network. cwd defaults to their home folder and must stay inside it.",
+      "Run a command on the user's own computer, not this bot's computer. Use it when they ask about that computer or the task needs its disk, local files, apps, credentials, or network. cwd defaults to their home folder and must stay inside it.",
     inputSchema: {
       type: "object",
       properties: {
@@ -575,13 +575,70 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "connect_app",
     description:
-      "Show an inline card to connect an app in this chat when you need an unconnected app or the user asks to connect one. Then wait for the user instead of directing them elsewhere.",
+      "Show an inline card to connect an app, including QQ邮箱, when one is needed or the user asks. Then wait for the user.",
     inputSchema: {
       type: "object",
       properties: { app: { type: "string", minLength: 1, maxLength: 100 } },
       required: ["app"],
       additionalProperties: false,
     },
+  },
+  {
+    name: "mailbox_list",
+    description:
+      "List the newest messages in the connected mailbox. Use connect_app with QQ邮箱 first when this tool is not available.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", minimum: 1, maximum: 20 },
+      },
+      additionalProperties: false,
+    },
+    readOnly: true,
+  },
+  {
+    name: "mailbox_get",
+    description:
+      "Read one connected-mailbox message by the uid returned from mailbox_list or mailbox_search.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        uid: { type: "string", minLength: 1, maxLength: 20 },
+      },
+      required: ["uid"],
+      additionalProperties: false,
+    },
+    readOnly: true,
+  },
+  {
+    name: "mailbox_search",
+    description: "Search the connected mailbox by text in the message, newest first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 200 },
+        limit: { type: "number", minimum: 1, maximum: 20 },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+    readOnly: true,
+  },
+  {
+    name: "mailbox_send",
+    description:
+      "Send one plain-text message from the connected mailbox. Only available when that connection includes sending, and the user approves each send.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        to: { type: "string", minLength: 3, maxLength: 254 },
+        subject: { type: "string", minLength: 1, maxLength: 200 },
+        text: { type: "string", minLength: 1, maxLength: 20000 },
+      },
+      required: ["to", "subject", "text"],
+      additionalProperties: false,
+    },
+    readOnly: false,
   },
   {
     name: "ask_user",

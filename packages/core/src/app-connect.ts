@@ -10,6 +10,7 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   notion: "Search and edit pages and databases.",
   googledocs: "Draft and edit documents.",
   hackernews: "Search stories and discussions.",
+  mailbox: "Read mail. Sending works only when that permission was saved.",
 };
 
 export function matchAppCatalog(catalog: ConnectionCatalogItem[], app: string) {

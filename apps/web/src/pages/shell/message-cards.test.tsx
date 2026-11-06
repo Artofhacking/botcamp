@@ -8,6 +8,11 @@ const calls = vi.hoisted(() => ({
   begin: vi.fn(async () => ({ connectionId: "connection", authorizationUrl: null })),
   complete: vi.fn(async () => ({ status: "connected" })),
   mark: vi.fn(async () => ({ ok: true })),
+  save: vi.fn(async () => ({
+    connected: true,
+    address: "person@example.com",
+    scope: "alias:read mail:read",
+  })),
   oauthBegin: vi.fn(async () => ({
     status: "authorization_required" as const,
     authorizationUrl: "https://identity.example.test/authorize",
@@ -18,6 +23,7 @@ vi.mock("../../lib/rpc", () => ({
   rpc: {
     connections: { begin: calls.begin, complete: calls.complete },
     onboarding: { appConnected: calls.mark },
+    mailbox: { save: calls.save },
     mcp: { oauth: { begin: calls.oauthBegin }, assignments: { approve: calls.approve } },
   },
 }));
@@ -137,6 +143,73 @@ it("authorizes a card in a normal chat and marks its thread connected", async ()
     });
     expect(host.textContent).toContain("Connected");
     expect(host.querySelector("button")).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+function typeInto(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+it("saves a mailbox card with its authorization code instead of starting OAuth", async () => {
+  const beginCalls = calls.begin.mock.calls.length;
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () =>
+      root.render(
+        <AppConnectCard
+          botId="bot"
+          threadId="normal-chat"
+          messageId="message"
+          block={{
+            kind: "app_connect",
+            connectorId: "mailbox",
+            provider: "mailbox",
+            name: "QQ邮箱",
+            description: "Read mail. Sending works only when that permission was saved.",
+            logo: null,
+            status: "pending",
+          }}
+        />,
+      ),
+    );
+    expect(host.textContent).toContain("Test and save");
+    const email = host.querySelector('input[type="email"]') as HTMLInputElement;
+    const code = host.querySelector('input[type="password"]') as HTMLInputElement;
+    await act(async () => {
+      typeInto(email, "Person@Example.com");
+      typeInto(code, "short");
+    });
+    const submit = () =>
+      [...host.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Test and save"),
+      );
+    await act(async () => submit()?.click());
+    expect(calls.save).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Enter the 16-character authorization code");
+    await act(async () => typeInto(code, "abcd efgh ijkl mnop"));
+    await act(async () => submit()?.click());
+    expect(calls.save).toHaveBeenCalledWith({
+      address: "person@example.com",
+      authCode: "abcdefghijklmnop",
+      scope: "alias:read mail:read",
+    });
+    expect(calls.mark).toHaveBeenCalledWith({
+      botId: "bot",
+      threadId: "normal-chat",
+      messageId: "message",
+      connectorId: "mailbox",
+      provider: "mailbox",
+    });
+    expect(calls.begin.mock.calls.length).toBe(beginCalls);
+    expect(host.textContent).toContain("Connected");
+    expect(host.querySelector("form")).toBeNull();
   } finally {
     await act(async () => root.unmount());
     host.remove();

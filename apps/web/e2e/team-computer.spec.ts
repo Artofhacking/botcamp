@@ -4,6 +4,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
+  confirmTakeoverPrompt,
   openBotPanelTab,
   realSandboxTimeout,
   rpc,
@@ -44,6 +45,8 @@ test("opening and releasing the computer keep a view-only stream; a failed relea
   expect(takeovers).toBe(0);
   await captureScreenshot(page, testInfo, "computer-open-view-only");
   await take.click();
+  expect(takeovers).toBe(0);
+  await confirmTakeoverPrompt(page);
   await expect(release).toBeVisible();
   await expect(take).toHaveCount(0);
   await expect(screen).toHaveAttribute("src", /view_only=false/);
@@ -66,6 +69,7 @@ test("opening and releasing the computer keep a view-only stream; a failed relea
 
   // A release that fails keeps the computer open so it can be retried.
   await take.click();
+  await confirmTakeoverPrompt(page);
   await expect(release).toBeVisible();
   await page.route("**/rpc/computer/release", (route) =>
     route.fulfill({ status: 500, body: "release unavailable" }),
@@ -158,6 +162,7 @@ test("an active Team bot must be stopped before user takeover", async ({ page },
   await expect(page.getByRole("button", { name: "Close computer" })).toBeVisible();
   await expect(chrome.getByText("You have control", { exact: true })).toHaveCount(0);
   await chrome.getByRole("button", { name: "Take control", exact: true }).click();
+  await confirmTakeoverPrompt(page);
   await expect(chrome.getByText("You have control", { exact: true })).toBeVisible();
   await expect(chrome.getByRole("button", { name: "Release control", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "49-team-computer-open-after-stop");

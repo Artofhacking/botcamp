@@ -115,6 +115,22 @@ export function adoptHashRoute(
   }
 }
 
+/**
+ * The address that opens a shared page on this deploy. A subpath host has no
+ * file at `/p/…`, so the link is the console entry with the route in the hash.
+ */
+export function directShareUrl(shareUrl: string, base = import.meta.env.BASE_URL): string {
+  if (!hashRoutesEnabled(base)) return shareUrl;
+  let url: URL;
+  try {
+    url = new URL(shareUrl);
+  } catch {
+    return shareUrl;
+  }
+  if (!url.pathname.startsWith("/p/")) return shareUrl;
+  return `${url.origin}${toAppDocument(`${url.pathname}${url.search}`, base)}`;
+}
+
 /** A full navigation that stays on the entry document when routes live in the hash. */
 export function toAppDocument(url: string, base = import.meta.env.BASE_URL): string {
   if (!hashRoutesEnabled(base)) return url;
@@ -126,6 +142,17 @@ export function toAppDocument(url: string, base = import.meta.env.BASE_URL): str
 
 export function assignAppLocation(url: string): void {
   window.location.assign(toAppDocument(url));
+}
+
+/** The public homepage on this host. A console under a path still opens the site root. */
+export function siteHomeHref(origin: string): string {
+  return new URL("/", origin).href;
+}
+
+/** App icon served with the console, including when the console is not at `/`. */
+export function brandIconSrc(base: string | undefined = "/"): string {
+  const prefix = !base || base === "/" ? "/" : base.endsWith("/") ? base : `${base}/`;
+  return `${prefix}icon-192.png`;
 }
 
 /** Rewrite the route's query and return the address a redirect should come back to. */

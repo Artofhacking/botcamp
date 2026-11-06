@@ -54,7 +54,7 @@ import { usePasskeysSupported } from "../lib/passkeys";
 import type { AppearancePreference } from "../lib/ui-appearance";
 import { getUiAppearancePreference, setUiAppearance } from "../lib/ui-appearance";
 import type { UiLocale } from "../lib/ui-locale";
-import { UI_LOCALE_LABELS, UI_LOCALES } from "../lib/ui-locale";
+import { UI_LOCALE_CHOICES, UI_LOCALE_LABELS } from "../lib/ui-locale";
 import { authErrorText } from "../lib/user-error";
 import type { WeeklyQuota } from "../lib/weekly-quota.js";
 import { fetchWeeklyQuota, resetLabel } from "../lib/weekly-quota.js";
@@ -689,7 +689,7 @@ function UiLocalePicker({
       className="w-56 max-w-full"
       data-testid="ui-locale-select"
       aria-label={t`Language`}
-      options={UI_LOCALES.map((code) => ({
+      options={UI_LOCALE_CHOICES.map((code) => ({
         value: code,
         label: UI_LOCALE_LABELS[code],
       }))}

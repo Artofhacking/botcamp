@@ -2825,6 +2825,10 @@ msgstr "說明文件"
 msgid "Document changed. Reopen to edit the latest version."
 msgstr "文件已變更，請重新開啟以編輯最新版本。"
 
+#: src/pages/shell/takeover-prompt.tsx
+msgid "Don't show this again"
+msgstr "下次不再提醒"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "還沒有帳號？"
@@ -7014,6 +7018,10 @@ msgstr "何時執行"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "When to use"
 msgstr "何時使用"
+
+#: src/pages/shell/takeover-prompt.tsx
+msgid "When you are finished, choose I’m done."
+msgstr "完成後請點擊「我做完了」。"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Where should bots run?"
