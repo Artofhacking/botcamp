@@ -34,9 +34,11 @@ DEFAULTS = {
 }
 
 # What each platform publishes. electron-builder names the manifest after the target.
+# The macOS zip is left out on purpose: Squirrel installs from it, and this build cannot hand
+# the swap to Squirrel, so shipping 150 MB nobody downloads would double the publish time.
 ARTIFACTS = {
     "mac": {
-        "suffixes": (".dmg", ".dmg.blockmap", "-mac.zip", "-mac.zip.blockmap"),
+        "suffixes": (".dmg", ".dmg.blockmap"),
         "feed": "latest-mac.yml",
     },
     "win": {"suffixes": (".exe", ".exe.blockmap"), "feed": "latest.yml"},
@@ -113,15 +115,18 @@ def upload(files: list[Path], prefix: str) -> None:
     for path in ordered:
         key = f"{prefix}/{path.name}"
         cache = REVALIDATE if path.suffix == ".yml" else IMMUTABLE
-        with path.open("rb") as body:
-            client.put_object(
-                Bucket=bucket,
-                Body=body,
-                Key=key,
-                EnableMD5=False,
-                ContentType=content_type(path.name),
-                CacheControl=cache,
-            )
+        # Chunked and parallel: a single-request upload of a 150 MB installer crawls
+        # across the Pacific and can outlast the step's own timeout.
+        client.upload_file(
+            Bucket=bucket,
+            Key=key,
+            LocalFilePath=str(path),
+            PartSize=10,
+            MAXThread=8,
+            EnableCheckpoint=False,
+            ContentType=content_type(path.name),
+            CacheControl=cache,
+        )
         print(f"uploaded {key} ({path.stat().st_size} bytes)")
 
 
