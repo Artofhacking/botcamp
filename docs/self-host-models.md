@@ -20,6 +20,8 @@ whose context contains an image uses a separate vision model on that same endpoi
 (`deepseek/deepseek-v4-flash-vision-exp`). The deployment list stays on text, including a
 listed model that could read images. A failure of the vision call does not move those
 images to a listed model. Text calls keep the list and can still move to a text backup.
+The vision call waits four minutes for the response to start. Text calls keep the shorter
+header budget.
 
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set

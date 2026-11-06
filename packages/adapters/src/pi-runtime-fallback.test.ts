@@ -67,7 +67,11 @@ vi.mock("./pi-openai-compatible-provider.js", () => ({
 import { estimateModelContextTokens } from "./model-context.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import { PiAgentRuntime } from "./pi-runtime.js";
-import { MODEL_STREAM_IDLE_TIMEOUT_MS, MODEL_STREAM_TIMEOUT_MS } from "./pi-runtime-limits.js";
+import {
+  MODEL_IMAGE_STREAM_TIMEOUT_MS,
+  MODEL_STREAM_IDLE_TIMEOUT_MS,
+  MODEL_STREAM_TIMEOUT_MS,
+} from "./pi-runtime-limits.js";
 import { MODEL_STREAM_IDLE_TIMEOUT_MESSAGE } from "./pi-runtime-stream.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 
@@ -2070,7 +2074,122 @@ describe("Pi runtime ordered model fallback", () => {
     expect(
       providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
     ).toEqual([image.id]);
-    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({ apiKey: "image-key" });
+    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({
+      apiKey: "image-key",
+      timeoutMs: MODEL_IMAGE_STREAM_TIMEOUT_MS,
+    });
+  });
+
+  it("keeps the text header timeout when the image model is set but this call has no images", async () => {
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
+    const input = request([]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [{ type: "text", text: "text only" }], "stop")),
+    );
+
+    await run(input);
+
+    expect(
+      providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).id),
+    ).toEqual([primary.id]);
+    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({
+      timeoutMs: MODEL_STREAM_TIMEOUT_MS,
+    });
+  });
+
+  it("does not retry an image call after its header budget is spent", async () => {
+    vi.useFakeTimers();
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "text-backup-key" },
+    ]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    input.currentTurnImages = [
+      { name: "fixture.png", mimeType: "image/png", data: new Uint8Array([1]) },
+    ];
+    const pending = new AssistantMessageEventStream();
+    providerState.stream.mockReturnValue(pending);
+    const outcome = run(input).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(MODEL_IMAGE_STREAM_TIMEOUT_MS);
+    const failure = message(image, [], "error", "Request timed out.");
+    pending.push({ type: "error", reason: "error", error: failure });
+    pending.end(failure);
+
+    expect(await outcome).toEqual(expect.objectContaining({ message: "Request timed out." }));
+    expect(providerState.stream).toHaveBeenCalledTimes(1);
+    expect(providerState.stream.mock.calls[0]?.[2]).toMatchObject({
+      apiKey: "image-key",
+      timeoutMs: MODEL_IMAGE_STREAM_TIMEOUT_MS,
+    });
+    expect(providerState.delay).not.toHaveBeenCalled();
+  });
+
+  it("keeps a caller header timeout that is already longer than the image wait", async () => {
+    const image = model("provider-image", "vision", 16_384);
+    providerState.models.set(
+      `${image.provider}/${image.id}`,
+      image as unknown as Record<string, unknown>,
+    );
+    const input = request([]);
+    input.imageModel = {
+      provider: image.provider,
+      id: image.id,
+      apiKey: "image-key",
+      acceptsImages: true,
+    };
+    const initialStream = new AssistantMessageEventStream();
+    providerState.stream.mockReturnValue(initialStream);
+    const initialRun = run(input);
+    await vi.waitFor(() => expect(providerState.stream).toHaveBeenCalledOnce());
+    const agentOptions = providerState.agentOptions;
+    if (!agentOptions) throw new Error("Agent was not created");
+
+    const upstream = new AssistantMessageEventStream();
+    providerState.stream.mockReturnValue(upstream);
+    const response = await agentOptions.streamFn(
+      primary,
+      {
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
+          },
+        ],
+      } as unknown as TranscriptContext,
+      { timeoutMs: 300_000, apiKey: "caller-key" },
+    );
+    await vi.waitFor(() => expect(providerState.stream).toHaveBeenCalledTimes(2));
+    expect(providerState.stream.mock.calls[1]?.[2]).toMatchObject({
+      apiKey: "image-key",
+      timeoutMs: 300_000,
+    });
+    const done = message(image, [{ type: "text", text: "seen" }], "stop");
+    upstream.push({ type: "done", reason: "stop", message: done });
+    upstream.end(done);
+    await response.result();
+    const initialMessage = message(primary, [{ type: "text", text: "healthy" }], "stop");
+    initialStream.push({ type: "done", reason: "stop", message: initialMessage });
+    initialStream.end(initialMessage);
+    await initialRun;
   });
 
   it("uses the image model's key when the text model has no backups", async () => {

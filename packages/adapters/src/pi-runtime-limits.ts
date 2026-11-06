@@ -4,6 +4,12 @@ import { LOCAL_PROVIDER_ID } from "./pi-local-provider-id.js";
 
 /** Per-attempt wait for response headers; this does not cap active streaming duration. */
 export const MODEL_STREAM_TIMEOUT_MS = 120_000;
+/**
+ * Header wait for a call that already contains images. A screenshot in a long
+ * transcript can miss the text budget before the first byte. Text calls keep
+ * MODEL_STREAM_TIMEOUT_MS. Still under Node's five-minute fetch ceiling.
+ */
+export const MODEL_IMAGE_STREAM_TIMEOUT_MS = 240_000;
 /** Bound connection establishment independently of response streaming. */
 export const MODEL_CONNECT_TIMEOUT_MS = 30_000;
 /**

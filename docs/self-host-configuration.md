@@ -70,7 +70,9 @@ ceiling because Node's HTTP client stops waiting at that point on its own.
 - `MODEL_STREAM_TIMEOUT_MS` (default `120000`) is the time budget for retrying the same model. It
   is also how long a request waits for the response to start when it uses the OpenAI Chat
   Completions, Responses or Codex API, Anthropic Messages, Mistral or Azure OpenAI. Other APIs,
-  such as Google, Vertex AI, Bedrock and some routed models, use their client's own wait.
+  such as Google, Vertex AI, Bedrock and some routed models, use their client's own wait. A call
+  that already contains an image waits `240000` milliseconds for the response to start when this
+  setting is lower. Text calls keep this setting.
 - `MODEL_STREAM_IDLE_TIMEOUT_MS` (default `180000`) is how long a started response may go silent,
   for every provider.
 - `MODEL_CONNECT_TIMEOUT_MS` (default `30000`) bounds connecting to an OpenAI-compatible model or

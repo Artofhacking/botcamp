@@ -34,6 +34,7 @@ import { OPENAI_COMPATIBLE_PROVIDER_ID } from "./pi-openai-compatible-provider.j
 import { assistantText, messageHasToolCall, sanitizeProviderError } from "./pi-runtime-errors.js";
 import {
   effectiveOutputReserve,
+  MODEL_IMAGE_STREAM_TIMEOUT_MS,
   modelStreamTimeoutMs,
   operatorMaxTokens,
   resolveCompletionMaxTokens,
@@ -451,8 +452,13 @@ export function fallbackAwareModelStream(
     let sizingFailure: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
     // Bound same-model retries. Explicit backups retain their per-model header
     // timeout: a post-header idle watchdog can already exceed that timeout.
+    // An image call keeps the longer of the caller's budget and the image header
+    // wait. Callers often pass the text timeout, which a screenshot can miss.
     let startedAt = Date.now();
-    const timeoutMs = options?.timeoutMs ?? modelStreamTimeoutMs();
+    const requestedTimeoutMs = options?.timeoutMs ?? modelStreamTimeoutMs();
+    const timeoutMs = imageTarget
+      ? Math.max(requestedTimeoutMs, MODEL_IMAGE_STREAM_TIMEOUT_MS)
+      : requestedTimeoutMs;
     let firstRetryableError: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
     // Set once this call has been repeated after spending its output budget on nothing visible.
     let lengthRecovered = false;
@@ -477,9 +483,11 @@ export function fallbackAwareModelStream(
         ? { ...active, model: { ...active.model, thinkingLevelMap } }
         : active;
       const outputCap = state.outputCaps?.get(targetKey);
+      const headerTimeoutMs =
+        retries > 0 || sizingFailure ? remainingMs : imageTarget ? timeoutMs : undefined;
       const attemptOptions = {
         ...options,
-        ...(retries > 0 || sizingFailure ? { timeoutMs: remainingMs } : {}),
+        ...(headerTimeoutMs !== undefined ? { timeoutMs: headerTimeoutMs } : {}),
         ...(outputCap !== undefined
           ? { maxTokens: Math.min(outputCap, options?.maxTokens ?? outputCap) }
           : {}),
