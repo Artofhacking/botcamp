@@ -42,7 +42,7 @@ type ComputerOverlayProps = {
   onStopRun: () => void;
   onRelease: (reason?: ComputerReleaseReason) => Promise<void>;
   onTakeControl: () => void;
-  /** Set while control waits for the person to confirm the note at the top. */
+  /** Set while control waits for the person to confirm the dialog. */
   takeoverPrompt?: boolean;
   onConfirmTakeover?: (remember: boolean) => void;
   onStart: () => void;
@@ -191,12 +191,6 @@ export function ComputerOverlay({
             </Button>
           </div>
         </div>
-        {takeoverPrompt && onConfirmTakeover ? (
-          <TakeoverPrompt
-            disabled={booting || computer?.state !== "running"}
-            onConfirm={onConfirmTakeover}
-          />
-        ) : null}
         {sendError ? (
           <div
             role="alert"
@@ -206,52 +200,60 @@ export function ComputerOverlay({
           </div>
         ) : null}
         <div className="relative min-h-0 flex-1 bg-background">
-          {computer?.kind === "desktop" ? (
-            <DesktopKindEmptyState className="grid h-full place-items-center px-8 text-center text-sm text-muted-foreground/80" />
-          ) : computer?.state === "running" && embeddedScreenUrl && !computerScreenError ? (
-            <>
-              <iframe
-                key={screenFrameKey}
-                title={t`Bot screen`}
-                ref={screenFrameRef}
-                src={embeddedScreenUrl}
-                sandbox={screenIframeSandbox(embeddedScreenUrl)}
-                className="h-full w-full border-0 bg-black"
-                allow="clipboard-read; clipboard-write; fullscreen"
-                style={{
-                  pointerEvents: recordingSkill || !hasControl ? "none" : "auto",
-                }}
-              />
-              {bot ? (
-                <TeachCaptureOverlay
-                  botId={bot.id}
-                  skill={recordingSkill}
-                  enabled={Boolean(recordingSkill)}
-                  screenWidth={computer?.screenWidth}
-                  screenHeight={computer?.screenHeight}
+          <div className="h-full min-h-0" inert={takeoverPrompt ? true : undefined}>
+            {computer?.kind === "desktop" ? (
+              <DesktopKindEmptyState className="grid h-full place-items-center px-8 text-center text-sm text-muted-foreground/80" />
+            ) : computer?.state === "running" && embeddedScreenUrl && !computerScreenError ? (
+              <>
+                <iframe
+                  key={screenFrameKey}
+                  title={t`Bot screen`}
+                  ref={screenFrameRef}
+                  src={embeddedScreenUrl}
+                  sandbox={screenIframeSandbox(embeddedScreenUrl)}
+                  className="h-full w-full border-0 bg-black"
+                  allow="clipboard-read; clipboard-write; fullscreen"
+                  style={{
+                    pointerEvents: recordingSkill || !hasControl ? "none" : "auto",
+                  }}
                 />
-              ) : null}
-            </>
-          ) : (
-            <div className="grid h-full place-items-center text-sm text-muted-foreground/80">
-              {computerScreenError ??
-                computerBooting ??
-                (computer?.state === "stopped" || computer?.state === "suspended" ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <p>
-                      {computer.state === "suspended"
-                        ? t`Computer is asleep`
-                        : t`Computer is stopped`}
-                    </p>
-                    <Button variant="outline" size="sm" onClick={onStart}>
-                      <Trans>Start</Trans>
-                    </Button>
-                  </div>
-                ) : (
-                  computerLabel(computer?.mode, bot.name)
-                ))}
-            </div>
-          )}
+                {bot ? (
+                  <TeachCaptureOverlay
+                    botId={bot.id}
+                    skill={recordingSkill}
+                    enabled={Boolean(recordingSkill)}
+                    screenWidth={computer?.screenWidth}
+                    screenHeight={computer?.screenHeight}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <div className="grid h-full place-items-center text-sm text-muted-foreground/80">
+                {computerScreenError ??
+                  computerBooting ??
+                  (computer?.state === "stopped" || computer?.state === "suspended" ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <p>
+                        {computer.state === "suspended"
+                          ? t`Computer is asleep`
+                          : t`Computer is stopped`}
+                      </p>
+                      <Button variant="outline" size="sm" onClick={onStart}>
+                        <Trans>Start</Trans>
+                      </Button>
+                    </div>
+                  ) : (
+                    computerLabel(computer?.mode, bot.name)
+                  ))}
+              </div>
+            )}
+          </div>
+          {takeoverPrompt && onConfirmTakeover ? (
+            <TakeoverPrompt
+              disabled={booting || computer?.state !== "running"}
+              onConfirm={onConfirmTakeover}
+            />
+          ) : null}
         </div>
       </div>
     </div>

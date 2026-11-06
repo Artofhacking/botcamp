@@ -4523,6 +4523,10 @@ msgstr "OAuth expired"
 msgid "Offline"
 msgstr "Offline"
 
+#: src/pages/shell/takeover-prompt.tsx
+msgid "OK"
+msgstr "OK"
+
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Ollama API key"

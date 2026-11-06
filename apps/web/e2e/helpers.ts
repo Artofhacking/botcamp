@@ -17,11 +17,11 @@ export function realSandboxTimeout(real: number, emulated: number) {
   return isRealSandboxProvider() ? real : emulated;
 }
 
-/** Confirm the note shown before control is granted. */
+/** Confirm the dialog shown before control is granted. */
 export async function confirmTakeoverPrompt(page: Page) {
   const prompt = page.getByTestId("takeover-prompt");
   await expect(prompt).toBeVisible();
-  const confirm = prompt.getByRole("button", { name: "Take control", exact: true });
+  const confirm = prompt.getByRole("button", { name: "OK", exact: true });
   await expect(confirm).toBeEnabled({ timeout: realSandboxTimeout(90_000, 20_000) });
   await confirm.click();
 }

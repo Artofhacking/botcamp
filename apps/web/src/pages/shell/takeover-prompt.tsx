@@ -2,7 +2,10 @@ import { Trans } from "@lingui/react/macro";
 import { Button, Checkbox } from "@rakazo/ui-web";
 import { useId, useState } from "react";
 
-/** Shown once at the top of the screen before control is granted. */
+/**
+ * Covers the computer page until the person presses OK.
+ * The scrim does not dismiss it. The computer's own close control stays outside this layer.
+ */
 export function TakeoverPrompt({
   disabled,
   onConfirm,
@@ -11,26 +14,37 @@ export function TakeoverPrompt({
   onConfirm: (remember: boolean) => void;
 }) {
   const [remember, setRemember] = useState(false);
+  const titleId = useId();
   const rememberId = useId();
   return (
     <div
       data-testid="takeover-prompt"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-warning/40 bg-warning/10 px-[18px] py-2.5"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="absolute inset-0 z-20 flex items-center justify-center bg-overlay p-6"
     >
-      <p className="min-w-0 flex-1 text-sm text-foreground">
-        <Trans>When you are finished, choose I’m done.</Trans>
-      </p>
-      <label htmlFor={rememberId} className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Checkbox
-          id={rememberId}
-          checked={remember}
-          onCheckedChange={(checked) => setRemember(checked === true)}
-        />
-        <Trans>Don't show this again</Trans>
-      </label>
-      <Button type="button" size="sm" disabled={disabled} onClick={() => onConfirm(remember)}>
-        <Trans>Take control</Trans>
-      </Button>
+      <div className="grid w-full max-w-sm gap-4 rounded-xl bg-dialog p-4 text-foreground ring-1 ring-foreground/10">
+        <h2 id={titleId} className="text-heading3 font-medium">
+          <Trans>When you are finished, choose I’m done.</Trans>
+        </h2>
+        <label
+          htmlFor={rememberId}
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <Checkbox
+            id={rememberId}
+            checked={remember}
+            onCheckedChange={(checked) => setRemember(checked === true)}
+          />
+          <Trans>Don't show this again</Trans>
+        </label>
+        <div className="flex justify-end">
+          <Button type="button" autoFocus disabled={disabled} onClick={() => onConfirm(remember)}>
+            <Trans>OK</Trans>
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

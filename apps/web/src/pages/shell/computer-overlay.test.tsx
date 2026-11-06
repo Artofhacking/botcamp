@@ -159,6 +159,7 @@ it("asks for confirmation before granting control, and can turn the note off", a
     );
   });
   const prompt = container.querySelector('[data-testid="takeover-prompt"]')!;
+  expect(prompt.getAttribute("role")).toBe("alertdialog");
   expect(prompt.textContent).toContain("When you are finished, choose I’m done.");
   expect(container.querySelector('[data-testid="computer-chrome"]')?.textContent).not.toContain(
     "Take control",
@@ -166,7 +167,7 @@ it("asks for confirmation before granting control, and can turn the note off", a
   const box = prompt.querySelector("input")!;
   await act(async () => box.click());
   const confirm = [...prompt.querySelectorAll("button")].find(
-    (button) => button.textContent === "Take control",
+    (button) => button.textContent === "OK",
   )!;
   await act(async () => confirm.click());
   expect(onConfirmTakeover).toHaveBeenCalledWith(true);

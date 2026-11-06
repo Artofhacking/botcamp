@@ -42,8 +42,8 @@ import {
   screenReadLoaded,
   userHoldsComputerControl,
 } from "../../lib/thread-events";
-import { dismissTakeoverHint, takeoverHintDismissed, takeoverNeedsConfirm } from "./takeover-hint";
 import { errorText } from "../../lib/user-error";
+import { dismissTakeoverHint, takeoverHintDismissed, takeoverNeedsConfirm } from "./takeover-hint";
 
 // Caps the per-bot computer cache so a long session that opens many distinct bots
 // over time doesn't accumulate one entry per bot forever.
@@ -635,8 +635,8 @@ export function useComputerControls({
   }, [panel, computerOpen, computerBot?.id, active?.id, computer?.state]);
 
   /**
-   * Open the computer view. Take control asks for the lease, after the note at the top
-   * until that note is turned off. `confirmed` is that note's own button.
+   * Open the computer view. Take control asks for the lease after the dialog,
+   * until that dialog is turned off. `confirmed` is the dialog's OK button.
    */
   async function openComputer(botId?: string, takeControl = false, confirmed = false) {
     const id = botId ?? active?.id;
