@@ -4,8 +4,8 @@ import { Button, toast } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/desktop";
-import { AboutBotCamp, clientPlatform, releaseVersion } from "./AboutBotCamp";
 import type { ClientPlatform } from "./AboutBotCamp";
+import { AboutBotCamp, clientPlatform, releaseVersion, VersionRow } from "./AboutBotCamp";
 import { SettingsRow } from "./SettingsRows";
 
 function useDesktopUpdates() {
@@ -89,6 +89,17 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
   const updates = useDesktopUpdates();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const { state, error } = updates;
+  // The window title names the build, so a screenshot in a bug report carries it too.
+  const titleVersion =
+    releaseVersion(state?.currentVersion) || releaseVersion(window.__BOTCAMP_APP__?.version);
+  useEffect(() => {
+    if (!titleVersion) return;
+    const previous = document.title;
+    document.title = `BotCamp ${titleVersion}`;
+    return () => {
+      document.title = previous;
+    };
+  }, [titleVersion]);
   useEffect(() => {
     if (error) setDismissed(null);
   }, [error]);
@@ -164,12 +175,6 @@ export function useSidebarUpdate() {
   };
 }
 
-const PLATFORM_LABEL: Record<ClientPlatform, string> = {
-  android: "Android",
-  mac: "macOS",
-  windows: "Windows",
-};
-
 /**
  * Download and install inside the app. Used once the installed build has an
  * update feed; older builds fall through to the public installer link.
@@ -189,14 +194,7 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
   const status = error ?? (state.phase === "error" ? state.message : null);
   return (
     <div className="space-y-3">
-      <SettingsRow
-        label={<span className="font-medium">BotCamp</span>}
-        control={
-          <span className="text-[13px] text-muted-foreground">
-            {PLATFORM_LABEL[platform]} · {version}
-          </span>
-        }
-      />
+      <VersionRow platform={platform} version={version} />
       <SettingsRow
         label={
           <div>

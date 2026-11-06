@@ -1,6 +1,7 @@
 import { Button } from "@rakazo/ui-web";
 import { useEffect, useState } from "react";
 import { apiOrigin } from "../lib/api-origin.js";
+import { useCopyText } from "../lib/copy-text.js";
 import { SettingsRow } from "./SettingsRows";
 
 declare global {
@@ -75,6 +76,33 @@ export function releaseVersion(value: string | undefined): string {
   return /^\d+\.\d+\.\d+(?:[-+].*)?$/.test(version) ? version : "";
 }
 
+/**
+ * The build a bug report is about. Reading it off the screen and retyping it is where
+ * reports lose the version, so the row hands it over already worded.
+ */
+export function VersionRow({ platform, version }: { platform: ClientPlatform; version: string }) {
+  const [copied, copy] = useCopyText();
+  return (
+    <SettingsRow
+      label={<span className="font-medium">BotCamp</span>}
+      control={
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] text-muted-foreground">
+            {PLATFORM_LABEL[platform]} · {version}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => copy(`BotCamp ${version} · ${PLATFORM_LABEL[platform]}`)}
+          >
+            {copied ? "已复制" : "复制"}
+          </Button>
+        </div>
+      }
+    />
+  );
+}
+
 export function AboutBotCamp({
   client,
 }: {
@@ -125,14 +153,14 @@ export function AboutBotCamp({
 
   return (
     <div className="space-y-3">
-      <SettingsRow
-        label={<span className="font-medium">BotCamp</span>}
-        control={
-          <span className="text-[13px] text-muted-foreground">
-            {client && version ? `${PLATFORM_LABEL[client.platform]} · ${version}` : "网页端"}
-          </span>
-        }
-      />
+      {client && version ? (
+        <VersionRow platform={client.platform} version={version} />
+      ) : (
+        <SettingsRow
+          label={<span className="font-medium">BotCamp</span>}
+          control={<span className="text-[13px] text-muted-foreground">网页端</span>}
+        />
+      )}
       {client && version ? (
         <SettingsRow
           label={
@@ -160,7 +188,12 @@ export function AboutBotCamp({
                 下载
               </a>
             ) : (
-              <Button variant="secondary" size="sm" disabled={checking} onClick={() => void check()}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={checking}
+                onClick={() => void check()}
+              >
                 {checking ? "检查中…" : "检查更新"}
               </Button>
             )

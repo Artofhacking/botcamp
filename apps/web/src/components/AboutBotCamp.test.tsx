@@ -19,6 +19,12 @@ function installWindowsAgent() {
   Object.defineProperty(navigator, "userAgent", { value: WINDOWS, configurable: true });
 }
 
+function checkButtons(root: ParentNode): HTMLButtonElement[] {
+  return [...root.querySelectorAll("button")].filter((item) =>
+    item.textContent?.includes("检查更新"),
+  );
+}
+
 function render(node: ReactNode) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
@@ -40,6 +46,7 @@ function render(node: ReactNode) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.title = "BotCamp";
   delete window.rakazoDesktop;
   delete window.__RAKAZO_API_ORIGIN__;
 });
@@ -93,7 +100,7 @@ it("checks the installed desktop release and offers that platform's installer", 
     });
     expect(view.container.textContent).toContain("有新版本 0.7.2");
     expect(view.container.textContent).not.toContain("已是最新版本");
-    expect(view.container.querySelector("button")).toBeNull();
+    expect(checkButtons(view.container)).toHaveLength(0);
     expect(view.container.querySelector("a")?.getAttribute("href")).toBe(
       "https://downloads.test/BotCamp-Setup-0.7.2.exe",
     );
@@ -153,9 +160,7 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     }
     return { ok: true, text: async () => "20261105134607\n", json: async () => ({}) };
   });
-  const view = render(
-    createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)),
-  );
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
   try {
     await view.show();
     await act(async () => {
@@ -165,7 +170,7 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     expect(view.container.textContent).not.toContain("自动更新仅在已安装的版本中运行");
     expect(view.container.textContent).not.toContain("20261105134607");
     expect(view.container.textContent).not.toContain("Desktop app");
-    const buttons = [...view.container.querySelectorAll("button")];
+    const buttons = checkButtons(view.container);
     expect(buttons).toHaveLength(1);
     expect(buttons[0]?.textContent).toContain("检查更新");
     expect(view.container.textContent).not.toContain("网页端");
@@ -194,7 +199,7 @@ it("offers a newer Windows installer without moving the Mac release", async () =
   try {
     await windows.show();
     await act(async () => {
-      windows.container.querySelector("button")?.click();
+      checkButtons(windows.container)[0]?.click();
     });
     expect(windows.container.textContent).toContain("有新版本 0.7.3");
     expect(windows.container.querySelector("a")?.getAttribute("href")).toBe(
@@ -202,7 +207,7 @@ it("offers a newer Windows installer without moving the Mac release", async () =
     );
     await mac.show();
     await act(async () => {
-      mac.container.querySelector("button")?.click();
+      checkButtons(mac.container)[0]?.click();
     });
     expect(mac.container.textContent).toContain("已是最新版本");
     expect(mac.container.querySelector("a")).toBeNull();
@@ -233,8 +238,10 @@ it("downloads a newer build inside an app that has an update feed", async () => 
     await view.show();
     expect(view.container.textContent).toContain("Windows · 0.7.3");
     expect(view.container.querySelector("a")).toBeNull();
-    const button = view.container.querySelector("button");
-    expect(button?.textContent).toContain("重启并更新");
+    const button = [...view.container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("重启并更新"),
+    );
+    expect(button).toBeTruthy();
     await act(async () => {
       button?.click();
     });
@@ -259,7 +266,7 @@ it("does not send a Windows app to another platform's installer", async () => {
   try {
     await view.show();
     await act(async () => {
-      view.container.querySelector("button")?.click();
+      checkButtons(view.container)[0]?.click();
     });
     expect(view.container.textContent).toContain("检查更新失败，请稍后再试");
     expect(view.container.querySelector("a")).toBeNull();
@@ -290,7 +297,7 @@ it("checks the Android release against the Android installer", async () => {
   try {
     await view.show();
     expect(view.container.textContent).toContain("Android · 2.1.1");
-    const button = view.container.querySelector("button");
+    const button = checkButtons(view.container)[0];
     await act(async () => {
       button?.click();
     });
@@ -300,6 +307,60 @@ it("checks the Android release against the Android installer", async () => {
     );
   } finally {
     delete window.__BOTCAMP_APP__;
+    await view.cleanup();
+  }
+});
+
+it("hands the build over for a bug report instead of asking the user to retype it", async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  const view = render(
+    createElement(AboutBotCamp, { client: { platform: "windows", version: "0.7.1" } }),
+  );
+  try {
+    await view.show();
+    const copy = [...view.container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("复制"),
+    );
+    expect(copy).toBeTruthy();
+    await act(async () => {
+      copy?.click();
+    });
+    expect(writeText).toHaveBeenCalledWith("BotCamp 0.7.1 · Windows");
+  } finally {
+    delete (navigator as { clipboard?: unknown }).clipboard;
+    await view.cleanup();
+  }
+});
+
+it("names the installed build in the window title, so a screenshot carries it", async () => {
+  const state: DesktopUpdateState = {
+    phase: "idle",
+    currentVersion: "0.7.1",
+    availableVersion: null,
+    percent: null,
+    message: null,
+    checkedAt: null,
+  };
+  window.rakazoDesktop = desktopBridge({
+    state: async () => state,
+    check: async () => state,
+    download: async () => state,
+    install: async () => state,
+  });
+  const view = render(
+    createElement(DesktopUpdatesProvider, null, createElement("div", null, "console")),
+  );
+  try {
+    await view.show();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.title).toBe("BotCamp 0.7.1");
+  } finally {
     await view.cleanup();
   }
 });
