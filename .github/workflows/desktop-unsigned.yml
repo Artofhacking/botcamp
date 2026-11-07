@@ -151,9 +151,15 @@ jobs:
             *) echo "::error::unknown platform ${{ matrix.platform }}"; exit 1 ;;
           esac
           # The runner's Homebrew Python refuses packages outside a virtualenv (PEP 668).
+          # Windows puts the venv binaries in Scripts, macOS and Linux in bin.
           python3 -m venv "$RUNNER_TEMP/publish-venv"
-          "$RUNNER_TEMP/publish-venv/bin/pip" install --quiet cos-python-sdk-v5
-          "$RUNNER_TEMP/publish-venv/bin/python" scripts/publish-desktop.py \
+          if [ -x "$RUNNER_TEMP/publish-venv/bin/python" ]; then
+            py="$RUNNER_TEMP/publish-venv/bin/python"
+          else
+            py="$RUNNER_TEMP/publish-venv/Scripts/python.exe"
+          fi
+          "$py" -m pip install --quiet cos-python-sdk-v5
+          "$py" scripts/publish-desktop.py \
             --out apps/desktop/out \
             --platform "$target" \
             --version "$version"
