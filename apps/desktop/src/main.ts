@@ -785,17 +785,8 @@ function installApplicationMenu() {
     visible: updaterSupport(updaterEnvironment).supported,
     click: () => void checkForUpdatesFromMenu(),
   };
-  // Someone signed in to a hosted server has no stack to run and nothing to gain from
-  // pointing the app elsewhere, so these stay out of the menu unless the app runs its own.
+  // The app opens the hosted console. It no longer offers another server from the menu.
   const runsLocalStack = currentSetup?.mode === "new";
-  const changeServer: Electron.MenuItemConstructorOptions = {
-    id: "change-rakazo-server",
-    label: t("Change BotCamp Server…"),
-    // The chord stays registered, so an operator who knows it can still reach the setup window.
-    accelerator: "CmdOrCtrl+Shift+K",
-    visible: runsLocalStack,
-    click: () => showSetupWindow(),
-  };
   const stopStack: Electron.MenuItemConstructorOptions = {
     id: "stop-local-stack",
     label: t("Stop Local Stack"),
@@ -900,7 +891,6 @@ function installApplicationMenu() {
               { type: "separator" },
               computerAccess,
               revokeComputerAccess,
-              changeServer,
               stopStack,
               { type: "separator" },
               { role: "hide", label: t("Hide {name}", { name: app.name }) },
@@ -935,7 +925,6 @@ function installApplicationMenu() {
               openSettings,
               computerAccess,
               revokeComputerAccess,
-              changeServer,
               stopStack,
               { type: "separator" },
               checkForUpdates,
@@ -1109,8 +1098,12 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
   const previous = mainWindow;
   let win: BrowserWindow | null = null;
   try {
-    const documentError = await probeDocument(targetUrl);
-    if (documentError !== null) throw documentError;
+    // A first open goes to the page even when the probe fails. The chooser is not
+    // a place to land. Switching servers still refuses a page that is not there.
+    if (switching) {
+      const documentError = await probeDocument(targetUrl);
+      if (documentError !== null) throw documentError;
+    }
     await installBundledRenderer(
       targetUrl,
       target.value,
@@ -1152,6 +1145,15 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
     if (previous !== null && !previous.isDestroyed()) mainWindow = previous;
     // Closing the window while it loads is the user leaving, not a failure to explain.
     if (closed) return false;
+    // Launch keeps the page window. A failed switch can still explain itself in
+    // the setup window, which tests open on purpose.
+    if (!switching) {
+      if (win !== null && !win.isDestroyed()) {
+        currentTargetUrl = targetUrl;
+        return true;
+      }
+      return false;
+    }
     // Show the setup window BEFORE destroying the failed one: on Windows/Linux,
     // destroying the last window fires "window-all-closed" -> app.quit() before
     // showSetupWindow() runs, so the app silently exits instead of showing this error.
@@ -1897,11 +1899,14 @@ app.whenReady().then(async () => {
       return;
     }
     if (appOpener.busy()) return;
-    if (currentTargetUrl === null) showSetupWindow(setupError);
-    else
-      void appOpener.open(currentTargetUrl).then((opened) => {
-        if (opened) commitPendingAppSwitch();
-      });
+    if (currentTargetUrl === null) {
+      const cloud = botcampCloudSetup();
+      void appOpener.open(cloud.pageUrl ?? cloud.serverUrl);
+      return;
+    }
+    void appOpener.open(currentTargetUrl).then((opened) => {
+      if (opened) commitPendingAppSwitch();
+    });
   });
 
   if (target.kind === "setup") {

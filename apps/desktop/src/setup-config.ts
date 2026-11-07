@@ -196,17 +196,16 @@ export function serializeSetup(setup: DesktopSetup): string {
 }
 
 /**
- * Replaces BotCamp Cloud when nothing is saved. `RAKAZO_WEB_URL` and a saved setup still win.
+ * Replaces the hosted console when set. `RAKAZO_WEB_URL` still wins over it.
  */
 export const DEFAULT_SERVER_URL = (process.env.RAKAZO_DEFAULT_SERVER_URL ?? "").trim();
 
 /**
- * Decides between the server chooser and the app window.
- * `RAKAZO_WEB_URL` still wins over saved configuration so test and performance
- * harnesses can point the shell anywhere without touching a user's real setup.
- * `RAKAZO_FORCE_SETUP` shows the chooser. A fresh install opens BotCamp Cloud's
- * console. A saved choice is reopened at its page when it has one. An unusable
- * saved address shows the chooser.
+ * Decides which page the desktop window opens.
+ * `RAKAZO_WEB_URL` still wins so test and performance harnesses can point the
+ * shell anywhere. `RAKAZO_FORCE_SETUP` is the only way to the old server
+ * chooser, and only for those harnesses. A person opening the app goes to the
+ * hosted console, including when an older install saved another server.
  */
 export function resolveStartupTarget(input: {
   envUrl?: string;
@@ -218,16 +217,8 @@ export function resolveStartupTarget(input: {
   const envUrl = input.envUrl?.trim();
   if (envUrl !== undefined && envUrl !== "") return { kind: "app", url: envUrl, source: "env" };
 
-  if (DEFAULT_SERVER_URL !== "" && input.saved == null) {
+  if (DEFAULT_SERVER_URL !== "") {
     return { kind: "app", url: DEFAULT_SERVER_URL, source: "env" };
-  }
-
-  if (input.saved != null) {
-    const saved = parseSetupInput(input.saved);
-    if (saved !== null) {
-      return { kind: "app", url: saved.pageUrl ?? saved.serverUrl, source: "saved" };
-    }
-    return { kind: "setup" };
   }
 
   const cloud = botcampCloudSetup();
