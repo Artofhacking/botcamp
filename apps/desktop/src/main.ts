@@ -110,7 +110,11 @@ import { clearSetup, readSetup, readUiLocale, writeSetup, writeUiLocale } from "
 import { createSystemSpeech } from "./system-speech.js";
 import type { UserDeviceAccess } from "./user-device.js";
 import { createUserDeviceAccess, deviceName } from "./user-device.js";
-import { oauthPopupSessionPreferences, shouldOpenInAppPopup } from "./window-open.js";
+import {
+  oauthPopupSessionPreferences,
+  openInSystemBrowser,
+  shouldOpenInAppPopup,
+} from "./window-open.js";
 import {
   browserWindowOptions,
   developmentIconFile,
@@ -358,7 +362,9 @@ function createWindow(url: string, partition: string | null) {
       };
     }
     const external = safeExternalUrl(childUrl);
-    if (external !== null) void shell.openExternal(external);
+    if (external !== null) {
+      openInSystemBrowser((target) => void shell.openExternal(target), external);
+    }
     return { action: "deny" };
   });
   // Signing in lands on a new page; pair then instead of waiting for the next launch.
@@ -373,7 +379,9 @@ function createWindow(url: string, partition: string | null) {
     if (targetOrigin !== null && safeOrigin(event.url) === targetOrigin) return;
     event.preventDefault();
     const external = safeExternalUrl(event.url);
-    if (external !== null) void shell.openExternal(external);
+    if (external !== null) {
+      openInSystemBrowser((target) => void shell.openExternal(target), external);
+    }
   };
   win.webContents.on("will-navigate", keepOnAppOrigin);
   win.webContents.on("will-redirect", keepOnAppOrigin);

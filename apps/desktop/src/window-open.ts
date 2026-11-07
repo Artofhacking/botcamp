@@ -30,6 +30,17 @@ export function shouldOpenInAppPopup(
   return target.protocol === "https:" && OAUTH_POPUP_NAMES.has(frameName);
 }
 
+/**
+ * Hand the URL to the OS after the caller returns.
+ * On Windows, ShellExecute runs inside the window-open handler's turn and the
+ * child window is created before that handler can deny it.
+ */
+export function openInSystemBrowser(open: (url: string) => void, url: string): void {
+  setImmediate(() => {
+    open(url);
+  });
+}
+
 /** Keep auth cookies in the parent app's server-specific session. */
 export function oauthPopupSessionPreferences(partition: string | null) {
   return {
