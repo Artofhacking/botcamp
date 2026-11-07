@@ -123,7 +123,6 @@ def upload(files: list[Path], prefix: str) -> None:
             LocalFilePath=str(path),
             PartSize=10,
             MAXThread=8,
-            EnableCheckpoint=False,
             ContentType=content_type(path.name),
             CacheControl=cache,
         )
