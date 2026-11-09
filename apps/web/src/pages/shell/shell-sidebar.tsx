@@ -58,12 +58,10 @@ export function ShellSidebar({
   setCreateBotOpen,
   roster,
   archived,
-  footerLogos,
   user,
   ticketBoardEnabled,
   navLinks,
   openSettings,
-  openIntegrations,
   openSkills,
 }: {
   isMobile: boolean;
@@ -85,12 +83,10 @@ export function ShellSidebar({
   setCreateBotOpen: (open: boolean) => void;
   roster: ReactNode;
   archived: ReactNode;
-  footerLogos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   ticketBoardEnabled: boolean;
   navLinks: NavLink[];
   openSettings: (section: SettingsSection) => void;
-  openIntegrations: () => void;
   openSkills: () => void;
 }) {
   const { t } = useLingui();
@@ -274,14 +270,12 @@ export function ShellSidebar({
         </div>
         <ShellSidebarFooter
           mini={mini}
-          logos={footerLogos}
           user={user}
           ticketBoardEnabled={ticketBoardEnabled}
           navLinks={navLinks}
           closeMobileSidebar={() => setMobileOpen(false)}
           navigate={navigate}
           openSettings={openSettings}
-          openIntegrations={openIntegrations}
           openSkills={openSkills}
         />
       </Sidebar>
@@ -291,25 +285,21 @@ export function ShellSidebar({
 
 function ShellSidebarFooter({
   mini,
-  logos,
   user,
   ticketBoardEnabled,
   navLinks,
   closeMobileSidebar,
   navigate,
   openSettings,
-  openIntegrations,
   openSkills,
 }: {
   mini: boolean;
-  logos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   ticketBoardEnabled: boolean;
   navLinks: NavLink[];
   closeMobileSidebar: () => void;
   navigate: (path: string) => void;
   openSettings: (section: SettingsSection) => void;
-  openIntegrations: () => void;
   openSkills: () => void;
 }) {
   const { t, i18n } = useLingui();
@@ -347,7 +337,6 @@ function ShellSidebarFooter({
       ) : null}
       <SidebarFooter
         mini={mini}
-        logos={logos}
         name={userName}
         initials={initials}
         image={user?.image}
@@ -356,10 +345,6 @@ function ShellSidebarFooter({
         onOpenChange={(open) => {
           setMenuOpen(open);
           if (!open) setLogOutError(null);
-        }}
-        onIntegrations={() => {
-          setMenuOpen(false);
-          openIntegrations();
         }}
         onSkills={() => {
           setMenuOpen(false);

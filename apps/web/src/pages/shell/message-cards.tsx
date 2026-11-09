@@ -29,7 +29,6 @@ import { chartViewport } from "../../lib/chart-viewport";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { importChunk } from "../../lib/preload-recovery";
 import { rpc } from "../../lib/rpc";
-import { BUILTIN_APPS } from "../../lib/ui-flags";
 import { useArtifactImage } from "../../lib/use-artifact-image";
 import { errorText } from "../../lib/user-error";
 
@@ -260,7 +259,10 @@ export function AppConnectCard({
   );
 }
 
-const MAILBOX_SCOPES = BUILTIN_APPS.find((app) => app.name === "QQ邮箱")?.scopes ?? [];
+const MAILBOX_SCOPES = [
+  { label: "只读", scope: "alias:read mail:read" },
+  { label: "可发信", scope: "alias:read mail:read mail:send" },
+];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Authorization-code sign-in for a mailbox card. Other apps keep the OAuth button. */

@@ -54,7 +54,6 @@ function fixture(space: string) {
     groups: [],
     inGroup: false,
     groupId: undefined,
-    integrationsOpen: false,
     initialBotsLoaded: true,
   } as unknown as Parameters<typeof useComposerMentions>[0];
   return { props, batch, single };

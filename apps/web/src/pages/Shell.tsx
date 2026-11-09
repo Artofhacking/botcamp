@@ -23,7 +23,7 @@ import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
-import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
+import { Monitor, Moon, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {
   Suspense,
   useCallback,
@@ -555,14 +555,13 @@ function SpaceShell() {
     (botId: string | undefined) => memberName(transcriptMembers, botId),
     [transcriptMembers],
   );
-  const { composerMentionTargets, footerLogos, setFooterLogos } = useComposerMentions({
+  const { composerMentionTargets } = useComposerMentions({
     rpc,
     queries,
     bots,
     groups,
     inGroup,
     groupId,
-    integrationsOpen: overlay?.kind === "integrations",
     initialBotsLoaded,
   });
   const shellReady =
@@ -806,12 +805,6 @@ function SpaceShell() {
       onSelect: () => setPanel("create-group"),
     },
     {
-      id: "integrations",
-      label: t`Connect apps`,
-      icon: Plug,
-      onSelect: () => setOverlay({ kind: "integrations" }),
-    },
-    {
       id: "skills",
       label: t`Skills`,
       icon: ScrollText,
@@ -982,12 +975,10 @@ function SpaceShell() {
             setDeleteGroupTarget={dialogs.setDeleteGroupTarget}
           />
         }
-        footerLogos={footerLogos}
         user={session.data?.user}
         ticketBoardEnabled={Boolean(bootstrapMe?.ticketBoardEnabled)}
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
         openSettings={openSettings}
-        openIntegrations={() => setOverlay({ kind: "integrations" })}
         openSkills={() => setOverlay({ kind: "skills" })}
       />
 
@@ -1283,9 +1274,7 @@ function SpaceShell() {
         <AppOverlays
           overlay={overlay}
           setOverlay={setOverlay}
-          activeBotId={activeBotId.current}
           stdioEnabled={bootstrapMe?.mcpStdioEnabled === true}
-          onConnectedAppsChange={setFooterLogos}
         />
       </Suspense>
 

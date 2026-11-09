@@ -3,19 +3,6 @@
 window.__RAKAZO_API_ORIGIN__ = "";
 // The operator console is a separate page; it reads the same value.
 window.__RAKAZO_ADMIN_API__ = "";
-// What this deployment offers, without a rebuild:
+// What this deployment hides, without a rebuild:
 //
-//   window.__RAKAZO_UI__ = {
-//     hiddenSections: ["models", "computer", "billing"],
-//     // Listing apps here makes Integrations show only them: connect, or disconnect.
-//     apps: [
-//       {
-//         name: "Mail",
-//         endpoint: "https://mail.example.com/mcp",
-//         scopes: [
-//           { label: "Read only", scope: "mail.read" },
-//           { label: "Read and send", scope: "mail.read mail.send" },
-//         ],
-//       },
-//     ],
-//   };
+//   window.__RAKAZO_UI__ = { hiddenSections: ["models", "computer", "billing"] };

@@ -14,7 +14,6 @@ test("opens Artifacts from the account menu and lists created files", async ({
   const sidebar = page.getByTestId("bots-sidebar");
   await expect(sidebar).toBeVisible();
   expect((await sidebar.boundingBox())?.x).toBe(0);
-  await expect(sidebar.getByRole("button", { name: "Connect apps" })).toBeVisible();
   await page.getByTestId("user-menu-trigger").click();
   const artifactsItem = page.getByRole("button", { name: "Artifacts", exact: true });
   const settingsItem = page.getByRole("button", { name: "Settings", exact: true });

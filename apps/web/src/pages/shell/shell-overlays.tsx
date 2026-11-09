@@ -11,7 +11,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { RefObject } from "react";
 import { useCallback } from "react";
 import { lazyOverlay } from "../../components/ErrorBoundary";
-import type { connectedAppMarks } from "../../lib/connected-apps";
 import type { SpaceQueries } from "../../lib/query";
 import { queryClient } from "../../lib/query";
 import type { createSpaceRpc } from "../../lib/rpc";
@@ -23,9 +22,6 @@ const SettingsOverlay = lazyOverlay(() =>
 );
 const PeerMessagesOverlay = lazyOverlay(() =>
   import("../PeerMessagesOverlay").then((module) => module.PeerMessagesOverlay),
-);
-const PluginsOverlay = lazyOverlay(() =>
-  import("../PluginsOverlay").then((module) => module.PluginsOverlay),
 );
 const SkillsDialog = lazyOverlay(() =>
   import("../../components/integrations/skills-dialog").then((module) => module.SkillsDialog),
@@ -45,30 +41,18 @@ function voiceStatusRefreshTimeout(): Promise<never> {
   });
 }
 
-/** The integrations, skills and MCP overlays the URL opens. */
+/** The skills and MCP overlays the URL opens. */
 export function AppOverlays({
   overlay,
   setOverlay,
-  activeBotId,
   stdioEnabled,
-  onConnectedAppsChange,
 }: {
   overlay: ShellOverlay;
   setOverlay: (next: ShellOverlay) => void;
-  activeBotId: string | undefined;
   stdioEnabled: boolean;
-  onConnectedAppsChange: (apps: ReturnType<typeof connectedAppMarks>) => void;
 }) {
   return (
     <>
-      {overlay?.kind === "integrations" ? (
-        <PluginsOverlay
-          onConnectedAppsChange={onConnectedAppsChange}
-          activeBotId={activeBotId}
-          onClose={() => setOverlay(null)}
-          onOpenMcp={() => setOverlay({ kind: "mcp" })}
-        />
-      ) : null}
       {overlay?.kind === "skills" ? <SkillsDialog onClose={() => setOverlay(null)} /> : null}
       {overlay?.kind === "mcp" ? (
         <McpServersOverlay

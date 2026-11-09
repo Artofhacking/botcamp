@@ -35,7 +35,6 @@ describe("readShellOverlay", () => {
   });
 
   it("reads flag overlays with or without a value", () => {
-    expect(read("?integrations")).toEqual({ kind: "integrations" });
     expect(read("?mcp=")).toEqual({ kind: "mcp" });
     expect(read("?mcp=srv_1")).toEqual({ kind: "mcp", serverId: "srv_1" });
   });
@@ -50,13 +49,13 @@ describe("withShellOverlay", () => {
     searchString(withShellOverlay(new URLSearchParams(search), overlay));
 
   it("keeps unrelated params and writes flags bare", () => {
-    expect(write("?m=msg_1", { kind: "integrations" })).toBe("?m=msg_1&integrations");
+    expect(write("?m=msg_1", { kind: "skills" })).toBe("?m=msg_1&skills");
   });
 
   it("replaces the open overlay instead of stacking another", () => {
-    expect(write("?integrations&routine=r_1", { kind: "mcp" })).toBe("?routine=r_1&mcp");
+    expect(write("?skills&routine=r_1", { kind: "mcp" })).toBe("?routine=r_1&mcp");
     expect(write("", { kind: "mcp", serverId: "srv_1" })).toBe("?mcp=srv_1");
-    expect(write("?settings=models&space=sp_1", { kind: "integrations" })).toBe("?integrations");
+    expect(write("?settings=models&space=sp_1", { kind: "skills" })).toBe("?skills");
   });
 
   it("drops a workspace settings link instead of opening a space page", () => {

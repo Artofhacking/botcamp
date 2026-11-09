@@ -60,7 +60,7 @@ Judge-style checks that call a model are opt-in. Do not turn them on to make a u
 
 A static host can serve the web app from one origin and the API from another.
 
-- `apps/web/public/config.js` sets `window.__RAKAZO_API_ORIGIN__` and `window.__RAKAZO_ADMIN_API__`. Empty means the page's own origin. `window.__RAKAZO_UI__` hides sections and can list integration apps. The comments in that file are the contract.
+- `apps/web/public/config.js` sets `window.__RAKAZO_API_ORIGIN__` and `window.__RAKAZO_ADMIN_API__`. Empty means the page's own origin. `window.__RAKAZO_UI__` hides settings sections. The comments in that file are the contract.
 - A published `config.js` is filled in on the host. A fresh build ships the empty file. Do not overwrite a host's `config.js` with the copy from `public/`.
 - `RAKAZO_WEB_BASE` is the URL path the console is served from, with a trailing slash. Unset, `apps/web/vite.config.ts` uses `/`. Set it when the console is not the site root. Do not guess a path; read it from the host that already serves the console.
 - Liveness is `GET /health` on the API (`apps/api/src/health.ts`). It returns `{"ok":true}`. `/rpc/health` is not that route.
