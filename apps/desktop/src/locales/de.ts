@@ -3,7 +3,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Check for Updates…": "Nach Updates suchen …",
   "Computer Access…": "Computerzugriff …",
   "Revoke Local Computer Access": "Zugriff auf lokalen Computer widerrufen",
-  "Change BotCamp Server…": "BotCamp-Server wechseln …",
   "Stop Local Stack": "Lokalen Stack stoppen",
   "Hide {name}": "{name} ausblenden",
   "Hide Others": "Andere ausblenden",

@@ -3,7 +3,6 @@ export const ZH_CN_MESSAGES: Record<string, string> = {
   "Check for Updates…": "检查更新…",
   "Computer Access…": "电脑访问权限…",
   "Revoke Local Computer Access": "撤销本地电脑访问权限",
-  "Change BotCamp Server…": "更换 BotCamp 服务器…",
   "Stop Local Stack": "停止本地服务栈",
   "Hide {name}": "隐藏 {name}",
   "Hide Others": "隐藏其他",

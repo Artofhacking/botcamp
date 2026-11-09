@@ -3,7 +3,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Check for Updates…": "アップデートを確認…",
   "Computer Access…": "コンピュータへのアクセス…",
   "Revoke Local Computer Access": "ローカルコンピュータへのアクセスを取り消す",
-  "Change BotCamp Server…": "BotCampサーバを変更…",
   "Stop Local Stack": "ローカルスタックを停止",
   "Hide {name}": "{name}を非表示",
   "Hide Others": "ほかを非表示",

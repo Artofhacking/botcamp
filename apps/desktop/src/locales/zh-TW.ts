@@ -3,7 +3,6 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Check for Updates…": "檢查更新項目…",
   "Computer Access…": "電腦存取權…",
   "Revoke Local Computer Access": "撤銷本機電腦存取權",
-  "Change BotCamp Server…": "更換 BotCamp 伺服器…",
   "Stop Local Stack": "停止本機服務堆疊",
   "Hide {name}": "隱藏 {name}",
   "Hide Others": "隱藏其他",

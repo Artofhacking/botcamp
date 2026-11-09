@@ -3,7 +3,6 @@ export const HE_MESSAGES: Record<string, string> = {
   "Check for Updates…": "בדיקת עדכונים…",
   "Computer Access…": "גישה למחשב…",
   "Revoke Local Computer Access": "ביטול הגישה למחשב המקומי",
-  "Change BotCamp Server…": "החלפת שרת BotCamp…",
   "Stop Local Stack": "עצירת ה-Stack המקומי",
   "Hide {name}": "הסתרת {name}",
   "Hide Others": "הסתרת אחרים",

@@ -3,7 +3,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Check for Updates…": "Проверить обновления…",
   "Computer Access…": "Доступ к компьютеру…",
   "Revoke Local Computer Access": "Отозвать доступ к локальному компьютеру",
-  "Change BotCamp Server…": "Сменить сервер BotCamp…",
   "Stop Local Stack": "Остановить локальный стек",
   "Hide {name}": "Скрыть {name}",
   "Hide Others": "Скрыть остальные",

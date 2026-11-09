@@ -3,7 +3,6 @@ export const TR_MESSAGES: Record<string, string> = {
   "Check for Updates…": "Güncellemeleri Denetle…",
   "Computer Access…": "Bilgisayar Erişimi…",
   "Revoke Local Computer Access": "Yerel Bilgisayar Erişimini İptal Et",
-  "Change BotCamp Server…": "BotCamp Sunucusunu Değiştir…",
   "Stop Local Stack": "Yerel Yığını Durdur",
   "Hide {name}": "{name} Uygulamasını Gizle",
   "Hide Others": "Diğerlerini Gizle",

@@ -3,7 +3,6 @@ export const HI_MESSAGES: Record<string, string> = {
   "Check for Updates…": "अपडेट देखें…",
   "Computer Access…": "कंप्यूटर एक्सेस…",
   "Revoke Local Computer Access": "लोकल कंप्यूटर एक्सेस वापस लें",
-  "Change BotCamp Server…": "BotCamp सर्वर बदलें…",
   "Stop Local Stack": "लोकल स्टैक रोकें",
   "Hide {name}": "{name} छिपाएँ",
   "Hide Others": "अन्य छिपाएँ",

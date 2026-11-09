@@ -3,7 +3,6 @@ export const KO_MESSAGES: Record<string, string> = {
   "Check for Updates…": "업데이트 확인…",
   "Computer Access…": "컴퓨터 접근…",
   "Revoke Local Computer Access": "로컬 컴퓨터 접근 취소",
-  "Change BotCamp Server…": "BotCamp 서버 변경…",
   "Stop Local Stack": "로컬 스택 중지",
   "Hide {name}": "{name} 가리기",
   "Hide Others": "기타 가리기",
