@@ -7214,3 +7214,23 @@ msgstr "请输入 16 位授权码"
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load the mailbox"
 msgstr "无法读取邮箱连接"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr "已经链接"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
+msgstr "聊天工具二维码"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr "链接你的聊天工具"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr "手机上的数字"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
+msgstr "二维码已过期"

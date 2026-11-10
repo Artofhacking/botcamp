@@ -146,6 +146,8 @@ export * from "./page-share-secrets.js";
 export * from "./parallel-web.js";
 export * from "./payment-wallet-factory.js";
 export * from "./payment-wallets.js";
+export * from "./personal-chat/bridge.js";
+export * from "./personal-chat/surface.js";
 export * from "./pi-catalog-availability.js";
 export * from "./pi-codex-catalog.js";
 export * from "./pi-credentials.js";

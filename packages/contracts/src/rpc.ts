@@ -71,6 +71,8 @@ import {
   ByokIntervalSchema,
   CapabilityInstallSchema,
   ChatAlertSchema,
+  ChatToolLinkSchema,
+  ChatToolPollSchema,
   CONNECTION_LABEL_MAX_LENGTH,
   ComputerModeSchema,
   ComputerProviderSettingsSchema,
@@ -159,6 +161,7 @@ import {
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
 import { MailboxSaveInput, MailboxStatusSchema } from "./mailbox.js";
+import { AppMessageOriginSchema } from "./message-origin.js";
 import { ModelHeadersSchema } from "./model-headers.js";
 import { ModelRoleSchema, ModelRoleUpdateSchema, ModelRoleViewSchema } from "./model-roles.js";
 import {
@@ -222,6 +225,8 @@ const threadSendFields = threadTarget.safeExtend({
   /** Sent from the open page: a reply to its card that quotes nothing. */
   fromPage: z.literal(true).optional(),
   clientNonce: z.string().min(1).max(200).optional(),
+  /** The app that sent this message. Chat channels set their own origin on the server. */
+  origin: AppMessageOriginSchema.optional(),
 });
 
 const threadSendInput = threadSendFields.superRefine((input, ctx) => {
@@ -612,6 +617,8 @@ export const appContract = {
           text: z.string().min(1),
           /** Carries the call id, so a turn taken mid-run stays in the call's card. */
           clientNonce: z.string().min(1).max(200).optional(),
+          /** The app that sent this message. Chat channels set their own origin on the server. */
+          origin: AppMessageOriginSchema.optional(),
         }),
       )
       .output(z.object({ ok: z.literal(true) })),
@@ -1202,6 +1209,21 @@ export const appContract = {
         .input(z.object({ identityId: Id, botId: Id }))
         .output(MessagingLinkedIdentitySchema),
       unlink: oc.input(z.object({ identityId: Id })).output(z.object({ ok: z.literal(true) })),
+    },
+    /** QR link for the primary bot's personal chat app. */
+    chatTools: {
+      list: oc.input(z.object({ botId: Id })).output(z.array(ChatToolLinkSchema)),
+      start: oc.input(z.object({ botId: Id, provider: z.string().trim().min(1).max(64) })).output(
+        z.object({
+          loginId: z.string(),
+          image: z.string(),
+          expiresAt: z.string(),
+        }),
+      ),
+      poll: oc
+        .input(z.object({ loginId: z.string().min(1).max(64), pin: z.string().max(8).optional() }))
+        .output(ChatToolPollSchema),
+      unlink: oc.input(z.object({ botId: Id })).output(z.object({ ok: z.literal(true) })),
     },
     channels: {
       list: oc.output(z.array(MessagingChannelMembershipSchema)),

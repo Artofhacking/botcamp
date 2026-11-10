@@ -21,6 +21,7 @@ import type {
   McpOAuthBroker,
   MemoryProviderResolver,
   MessagingInstallations,
+  PersonalChatBridge,
   PiOAuthLogins,
   PluginRepoFetcher,
   PluginTextReader,
@@ -107,6 +108,8 @@ export interface RouterDeps {
   artifacts: ArtifactStore;
   dataDir: string;
   messagingInstallations?: MessagingInstallations;
+  /** QR linking for the primary bot. Absent in tests that replace the chat surface. */
+  chatTools?: Pick<PersonalChatBridge, "list" | "start" | "poll" | "unlink">;
   messaging?: {
     enabled: boolean;
     providers: string[];

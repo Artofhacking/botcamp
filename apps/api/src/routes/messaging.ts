@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { messagingDeliverJob } from "@rakazo/adapter-kit";
+import { PersonalChatError } from "@rakazo/adapters";
 import { displayName } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
@@ -154,6 +155,27 @@ export function messagingRoutes(ctx: RouterContext) {
             }),
           );
           if (count === 0) throw new ORPCError("NOT_FOUND");
+          return { ok: true as const };
+        }),
+      },
+      chatTools: {
+        list: authed.messaging.chatTools.list.handler(async ({ context, input }) => {
+          if (!deps.chatTools) return [];
+          return chatToolCall(() => deps.chatTools!.list(context.actor, input.botId));
+        }),
+        start: authed.messaging.chatTools.start.handler(async ({ context, input }) => {
+          if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");
+          return chatToolCall(() =>
+            deps.chatTools!.start(context.actor, input.botId, input.provider),
+          );
+        }),
+        poll: authed.messaging.chatTools.poll.handler(async ({ context, input }) => {
+          if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");
+          return chatToolCall(() => deps.chatTools!.poll(context.actor, input.loginId, input.pin));
+        }),
+        unlink: authed.messaging.chatTools.unlink.handler(async ({ context, input }) => {
+          if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");
+          await chatToolCall(() => deps.chatTools!.unlink(context.actor, input.botId));
           return { ok: true as const };
         }),
       },
@@ -357,6 +379,34 @@ type MessagingIdentityRecord = {
   id: string;
   botId: string;
 };
+
+async function chatToolCall<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof PersonalChatError) {
+      throw new ORPCError(error.code === "not_found" ? "NOT_FOUND" : "BAD_REQUEST", {
+        message: chatToolMessage(error.code),
+      });
+    }
+    throw error;
+  }
+}
+
+function chatToolMessage(code: PersonalChatError["code"]): string {
+  switch (code) {
+    case "not_primary":
+      return "Only the primary bot can link a chat app.";
+    case "already_linked":
+      return "That bot is already linked to a chat app; unlink it first.";
+    case "expired":
+      return "That link expired. Start again.";
+    case "not_found":
+      return "No linked chat app.";
+    default:
+      return "Couldn't link the chat app.";
+  }
+}
 
 /** Every linked chat app counts: channels and connections span identities. */
 async function messagingIdentitiesFor(

@@ -7170,3 +7170,23 @@ msgstr "音声プロバイダーのキーが拒否されました。"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
+msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
+msgstr ""

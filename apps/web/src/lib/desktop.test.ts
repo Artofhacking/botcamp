@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BotCampDesktop, BotCampDesktopOAuthCallback } from "./desktop.js";
 import {
+  currentAppOrigin,
   desktopOAuthCode,
   oauthStateOf,
   onDesktopOAuthCallback,
@@ -33,6 +34,29 @@ function desktop(platform: string): BotCampDesktop {
     oauth: { onCallback: () => () => undefined },
   };
 }
+
+describe("message origin", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reports the web app when the page has no desktop bridge", () => {
+    vi.stubGlobal("window", {});
+    expect(currentAppOrigin()).toBe("web");
+  });
+
+  it("reports the Android shell and leaves a browser as the web app", () => {
+    vi.stubGlobal("window", { __BOTCAMP_APP__: { platform: "android", version: "2.1.2" } });
+    expect(currentAppOrigin()).toBe("android");
+  });
+
+  it("reports the desktop operating system", () => {
+    vi.stubGlobal("window", { rakazoDesktop: desktop("darwin") });
+    expect(currentAppOrigin()).toBe("mac");
+    vi.stubGlobal("window", { rakazoDesktop: desktop("win32") });
+    expect(currentAppOrigin()).toBe("windows");
+    vi.stubGlobal("window", { rakazoDesktop: desktop("linux") });
+    expect(currentAppOrigin()).toBe("linux");
+  });
+});
 
 describe("window chrome", () => {
   it("does not paint fake traffic lights in the browser", () => {

@@ -7187,3 +7187,23 @@ msgstr "你的語音供應商拒絕了該金鑰。"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr "已經連結"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
+msgstr "聊天工具二維碼"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr "連結你的聊天工具"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr "手機上的數字"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
+msgstr "二維碼已過期"

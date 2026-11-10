@@ -7186,3 +7186,23 @@ msgstr "Your voice provider key was rejected."
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr "ZIP or postal code"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr "Already linked"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
+msgstr "Chat app code"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr "Link your chat app"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr "Number from your phone"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
+msgstr "The code expired"

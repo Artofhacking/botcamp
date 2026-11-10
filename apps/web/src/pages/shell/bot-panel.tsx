@@ -49,6 +49,7 @@ import { useSpaceQueries } from "../../lib/query";
 import { errorText } from "../../lib/user-error";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { ChatModelPicker } from "./chat-model-picker";
+import { ChatToolLink } from "./chat-tool-link";
 
 const ScratchpadSection = lazyComponent(() =>
   import("../ScratchpadSection").then((module) => module.ScratchpadSection),
@@ -231,7 +232,7 @@ export function BotSettings({
         isPrimary?: boolean;
         crossSpaceCommunication?: boolean;
         dailyCheckIns?: boolean;
-            baseDisabledBuiltinTools?: string[];
+        baseDisabledBuiltinTools?: string[];
       },
       revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
     ) => Promise<void>
@@ -319,7 +320,7 @@ export function BotSettings({
       isPrimary?: boolean;
       crossSpaceCommunication?: boolean;
       dailyCheckIns?: boolean;
-        baseDisabledBuiltinTools?: string[];
+      baseDisabledBuiltinTools?: string[];
     },
     revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
   ) {
@@ -606,6 +607,7 @@ export function BotSettings({
                 className="min-h-16 resize-none field-sizing-content"
               />
             </SettingsGroup>
+            <ChatToolLink botId={bot.id} isPrimary={bot.isPrimary} />
             <div className="overflow-hidden rounded-xl bg-muted/50 px-4">
               <button
                 type="button"

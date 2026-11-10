@@ -9,6 +9,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@rakazo/contracts";
 import type { MessagingCommand } from "@rakazo/core";
 import {
+  chatMessageOrigin,
   displayName,
   messageBlockForArtifact,
   normalizeVoiceTranscript,
@@ -219,6 +220,7 @@ async function handleDirectEvent(
     prompt: promptTextForAttachments(body, stored.artifacts),
     trigger: "messaging",
     clientNonce: `messaging:${event.provider}:${event.handle}`,
+    origin: chatMessageOrigin(event.provider),
   });
   if (sent.runId) {
     const runId = sent.runId;
@@ -921,6 +923,7 @@ async function handleChannelEvent(
       prompt,
       trigger: "messaging",
       clientNonce: `messaging:${event.provider}:${event.handle}`,
+      origin: chatMessageOrigin(event.provider),
     });
     if (sent.runId) {
       await deps.jobs.enqueue(runContinueJob(sent.runId)).catch((error) => {

@@ -21,6 +21,7 @@ import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestBrowserNotificationPermission } from "../../lib/browser-notifications";
 import { setComposerUnsavedWork } from "../../lib/composer-draft";
+import { currentAppOrigin } from "../../lib/desktop";
 import type { PageSession } from "../../lib/pages";
 import {
   readFileAsBase64,
@@ -312,12 +313,14 @@ export function useComposerActions({
       };
       // Keep the draft cleared once the submission is confirmed accepted.
       let accepted = false;
+      const origin = currentAppOrigin();
       try {
         if (!plan.shouldSend) {
           if (plan.shouldRunRoutines) {
             await rpc.threads.sendWithRoutines({
               ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
               clientNonce,
+              origin,
               routineIds: plan.routineIds,
             });
             accepted = true;
@@ -377,6 +380,7 @@ export function useComposerActions({
           replyQuote:
             reroutedToGroup || replyToMessageId ? undefined : (activeReplyQuote ?? undefined),
           fromPage: !reroutedToGroup && replyToMessageId ? true : undefined,
+          origin,
         } as const;
         // The routines run in the same server operation as the message: both or neither.
         const sent = plan.shouldRunRoutines

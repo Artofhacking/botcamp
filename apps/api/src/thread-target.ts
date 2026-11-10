@@ -745,6 +745,8 @@ export async function sendThreadMessage(
     replyQuote?: string;
     fromPage?: true;
     clientNonce?: string;
+    /** The app that sent this message. Chat channels do not use this path. */
+    origin?: string;
     /** No model to start a turn: the send may only stop active work. */
     noModel?: boolean;
   },
@@ -871,6 +873,7 @@ export async function sendThreadMessage(
           replyToMessageId,
           replyQuote,
           clientNonce: input.clientNonce,
+          origin: input.origin,
         });
         // A bare "stop" from the owner while work is active is the Stop button, not a reply.
         const stopping = activeRuns.length > 0 && !routineRuns.length && isStopMessage(input);
@@ -1084,6 +1087,7 @@ export async function sendThreadMessage(
         replyToMessageId,
         replyQuote,
         clientNonce: input.clientNonce,
+        origin: input.origin,
       });
       const activeByBotId = new Map<string, (typeof activeRuns)[number]>();
       const answeredByBotId = new Map<string, Array<(typeof activeRuns)[number]>>();
