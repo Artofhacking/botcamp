@@ -36,7 +36,6 @@ export const HE_MESSAGES: Record<string, string> = {
   "Bring All to Front": "הבאת הכל לחזית",
   "BotCamp {version} is ready to install.": "BotCamp {version} מוכן להתקנה.",
   Restart: "הפעלה מחדש",
-  "Open the installer": "פתיחת המתקין",
   Later: "אחר כך",
   "Could not install the update.": "לא ניתן היה להתקין את העדכון.",
   "Could not check for updates.": "לא ניתן היה לבדוק אם יש עדכונים.",

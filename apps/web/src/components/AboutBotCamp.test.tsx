@@ -51,9 +51,12 @@ afterEach(() => {
   delete window.__RAKAZO_API_ORIGIN__;
 });
 
-function desktopBridge(update: BotCampDesktop["update"]): BotCampDesktop {
+function desktopBridge(
+  update: BotCampDesktop["update"],
+  platform: BotCampDesktop["platform"] = "win32",
+): BotCampDesktop {
   return {
-    platform: "win32",
+    platform,
     window: {
       close: async () => {},
       minimize: async () => {},
@@ -246,6 +249,36 @@ it("downloads a newer build inside an app that has an update feed", async () => 
       button?.click();
     });
     expect(install).toHaveBeenCalledOnce();
+  } finally {
+    await view.cleanup();
+  }
+});
+
+it("downloads a newer Mac build inside the app", async () => {
+  const ready: DesktopUpdateState = {
+    phase: "ready",
+    currentVersion: "0.7.7",
+    availableVersion: "0.7.8",
+    percent: null,
+    message: null,
+    checkedAt: "2026-11-10T00:00:00.000Z",
+  };
+  window.rakazoDesktop = desktopBridge(
+    {
+      state: async () => ready,
+      check: async () => ready,
+      download: async () => ready,
+      install: async () => ready,
+    },
+    "darwin",
+  );
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
+  try {
+    await view.show();
+    expect(view.container.textContent).toContain("macOS · 0.7.7");
+    expect(view.container.querySelector("a")).toBeNull();
+    expect(view.container.textContent).toContain("重启并更新");
+    expect(view.container.textContent).not.toContain("打开安装包");
   } finally {
     await view.cleanup();
   }

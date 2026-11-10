@@ -36,7 +36,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Bring All to Front": "Все окна — на передний план",
   "BotCamp {version} is ready to install.": "BotCamp {version} готов к установке.",
   Restart: "Перезапустить",
-  "Open the installer": "Открыть установщик",
   Later: "Позже",
   "Could not install the update.": "Не удалось установить обновление.",
   "Could not check for updates.": "Не удалось проверить обновления.",

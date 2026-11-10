@@ -36,7 +36,6 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Bring All to Front": "將此程式所有視窗移至最前",
   "BotCamp {version} is ready to install.": "BotCamp {version} 已可安裝。",
   Restart: "重新啟動",
-  "Open the installer": "開啟安裝程式",
   Later: "稍後",
   "Could not install the update.": "無法安裝更新項目。",
   "Could not check for updates.": "無法檢查更新項目。",

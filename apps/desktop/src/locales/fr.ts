@@ -36,7 +36,6 @@ export const FR_MESSAGES: Record<string, string> = {
   "Bring All to Front": "Tout ramener au premier plan",
   "BotCamp {version} is ready to install.": "BotCamp {version} est prêt à être installé.",
   Restart: "Redémarrer",
-  "Open the installer": "Ouvrir l'installateur",
   Later: "Plus tard",
   "Could not install the update.": "Impossible d’installer la mise à jour.",
   "Could not check for updates.": "Impossible de rechercher des mises à jour.",

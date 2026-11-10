@@ -59,6 +59,8 @@ describe("updaterSupport", () => {
     expect(updaterSupport(packaged).supported).toBe(true);
     expect(updaterSupport({ packaged: false, version: "0.1.0" }).supported).toBe(false);
     expect(updaterSupport({ ...packaged, disabled: true }).supported).toBe(false);
+    expect(updaterSupport({ ...packaged, installable: false }).supported).toBe(false);
+    expect(updaterSupport({ ...packaged, installable: false }).reason).toContain("Applications");
   });
 
   it("starts unsupported builds in a state that explains itself", () => {
@@ -740,6 +742,27 @@ describe("DesktopUpdateController", () => {
       expect(verify).not.toHaveBeenCalled();
     });
 
+    it("installs a Mac download itself instead of handing it to Squirrel", async () => {
+      const fake = verifiedUpdater();
+      const installDownloaded = vi.fn();
+      const controller = new DesktopUpdateController(
+        packaged,
+        async () => fake.updater,
+        clock,
+        undefined,
+        undefined,
+        installDownloaded,
+      );
+      await controller.check(false);
+      await vi.waitFor(() => expect(controller.state().phase).toBe("ready"));
+      expect(fake.updater.autoInstallOnAppQuit).toBe(false);
+      expect(await controller.install()).toMatchObject({ phase: "ready" });
+      expect(installDownloaded).toHaveBeenCalledWith(downloaded.downloadedFile);
+      controller.installOnQuit();
+      expect(fake.updater.quitAndInstall).not.toHaveBeenCalled();
+      expect(installDownloaded).toHaveBeenCalledTimes(1);
+    });
+
     it("leaves install-on-quit to the updater when nothing needs verifying", async () => {
       const fake = verifiedUpdater();
       const controller = new DesktopUpdateController(packaged, async () => fake.updater, clock);
@@ -748,100 +771,6 @@ describe("DesktopUpdateController", () => {
       expect(fake.updater.autoInstallOnAppQuit).toBe(true);
       controller.installOnQuit();
       expect(fake.updater.quitAndInstall).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("with a disk image installer", () => {
-    const feed = "https://example.com/downloads/";
-    const published = { ...packaged, feedUrl: feed };
-    const digest = `${"A".repeat(86)}==`;
-    const image = { url: "BotCamp-0.2.0-arm64.dmg", sha512: digest, size: 1_200 };
-    const bundle = { url: "BotCamp-0.2.0-arm64-mac.zip", sha512: digest, size: 1_100 };
-    const installed = { version: "0.2.0", files: [bundle, image] };
-
-    function installerUpdater(payload: Record<string, unknown> = installed) {
-      let fake: ReturnType<typeof fakeUpdater>;
-      fake = fakeUpdater({
-        checkForUpdates: vi.fn(async () => {
-          fake.emit("checking-for-update");
-          fake.emit("update-available", payload);
-        }),
-      });
-      return fake;
-    }
-
-    function diskImage() {
-      return {
-        download: vi.fn(async () => "/cache/BotCamp-0.2.0-arm64.dmg"),
-        open: vi.fn(async () => undefined),
-      };
-    }
-
-    it("fetches the published image instead of handing the swap to Squirrel", async () => {
-      const fake = installerUpdater();
-      const macInstaller = diskImage();
-      const controller = new DesktopUpdateController(
-        published,
-        async () => fake.updater,
-        clock,
-        undefined,
-        undefined,
-        macInstaller,
-      );
-
-      await controller.check(false);
-
-      await vi.waitFor(() =>
-        expect(macInstaller.download).toHaveBeenCalledWith(
-          `${feed}${image.url}`,
-          image,
-          expect.any(Function),
-        ),
-      );
-      expect(fake.updater.downloadUpdate).not.toHaveBeenCalled();
-      // Nothing may install itself on quit: there is no in-app swap to run.
-      expect(fake.updater.autoInstallOnAppQuit).toBe(false);
-      await vi.waitFor(() => expect(controller.state().phase).toBe("ready"));
-    });
-
-    it("opens the downloaded image instead of quitting into an install that cannot run", async () => {
-      const fake = installerUpdater();
-      const macInstaller = diskImage();
-      const controller = new DesktopUpdateController(
-        published,
-        async () => fake.updater,
-        clock,
-        undefined,
-        undefined,
-        macInstaller,
-      );
-      await controller.check(false);
-      await vi.waitFor(() => expect(controller.state().phase).toBe("ready"));
-
-      expect(await controller.install()).toMatchObject({ phase: "ready" });
-      expect(macInstaller.open).toHaveBeenCalledWith("/cache/BotCamp-0.2.0-arm64.dmg");
-      expect(fake.updater.quitAndInstall).not.toHaveBeenCalled();
-      // The same ready state reopens the image, since the app was never replaced.
-      await controller.install();
-      expect(macInstaller.open).toHaveBeenCalledTimes(2);
-    });
-
-    it("fails the update when the feed publishes no disk image", async () => {
-      const fake = installerUpdater({ version: "0.2.0", files: [bundle] });
-      const macInstaller = diskImage();
-      const controller = new DesktopUpdateController(
-        published,
-        async () => fake.updater,
-        clock,
-        undefined,
-        undefined,
-        macInstaller,
-      );
-
-      await controller.check(false);
-
-      await vi.waitFor(() => expect(controller.state().phase).toBe("error"));
-      expect(macInstaller.download).not.toHaveBeenCalled();
     });
   });
 });

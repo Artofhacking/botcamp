@@ -36,7 +36,6 @@ export const TR_MESSAGES: Record<string, string> = {
   "Bring All to Front": "Tümünü Öne Getir",
   "BotCamp {version} is ready to install.": "BotCamp {version} yüklenmeye hazır.",
   Restart: "Yeniden Başlat",
-  "Open the installer": "Yükleyiciyi aç",
   Later: "Daha Sonra",
   "Could not install the update.": "Güncelleme yüklenemedi.",
   "Could not check for updates.": "Güncellemeler denetlenemedi.",

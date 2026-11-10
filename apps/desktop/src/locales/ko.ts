@@ -36,7 +36,6 @@ export const KO_MESSAGES: Record<string, string> = {
   "Bring All to Front": "모두 앞으로 가져오기",
   "BotCamp {version} is ready to install.": "BotCamp {version}을(를) 설치할 준비가 되었습니다.",
   Restart: "재시동",
-  "Open the installer": "설치 관리자 열기",
   Later: "나중에",
   "Could not install the update.": "업데이트를 설치할 수 없습니다.",
   "Could not check for updates.": "업데이트를 확인할 수 없습니다.",

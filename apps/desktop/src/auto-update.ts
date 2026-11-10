@@ -1,7 +1,5 @@
 import type { DesktopUpdateState } from "@rakazo/contracts";
 import { t } from "./i18n.js";
-import type { MacInstallerFile } from "./mac-installer.js";
-import { macInstallerOf, macInstallerUrl } from "./mac-installer.js";
 import { reportDesktopError } from "./monitoring.js";
 
 /** Long enough that a cold launch is never competing with the update feed for bandwidth. */
@@ -13,8 +11,8 @@ export interface UpdaterEnvironment {
   packaged: boolean;
   version: string;
   disabled?: boolean;
-  /** The published feed, which a disk image is fetched from when the app cannot swap itself. */
-  feedUrl?: string;
+  /** A Mac app opened from a disk image cannot replace its own bundle. */
+  installable?: boolean;
 }
 
 export function updaterSupport(env: UpdaterEnvironment): { supported: boolean; reason: string } {
@@ -23,6 +21,9 @@ export function updaterSupport(env: UpdaterEnvironment): { supported: boolean; r
   }
   if (!env.packaged) {
     return { supported: false, reason: t("Automatic updates only run in an installed build.") };
+  }
+  if (env.installable === false) {
+    return { supported: false, reason: t("Move BotCamp to Applications to install updates.") };
   }
   return { supported: true, reason: "" };
 }
@@ -251,18 +252,8 @@ export interface ElectronAutoUpdater {
   quitAndInstall: (isSilent?: boolean, isForceRunAfter?: boolean) => void;
 }
 
-/**
- * The path an unsigned macOS build installs through: the release ships a disk image the person
- * drags in, because Squirrel refuses to swap a bundle whose signature it cannot match.
- */
-export interface MacUpdateInstaller {
-  download: (
-    url: string,
-    expected: Pick<MacInstallerFile, "sha512" | "size">,
-    onProgress: (percent: number) => void,
-  ) => Promise<string>;
-  open: (file: string) => Promise<void>;
-}
+/** Replaces the running app with a checksum-verified download, then the caller quits. */
+export type DownloadedUpdateInstaller = (file: string) => void;
 
 export interface DownloadedUpdate {
   version: string;
@@ -286,13 +277,6 @@ function versionFrom(payload: unknown): string | null {
   if (typeof payload !== "object" || payload === null || !("version" in payload)) return null;
   return typeof payload.version === "string" && payload.version.trim() !== ""
     ? payload.version
-    : null;
-}
-
-/** The release's published files, from which a disk image can be picked when one is offered. */
-function filesFrom(payload: unknown): unknown {
-  return typeof payload === "object" && payload !== null && "files" in payload
-    ? payload.files
     : null;
 }
 
@@ -323,11 +307,9 @@ export class DesktopUpdateController {
   private verificationAttempt = 0;
   private checkPromise: Promise<DesktopUpdateState> | null = null;
   private downloadPromise: Promise<DesktopUpdateState> | null = null;
-  private installerPromise: Promise<DesktopUpdateState> | null = null;
-  /** The downloaded disk image, once it is ready for the person to drag in. */
-  private installer: string | null = null;
   private checkWasRequested = false;
   private installStarted = false;
+  private downloadedPath: string | null = null;
 
   constructor(
     private readonly environment: UpdaterEnvironment,
@@ -335,7 +317,7 @@ export class DesktopUpdateController {
     private readonly clock: UpdateClock = systemClock,
     private readonly onInstallFailure?: () => void,
     private readonly verifyDownload?: DownloadVerifier,
-    private readonly macInstaller?: MacUpdateInstaller,
+    private readonly installDownloaded?: DownloadedUpdateInstaller,
   ) {
     this.current = initialUpdateState(environment);
   }
@@ -363,10 +345,10 @@ export class DesktopUpdateController {
     const loading = this.loadUpdater()
       .then((updater) => {
         updater.autoDownload = false;
-        // The updater would install on quit before an async verifier could finish, and a build
-        // that installs from a disk image has no in-app swap to run at all.
+        // The updater would install on quit before an async verifier could finish.
+        // A caller that installs the file itself must keep Squirrel from racing it.
         updater.autoInstallOnAppQuit =
-          this.verifyDownload === undefined && this.macInstaller === undefined;
+          this.verifyDownload === undefined && this.installDownloaded === undefined;
         updater.allowPrerelease = false;
         updater.allowDowngrade = false;
         updater.disableWebInstaller = true;
@@ -382,11 +364,7 @@ export class DesktopUpdateController {
             return;
           }
           this.push({ type: "available", version });
-          if (this.macInstaller === undefined) {
-            void this.download();
-            return;
-          }
-          void this.downloadInstaller(version, macInstallerOf(filesFrom(payload)));
+          void this.download();
         });
         updater.on("update-not-available", () => this.push({ type: "not-available" }));
         updater.on("download-progress", (payload) => {
@@ -395,6 +373,7 @@ export class DesktopUpdateController {
         });
         updater.on("update-downloaded", (payload) => {
           const version = versionFrom(payload);
+          const downloadedFile = downloadedFileFrom(payload);
           if (version === null) {
             this.push({
               type: "failed",
@@ -403,7 +382,16 @@ export class DesktopUpdateController {
             });
             return;
           }
+          if (downloadedFile !== null) this.downloadedPath = downloadedFile;
           if (this.verifyDownload === undefined) {
+            if (this.installDownloaded !== undefined && downloadedFile === null) {
+              this.push({
+                type: "failed",
+                error: new Error("The downloaded update signature has no file."),
+                userInitiated: this.checkWasRequested,
+              });
+              return;
+            }
             this.push({ type: "downloaded", version });
             return;
           }
@@ -485,11 +473,6 @@ export class DesktopUpdateController {
   }
 
   download() {
-    // A build that installs from a disk image has no Squirrel download to run: the check that
-    // found the release already started it, so a manual download joins what is in flight.
-    if (this.macInstaller !== undefined) {
-      return this.installerPromise ?? Promise.resolve(this.current);
-    }
     if (this.downloadPromise !== null) return this.downloadPromise;
     const downloading = this.runDownload().finally(() => {
       if (this.downloadPromise === downloading) this.downloadPromise = null;
@@ -514,42 +497,6 @@ export class DesktopUpdateController {
     return this.current;
   }
 
-  private downloadInstaller(version: string, file: MacInstallerFile | null) {
-    if (this.installerPromise !== null) return this.installerPromise;
-    const downloading = this.runInstallerDownload(version, file).finally(() => {
-      if (this.installerPromise === downloading) this.installerPromise = null;
-    });
-    this.installerPromise = downloading;
-    return downloading;
-  }
-
-  /** Fetches the release's disk image instead of asking Squirrel to swap the running bundle. */
-  private async runInstallerDownload(version: string, file: MacInstallerFile | null) {
-    const installer = this.macInstaller;
-    const feedUrl = this.environment.feedUrl;
-    if (installer === undefined || this.current.phase !== "available") return this.current;
-    this.push({ type: "download-start" });
-    try {
-      if (file === null) throw new Error("The update feed published no disk image.");
-      if (feedUrl === undefined || feedUrl === "") {
-        throw new Error("The update feed has no address to download from.");
-      }
-      this.installer = await installer.download(
-        macInstallerUrl(feedUrl, file.url),
-        file,
-        (percent) => {
-          if (this.state().phase === "downloading") this.push({ type: "progress", percent });
-        },
-      );
-      this.push({ type: "downloaded", version });
-    } catch (error) {
-      if (this.state().phase === "downloading") {
-        this.push({ type: "failed", error, userInitiated: this.checkWasRequested });
-      }
-    }
-    return this.current;
-  }
-
   private fail(error: unknown) {
     this.verificationAttempt++;
     const installFailed = this.installStarted;
@@ -565,20 +512,6 @@ export class DesktopUpdateController {
 
   async install() {
     if (this.installStarted || this.current.phase !== "ready") return this.current;
-    // A build that installs from a disk image keeps running: the person drags the new bundle in
-    // and relaunches when they are ready, so the state stays `ready` and can be opened again.
-    if (this.installer !== null && this.macInstaller !== undefined) {
-      this.installStarted = true;
-      this.current = { ...this.current, message: null };
-      try {
-        await this.macInstaller.open(this.installer);
-      } catch (error) {
-        this.fail(error);
-        return this.current;
-      }
-      this.installStarted = false;
-      return this.current;
-    }
     const updater = await this.updater();
     if (updater === null || this.installStarted || this.current.phase !== "ready") {
       return this.current;
@@ -586,18 +519,35 @@ export class DesktopUpdateController {
     this.installStarted = true;
     this.current = { ...this.current, message: null };
     try {
-      updater.quitAndInstall();
+      if (this.installDownloaded !== undefined) this.installReadyDownload();
+      else updater.quitAndInstall();
     } catch (error) {
       this.fail(error);
     }
     return this.current;
   }
 
+  private installReadyDownload() {
+    if (this.downloadedPath === null) {
+      throw new Error("The downloaded update signature has no file.");
+    }
+    this.installDownloaded?.(this.downloadedPath);
+  }
+
   /** Stands in for the updater's own install-on-quit once a verifier has passed the download. */
   installOnQuit() {
     const updater = this.loadedUpdater;
-    if (this.verifyDownload === undefined || updater === null) return;
-    if (this.installStarted || this.current.phase !== "ready") return;
+    if (updater === null || this.installStarted || this.current.phase !== "ready") return;
+    if (this.installDownloaded !== undefined) {
+      this.installStarted = true;
+      try {
+        this.installReadyDownload();
+      } catch (error) {
+        this.fail(error);
+      }
+      return;
+    }
+    if (this.verifyDownload === undefined) return;
     this.installStarted = true;
     try {
       // Silent and without relaunching: the user chose to quit.

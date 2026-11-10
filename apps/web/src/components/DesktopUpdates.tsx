@@ -133,7 +133,6 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
 function DesktopUpdatePrompt({ onLater }: { onLater: (version: string | null) => void }) {
   const { t } = useLingui();
   const updates = useContext(UpdatesContext);
-  const mac = desktopBridge()?.platform === "darwin";
   if (!updates?.state) return null;
   const { state, busy, error, act } = updates;
   return (
@@ -147,11 +146,7 @@ function DesktopUpdatePrompt({ onLater }: { onLater: (version: string | null) =>
           onClick={() => void act(state.phase === "ready" ? "install" : "check")}
         >
           {state.phase === "ready" ? (
-            mac ? (
-              <Trans>Open the installer</Trans>
-            ) : (
-              <Trans>Restart to update</Trans>
-            )
+            <Trans>Restart to update</Trans>
           ) : (
             <Trans>Check for updates</Trans>
           )}
@@ -197,8 +192,6 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
     state.checkedAt === confirmedCheck &&
     !state.message;
   const status = error ?? (state.phase === "error" ? state.message : null);
-  // macOS installs by opening the disk image, so its ready state asks for a drag, not a restart.
-  const readyLabel = platform === "mac" ? "打开安装包" : "重启并更新";
   return (
     <div className="space-y-3">
       <VersionRow platform={platform} version={version} />
@@ -224,7 +217,7 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
             disabled={checking || downloading}
             onClick={() => void act(ready ? "install" : "check")}
           >
-            {ready ? readyLabel : downloading ? "下载中…" : checking ? "检查中…" : "检查更新"}
+            {ready ? "重启并更新" : downloading ? "下载中…" : checking ? "检查中…" : "检查更新"}
           </Button>
         }
       />
@@ -244,8 +237,6 @@ export function DesktopAbout() {
   const platform =
     clientPlatform(bridge?.platform) ?? clientPlatform(window.__BOTCAMP_APP__?.platform);
   const version = releaseVersion(native?.currentVersion || window.__BOTCAMP_APP__?.version);
-  // A macOS build installs by opening the downloaded disk image, so the in-app control offers
-  // that instead of a restart; both platforms reach it once the build has an update feed.
   // A failed update falls back to the download link below: one bad check or checksum should not
   // leave an installed build with no way to move forward.
   const usable = native !== null && native.phase !== "unsupported" && native.phase !== "error";

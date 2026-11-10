@@ -4615,10 +4615,6 @@ msgstr "פתיחת הקישור"
 msgid "Open navigation"
 msgstr "פתיחת הניווט"
 
-#: src/components/DesktopUpdates.tsx
-msgid "Open the installer"
-msgstr "פתיחת המתקין"
-
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

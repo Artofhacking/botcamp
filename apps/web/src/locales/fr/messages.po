@@ -4615,10 +4615,6 @@ msgstr "Ouvrir le lien"
 msgid "Open navigation"
 msgstr "Ouvrir la navigation"
 
-#: src/components/DesktopUpdates.tsx
-msgid "Open the installer"
-msgstr "Ouvrir l'installateur"
-
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

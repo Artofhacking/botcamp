@@ -39,7 +39,6 @@ export const ES_MESSAGES: Record<string, string> = {
   // Updates
   "BotCamp {version} is ready to install.": "BotCamp {version} está listo para instalarse.",
   Restart: "Reiniciar",
-  "Open the installer": "Abrir el instalador",
   Later: "Más tarde",
   "Could not install the update.": "No se pudo instalar la actualización.",
   "Could not check for updates.": "No se pudieron buscar actualizaciones.",

@@ -4623,10 +4623,6 @@ msgstr "打开链接"
 msgid "Open navigation"
 msgstr "打开导航"
 
-#: src/components/DesktopUpdates.tsx
-msgid "Open the installer"
-msgstr "打开安装包"
-
 #: src/components/pages/PublicPageShell.tsx
 #: src/pages/SharedPage.tsx
 msgid "Open BotCamp"

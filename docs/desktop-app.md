@@ -31,7 +31,8 @@ The app asks **Allow bots to use this computer?** before access is granted. See
 
 The app checks for updates and downloads them in the background. When one is ready, an
 **Install update** button appears at the bottom of the sidebar, or choose **Restart** when asked.
-**Check for Updates…** in the app menu checks now.
+**Check for Updates…** in the app menu checks now. On a Mac, the app has to be in the Applications
+folder for that install. A copy opened from the disk image keeps offering the installer.
 
 ## Shortcuts
 

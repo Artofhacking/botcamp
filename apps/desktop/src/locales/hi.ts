@@ -36,7 +36,6 @@ export const HI_MESSAGES: Record<string, string> = {
   "Bring All to Front": "सभी को सामने लाएँ",
   "BotCamp {version} is ready to install.": "BotCamp {version} इंस्टॉल होने के लिए तैयार है।",
   Restart: "रीस्टार्ट करें",
-  "Open the installer": "इंस्टॉलर खोलें",
   Later: "बाद में",
   "Could not install the update.": "अपडेट इंस्टॉल नहीं हो सका।",
   "Could not check for updates.": "अपडेट नहीं देखे जा सके।",
