@@ -1,7 +1,7 @@
 import { chmod, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { ServerUpdateRun } from "@rakazo/contracts";
+import type { ServerUpdateRun } from "@botcamp/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import type { UpdaterCommandRunner } from "./index.js";
 import {
@@ -15,7 +15,7 @@ import { resolveUpdaterConfig } from "./updater-logic.js";
 const token = "fake-review-updater-token-000000000000";
 const app = createUpdaterApp(
   resolveUpdaterConfig({
-    RAKAZO_DEPLOY_DIR: "/rakazo-updater-tests-no-such-directory",
+    RAKAZO_DEPLOY_DIR: "/botcamp-updater-tests-no-such-directory",
     RAKAZO_UPDATER_TOKEN: token,
   }),
 );
@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 async function deployment(env = "RAKAZO_IMAGE_TAG=v1.0.0\nRAKAZO_IMAGE_TAG_PREVIOUS=v0.9.0\n") {
-  const deployDir = await mkdtemp(path.join(os.tmpdir(), "rakazo-updater-test-"));
+  const deployDir = await mkdtemp(path.join(os.tmpdir(), "botcamp-updater-test-"));
   temporaryDirectories.push(deployDir);
   await writeFile(path.join(deployDir, ".env"), env);
   return {
@@ -108,7 +108,10 @@ describe("updater HTTP surface", () => {
     const response = await app.request("/apply", {
       method: "POST",
       headers: authorized,
-      body: JSON.stringify({ repoUrl: "https://github.com/artofhacking/botcamp", branch: "--exec=id" }),
+      body: JSON.stringify({
+        repoUrl: "https://github.com/artofhacking/botcamp",
+        branch: "--exec=id",
+      }),
     });
     expect(response.status).toBe(400);
   });
@@ -163,7 +166,7 @@ describe("updater HTTP surface", () => {
     try {
       const subject = createUpdaterApp(
         resolveUpdaterConfig({
-          RAKAZO_DEPLOY_DIR: "/rakazo-updater-tests-no-such-directory",
+          RAKAZO_DEPLOY_DIR: "/botcamp-updater-tests-no-such-directory",
           RAKAZO_UPDATER_TOKEN: token,
         }),
       );
@@ -267,8 +270,12 @@ describe("updater orchestration", () => {
     expect(composeUp[0]?.args).toEqual(expect.arrayContaining(["--wait", "--pull", "never"]));
     expect(composeUp[0]?.args).toContain("--no-build");
     expect(composeUp[1]?.args).toContain("--no-build");
-    expect(composeUp[0]?.env?.RAKAZO_IMAGE_TAG).toBe(`sha-${targetCommit}`);
-    expect(composeUp[1]?.env?.RAKAZO_IMAGE_TAG).toBe("v1.0.0");
+    expect(composeUp[0]?.env?.BOTCAMP_IMAGE_TAG ?? composeUp[0]?.env?.RAKAZO_IMAGE_TAG).toBe(
+      `sha-${targetCommit}`,
+    );
+    expect(composeUp[1]?.env?.BOTCAMP_IMAGE_TAG ?? composeUp[1]?.env?.RAKAZO_IMAGE_TAG).toBe(
+      "v1.0.0",
+    );
     expect(await readFile(path.join(fixture.deployDir, ".env"), "utf8")).toContain(
       "RAKAZO_IMAGE_TAG=v1.0.0",
     );

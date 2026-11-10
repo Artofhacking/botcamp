@@ -1,3 +1,4 @@
+import { firstNonEmpty } from "./env-name.js";
 import {
   DEFAULT_UPDATE_REMOTE,
   isOfficialRepoUrl,
@@ -82,7 +83,8 @@ export function resolveComposeProjectName(
   env: Readonly<Record<string, string | undefined>>,
 ): string {
   const injected = env[COMPOSE_PROJECT_NAME_ENV]?.trim() ?? "";
-  const override = env[COMPOSE_PROJECT_NAME_OVERRIDE_ENV]?.trim() ?? "";
+  const override =
+    firstNonEmpty(env.BOTCAMP_COMPOSE_PROJECT_NAME, env[COMPOSE_PROJECT_NAME_OVERRIDE_ENV]) ?? "";
   const candidate = injected || override;
   if (candidate === "") return DEFAULT_COMPOSE_PROJECT_NAME;
   if (!isValidComposeProjectName(candidate)) {

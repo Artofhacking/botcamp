@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useLinkPrompt } from "@rakazo/chat-ui/web";
-import type { MessageBlock } from "@rakazo/contracts";
+import { useLinkPrompt } from "@botcamp/chat-ui/web";
+import type { MessageBlock } from "@botcamp/contracts";
 import {
   MAILBOX_AUTH_REJECTED,
   MAILBOX_UNREACHABLE,
   MailboxSaveInput,
   mailboxAuthCode,
-} from "@rakazo/contracts";
-import { appConnectedInput, waitForConnection } from "@rakazo/core";
+} from "@botcamp/contracts";
+import { appConnectedInput, waitForConnection } from "@botcamp/core";
 import {
   Button,
   Dialog,
@@ -18,7 +18,7 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
@@ -398,7 +398,7 @@ function ChartCanvas({
     // Plot loads lazily so threads without charts never pay for the library.
     void (async () => {
       try {
-        const { buildPlotParts } = await importChunk(() => import("@rakazo/core/plot"));
+        const { buildPlotParts } = await importChunk(() => import("@botcamp/core/plot"));
         if (cancelled || !ref.current) return;
         // Hover inspection by default: give the first mark a tooltip unless
         // the spec already asks for one somewhere.

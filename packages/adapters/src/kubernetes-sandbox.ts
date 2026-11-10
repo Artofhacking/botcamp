@@ -19,9 +19,10 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { SandboxUnavailableError } from "@rakazo/adapter-kit";
-import { COMPUTER_CACHE_ENV } from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/adapter-kit";
+import { SandboxUnavailableError } from "@botcamp/adapter-kit";
+import { COMPUTER_CACHE_ENV } from "@botcamp/core/node/desktop-runtime";
+import { getLogger } from "@botcamp/logging";
 import type { RawExecEvent } from "./exec-computer.js";
 import { ExecComputer, COMPUTER_IMAGE_WORKSPACE as WORKSPACE } from "./exec-computer.js";
 import { LinuxDesktop, onBotScreen } from "./linux-desktop.js";
@@ -43,8 +44,34 @@ const DEFAULT_READY_TIMEOUT_MS = 120_000;
 const CONTAINER_NAME = "computer";
 // Names the bot that owns a computer pod. A pod carrying another bot's value is
 // never reused or replaced.
-const BOT_ID_LABEL = "rakazo-bot-id";
+const BOT_ID_LABEL = "botcamp-bot-id";
+const LEGACY_BOT_ID_LABEL = "rakazo-bot-id";
+const COMPUTER_IDENTITY_ANNOTATION = "botcamp.computer-identity";
+const COMPUTER_IDENTITY = "botcamp";
+
+function podBotId(pod: { metadata?: { labels?: Record<string, string> } } | undefined) {
+  const labels = pod?.metadata?.labels;
+  return labels?.[BOT_ID_LABEL] ?? labels?.[LEGACY_BOT_ID_LABEL];
+}
+
+function podHasCurrentIdentity(pod: V1Pod): boolean {
+  const labels = pod.metadata?.labels;
+  const annotations = pod.metadata?.annotations;
+  return (
+    Boolean(labels?.[BOT_ID_LABEL]) &&
+    annotations?.[COMPUTER_IDENTITY_ANNOTATION] === COMPUTER_IDENTITY
+  );
+}
+
+function podGenerationCurrent(pod: V1Pod, botId: string, image: string): boolean {
+  if (pod.metadata?.labels?.[BOT_ID_LABEL] !== botId) return false;
+  if (pod.metadata?.annotations?.[COMPUTER_IDENTITY_ANNOTATION] !== COMPUTER_IDENTITY) return false;
+  const container = pod.spec?.containers?.find((entry) => entry.name === CONTAINER_NAME);
+  return container?.image === image;
+}
 const HOME_VOLUME = "home";
+/** Desktop images from before the home directory rename mount the same saved home here. */
+const LEGACY_WORKSPACE = "/home/rakazo";
 const READY_PORT = 6080;
 const DESKTOP_PORT_START = 6100;
 export interface KubernetesSandboxOptions {
@@ -72,7 +99,9 @@ export interface KubernetesSandboxOptions {
 }
 
 export interface KubernetesSandboxSdk {
-  core: Pick<CoreV1Api, "createNamespacedPod" | "deleteNamespacedPod" | "readNamespacedPod">;
+  core: Pick<CoreV1Api, "createNamespacedPod" | "deleteNamespacedPod" | "readNamespacedPod"> & {
+    listNamespacedPod?: CoreV1Api["listNamespacedPod"];
+  };
   exec: Pick<Exec, "exec">;
 }
 
@@ -159,6 +188,13 @@ export class KubernetesSandboxProvider implements SandboxProvider {
       throw new Error("a mounted Kubernetes home requires a pod-affinity namespace and labels");
     }
     this.clientsValue = clients;
+    // Tests inject a client. A real process lists once at startup and deletes mounted pods
+    // that still use the previous identity, so the cutover does not wait for the next request.
+    if (!clients) {
+      void this.retirePreviousComputers().catch((error: unknown) => {
+        getLogger().error("computer identity cutover failed", error);
+      });
+    }
   }
 
   describe() {
@@ -192,7 +228,7 @@ export class KubernetesSandboxProvider implements SandboxProvider {
         ? request.providerRef
         : podNameForBot(request.botId);
     let pod = await this.readPod(podName, context.signal);
-    if (pod && pod.metadata?.labels?.[BOT_ID_LABEL] !== request.botId) {
+    if (pod && podBotId(pod) !== request.botId) {
       throw new Error(`Kubernetes pod ${podName} belongs to another bot`);
     }
 
@@ -209,18 +245,35 @@ export class KubernetesSandboxProvider implements SandboxProvider {
       pod = undefined;
     }
 
+    // A mounted pod from the previous identity, or one whose image is not the image this
+    // process starts, is replaced. Its files stay on the mounted home.
+    if (
+      pod &&
+      podBotId(pod) === request.botId &&
+      !podGenerationCurrent(pod, request.botId, this.computerImage) &&
+      (pod.status?.phase !== "Running" || podMountsHome(pod, request.botId, this.homeClaim))
+    ) {
+      await this.deletePod(podName);
+      await this.waitForDeletion(podName, context.signal);
+      pod = undefined;
+    }
+
     let fresh = false;
     if (!pod) {
       try {
         await (await this.clients()).core.createNamespacedPod({
           namespace: this.namespace,
-          body: this.pod(podName, request.botId, homeDirectoryName(request.botId, request.homePath)),
+          body: this.pod(
+            podName,
+            request.botId,
+            homeDirectoryName(request.botId, request.homePath),
+          ),
         });
         fresh = true;
       } catch (error) {
         if (!isApiStatus(error, 409)) throw error;
         const existing = await this.readPod(podName, context.signal);
-        if (existing?.metadata?.labels?.[BOT_ID_LABEL] !== request.botId) {
+        if (podBotId(existing) !== request.botId) {
           throw new Error(`Kubernetes pod ${podName} belongs to another bot`);
         }
       }
@@ -247,12 +300,50 @@ export class KubernetesSandboxProvider implements SandboxProvider {
     return pod?.status?.phase === "Running" && !pod.metadata?.deletionTimestamp;
   }
 
+  async acceptsRunningComputer(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    if (computer.kind !== "kubernetes") return true;
+    const pod = await this.readPod(this.podId(computer), context.signal);
+    if (pod?.status?.phase !== "Running" || pod?.metadata?.deletionTimestamp || !pod) return true;
+    if (podGenerationCurrent(pod, computer.botId, this.computerImage)) return true;
+    // Replacing an unmounted live pod would drop the only copy of its files.
+    return !podMountsHome(pod, computer.botId, this.homeClaim);
+  }
+
+  /**
+   * Delete mounted pods that still use the previous identity. Pods that already carry
+   * this identity stay, including another tier's image. Unmounted running pods stay too:
+   * their disk has not been saved yet.
+   */
+  async retirePreviousComputers(): Promise<void> {
+    const core = (await this.clients()).core;
+    if (!core.listNamespacedPod) return;
+    const listed = await core.listNamespacedPod({ namespace: this.namespace });
+    for (const pod of listed.items ?? []) {
+      const botId = podBotId(pod);
+      const name = pod.metadata?.name;
+      if (!botId || !name || podHasCurrentIdentity(pod)) continue;
+      if (
+        pod.status?.phase === "Running" &&
+        !pod.metadata?.deletionTimestamp &&
+        !podMountsHome(pod, botId, this.homeClaim)
+      ) {
+        continue;
+      }
+      await this.deletePod(name);
+    }
+  }
+
   async hasMountedHome(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
     if (computer.kind !== "kubernetes") return false;
     // Checked even with no claim configured: a pod started with one still mounts the home
     // until it stops, and exporting over that directory would delete its live files.
     const pod = await this.readPod(this.podId(computer), context.signal);
-    return !!pod && podMountsHome(pod, computer.botId, this.homeClaim);
+    // A legacy mount is the same saved directory. A checkpoint can skip the copy. Replacing the
+    // pod still requires the current path, so startup does not delete one it would fail to read.
+    return (
+      !!pod &&
+      podMountsHome(pod, computer.botId, this.homeClaim, [WORKSPACE, LEGACY_WORKSPACE])
+    );
   }
 
   async prepare(computer: ComputerRef, context: AdapterContext): Promise<void> {
@@ -450,10 +541,13 @@ export class KubernetesSandboxProvider implements SandboxProvider {
       metadata: {
         name,
         namespace: this.namespace,
-        annotations: this.podAnnotations,
+        annotations: {
+          ...this.podAnnotations,
+          [COMPUTER_IDENTITY_ANNOTATION]: COMPUTER_IDENTITY,
+        },
         labels: {
           ...this.podLabels,
-          "app.kubernetes.io/name": "rakazo-computer",
+          "app.kubernetes.io/name": "botcamp-computer",
           [BOT_ID_LABEL]: botId,
         },
       },
@@ -503,9 +597,7 @@ export class KubernetesSandboxProvider implements SandboxProvider {
             },
             ...(this.homeClaim || (this.nfsHomeServer && this.nfsHomePath)
               ? {
-                  volumeMounts: [
-                    { name: HOME_VOLUME, mountPath: WORKSPACE, subPath: homeSubdir },
-                  ],
+                  volumeMounts: [{ name: HOME_VOLUME, mountPath: WORKSPACE, subPath: homeSubdir }],
                 }
               : {}),
             ...(Object.keys(limits).length ? { resources: { limits } } : {}),
@@ -748,7 +840,7 @@ function podNameForBot(botId: string): string {
     .replaceAll(/^-+|-+$/g, "")
     .slice(0, 40);
   const hash = createHash("sha256").update(botId).digest("hex").slice(0, 12);
-  return `rakazo-${normalized || "bot"}-${hash}`;
+  return `botcamp-${normalized || "bot"}-${hash}`;
 }
 
 /** The data directory holds `homes/<bot id>`; a bot id must name exactly one folder. */
@@ -773,7 +865,12 @@ function homeDirectoryName(botId: string, homePath: string | undefined): string 
  * started with one keeps its mount. NFS homes are not claims. The mount's subPath is the home
  * directory's basename, or the older `homes/<id>`.
  */
-function podMountsHome(pod: V1Pod, homeKey: string, claimName: string | undefined): boolean {
+function podMountsHome(
+  pod: V1Pod,
+  homeKey: string,
+  claimName: string | undefined,
+  mountPaths: readonly string[] = [WORKSPACE],
+): boolean {
   if (!/^[A-Za-z0-9_-]+$/.test(homeKey)) return false;
   const subPaths = new Set([homeKey, `homes/${homeKey}`]);
   const volumes = new Set(
@@ -789,7 +886,7 @@ function podMountsHome(pod: V1Pod, homeKey: string, claimName: string | undefine
     container?.volumeMounts?.some(
       (mount) =>
         volumes.has(mount.name) &&
-        mount.mountPath === WORKSPACE &&
+        mountPaths.includes(mount.mountPath) &&
         mount.subPath !== undefined &&
         subPaths.has(mount.subPath),
     ) === true

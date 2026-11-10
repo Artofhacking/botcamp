@@ -3,11 +3,11 @@ import type {
   PaymentWalletCredential,
   PaymentWalletProvider,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import { PaymentWalletDisconnected, SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import type { PaymentWalletStatus } from "@rakazo/contracts";
-import type { PaymentWallet, Prisma, PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { PaymentWalletDisconnected, SecretStoreUnavailableError } from "@botcamp/adapter-kit";
+import type { PaymentWalletStatus } from "@botcamp/contracts";
+import type { PaymentWallet, Prisma, PrismaClient } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { deleteSecretBestEffort, holdSecretNotifications } from "./secret-store-factory.js";
 
 export interface PaymentWalletDeps {

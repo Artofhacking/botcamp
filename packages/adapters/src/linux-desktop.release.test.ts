@@ -1,8 +1,8 @@
-import type { AdapterContext, ComputerRef } from "@rakazo/adapter-kit";
+import type { AdapterContext, ComputerRef } from "@botcamp/adapter-kit";
 import {
   BROWSER_STILL_RUNNING_EXIT,
   PAGE_BROWSER_DETACHED,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 import { describe, expect, it } from "vitest";
 import { BrowserStillRunningError, BrowserStoppedReleaseError } from "./computer-screens.js";
 import { LinuxDesktop } from "./linux-desktop.js";
@@ -29,9 +29,9 @@ type Result = { code: number; stdout: string; stderr?: string };
 function host(result: Result | ((command: string) => Result), commands: string[] = []) {
   return {
     environment: async () => ({
-      homeDir: "/home/rakazo",
-      workspaceDir: "/home/rakazo",
-      browserProfilesDir: "/home/rakazo/.browser-profiles",
+      homeDir: "/home/botcamp",
+      workspaceDir: "/home/botcamp",
+      browserProfilesDir: "/home/botcamp/.browser-profiles",
       displayStart: 1,
     }),
     run: async (_computer: ComputerRef, command: string) => {

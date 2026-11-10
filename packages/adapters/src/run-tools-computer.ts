@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { SandboxProvider } from "@rakazo/adapter-kit";
-import type { ComputerCommand } from "@rakazo/contracts";
-import { COMPUTER_COMMAND_OUTPUT_MAX_CHARS } from "@rakazo/contracts";
-import { redactSecrets, sandboxCommandTimeoutMs } from "@rakazo/core";
-import { RunHistoryWriteError } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { SandboxProvider } from "@botcamp/adapter-kit";
+import type { ComputerCommand } from "@botcamp/contracts";
+import { COMPUTER_COMMAND_OUTPUT_MAX_CHARS } from "@botcamp/contracts";
+import { redactSecrets, sandboxCommandTimeoutMs } from "@botcamp/core";
+import { RunHistoryWriteError } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { redactShellStreams } from "./agent-environment.js";
 import {
   resolveCodeFill,

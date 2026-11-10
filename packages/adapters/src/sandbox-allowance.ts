@@ -1,6 +1,6 @@
-import type { ComputerRef, SandboxProvider } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { MICROS_PER_DOLLAR, sandboxAllowancePlan, sandboxRunHours } from "@rakazo/db";
+import type { ComputerRef, SandboxProvider } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { MICROS_PER_DOLLAR, sandboxAllowancePlan, sandboxRunHours } from "@botcamp/db";
 
 /**
  * What an hour of a billed computer counts against the allowance, $0.20: above a small cloud

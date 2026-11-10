@@ -18,6 +18,15 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+
+def prefer_env(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value is not None and value.strip():
+            return value.strip()
+    return default
+
+
 AUTH_LOG = "/var/log/auth.log"
 AUDIT_LOG = "/var/log/audit/audit.log"
 # Keys from the audit rules that harden-host.sh installs.
@@ -341,10 +350,14 @@ def heartbeat_event(host, now):
 
 
 def main():
-    url = os.environ.get("RAKAZO_AUDIT_SINK_URL", "")
-    token_file = os.environ.get("RAKAZO_AUDIT_TOKEN_FILE", "/etc/rakazo/audit-ship.token")
-    host = os.environ.get("RAKAZO_AUDIT_HOST") or socket.gethostname()
-    known_keys = parse_known_keys(os.environ.get("RAKAZO_AUDIT_KNOWN_KEYS", ""))
+    url = prefer_env("BOTCAMP_AUDIT_SINK_URL", "RAKAZO_AUDIT_SINK_URL")
+    token_file = prefer_env(
+        "BOTCAMP_AUDIT_TOKEN_FILE",
+        "RAKAZO_AUDIT_TOKEN_FILE",
+        default="/etc/rakazo/audit-ship.token",
+    )
+    host = prefer_env("BOTCAMP_AUDIT_HOST", "RAKAZO_AUDIT_HOST") or socket.gethostname()
+    known_keys = parse_known_keys(prefer_env("BOTCAMP_AUDIT_KNOWN_KEYS", "RAKAZO_AUDIT_KNOWN_KEYS"))
     state_dir = os.environ.get("STATE_DIRECTORY", "/var/lib/rakazo/audit-ship").split(":")[0]
     state_path = Path(state_dir) / "state.json"
     if not url:
@@ -355,7 +368,7 @@ def main():
         ("auth", AUTH_LOG, lambda lines: parse_auth_lines(lines, host, known_keys), False, None),
         ("audit", AUDIT_LOG, lambda lines: parse_audit_lines(lines, host), True, audit_group_start),
     ]
-    interval = heartbeat_seconds(os.environ.get("RAKAZO_AUDIT_HEARTBEAT_SECONDS", ""))
+    interval = heartbeat_seconds(prefer_env("BOTCAMP_AUDIT_HEARTBEAT_SECONDS", "RAKAZO_AUDIT_HEARTBEAT_SECONDS"))
     state = load_state(state_path)
     backoff = 0
     last_heartbeat = None

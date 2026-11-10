@@ -6,14 +6,14 @@ import {
   loadUserIncomingCalls,
   PushSessionEndedError,
   settleCallRequest,
-} from "@rakazo/adapters";
-import type { ActionApprovalRule, Actor, ChatAlert, Me, SettingsScope } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import type { ActionApprovalRule, Actor, ChatAlert, Me, SettingsScope } from "@botcamp/contracts";
 import {
   approvalModeFromPreference,
   approvalPreferenceFromMode,
   callRequestClientNonce,
-} from "@rakazo/core";
-import { urlSite } from "@rakazo/core/egress";
+} from "@botcamp/core";
+import { urlSite } from "@botcamp/core/egress";
 import {
   auditLogOrganization,
   commitBotUpdate,
@@ -34,8 +34,8 @@ import {
   saveAutoReviewPreference,
   selectVoicePreference,
   voicePreferenceTarget,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { createAccessGrant, listAccessGrants, revokeAccessGrant } from "../access-grants.js";
 import { requireAdmin } from "../admins.js";
 import { aiConsentStatus, allowAiConsent } from "../ai-consent.js";

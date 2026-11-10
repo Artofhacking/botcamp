@@ -4,15 +4,15 @@ import type {
   AgentRuntime,
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE,
   CLOUDFLARE_WORKERS_AI_PROVIDER_ID,
   cloudflareModelConfigMessage,
   OPENAI_COMPATIBLE_PROVIDER_ID,
-} from "@rakazo/contracts";
-import { MISSING_MODEL_RUN_ERROR } from "@rakazo/core";
-import { assertWithinWeeklyQuota } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { MISSING_MODEL_RUN_ERROR } from "@botcamp/core";
+import { assertWithinWeeklyQuota } from "@botcamp/db";
 import { cloudflareProviderEnv } from "./cloudflare-ai-gateway.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import type { ExecutorDeps } from "./executor-deps.js";

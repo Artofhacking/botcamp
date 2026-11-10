@@ -1,16 +1,16 @@
 import { ORPCError } from "@orpc/server";
-import { routineWakeupJob } from "@rakazo/adapter-kit";
-import { parseRoutineWatch, parseRoutineWatchState, routineRunModelPin } from "@rakazo/adapters";
-import type { Actor, CreateRoutineInput, Routine } from "@rakazo/contracts";
-import { canonicalPiProviderId } from "@rakazo/contracts";
+import { routineWakeupJob } from "@botcamp/adapter-kit";
+import { parseRoutineWatch, parseRoutineWatchState, routineRunModelPin } from "@botcamp/adapters";
+import type { Actor, CreateRoutineInput, Routine } from "@botcamp/contracts";
+import { canonicalPiProviderId } from "@botcamp/contracts";
 import {
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
   nextCronDateAcrossStrict,
   routineScheduleDelayed,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
-import { IsolationError } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
+import { IsolationError } from "@botcamp/db";
 import type { RouterDeps } from "./router.js";
 import type { RouterContext } from "./routes/context.js";
 

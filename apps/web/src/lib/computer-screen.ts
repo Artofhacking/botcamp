@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
-import { isLocalhostOrLoopbackIp } from "@rakazo/contracts";
-import { COMPUTER_SCREEN_PATH } from "@rakazo/contracts/content-security-policy";
+import { isLocalhostOrLoopbackIp } from "@botcamp/contracts";
+import { COMPUTER_SCREEN_PATH } from "@botcamp/contracts/content-security-policy";
 import { apiOrigin } from "./api-origin";
 import { errorText } from "./user-error";
 

@@ -1,4 +1,4 @@
-import type { MessagingInboundMessage, MessagingSurface } from "@rakazo/adapter-kit";
+import type { MessagingInboundMessage, MessagingSurface } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import {
   createMessagingTeamChatHistory,

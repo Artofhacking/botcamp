@@ -1,14 +1,14 @@
-import type { JobPublisher } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
+import type { JobPublisher } from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   ACTIVE_RUN_STATUSES,
   escapePromptData,
   ONCE_ROUTINE_CRON,
   truncatePlainText,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
-import { STRATEGIC_INITIATIVE_NONCE_PREFIX, spaceHasModelAccess } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
+import { STRATEGIC_INITIATIVE_NONCE_PREFIX, spaceHasModelAccess } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { isUniqueViolation } from "./run-messages.js";
 import { modelCreditBillingEnabled } from "./run-model.js";
 

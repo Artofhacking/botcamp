@@ -1,7 +1,7 @@
-import type { AgentUsage, ModelUsageLookup } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { expireModelCredits, hasFinalModelCost, recordUsage, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AgentUsage, ModelUsageLookup } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { expireModelCredits, hasFinalModelCost, recordUsage, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 
 /** Bounded, leased recovery. Missing evidence is flagged rather than converted into free usage. */
 export function createModelCreditReconciler(deps: {

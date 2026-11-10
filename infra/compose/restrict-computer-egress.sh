@@ -14,7 +14,7 @@
 #   - multicast and reserved space.
 #
 # Rules key on the deterministic bridge names the supervisor assigns in
-# restricted mode (rakazo-c<hash>), never on Docker's dynamic subnets — so
+# restricted mode (botcamp<hash>), never on Docker's dynamic subnets — so
 # computer churn, network recreate, and subnet reuse need no firewall changes.
 #
 # Same-bridge peers stay reachable: the supervisor and web screen proxy join the
@@ -34,19 +34,25 @@
 
 set -Eeuo pipefail
 
-IPTABLES="${RAKAZO_IPTABLES:-iptables}"
-IP6TABLES="${RAKAZO_IP6TABLES:-ip6tables}"
-SYSTEMCTL="${RAKAZO_SYSTEMCTL:-systemctl}"
-IF_INET6="${RAKAZO_IF_INET6:-/proc/net/if_inet6}"
-BRIDGE_PREFIX="rakazo-c"
-INSTALLED_PATH=/usr/local/sbin/rakazo-computer-egress
-UNIT_PATH=/etc/systemd/system/rakazo-computer-egress.service
+IPTABLES="${BOTCAMP_IPTABLES:-${RAKAZO_IPTABLES:-iptables}}"
+IP6TABLES="${BOTCAMP_IP6TABLES:-${RAKAZO_IP6TABLES:-ip6tables}}"
+SYSTEMCTL="${BOTCAMP_SYSTEMCTL:-${RAKAZO_SYSTEMCTL:-systemctl}}"
+IF_INET6="${BOTCAMP_IF_INET6:-${RAKAZO_IF_INET6:-/proc/net/if_inet6}}"
+IP="${BOTCAMP_IP:-${RAKAZO_IP:-ip}}"
+BRIDGE_PREFIX="botcamp"
+# Previous release. --apply deletes those rules once no rakazo-c bridge is left.
+LEGACY_BRIDGE_PREFIX="rakazo-c"
+LEGACY_INSTALLED_PATH=/usr/local/sbin/rakazo-computer-egress
+LEGACY_UNIT_PATH=/etc/systemd/system/rakazo-computer-egress.service
+INSTALLED_PATH=/usr/local/sbin/botcamp-computer-egress
+UNIT_PATH=/etc/systemd/system/botcamp-computer-egress.service
 
 usage() {
   cat <<'EOF'
 Usage: restrict-computer-egress.sh [--install|--apply|--remove|--print]
   (default)   apply the rules now and persist them across reboots via systemd
-  --apply     apply the rules now only (used by the systemd unit)
+  --apply     apply the rules now only (used by the systemd unit).
+              Also removes rakazo-c* rules once no rakazo-c bridge remains.
   --remove    delete the rules and the systemd unit
   --print     show the iptables commands without changing anything
 EOF
@@ -79,7 +85,7 @@ EOF
 }
 
 # One rule per line: "<chain> <args>". Order matters: same-bridge traffic
-# (-i and -o both rakazo-c*) must be returned to Docker's own chains before the
+# (-i and -o both botcamp*) must be returned to Docker's own chains before the
 # destination drops, and in INPUT the established accept must precede the
 # catch-all drop so host- and supervisor-initiated connections to the computer
 # (control endpoint, published screen port) keep working while the computer can
@@ -309,7 +315,7 @@ print_family() {
 
 require_root() {
   if ((EUID == 0)); then return 0; fi
-  if [[ "${RAKAZO_EGRESS_SUDOED:-}" == "1" ]]; then
+  if [[ "${BOTCAMP_EGRESS_SUDOED:-${RAKAZO_EGRESS_SUDOED:-}}" == "1" ]]; then
     echo "root privileges required" >&2
     exit 1
   fi
@@ -331,7 +337,7 @@ install_persistence() {
   fi
   cat >"$UNIT_PATH" <<EOF
 [Unit]
-Description=Restrict BotCamp bot-computer egress (rakazo-c* bridges)
+Description=Restrict BotCamp bot-computer egress (botcamp* bridges)
 After=docker.service
 Wants=docker.service
 
@@ -344,16 +350,61 @@ ExecStart=$INSTALLED_PATH --apply
 WantedBy=multi-user.target
 EOF
   "$SYSTEMCTL" daemon-reload
-  "$SYSTEMCTL" enable rakazo-computer-egress.service
+  "$SYSTEMCTL" enable botcamp-computer-egress.service
+}
+
+remove_legacy_bridge_rules() {
+  local saved=$BRIDGE_PREFIX
+  BRIDGE_PREFIX=$LEGACY_BRIDGE_PREFIX
+  remove_family "$IPTABLES" egress_rules_v4
+  remove_family "$IP6TABLES" egress_rules_v6
+  BRIDGE_PREFIX=$saved
+}
+
+# 0 when a previous-generation bridge is up, 1 when none is, 2 when the host
+# cannot be listed. Deleting the old rules while a bridge is up would open it.
+legacy_bridges_present() {
+  command -v "$IP" >/dev/null 2>&1 || return 2
+  local listing names
+  listing="$("$IP" -o link show 2>/dev/null)" || return 2
+  names="$(printf '%s\n' "$listing" | sed -n 's/^[0-9][0-9]*: \([^:@ ]*\).*/\1/p')"
+  if printf '%s\n' "$names" | grep -Eq '^rakazo-c[0-9a-f]{7}$'; then
+    return 0
+  fi
+  return 1
+}
+
+drop_legacy_bridge_rules() {
+  local status=0
+  legacy_bridges_present || status=$?
+  if ((status == 0)); then
+    echo "Leaving rakazo-c* firewall rules in place: a previous-generation computer bridge is still up." >&2
+    echo "Stop those computers and run this script again." >&2
+    return 0
+  fi
+  if ((status == 2)); then
+    echo "Could not list network interfaces; leaving rakazo-c* firewall rules in place." >&2
+    return 0
+  fi
+  remove_legacy_bridge_rules
 }
 
 remove_persistence() {
-  if command -v "$SYSTEMCTL" >/dev/null 2>&1 && [[ -f "$UNIT_PATH" ]]; then
-    "$SYSTEMCTL" disable --now rakazo-computer-egress.service || true
-    rm -f "$UNIT_PATH"
-    "$SYSTEMCTL" daemon-reload
+  local changed=0
+  if command -v "$SYSTEMCTL" >/dev/null 2>&1; then
+    if [[ -f "$UNIT_PATH" ]]; then
+      "$SYSTEMCTL" disable --now botcamp-computer-egress.service || true
+      rm -f "$UNIT_PATH"
+      changed=1
+    fi
+    if [[ -f "$LEGACY_UNIT_PATH" ]]; then
+      "$SYSTEMCTL" disable --now rakazo-computer-egress.service || true
+      rm -f "$LEGACY_UNIT_PATH"
+      changed=1
+    fi
+    if ((changed)); then "$SYSTEMCTL" daemon-reload; fi
   fi
-  rm -f "$INSTALLED_PATH"
+  rm -f "$INSTALLED_PATH" "$LEGACY_INSTALLED_PATH"
 }
 
 mode="${1:---install}"
@@ -361,16 +412,19 @@ case "$mode" in
   --install)
     require_root "$@"
     apply_rules
+    drop_legacy_bridge_rules
     install_persistence
-    echo "Computer egress restricted: rakazo-c* bridges drop non-public and host-bound traffic."
+    echo "Computer egress restricted: botcamp* bridges drop non-public and host-bound traffic."
     ;;
   --apply)
     apply_rules
+    drop_legacy_bridge_rules
     ;;
   --remove)
     require_root "$@"
     remove_family "$IPTABLES" egress_rules_v4
     remove_family "$IP6TABLES" egress_rules_v6
+    remove_legacy_bridge_rules
     remove_persistence
     echo "Computer egress rules and persistence removed."
     ;;

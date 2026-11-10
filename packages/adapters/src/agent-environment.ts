@@ -1,4 +1,4 @@
-import { redactSecrets } from "@rakazo/core";
+import { redactSecrets } from "@botcamp/core";
 
 export function formatAgentEnvironmentInstruction(
   environment: Record<string, string>,

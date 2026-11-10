@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  linkableChatApps,
   messagingConnectOptions,
   messagingProviderLabel,
   messagingProviderName,
@@ -10,6 +11,8 @@ describe("messaging provider labels", () => {
     expect(messagingProviderName("sendblue")).toBe("iMessage");
     expect(messagingProviderName("telegram")).toBe("Telegram");
     expect(messagingProviderName("photon")).toBe("iMessage (Photon)");
+    expect(messagingProviderName("weixin")).toBe("WeChat");
+    expect(linkableChatApps()).toEqual(["weixin"]);
     expect(messagingProviderName("teams")).toBe("teams");
   });
 

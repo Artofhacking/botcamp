@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type {
   Bot,
   ComputerStatus,
@@ -7,20 +6,22 @@ import type {
   MessageReaction,
   ThreadMessage,
   ThreadSnapshot,
-} from "@rakazo/contracts";
-import { attachmentMaxBytes, attachmentMaxCount, attachmentSizeLabel } from "@rakazo/contracts";
-import type { ComposerMention } from "@rakazo/core";
+} from "@botcamp/contracts";
+import { attachmentMaxBytes, attachmentMaxCount, attachmentSizeLabel } from "@botcamp/contracts";
+import type { ComposerMention } from "@botcamp/core";
 import {
   attachmentsForThread,
   inferAttachmentMimeType,
   isImageInputConfirmation,
   newClientId,
   resolveComposerSendPlan,
-} from "@rakazo/core";
+} from "@botcamp/core";
+import { useLingui } from "@lingui/react/macro";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestBrowserNotificationPermission } from "../../lib/browser-notifications";
 import { setComposerUnsavedWork } from "../../lib/composer-draft";
+import { currentAppOrigin } from "../../lib/desktop";
 import type { PageSession } from "../../lib/pages";
 import {
   readFileAsBase64,
@@ -312,12 +313,14 @@ export function useComposerActions({
       };
       // Keep the draft cleared once the submission is confirmed accepted.
       let accepted = false;
+      const origin = currentAppOrigin();
       try {
         if (!plan.shouldSend) {
           if (plan.shouldRunRoutines) {
             await rpc.threads.sendWithRoutines({
               ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
               clientNonce,
+              origin,
               routineIds: plan.routineIds,
             });
             accepted = true;
@@ -367,6 +370,7 @@ export function useComposerActions({
         const payload = {
           ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
           clientNonce,
+          origin,
           imageHandling: imageHandling ?? "confirm",
           text: trimmed || undefined,
           mentions: plan.mentionPayload.length ? plan.mentionPayload : undefined,

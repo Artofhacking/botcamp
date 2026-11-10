@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import type { KeyProvider, KeyWrapContext, WrappedDataKey } from "@rakazo/adapter-kit";
-import { resolveEncryptionKey } from "@rakazo/core";
+import type { KeyProvider, KeyWrapContext, WrappedDataKey } from "@botcamp/adapter-kit";
+import { resolveEncryptionKey } from "@botcamp/core";
 import type { DataKey } from "./content-crypto.js";
 import { createRowId } from "./row-id.js";
 import { runAsSystem } from "./row-security.js";

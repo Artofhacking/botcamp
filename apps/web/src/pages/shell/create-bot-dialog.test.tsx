@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { BotAvatarSet } from "@rakazo/contracts";
-import { ORGANIC_AVATAR_LOOKS } from "@rakazo/core";
+import type { BotAvatarSet } from "@botcamp/contracts";
+import { ORGANIC_AVATAR_LOOKS } from "@botcamp/core";
 import type { ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";

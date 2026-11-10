@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
-import { accountSecuritySchema, legacyAccountSecurity } from "@rakazo/contracts";
-import { readBoundedJsonResponse } from "@rakazo/core";
+import { accountSecuritySchema, legacyAccountSecurity } from "@botcamp/contracts";
+import { readBoundedJsonResponse } from "@botcamp/core";
 import { authErrorText } from "./user-error";
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";

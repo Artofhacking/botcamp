@@ -2,7 +2,7 @@
  * Deployment switches for what the app shows. A host sets them in `config.js` next to the
  * build, so trimming the UI never needs a rebuild:
  *
- *   window.__RAKAZO_UI__ = {
+ *   window.__BOTCAMP_UI__ = {
  *     hiddenSections: ["computer", "models", "billing"],
  *     apps: [{ name: "Mail", endpoint: "https://mail.example.com/mcp" }],
  *   };
@@ -24,6 +24,8 @@ export type DeploymentApp = {
 
 declare global {
   interface Window {
+    __BOTCAMP_UI__?: { hiddenSections?: string[]; apps?: unknown };
+    /** Previous name for `__BOTCAMP_UI__`, still read when the new one is unset or empty. */
     __RAKAZO_UI__?: { hiddenSections?: string[]; apps?: unknown };
   }
 }
@@ -31,8 +33,15 @@ declare global {
 /** RFC 6749 scope-tokens, space separated. Anything else would only break the request. */
 const SCOPE_LIST = /^[\x21\x23-\x5B\x5D-\x7E]+(?: [\x21\x23-\x5B\x5D-\x7E]+)*$/;
 
-function deploymentUi(): NonNullable<Window["__RAKAZO_UI__"]> {
-  return typeof window === "undefined" ? {} : (window.__RAKAZO_UI__ ?? {});
+function hasEntries(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function deploymentUi(): NonNullable<Window["__BOTCAMP_UI__"]> {
+  if (typeof window === "undefined") return {};
+  const next = window.__BOTCAMP_UI__;
+  if (next && (hasEntries(next.hiddenSections) || hasEntries(next.apps))) return next;
+  return window.__RAKAZO_UI__ ?? next ?? {};
 }
 
 function stringField(value: unknown): string | undefined {
@@ -87,7 +96,7 @@ export function deploymentApps(): readonly DeploymentApp[] {
 
 /**
  * The apps this build offers. A deployment may replace them in `config.js`, but the
- * product ships with its own single app, so nothing else can appear in Integrations.
+ * product ships with its own apps, so nothing else can appear in Integrations.
  */
 export const BUILTIN_APPS: readonly DeploymentApp[] = [
   {
@@ -97,6 +106,11 @@ export const BUILTIN_APPS: readonly DeploymentApp[] = [
       { label: "只读", scope: "alias:read mail:read" },
       { label: "可发信", scope: "alias:read mail:read mail:send" },
     ],
+  },
+  {
+    name: "Notion",
+    endpoint: "https://mcp.notion.com/mcp",
+    scopes: [],
   },
 ];
 

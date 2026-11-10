@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { runContinueJob } from "@rakazo/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   archiveBot,
   checkpointAndStopComputer,
@@ -20,17 +20,17 @@ import {
   storeBotSecret,
   toComputerRef,
   validateBotModelChange,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import type {
   Actor,
   Bot,
   BotSecretMetadata,
   SettingsScope,
   VaultPutInput,
-} from "@rakazo/contracts";
-import { BotSecretAuth, resolveBotAvatarSet } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, displayName } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { BotSecretAuth, resolveBotAvatarSet } from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES, displayName } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
 import {
   BotSectionNameConflictError,
   botProfileLabelsChanged,
@@ -47,8 +47,8 @@ import {
   runAsSystem,
   SpaceDeletionInProgressError,
   settingsTarget,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { AgentImportServices } from "../agent-import.js";
 import { agentImportSetupState, createImportedBot, previewAgentImport } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";

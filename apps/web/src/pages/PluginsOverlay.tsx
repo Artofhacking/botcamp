@@ -6,13 +6,13 @@ import type {
   IntegrationCatalogResult,
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   CONNECTION_LABEL_MAX_LENGTH,
   MailboxSaveInput,
   PluginPreviewSchema,
-} from "@rakazo/contracts";
-import type { PluginCategory } from "@rakazo/core";
+} from "@botcamp/contracts";
+import type { PluginCategory } from "@botcamp/core";
 import {
   buildFeaturedConnectorTiles,
   CONNECTION_CATALOG_PAGE_SIZE,
@@ -27,10 +27,11 @@ import {
   managedAppFor,
   matchesPluginQuery,
   matchesWordPrefixes,
+  newClientId,
   OTHER_PLUGINS,
   PLUGIN_CATEGORIES,
-} from "@rakazo/core";
-import { fetchFresh, writeSaved } from "@rakazo/core/query";
+} from "@botcamp/core";
+import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import {
   Badge,
   Button,
@@ -53,7 +54,7 @@ import {
   NativeSelectOption,
   SectionHeading,
   Spinner,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -80,6 +81,7 @@ import {
   useOwnSpaces,
 } from "../components/integrations/space-availability";
 import { connectedAppMarks } from "../lib/connected-apps";
+import { connectMcpOauth } from "../lib/mcp-connect";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
@@ -302,17 +304,45 @@ export function PluginsOverlay({
     queryClient.setQueryData(queries.mailbox.get.queryKey(), saved);
   }
 
+  async function connectDeploymentApp(app: DeploymentApp) {
+    setAppError(null);
+    setAppPending(app.endpoint);
+    try {
+      const existing = appServer(app);
+      const server =
+        existing ??
+        (await rpc.mcp.servers.create({
+          slug: `integration-${newClientId().slice(0, 8)}`,
+          name: app.name,
+          transport: "streamable_http",
+          endpoint: app.endpoint,
+        }));
+      const result = await connectMcpOauth(server.id);
+      if (result !== "connected" && result !== "already_connected") return;
+      if (activeBotId) {
+        await rpc.mcp.assignments.approve({ botId: activeBotId, serverId: server.id });
+      }
+      await fetchFresh(queryClient, mcpOptions);
+    } catch (err) {
+      setAppError(errorText(err, t`Could not connect`));
+    } finally {
+      setAppPending(null);
+    }
+  }
+
   async function disconnectDeploymentApp(app: DeploymentApp) {
     const server = appServer(app);
     setAppError(null);
     setAppPending(app.endpoint);
     try {
-      await rpc.mailbox.remove();
-      queryClient.setQueryData(queries.mailbox.get.queryKey(), {
-        connected: false,
-        address: null,
-        scope: null,
-      });
+      if (app.scopes.length > 0) {
+        await rpc.mailbox.remove();
+        queryClient.setQueryData(queries.mailbox.get.queryKey(), {
+          connected: false,
+          address: null,
+          scope: null,
+        });
+      }
       if (server) {
         await rpc.mcp.servers.remove({ id: server.id });
         await refresh();
@@ -1113,6 +1143,7 @@ export function PluginsOverlay({
         }
         linked={mailbox?.connected === true}
         onSave={saveDeploymentApp}
+        onConnect={(app) => void connectDeploymentApp(app)}
         onDisconnect={(app) => void disconnectDeploymentApp(app)}
       />
     );

@@ -2,7 +2,7 @@ import type {
   ApnsVoipConfig,
   PhotonProjectCredentials,
   TelegramBotCredentials,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import {
   apnsVoipConfig,
   boatApiKeyFromEnv,
@@ -14,11 +14,11 @@ import {
   resolveSandboxProvider,
   secretStoreOptionsFromEnv,
   telegramBotsFromEnv,
-} from "@rakazo/adapters";
-import type { OidcConfig } from "@rakazo/auth";
-import type { MinimumClientBuilds, NavLink } from "@rakazo/contracts";
-import { parseMinimumClientBuilds, parseNavLinks } from "@rakazo/contracts";
-import { parseCrispWebsiteId } from "@rakazo/contracts/content-security-policy";
+} from "@botcamp/adapters";
+import type { OidcConfig } from "@botcamp/auth";
+import type { MinimumClientBuilds, NavLink } from "@botcamp/contracts";
+import { parseMinimumClientBuilds, parseNavLinks } from "@botcamp/contracts";
+import { parseCrispWebsiteId } from "@botcamp/contracts/content-security-policy";
 import {
   attachmentCountFromEnv,
   phoneCallSettings,
@@ -28,10 +28,12 @@ import {
   resolveScreenProxySecret,
   resolveSupervisorToken,
   uploadSizeFromEnv,
-} from "@rakazo/core";
-import { monitoringPseudonymSecret } from "@rakazo/logging";
+} from "@botcamp/core";
+import { monitoringPseudonymSecret } from "@botcamp/logging";
 
-export { resolveCloudAgentProvider, resolveSandboxProvider } from "@rakazo/adapters";
+export { resolveCloudAgentProvider, resolveSandboxProvider } from "@botcamp/adapters";
+
+import { firstNonEmpty } from "@botcamp/core/env-name";
 
 /** Where a local development stack serves the web client. */
 const DEFAULT_WEB_ORIGIN = "http://127.0.0.1:5173";
@@ -235,7 +237,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     nodeEnv: source.NODE_ENV ?? "",
     databaseUrl: required(source, "DATABASE_URL"),
     realtimeDatabaseUrl: source.REALTIME_DATABASE_URL ?? required(source, "DATABASE_URL"),
-    desktopStackToken: optional(source.RAKAZO_DESKTOP_STACK_TOKEN),
+    desktopStackToken: optional(
+      firstNonEmpty(source.BOTCAMP_DESKTOP_STACK_TOKEN, source.RAKAZO_DESKTOP_STACK_TOKEN),
+    ),
     authSecret,
     authUrl: resolveWebOrigin(source.BETTER_AUTH_URL, webOrigin, "BETTER_AUTH_URL"),
     webOrigin,
@@ -257,9 +261,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     piSessionRecording: source.PI_SESSION_RECORDING === "true",
     ticketBoardEnabled: source.TICKET_BOARD_ENABLED === "true",
     userDevicesEnabled: source.USER_DEVICES_ENABLED !== "false",
-    navLinks: parseNavLinks(source.RAKAZO_NAV_LINKS),
-    adminEmails: list(source.RAKAZO_ADMIN_EMAILS).map((email) => email.toLowerCase()),
-    adminUserIds: list(source.RAKAZO_ADMIN_USER_IDS),
+    navLinks: parseNavLinks(firstNonEmpty(source.BOTCAMP_NAV_LINKS, source.RAKAZO_NAV_LINKS)),
+    adminEmails: list(firstNonEmpty(source.BOTCAMP_ADMIN_EMAILS, source.RAKAZO_ADMIN_EMAILS)).map(
+      (email) => email.toLowerCase(),
+    ),
+    adminUserIds: list(firstNonEmpty(source.BOTCAMP_ADMIN_USER_IDS, source.RAKAZO_ADMIN_USER_IDS)),
     ...phoneCallSettings(source),
     maxUploadSizeBytes: uploadSizeFromEnv(source),
     maxAttachmentsPerMessage: attachmentCountFromEnv(source),
@@ -345,8 +351,12 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
     port: Number(source.API_PORT ?? 3100),
-    gitSha: optional(source.GIT_SHA) ?? optional(source.RAKAZO_GIT_SHA),
-    minimumClientBuilds: parseMinimumClientBuilds(source.RAKAZO_MIN_CLIENT_BUILD),
+    gitSha:
+      optional(source.GIT_SHA) ??
+      optional(firstNonEmpty(source.BOTCAMP_GIT_SHA, source.RAKAZO_GIT_SHA)),
+    minimumClientBuilds: parseMinimumClientBuilds(
+      firstNonEmpty(source.BOTCAMP_MIN_CLIENT_BUILD, source.RAKAZO_MIN_CLIENT_BUILD),
+    ),
     browserMonitoring: browserMonitoringFromEnv(source),
     crispWebsiteId: parseCrispWebsiteId(source.CRISP_WEBSITE_ID),
   };

@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
 import {
   listPiCatalog,
   ModelSignInError,
@@ -15,17 +15,17 @@ import {
   storedOpenAiCompatibleProbeHeaders,
   storedOpenAiCompatibleProbeKey,
   UNAVAILABLE_MODEL_FOR_AUTH_MESSAGE,
-} from "@rakazo/adapters";
-import type { ThinkingLevel } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import type { ThinkingLevel } from "@botcamp/contracts";
 import {
   backupChoiceKey,
   canonicalPiProviderId,
   isOllamaCloudBaseUrl,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   usableModelId,
-} from "@rakazo/contracts";
-import { clampCatalogThinkingLevel } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { clampCatalogThinkingLevel } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import {
   appliedModelRole,
   comparePreferenceOrder,
@@ -41,7 +41,7 @@ import {
   saveModelPreference,
   updateModelRole,
   writeModelRole,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { mayUsePrivateEndpoint } from "../mcp-servers.js";
 import { firstModelConnectAnalytics } from "../model-connect-analytics.js";
 import {

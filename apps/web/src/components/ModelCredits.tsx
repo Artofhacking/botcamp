@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { BillingStatus, ByokInterval } from "@rakazo/contracts";
+import type { BillingStatus, ByokInterval } from "@botcamp/contracts";
 import {
   ByokIntervalSchema,
   byokYearlySavingsPercent,
@@ -7,7 +7,7 @@ import {
   DEFAULT_MONTHLY_CREDIT_AMOUNT,
   MODEL_CREDIT_AMOUNTS,
   ModelCreditAmountSchema,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +35,7 @@ import {
   SelectValue,
   ToggleGroup,
   ToggleGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {

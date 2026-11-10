@@ -8,9 +8,9 @@ import {
   InstalledConnectorProvider,
   PipedreamConnector,
   ThirdPartyConnectorEmulator,
-} from "@rakazo/adapters";
-import type { createApp } from "@rakazo/api/app";
-import { appliedModelRole, runAsSystem, runAsTenant, updateModelRole } from "@rakazo/db";
+} from "@botcamp/adapters";
+import type { createApp } from "@botcamp/api/app";
+import { appliedModelRole, runAsSystem, runAsTenant, updateModelRole } from "@botcamp/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { sessionCookieHeader } from "./index.js";
 import { asSystem } from "./system-db.js";
@@ -38,7 +38,7 @@ describeWithDatabase("Composio catalog reconciliation", () => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-connections-"));
 
   beforeAll(async () => {
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     fake = new FakeComposioClient();
     composio = new ComposioConnector({ client: fake });
     thirdParties = new ThirdPartyConnectorEmulator();

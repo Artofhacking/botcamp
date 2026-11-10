@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { deploymentApps, offeredApps, parseDeploymentApps, sectionHidden } from "./ui-flags";
 
 afterEach(() => {
+  delete window.__BOTCAMP_UI__;
   delete window.__RAKAZO_UI__;
 });
 
@@ -83,6 +84,15 @@ describe("sectionHidden", () => {
     expect(sectionHidden("billing")).toBe(true);
     expect(sectionHidden("models")).toBe(false);
   });
+
+  it("keeps the legacy flags when the new object is empty", () => {
+    window.__BOTCAMP_UI__ = {};
+    window.__RAKAZO_UI__ = { hiddenSections: ["billing"] };
+    expect(sectionHidden("billing")).toBe(true);
+    window.__BOTCAMP_UI__ = { hiddenSections: ["models"] };
+    expect(sectionHidden("models")).toBe(true);
+    expect(sectionHidden("billing")).toBe(false);
+  });
 });
 
 describe("offeredApps", () => {
@@ -95,6 +105,11 @@ describe("offeredApps", () => {
           { label: "只读", scope: "alias:read mail:read" },
           { label: "可发信", scope: "alias:read mail:read mail:send" },
         ],
+      },
+      {
+        name: "Notion",
+        endpoint: "https://mcp.notion.com/mcp",
+        scopes: [],
       },
     ]);
   });

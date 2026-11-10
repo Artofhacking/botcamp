@@ -1,6 +1,6 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import { isOllamaCloudBaseUrl } from "@rakazo/contracts";
-import { Button, Disclosure, Input } from "@rakazo/ui-web";
+import { isOllamaCloudBaseUrl } from "@botcamp/contracts";
+import { Button, Disclosure, Input } from "@botcamp/ui-web";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import {

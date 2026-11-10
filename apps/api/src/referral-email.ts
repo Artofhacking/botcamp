@@ -1,7 +1,7 @@
-import type { TransactionalEmailProvider } from "@rakazo/adapter-kit";
-import { emailLocale, referralEmail } from "@rakazo/auth";
-import { ActorSchema } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import type { TransactionalEmailProvider } from "@botcamp/adapter-kit";
+import { emailLocale, referralEmail } from "@botcamp/auth";
+import { ActorSchema } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
 import { unsubscribeUrl } from "./marketing-email.js";
 
 const HOUR_MS = 60 * 60 * 1000;

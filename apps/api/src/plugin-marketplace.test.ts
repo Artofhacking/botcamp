@@ -1,6 +1,6 @@
 import { createRouterClient } from "@orpc/server";
-import type { PluginRepoFetcher } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
+import type { PluginRepoFetcher } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";

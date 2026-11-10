@@ -1,5 +1,5 @@
-import type { AccountExportManifest, AccountExportRecord } from "@rakazo/contracts";
-import { accountExportPaths } from "@rakazo/contracts";
+import type { AccountExportManifest, AccountExportRecord } from "@botcamp/contracts";
+import { accountExportPaths } from "@botcamp/contracts";
 import { Zip, ZipDeflate } from "fflate";
 
 export type ArchiveFile = [name: string, content: string | Uint8Array];

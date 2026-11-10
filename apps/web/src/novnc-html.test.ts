@@ -343,11 +343,11 @@ describe("noVNC frame state report", () => {
 
   it("reports the embed page's failure attribute, with or without a reason", () => {
     const p = page();
-    p.attributes.set("data-rakazo-screen-error", "");
+    p.attributes.set("data-botcamp-screen-error", "");
     p.mutate();
     expect(p.posted.at(-1)).toEqual({ rakazoScreen: "failed" });
     const reasoned = page();
-    reasoned.attributes.set("data-rakazo-screen-error", "Authentication failure");
+    reasoned.attributes.set("data-botcamp-screen-error", "Authentication failure");
     reasoned.mutate();
     expect(reasoned.posted.at(-1)).toEqual({
       rakazoScreen: "failed",
@@ -358,7 +358,7 @@ describe("noVNC frame state report", () => {
   it("reports an empty embed failure without a status bar", () => {
     const p = page({ canvas: true, statusBar: false });
     expect(p.posted.at(-1)).toEqual({ rakazoScreen: "connecting" });
-    p.attributes.set("data-rakazo-screen-error", "");
+    p.attributes.set("data-botcamp-screen-error", "");
     p.mutate();
     expect(p.posted.at(-1)).toEqual({ rakazoScreen: "failed" });
   });

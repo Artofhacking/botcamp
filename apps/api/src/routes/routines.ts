@@ -1,14 +1,14 @@
 import { ORPCError } from "@orpc/server";
-import { routineJobKey, routineWakeupJob, runContinueJob } from "@rakazo/adapter-kit";
-import { parseRoutineWatch, stableStringify, validateRoutineWatch } from "@rakazo/adapters";
-import { canonicalPiProviderId } from "@rakazo/contracts";
+import { routineJobKey, routineWakeupJob, runContinueJob } from "@botcamp/adapter-kit";
+import { parseRoutineWatch, stableStringify, validateRoutineWatch } from "@botcamp/adapters";
+import { canonicalPiProviderId } from "@botcamp/contracts";
 import {
   expandSkillReferencesInPrompt,
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
-} from "@rakazo/core";
-import { IsolationError, Prisma } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import { IsolationError, Prisma } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { assertRoutineModel } from "../model-pins.js";
 import { listRoutineRuns } from "../routine-runs.js";
 import {

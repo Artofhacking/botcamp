@@ -1,5 +1,5 @@
-import type { SecurityEventInput, SecurityEventType } from "@rakazo/db";
-import { recordSecurityEvent } from "@rakazo/db";
+import type { SecurityEventInput, SecurityEventType } from "@botcamp/db";
+import { recordSecurityEvent } from "@botcamp/db";
 
 type AuditedProcedure = {
   type: SecurityEventType;

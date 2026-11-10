@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { RPCHandler } from "@orpc/server/fetch";
-import type { Actor } from "@rakazo/contracts";
-import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import type { Actor } from "@botcamp/contracts";
+import { MODEL_REQUIRED_SEND_ERROR } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import {
   asSystem,
   createDb,
@@ -10,7 +10,7 @@ import {
   createThreadMessage,
   provisionMessagingIdentity,
   runAsSystem,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";

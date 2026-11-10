@@ -1,4 +1,4 @@
-import { PAGE_SOURCE_MAX_BYTES } from "@rakazo/contracts";
+import { PAGE_SOURCE_MAX_BYTES } from "@botcamp/contracts";
 import { describe, expect, it } from "vitest";
 import { pageViewerCode } from "./compile.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "./components.js";

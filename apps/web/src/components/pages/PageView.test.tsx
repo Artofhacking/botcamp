@@ -22,6 +22,7 @@ vi.mock("./PageFrame", () => ({
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  window.rakazoDesktop = undefined;
   document.body.replaceChildren();
 });
 
@@ -53,6 +54,25 @@ it("waits for an updated page to draw, and offers a retry when it never does", a
   await view.render({ document: "<p>v2</p>" });
   await act(async () => vi.advanceTimersByTime(16_000));
   expect(document.body.textContent).toContain("This page couldn't load");
+  await view.unmount();
+});
+
+it("moves Close past the macOS traffic lights and leaves it in the corner otherwise", async () => {
+  const view = mount({ document: "<p>v1</p>" });
+  await view.render({ document: "<p>v1</p>" });
+  const close = () => document.querySelector('[aria-label="Close page"]');
+  expect(close()?.className).toContain("left-[11px]");
+
+  window.rakazoDesktop = { platform: "darwin" } as NonNullable<Window["rakazoDesktop"]>;
+  await view.render({ document: "<p>v1</p>" });
+  expect(close()?.className).toContain("left-[88px]");
+  expect(close()?.className).not.toContain("left-[11px]");
+
+  window.rakazoDesktop = { platform: "win32", nativeWindowFrame: true } as NonNullable<
+    Window["rakazoDesktop"]
+  >;
+  await view.render({ document: "<p>v1</p>" });
+  expect(close()?.className).toContain("left-[11px]");
   await view.unmount();
 });
 

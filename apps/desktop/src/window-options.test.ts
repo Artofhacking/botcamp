@@ -138,7 +138,7 @@ describe("windows shell identity", () => {
 
 describe("window background", () => {
   it("matches the web dark background token so startup chrome does not flash", async () => {
-    const { webDarkTokens } = await import("@rakazo/ui-tokens");
+    const { webDarkTokens } = await import("@botcamp/ui-tokens");
     for (const platform of ["darwin", "win32", "linux"] as const) {
       expect(browserWindowOptions(platform, laptop).backgroundColor).toBe(webDarkTokens.background);
       expect(setupWindowOptions(platform, laptop).backgroundColor).toBe(webDarkTokens.background);

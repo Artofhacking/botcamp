@@ -1,6 +1,6 @@
+import type { Bot } from "@botcamp/contracts";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@botcamp/ui-web";
 import { useLingui } from "@lingui/react/macro";
-import type { Bot } from "@rakazo/contracts";
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
 import { Bell, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { IconTooltip } from "../../components/IconTooltip";
 import { desktopBridge, windowChromeKind } from "../../lib/desktop";
@@ -11,7 +11,7 @@ import { BotCreatePicker } from "./bot-picker";
 
 const BRAND = "BotCamp";
 
-/** The mark alone: the window and the page title already say what this is. */
+/** Icon and name. The collapsed sidebar keeps the mark alone. */
 function BrandHome({ mini }: { mini: boolean }) {
   return (
     <a
@@ -19,7 +19,7 @@ function BrandHome({ mini }: { mini: boolean }) {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="brand-home"
-      aria-label={BRAND}
+      aria-label={mini ? BRAND : undefined}
       className={`app-no-drag flex min-w-0 items-center rounded-md text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring ${mini ? "justify-center" : "gap-2"}`}
     >
       <img
@@ -29,6 +29,9 @@ function BrandHome({ mini }: { mini: boolean }) {
         height={22}
         className="size-[22px] shrink-0 rounded-md"
       />
+      {mini ? null : (
+        <span className="truncate text-[14px] leading-5 font-medium tracking-tight">{BRAND}</span>
+      )}
     </a>
   );
 }

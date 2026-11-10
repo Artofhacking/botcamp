@@ -5,7 +5,7 @@ import { parse } from "yaml";
 
 const composeDir = path.resolve(import.meta.dirname, "../../compose");
 
-describe.each(["docker-compose.images.yml", "docker-compose.prod.yml"])("%s web", (file) => {
+describe.each(["docker-compose.prod.yml"])("%s web", (file) => {
   const compose = parse(readFileSync(path.join(composeDir, file), "utf8")) as {
     services: Record<string, { pids_limit?: number; environment?: Record<string, unknown> }>;
   };

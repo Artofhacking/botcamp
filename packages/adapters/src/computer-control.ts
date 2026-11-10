@@ -1,8 +1,8 @@
-import type { AdapterContext, JobPublisher, SandboxProvider } from "@rakazo/adapter-kit";
-import { computerControlExpireJob, runContinueJob } from "@rakazo/adapter-kit";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { recordComputerRunEnd } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext, JobPublisher, SandboxProvider } from "@botcamp/adapter-kit";
+import { computerControlExpireJob, runContinueJob } from "@botcamp/adapter-kit";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { recordComputerRunEnd } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { toComputerRef } from "./computer-support.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
 

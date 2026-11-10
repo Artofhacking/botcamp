@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ComposioConnector, FakeComposioClient, FakeSandboxProvider } from "@rakazo/adapters";
+import { ComposioConnector, FakeComposioClient, FakeSandboxProvider } from "@botcamp/adapters";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { discardBotIntroRun } from "./discard-bot-intro.js";
 import { sessionCookieHeader } from "./index.js";
@@ -72,10 +72,10 @@ describe.skipIf(!databaseAvailable)("offline Pi computer approval", () => {
           },
         ],
       });
-      const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-computer-approval-"));
+      const dataDir = await mkdtemp(path.join(tmpdir(), "botcamp-computer-approval-"));
       let stop: (() => Promise<void>) | undefined;
       try {
-        const { createApp } = await import("@rakazo/api/app");
+        const { createApp } = await import("@botcamp/api/app");
         const handles = await createApp({
           databaseUrl: process.env.DATABASE_URL!,
           realtimeDatabaseUrl: process.env.DATABASE_URL!,

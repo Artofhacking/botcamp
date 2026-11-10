@@ -9,20 +9,20 @@ import type {
   PaymentWalletProvider,
   SandboxProvider,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import { routineJobKey, routineWakeupJob } from "@rakazo/adapter-kit";
-import type { RoutineWatch, RoutineWatchState } from "@rakazo/contracts";
-import { RoutineWatchSchema, RoutineWatchStateSchema } from "@rakazo/contracts";
-import type { ActionApprovalRule } from "@rakazo/core";
-import { connectorKindFromToolName, redactSecrets, watchToolRefusal } from "@rakazo/core";
-import type { ComputerMode, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import { routineJobKey, routineWakeupJob } from "@botcamp/adapter-kit";
+import type { RoutineWatch, RoutineWatchState } from "@botcamp/contracts";
+import { RoutineWatchSchema, RoutineWatchStateSchema } from "@botcamp/contracts";
+import type { ActionApprovalRule } from "@botcamp/core";
+import { connectorKindFromToolName, redactSecrets, watchToolRefusal } from "@botcamp/core";
+import type { ComputerMode, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   listApprovalRules,
   parseComputerMode,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { loadLoginPasswordRedactions, shellCommandEnvironment } from "./bot-secrets.js";
 import { scheduleComputerSleep } from "./computer-idle.js";
 import { ComputerBusyError, provisionComputer } from "./computer-lifecycle.js";
@@ -38,7 +38,7 @@ import { loadPurchaseRedactions } from "./purchase-service.js";
  */
 
 /** Virtual root for validating watch paths; providers resolve the actual workspace. */
-const WORKSPACE = "/home/rakazo";
+const WORKSPACE = "/home/botcamp";
 const CHECK_TIMEOUT_MS = 60_000;
 /** Starting a stopped computer can take longer than a check; it gets its own budget. */
 const PROVISION_TIMEOUT_MS = 5 * 60_000;

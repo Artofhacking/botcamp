@@ -18,18 +18,18 @@ import type {
   OAuthClientMetadata,
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
 import {
   isLocalhostOrLoopbackIp,
   MCP_OAUTH_CLIENT_REQUIRED,
   mcpOAuthEnvReferences,
   parseMcpOAuthAuthorizationParams,
-} from "@rakazo/contracts";
-import { readBoundedResponseBytes } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
-import { availableInSpace, itemSecretIn, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/contracts";
+import { readBoundedResponseBytes } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
+import { availableInSpace, itemSecretIn, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { MCP_DYNAMIC_REGISTRATION_UNSUPPORTED, needsMcpOAuthClient } from "./mcp-server-health.js";
 import { secureFetch, validateUrl, withEndpointOriginFallback } from "./mcp-transport.js";

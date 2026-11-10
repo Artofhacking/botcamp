@@ -13,9 +13,9 @@ import type {
   SecretPutOptions,
   SecretRecord,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import { SecretChanges } from "./secret-changes.js";
 
 const VERSION_PREFIX = "v2:";

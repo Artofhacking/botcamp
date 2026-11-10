@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { oauthPopupSessionPreferences, shouldOpenInAppPopup } from "./window-open.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  oauthPopupSessionPreferences,
+  openInSystemBrowser,
+  shouldOpenInAppPopup,
+} from "./window-open.js";
 
 const appOrigin = "https://rakazo.example.com";
 
@@ -52,6 +56,15 @@ it("keeps SSO popups sandboxed in the parent session without a privileged preloa
   expect(shouldOpenInAppPopup(appOrigin, "http://provider.example.com", "rakazo-sso-oauth")).toBe(
     false,
   );
+});
+
+it("opens the system browser after the window handler returns", async () => {
+  const open = vi.fn();
+  openInSystemBrowser(open, "https://botcamp.example/");
+  expect(open).not.toHaveBeenCalled();
+  await new Promise((resolve) => setImmediate(resolve));
+  expect(open).toHaveBeenCalledOnce();
+  expect(open).toHaveBeenCalledWith("https://botcamp.example/");
 });
 
 it("allows only the named SSO blank popup before provider navigation", () => {

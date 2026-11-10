@@ -1,4 +1,4 @@
-import type { ConnectionCatalogItem } from "@rakazo/contracts";
+import type { ConnectionCatalogItem } from "@botcamp/contracts";
 
 export const FEATURED_CONNECTOR_IDS = [
   "gmail",

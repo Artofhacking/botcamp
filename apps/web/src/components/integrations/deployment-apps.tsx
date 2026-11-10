@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { McpServer } from "@rakazo/contracts";
-import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE, mailboxAuthCode } from "@rakazo/contracts";
+import type { McpServer } from "@botcamp/contracts";
+import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE, mailboxAuthCode } from "@botcamp/contracts";
 import {
   Button,
   Dialog,
@@ -12,7 +12,7 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import type { FormEvent } from "react";
 import { useId, useState } from "react";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
@@ -34,9 +34,15 @@ export type MailboxConnectInput = {
   scope: string;
 };
 
+/** A scope list is the mailbox authorization-code form. Other apps use their own sign-in. */
+function signsInWithMailbox(app: DeploymentApp): boolean {
+  return app.scopes.length > 0;
+}
+
 /**
- * The apps a deployment offers, one row each. Connecting asks for the mailbox
- * authorization code and the permission, then tests that sign-in before saving it.
+ * The apps a deployment offers, one row each. A mailbox asks for the authorization
+ * code and the permission, then tests that sign-in before saving it. Any other app
+ * starts its own sign-in.
  */
 export function DeploymentApps({
   apps,
@@ -45,6 +51,7 @@ export function DeploymentApps({
   error,
   linked = false,
   onSave,
+  onConnect,
   onDisconnect,
 }: {
   apps: readonly DeploymentApp[];
@@ -53,9 +60,10 @@ export function DeploymentApps({
   /** Endpoint of the app with a connect or disconnect in flight. */
   pending: string | null;
   error: string | null;
-  /** The saved mailbox sign-in, which connects the offered app. */
+  /** The saved mailbox sign-in. It connects only an app that asks for that code. */
   linked?: boolean;
   onSave: (app: DeploymentApp, input: MailboxConnectInput) => Promise<void>;
+  onConnect?: (app: DeploymentApp) => void;
   onDisconnect: (app: DeploymentApp) => void;
 }) {
   const { t } = useLingui();
@@ -122,7 +130,8 @@ export function DeploymentApps({
           const server = servers.find(
             (entry) => !entry.installId && entry.endpoint === app.endpoint,
           );
-          const connected = linked || server?.oauthStatus === "connected";
+          const mailbox = signsInWithMailbox(app);
+          const connected = (mailbox && linked) || server?.oauthStatus === "connected";
           const expiring = !connected && server?.oauthStatus === "reconnect";
           const busy = pending === app.endpoint;
           return (
@@ -150,7 +159,12 @@ export function DeploymentApps({
                   <Trans>Disconnect</Trans>
                 </Button>
               ) : (
-                <Button variant="secondary" size="sm" disabled={busy} onClick={() => open(app)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => (mailbox ? open(app) : onConnect?.(app))}
+                >
                   {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
                 </Button>
               )}

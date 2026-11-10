@@ -134,7 +134,7 @@ export function injectNovncStorageShim(html: string, { viewOnly = false } = {}) 
   const sync = () => {
     const root = document.documentElement;
     const status = document.getElementById("noVNC_status");
-    const failure = root.getAttribute("data-rakazo-screen-error");
+    const failure = root.getAttribute("data-botcamp-screen-error");
     const statusError =
       status && status.classList.contains("noVNC_open") && status.classList.contains("noVNC_status_error");
     const connecting =
@@ -162,7 +162,7 @@ export function injectNovncStorageShim(html: string, { viewOnly = false } = {}) 
     sync();
     new MutationObserver(sync).observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "data-rakazo-screen-error"],
+      attributeFilter: ["class", "data-botcamp-screen-error"],
       childList: true,
       subtree: true,
     });

@@ -5,9 +5,9 @@ import type {
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { toOAuthCredential } from "./pi-credentials.js";
 import {
   GROK_SUBSCRIPTION_AUTH_HEADER,

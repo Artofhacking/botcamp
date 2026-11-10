@@ -1,6 +1,6 @@
 import { expo } from "@better-auth/expo";
 import { passkey } from "@better-auth/passkey";
-import type { ProductAnalytics, TransactionalEmailProvider } from "@rakazo/adapter-kit";
+import type { ProductAnalytics, TransactionalEmailProvider } from "@botcamp/adapter-kit";
 import {
   displayName,
   emailAllowed,
@@ -9,9 +9,9 @@ import {
   MESSAGING_EMAIL_SUFFIX,
   MIN_PASSWORD_LENGTH,
   signupPolicyFromEnv,
-} from "@rakazo/core";
-import type { PrismaClient, SecurityEventType } from "@rakazo/db";
-import { bootstrapUserSpace, personalOrganizationIds, recordSecurityEvent } from "@rakazo/db";
+} from "@botcamp/core";
+import type { PrismaClient, SecurityEventType } from "@botcamp/db";
+import { bootstrapUserSpace, personalOrganizationIds, recordSecurityEvent } from "@botcamp/db";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -62,6 +62,8 @@ export {
 } from "./plugin-submission-email.js";
 export { referralEmail } from "./referral-email.js";
 export { welcomeEmail } from "./welcome-email.js";
+
+import { firstNonEmpty } from "@botcamp/core/env-name";
 
 export interface AuthEnv {
   analytics?: ProductAnalytics;
@@ -240,7 +242,10 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
       // When the web client is served from another site, the session cookie has to survive a
       // cross-site request: SameSite=None is required, and browsers only honour it over HTTPS.
-      ...(process.env.RAKAZO_CROSS_SITE_COOKIES === "1"
+      ...(firstNonEmpty(
+        process.env.BOTCAMP_CROSS_SITE_COOKIES,
+        process.env.RAKAZO_CROSS_SITE_COOKIES,
+      ) === "1"
         ? { defaultCookieAttributes: { sameSite: "none" as const, secure: true } }
         : {}),
     },

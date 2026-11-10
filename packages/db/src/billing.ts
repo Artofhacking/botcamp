@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { BillingSubscriptionSnapshot } from "@rakazo/adapter-kit";
-import { BYOK_MONTHLY_PRICE_CENTS } from "@rakazo/contracts";
+import type { BillingSubscriptionSnapshot } from "@botcamp/adapter-kit";
+import { BYOK_MONTHLY_PRICE_CENTS } from "@botcamp/contracts";
 import type { BillingAccount, PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
 

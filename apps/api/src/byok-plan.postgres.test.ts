@@ -1,8 +1,8 @@
-import { BillingEmulator } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import { BYOK_ANNUAL_PRICE_CENTS, BYOK_MONTHLY_PRICE_CENTS } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { asSystem, billingAccountForOrganization, createDb, spaceHasModelAccess } from "@rakazo/db";
+import { BillingEmulator } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import { BYOK_ANNUAL_PRICE_CENTS, BYOK_MONTHLY_PRICE_CENTS } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { asSystem, billingAccountForOrganization, createDb, spaceHasModelAccess } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createBillingService } from "./billing.js";
 

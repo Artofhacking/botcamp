@@ -1,5 +1,5 @@
-import type { ThreadMessage } from "@rakazo/contracts";
-import { REPLY_QUOTE_MAX_LENGTH } from "@rakazo/contracts";
+import type { ThreadMessage } from "@botcamp/contracts";
+import { REPLY_QUOTE_MAX_LENGTH } from "@botcamp/contracts";
 import { describe, expect, it } from "vitest";
 import { quoteDraftForSelection } from "./quote-selection.js";
 

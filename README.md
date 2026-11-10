@@ -1,6 +1,6 @@
 # BotCamp
 
-BotCamp is a self-hosted AI agent workspace. Bots keep their own conversations, memory, routines,
+BotCamp is an AI agent workspace. Bots keep their own conversations, memory, routines,
 and computers; the product runs as a web console, an Electron desktop app, and an Android shell.
 
 ## Layout
@@ -23,7 +23,7 @@ pnpm db:generate
 pnpm dev
 ```
 
-`docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set. Self-hosting is [docs/self-host.md](./docs/self-host.md).
+`docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set.
 
 ## Releases
 
@@ -33,10 +33,10 @@ pnpm dev
 |---|---|
 | Demox, [botcamp.demox.site](https://botcamp.demox.site) | `/` download page, `/console/` console, `/admin/` operator page |
 | CVM, [botcamp.aigc.sx.cn](https://botcamp.aigc.sx.cn) | API, worker, computer supervisor, `/downloads/` |
-| `ghcr.io/<owner>/<repo>/{app,computer,updater}` | Images. `edge` moves on a green `main`. The CVM does not run `app`. |
+| `ghcr.io/<owner>/<repo>/computer` | Computer image. `edge` moves on a green `main`. |
 | Update feed, `publish` in `apps/desktop/package.json` | In-app desktop updates |
 
-The download button, the file in `/downloads/`, and the update feed are three writes. The console and the Android shell load `/console/` from Demox, so a console publish reaches them on the next load. `config.js` and `computer-screen/WuyingWebSDK.js` stay on Demox across a console overlay. A full site zip replaces every object.
+The download page reads `/downloads/latest.json` for the version and the file. The installer, that catalog, and the update feed are three writes. The console and the Android shell load `/console/` from Demox, so a console publish reaches them on the next load. `config.js` and `computer-screen/WuyingWebSDK.js` stay on Demox across a console overlay. A full site zip replaces every object. The API checkout is replaced only from a `vX.Y.Z` tag. `infra/compose/release-tag.sh` refuses a branch, a commit, and a file copied onto the host. Every agent working in this repository follows that rule (`AGENTS.md`, `docs/ci.md`).
 
 ## Desktop
 

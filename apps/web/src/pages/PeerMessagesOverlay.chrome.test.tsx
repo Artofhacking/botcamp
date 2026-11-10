@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { BotCampDesktop } from "@rakazo/contracts";
+import type { BotCampDesktop } from "@botcamp/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act } from "react";

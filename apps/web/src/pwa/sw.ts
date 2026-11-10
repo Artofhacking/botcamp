@@ -3,8 +3,8 @@ import { installServiceWorker } from "./service-worker";
 
 declare const self: ServiceWorkerScope;
 // Replaced with the built shell and its versioned cache name by the PWA build plugin.
-declare const __RAKAZO_SW_PRECACHE__: string[];
-declare const __RAKAZO_SW_CACHE__: string;
-declare const __RAKAZO_SW_BASE__: string;
+declare const __BOTCAMP_SW_PRECACHE__: string[];
+declare const __BOTCAMP_SW_CACHE__: string;
+declare const __BOTCAMP_SW_BASE__: string;
 
-installServiceWorker(self, __RAKAZO_SW_PRECACHE__, __RAKAZO_SW_CACHE__, __RAKAZO_SW_BASE__);
+installServiceWorker(self, __BOTCAMP_SW_PRECACHE__, __BOTCAMP_SW_CACHE__, __BOTCAMP_SW_BASE__);

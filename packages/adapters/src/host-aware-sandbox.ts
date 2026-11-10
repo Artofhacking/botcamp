@@ -14,10 +14,10 @@ import type {
   TerminalRequest,
   WorkspaceDirectoryRequest,
   WorkspaceExportLimits,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { cancelComputerRunWork } from "./computer-idle.js";
 import { computerProviderDescriptor } from "./computer-provider-registry.js";
 import { manageComputerWorkspaceDirectories } from "./computer-workspace.js";
@@ -194,6 +194,12 @@ export class HostAwareSandbox implements SandboxProvider {
     const provider = (await this.hostEnabled()) ? this.host : this.isolated;
     if (provider.describe().id !== computer.kind) return false;
     return provider.isRunning?.(computer, context) ?? false;
+  }
+
+  async acceptsRunningComputer(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    const provider = (await this.hostEnabled()) ? this.host : this.isolated;
+    if (provider.describe().id !== computer.kind) return true;
+    return (await provider.acceptsRunningComputer?.(computer, context)) !== false;
   }
 
   async isStopped(computer: ComputerRef, context: AdapterContext): Promise<boolean> {

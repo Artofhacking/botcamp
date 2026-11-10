@@ -1,4 +1,4 @@
-import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
+import { ACTIVE_RUN_STATUSES } from "@botcamp/core";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
@@ -90,13 +90,13 @@ describe("BotAvatar", () => {
     const html = renderToString(
       <BotAvatar color="data:image/png;base64,abc" identity="maya" size={32} status="running" />,
     );
-    expect(html).toContain('class="rakazo-bot-avatar relative shrink-0 select-none"');
-    expect(html).toContain("rakazo-bot-avatar-picture");
-    expect(html).toContain("rakazo-bot-avatar-ring-working");
+    expect(html).toContain('class="botcamp-bot-avatar relative shrink-0 select-none"');
+    expect(html).toContain("botcamp-bot-avatar-picture");
+    expect(html).toContain("botcamp-bot-avatar-ring-working");
     expect(html).toContain("stroke-status-working");
     expect(html).toContain('data-working="true"');
-    expect(html.indexOf("rakazo-bot-avatar-picture")).toBeLessThan(
-      html.indexOf("rakazo-bot-avatar-ring"),
+    expect(html.indexOf("botcamp-bot-avatar-picture")).toBeLessThan(
+      html.indexOf("botcamp-bot-avatar-ring"),
     );
   });
 
@@ -104,9 +104,9 @@ describe("BotAvatar", () => {
     const html = renderToString(
       <BotAvatar color="data:image/png;base64,abc" identity="maya" size={32} status="idle" />,
     );
-    expect(html).toContain("rakazo-bot-avatar-picture");
+    expect(html).toContain("botcamp-bot-avatar-picture");
     expect(html).toContain('data-working="false"');
-    expect(html).not.toContain("rakazo-bot-avatar-ring");
+    expect(html).not.toContain("botcamp-bot-avatar-ring");
   });
 
   it("does not treat arbitrary http(s) color values as remote images", () => {
@@ -187,7 +187,7 @@ describe("BotAvatar", () => {
   it("draws every plain-colour bot with the organic body", () => {
     const html = renderToString(<BotAvatar color={DEFAULT_BOT_AVATAR_COLOR} identity="maya" />);
     expect(html).toContain("rakazo-organic-avatar");
-    expect(html).not.toContain("rakazo-bot-avatar-visor");
+    expect(html).not.toContain("botcamp-bot-avatar-visor");
   });
 
   it("keeps uploaded images", () => {

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { BOT_AVATAR_COLORS } from "@rakazo/core";
+import { BOT_AVATAR_COLORS } from "@botcamp/core";
 import { captureScreenshot } from "./helpers";
 
 test.use({ viewport: { width: 1260, height: 1000 } });
@@ -27,7 +27,7 @@ test("renders the real logo in every requested pose in both themes", async ({ pa
         ),
       );
     expect(smallAnimations).toEqual([]);
-    await expect(page.locator(".rakazo-bot-avatar-picture img")).toBeVisible();
+    await expect(page.locator(".botcamp-bot-avatar-picture img")).toBeVisible();
     await expect(page.locator(".bot-character-eyes")).toBeVisible();
     await captureScreenshot(page, testInfo, `logo-avatar-study-${theme}`);
   }

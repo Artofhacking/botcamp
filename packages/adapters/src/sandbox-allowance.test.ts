@@ -1,5 +1,5 @@
-import type { SandboxProvider } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
+import type { SandboxProvider } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SANDBOX_HOURLY_COST_MICROS,

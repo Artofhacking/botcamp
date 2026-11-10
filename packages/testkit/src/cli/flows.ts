@@ -5,8 +5,9 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { firstNonEmpty } from "@botcamp/core/env-name";
+import { loadRootEnv } from "@botcamp/core/node/load-root-env";
 import { serve } from "@hono/node-server";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { computerTestSandbox } from "../computer-test-config.js";
 import { FLOWS } from "../flows/index.js";
 import type { FlowResult } from "../flows/runner.js";
@@ -68,7 +69,11 @@ async function main() {
       SANDBOX_PROVIDER: sandbox.provider,
       ...(sandbox.provider === "docker"
         ? {
-            RAKAZO_COMPUTER_IMAGE: process.env.RAKAZO_COMPUTER_IMAGE || "rakazo/computer:local",
+            RAKAZO_COMPUTER_IMAGE:
+              firstNonEmpty(
+                process.env.BOTCAMP_COMPUTER_IMAGE,
+                process.env.RAKAZO_COMPUTER_IMAGE,
+              ) || "botcamp/computer:local",
             SANDBOX_CONTROL_VIA_LOOPBACK: "true",
             SANDBOX_SCREEN_NETWORK: "published",
             SANDBOX_SCREEN_HOST: "127.0.0.1",
@@ -107,19 +112,19 @@ async function main() {
         .digest("hex");
       const stamp = path.resolve("packages/db/src/generated/prisma/.flows-schema-hash");
       if (existsSync(stamp) && readFileSync(stamp, "utf8") === schema) return;
-      execFileSync("pnpm", ["--filter", "@rakazo/db", "generate"], {
+      execFileSync("pnpm", ["--filter", "@botcamp/db", "generate"], {
         stdio: "pipe",
         timeout: 300_000,
       });
       writeFileSync(stamp, schema);
     });
-    execFileSync("pnpm", ["--filter", "@rakazo/db", "exec", "prisma", "migrate", "deploy"], {
+    execFileSync("pnpm", ["--filter", "@botcamp/db", "exec", "prisma", "migrate", "deploy"], {
       stdio: "pipe",
       timeout: 600_000,
     });
     if (sandbox.provider === "docker") {
       // An isolated supervisor, never a dev one another checkout may be running.
-      const { supervisorApp } = await import("@rakazo/sandbox-supervisor");
+      const { supervisorApp } = await import("@botcamp/sandbox-supervisor");
       const server = serve({ fetch: supervisorApp.fetch, hostname: "127.0.0.1", port: 0 });
       await new Promise<void>((resolve, reject) => {
         if (server.listening) return resolve();
@@ -130,7 +135,7 @@ async function main() {
       process.env.SANDBOX_SUPERVISOR_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     }
     // Import after generation; the app's barrel exports load Prisma.
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     const { runFlow } = await import("../flows/runner.js");
     const handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,

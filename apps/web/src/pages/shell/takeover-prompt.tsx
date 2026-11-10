@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { Button, Checkbox } from "@rakazo/ui-web";
+import { Button, Checkbox } from "@botcamp/ui-web";
 import { useId, useState } from "react";
 
 /**

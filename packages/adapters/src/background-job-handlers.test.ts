@@ -5,11 +5,11 @@ import type {
   JobPublisher,
   MessagingSurface,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
-import { SandboxUnresponsiveError } from "@rakazo/adapter-kit";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { currentDbContext } from "@rakazo/db";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { SandboxUnresponsiveError } from "@botcamp/adapter-kit";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { currentDbContext } from "@botcamp/db";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { describe, expect, it, vi } from "vitest";
 import { createBackgroundJobHandlers } from "./background-job-handlers.js";
 import type * as ComputerControl from "./computer-control.js";
@@ -41,7 +41,7 @@ describe("createBackgroundJobHandlers", () => {
       }),
     } as unknown as JobPublisher;
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-worker", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-worker", sinks: [sink] }));
     const handlers = createBackgroundJobHandlers({
       executor: {
         continueRun: vi.fn(async () => undefined),
@@ -77,7 +77,7 @@ describe("createBackgroundJobHandlers", () => {
     expect(sink.events.some((event) => event.message === "messaging.deliver enqueue error")).toBe(
       true,
     );
-    installLogger(createLogger({ service: "rakazo-worker", level: "off", sinks: [] }));
+    installLogger(createLogger({ service: "botcamp-worker", level: "off", sinks: [] }));
   });
 
   it("compacts the requested thread with the runtime, job publisher, and model key it was given", async () => {
@@ -206,7 +206,7 @@ describe("createBackgroundJobHandlers", () => {
 
   it("tries a control release again later when the computer provider is unreachable", async () => {
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-worker", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-worker", sinks: [sink] }));
     vi.mocked(expireComputerControl).mockRejectedValueOnce(
       new SandboxUnresponsiveError("Boat could not be reached"),
     );

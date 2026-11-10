@@ -1,15 +1,15 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChatMarkdown } from "@rakazo/chat-ui/web";
-import type { LoginFieldInput, ThreadMessage } from "@rakazo/contracts";
-import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
+import { ChatMarkdown } from "@botcamp/chat-ui/web";
+import type { LoginFieldInput, ThreadMessage } from "@botcamp/contracts";
+import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@botcamp/contracts";
 import {
   isApprovalAskBlock,
   isSecretAskBlock,
   resolveAskChoice,
   selectedAskActionLabel,
-} from "@rakazo/core";
-import { Button, Input, Textarea } from "@rakazo/ui-web";
+} from "@botcamp/core";
+import { Button, Input, Textarea } from "@botcamp/ui-web";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import type { RpcClient } from "../lib/rpc";

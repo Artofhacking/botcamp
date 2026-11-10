@@ -12,14 +12,14 @@
 set -Eeuo pipefail
 umask 077
 
-PROJECT_DIR="${RAKAZO_DEPLOY_DIR:-/srv/rakazo}"
+PROJECT_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}"
 [[ "${PROJECT_DIR}" == /* ]] || { echo "RAKAZO_DEPLOY_DIR must be an absolute path" >&2; exit 1; }
 ENV_FILE="${PROJECT_DIR}/.env"
 # The image the 16 cluster ran on. Override it only with a mirror of the same image.
-OLD_IMAGE="${RAKAZO_POSTGRES_16_IMAGE:-postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5}"
+OLD_IMAGE="${BOTCAMP_POSTGRES_16_IMAGE:-${RAKAZO_POSTGRES_16_IMAGE:-postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5}}"
 LEGACY_DIR=/var/lib/postgresql/16/docker
 STAGING_DIR=/var/lib/postgresql/18/upgrade
-RUNTIME_LOGIN=rakazo_app
+RUNTIME_LOGIN=botcamp_app
 # Services this run stopped, kept in the volume so a retry after a failure still restarts them.
 STOPPED_FILE=/var/lib/postgresql/upgrade-stopped-services
 

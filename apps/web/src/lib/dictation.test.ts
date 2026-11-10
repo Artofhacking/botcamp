@@ -202,7 +202,7 @@ describe("Dictation recorder fallback", () => {
       expect.objectContaining({ credentials: "include" }),
     );
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-    expect(headers.get("x-rakazo-space-id")).toBe("space-support");
+    expect(headers.get("x-botcamp-space-id")).toBe("space-support");
     expect(headers.get("content-type")).toBe("application/json");
   });
 

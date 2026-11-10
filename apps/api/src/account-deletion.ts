@@ -1,18 +1,18 @@
-import type { AdapterContext } from "@rakazo/adapter-kit";
+import type { AdapterContext } from "@botcamp/adapter-kit";
 import {
   destroyBot,
   forgetPageShareSecrets,
   removeAgentHome,
   removeDeletedBotsFromLegacyTeamHome,
   toComputerRef,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import {
   claimSpacesLeavingWithAccount,
   deletePageShareSecrets,
   deleteSpaceLeavingWithAccount,
   recordComputerRunEnd,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { SpaceDeletionDeps } from "./space-deletion.js";
 
 /**

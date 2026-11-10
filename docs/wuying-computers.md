@@ -40,7 +40,7 @@ You need:
 
 Admins can switch new computers to Wuying without editing the environment.
 
-1. Make yourself an admin: add your account's email to `RAKAZO_ADMIN_EMAILS` in `.env` and
+1. Make yourself an admin: add your account's email to `BOTCAMP_ADMIN_EMAILS` in `.env` and
    restart the API. The email must be verified.
 2. Open **Settings → Computer**.
 3. Under **New computers run on**, choose **Wuying**.
@@ -114,7 +114,7 @@ For an existing Caddy installation, replace the old `/wuying/sdk/ASP/container.h
 `/computer-screen/sdk/ASP/container.html` in its active Caddyfile and reload Caddy as part of the
 upgrade. Use the supplied configs as the reference, including for a custom Cloudflare config.
 The updater recreates API, worker and web by default, so it does not reload Caddy automatically;
-include `caddy` in `RAKAZO_UPDATE_SERVICES` or recreate it explicitly with the updated configuration.
+include `caddy` in `BOTCAMP_UPDATE_SERVICES` or recreate it explicitly with the updated configuration.
 An unchanged Caddy matcher would add X-Frame-Options to the new runtime and block its opaque frame.
 
 ## Limits
@@ -146,4 +146,4 @@ An unchanged Caddy matcher would add X-Frame-Options to the new runtime and bloc
 | Screen connects, then drops | Another viewer took the session; close the other panel or the Wuying client |
 | `Could not reach the Wuying desktop` on Save | Check the AccessKey's permissions, the region and the desktop ID; a running desktop's gateway must answer |
 | Chinese output is garbled | The command did not run through PowerShell; BotCamp switches PowerShell output to UTF-8, other shells keep the system code page |
-| Settings has no Computer provider choice | Your account is not an admin; check `RAKAZO_ADMIN_EMAILS` and that the email is verified |
+| Settings has no Computer provider choice | Your account is not an admin; check `BOTCAMP_ADMIN_EMAILS` and that the email is verified |

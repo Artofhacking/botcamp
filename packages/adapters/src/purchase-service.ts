@@ -8,16 +8,16 @@ import type {
   PurchaseCredentialKind,
   PurchaseSnapshot,
   PurchaseStatus,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   PaymentWalletDisconnected,
   PaymentWalletRequestRejected,
   purchasePollJob,
-} from "@rakazo/adapter-kit";
-import type { PurchaseCardField } from "@rakazo/contracts";
-import { PurchaseIdInput, PurchaseRequestInput } from "@rakazo/contracts";
-import type { Purchase } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { PurchaseCardField } from "@botcamp/contracts";
+import { PurchaseIdInput, PurchaseRequestInput } from "@botcamp/contracts";
+import type { Purchase } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { cardRedactionForms } from "./bot-secrets.js";
 import type { PaymentWalletDeps } from "./payment-wallets.js";
 import { withPaymentWalletCredential } from "./payment-wallets.js";

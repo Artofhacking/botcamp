@@ -1,4 +1,4 @@
-import type { BotCampDesktopSpeechEvent } from "@rakazo/contracts";
+import type { BotCampDesktopSpeechEvent } from "@botcamp/contracts";
 import { desktopBridge } from "./desktop.js";
 
 let sessions = 0;

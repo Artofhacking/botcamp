@@ -9,9 +9,9 @@ import type {
   AgentModelOAuthCredential,
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
-} from "@rakazo/adapter-kit";
-import { canonicalPiProviderId } from "@rakazo/contracts";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { canonicalPiProviderId } from "@botcamp/contracts";
+import { getLogger } from "@botcamp/logging";
 import {
   OAUTH_ACCOUNT_CHANGED_ERROR,
   OAUTH_RECONNECT_REQUIRED_ERROR,

@@ -1,21 +1,21 @@
 import { createHash, randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import type { TransactionalEmail } from "@rakazo/adapter-kit";
-import { parsePluginSource, previewPluginInstall } from "@rakazo/adapters";
+import type { TransactionalEmail } from "@botcamp/adapter-kit";
+import { parsePluginSource, previewPluginInstall } from "@botcamp/adapters";
 import {
   emailLocale,
   integrationClaimConfirmEmail,
   pluginSubmissionAdminEmail,
   pluginSubmissionReceivedEmail,
   pluginSubmissionReviewedEmail,
-} from "@rakazo/auth";
+} from "@botcamp/auth";
 import type {
   IntegrationClaim,
   PluginMarketplaceEntry,
   PluginSubmission,
   PluginSubmissionReview,
   PluginSubmissionStatus,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   INTEGRATION_CLAIM_CONFIRM_PATH,
   INTEGRATION_CLAIMS_PATH,
@@ -23,9 +23,9 @@ import {
   integrationPageUrl,
   PLUGIN_SUBMISSIONS_PATH,
   PluginSubmissionInputSchema,
-} from "@rakazo/contracts";
-import { pluginCategory } from "@rakazo/core";
-import type { PluginSubmission as PluginSubmissionRow, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { pluginCategory } from "@botcamp/core";
+import type { PluginSubmission as PluginSubmissionRow, PrismaClient } from "@botcamp/db";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { readBoundedBody } from "./http-body.js";

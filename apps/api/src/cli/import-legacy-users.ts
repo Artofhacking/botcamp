@@ -5,8 +5,8 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { randomBytes, scryptSync } from "node:crypto";
-import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
-import { createDb, PLANS, runAsSystem } from "@rakazo/db";
+import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
+import { createDb, PLANS, runAsSystem } from "@botcamp/db";
 
 interface LegacyUser {
   email: string;

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFile, lstat, mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
-import type { DesktopLocalStackState } from "@rakazo/contracts";
+import type { DesktopLocalStackState } from "@botcamp/contracts";
 import type { DockerFailureKind, RunDocker, RunDockerResult } from "./docker-cli.js";
 import {
   classifyDockerFailure,
@@ -99,10 +99,15 @@ const GENERATED_SECRETS: Record<string, number> = {
   SCREEN_PROXY_SECRET: 32,
   SANDBOX_SUPERVISOR_TOKEN: 32,
 };
-const LAUNCH_SUPPLIED = ["RAKAZO_IMAGE_TAG", "RAKAZO_COMPUTER_IMAGE_TAG"];
+const LAUNCH_SUPPLIED = [
+  "BOTCAMP_IMAGE_TAG",
+  "RAKAZO_IMAGE_TAG",
+  "BOTCAMP_COMPUTER_IMAGE_TAG",
+  "RAKAZO_COMPUTER_IMAGE_TAG",
+];
 
 /**
- * Port of install-images.sh `create_env`: fills the empty secret lines with random
+ * Fills the empty secret lines with random
  * hex and keeps everything else verbatim. Image tags are dropped because the app
  * supplies them per launch, so an update never leaves a stale pin behind.
  */
@@ -649,7 +654,9 @@ export class LocalStackController {
         SANDBOX_HOST_URL: this.deps.hostComputer?.url ?? "",
         SANDBOX_HOST_TOKEN: this.deps.hostComputer?.token ?? "",
         RAKAZO_IMAGE_TAG: this.deps.imageTag,
+        BOTCAMP_IMAGE_TAG: this.deps.imageTag,
         RAKAZO_COMPUTER_IMAGE_TAG: this.deps.imageTag,
+        BOTCAMP_COMPUTER_IMAGE_TAG: this.deps.imageTag,
         // Restricted egress needs host iptables rules. Docker Desktop keeps its
         // bridges inside its VM where the host cannot add them, and the app cannot
         // install root firewall rules on Linux either, so the stack would refuse
@@ -660,10 +667,15 @@ export class LocalStackController {
         CONTENT_ENCRYPTION: "off",
         ...(this.currentStackToken === null
           ? {}
-          : { RAKAZO_DESKTOP_STACK_TOKEN: this.currentStackToken }),
+          : {
+              RAKAZO_DESKTOP_STACK_TOKEN: this.currentStackToken,
+              BOTCAMP_DESKTOP_STACK_TOKEN: this.currentStackToken,
+            }),
         RAKAZO_WEB_PORT: new URL(this.currentWebUrl).port || "80",
+        BOTCAMP_WEB_PORT: new URL(this.currentWebUrl).port || "80",
         // Only web needs a stable host address. Docker allocates the API host port.
         RAKAZO_API_PORT: "0",
+        BOTCAMP_API_PORT: "0",
         BETTER_AUTH_URL: this.currentWebUrl,
         WEB_ORIGIN: this.currentWebUrl,
         API_URL: this.currentWebUrl,

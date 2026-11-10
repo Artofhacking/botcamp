@@ -1,6 +1,6 @@
-import type { Bot, Group } from "@rakazo/contracts";
-import type { ReadBoundary } from "@rakazo/core";
-import { createChatQueues, settleReadBoundary } from "@rakazo/core";
+import type { Bot, Group } from "@botcamp/contracts";
+import type { ReadBoundary } from "@botcamp/core";
+import { createChatQueues, settleReadBoundary } from "@botcamp/core";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { autoReadStillWanted } from "../../lib/auto-read";

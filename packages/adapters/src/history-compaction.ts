@@ -1,10 +1,10 @@
-import type { AgentRunRequest, AgentRuntime, JobPublisher } from "@rakazo/adapter-kit";
-import { historyCompactJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { blocksToAgentHistoryText, botMessageContext, escapePromptData } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { recordUsage } from "@rakazo/db";
-import { getLogger, unwrapJobPayload } from "@rakazo/logging";
+import type { AgentRunRequest, AgentRuntime, JobPublisher } from "@botcamp/adapter-kit";
+import { historyCompactJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { blocksToAgentHistoryText, botMessageContext, escapePromptData } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
+import { recordUsage } from "@botcamp/db";
+import { getLogger, unwrapJobPayload } from "@botcamp/logging";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { loadBotNames, UNKNOWN_BOT_SPEAKER, USER_SPEAKER } from "./history-speakers.js";

@@ -1,7 +1,7 @@
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { MailboxLoginError } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import { MAILBOX_AUTH_REJECTED } from "@rakazo/contracts";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { MailboxLoginError } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import { MAILBOX_AUTH_REJECTED } from "@botcamp/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { getMailbox, removeMailbox, saveMailbox } from "./mailbox.js";
 

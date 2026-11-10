@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import type { DesktopSetupLink } from "@rakazo/contracts";
+import type { DesktopSetupLink } from "@botcamp/contracts";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 
 /** Pages the setup window may open when Docker is missing. Nothing is ever installed by the app. */
 export const DOCKER_INSTALL_LINKS: Record<DesktopSetupLink, string> = {
@@ -59,7 +60,7 @@ export function resolveDockerBinary(
   env: NodeJS.ProcessEnv,
   exists: (file: string) => boolean,
 ): string | null {
-  const override = env.RAKAZO_DOCKER_BINARY?.trim();
+  const override = firstNonEmpty(env.BOTCAMP_DOCKER_BINARY, env.RAKAZO_DOCKER_BINARY)?.trim();
   if (override) return exists(override) ? override : null;
   return dockerBinaryCandidates(platform, env).find((candidate) => exists(candidate)) ?? null;
 }

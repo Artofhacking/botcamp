@@ -1,6 +1,6 @@
 # Connect apps
 
-Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱**.
+Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱** and **Notion**.
 
 ## Connect QQ邮箱
 
@@ -13,6 +13,10 @@ Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. T
 A saved mailbox shows **Connected**. Choose **Disconnect** to remove it. To replace the code, disconnect, then connect again with the new one. You can also revoke the code in QQ Mail's authorization-code settings.
 
 Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a card. After that card is saved, the bot can list, open, and search the mailbox. It can send only when **可发信** was the permission you saved. Those tools show up on the bot's next turn.
+
+## Connect Notion
+
+Choose **Connect** on **Notion** and sign in to the workspace. After that sign-in, the bot can search and edit the pages you can open. Ask the bot to connect **Notion** in chat when you want the same sign-in on a card.
 
 > [!NOTE]
 > The permission you pick is stored with the connection. Saving it does not open a catalog of other apps.

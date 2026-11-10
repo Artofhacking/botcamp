@@ -1,6 +1,6 @@
 import { splitMessage, WhatsAppApiError } from "@chat-adapter/whatsapp";
-import type { AdapterContext } from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext } from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import { describe, expect, it, vi } from "vitest";
 import { ChatSdkMessagingSurface } from "./chat-sdk-surface.js";
 import { Domain } from "./lark/thread-id.js";

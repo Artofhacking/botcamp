@@ -11,8 +11,8 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import type { DesktopEnvironment } from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/adapter-kit";
+import type { DesktopEnvironment } from "@botcamp/core/node/desktop-runtime";
 import {
   BROWSER_APPLICATIONS,
   BROWSER_STILL_RUNNING_EXIT,
@@ -29,7 +29,7 @@ import {
   shellQuote,
   stopAllDesktopBrowsersCommand,
   stopPageBrowserDaemonCommand,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 import {
   BrowserStillRunningError,
   BrowserStoppedReleaseError,
@@ -79,8 +79,8 @@ function pageBrowserShell(command: string): string {
     "if [ -x /usr/local/bin/agent-browser ]; then export RAKAZO_AGENT_BROWSER=/usr/local/bin/agent-browser",
     'elif [ -x "$HOME/.local/bin/agent-browser" ]; then export RAKAZO_AGENT_BROWSER="$HOME/.local/bin/agent-browser"',
     "fi",
-    "if [ -x /usr/local/bin/rakazo-page-browser ]; then helper=/usr/local/bin/rakazo-page-browser",
-    'elif [ -x "$HOME/.local/bin/rakazo-page-browser" ]; then helper="$HOME/.local/bin/rakazo-page-browser"',
+    "if [ -x /usr/local/bin/botcamp-page-browser ]; then helper=/usr/local/bin/botcamp-page-browser",
+    'elif [ -x "$HOME/.local/bin/botcamp-page-browser" ]; then helper="$HOME/.local/bin/botcamp-page-browser"',
     'else echo "Page browser is not installed on this computer." >&2; exit 127',
     "fi",
     `exec "$helper" ${shellQuote(command)}`,
@@ -365,7 +365,7 @@ function browserActionCommand(
         ? (action.uri ?? "about:blank")
         : undefined;
   if (browser !== undefined) {
-    return `nohup ${browserLauncherPath(layout.displayNumber)} ${shellQuote(browser)} </dev/null >/tmp/rakazo/browser-open-${layout.displayNumber}.log 2>&1 &`;
+    return `nohup ${browserLauncherPath(layout.displayNumber)} ${shellQuote(browser)} </dev/null >/tmp/botcamp/browser-open-${layout.displayNumber}.log 2>&1 &`;
   }
   const workspace = env.workspaceDir;
   return `cd ${shellQuote(workspace)}\n${extraDisplayActionCommand(layout, action.kind === "open" ? { ...action, path: workspacePath(workspace, action.path) } : action)}`;
@@ -381,7 +381,7 @@ function isChromiumBrowser(application: string) {
   return BROWSER_APPLICATIONS.has(application.toLowerCase());
 }
 
-// Same 0.2s quick-failure window as rakazo-focus-or-launch. A GUI that stays
+// Same 0.2s quick-failure window as botcamp-focus-or-launch. A GUI that stays
 // up is success; an immediate non-zero exit fails the focus before the old
 // window is raised or a new one is awaited.
 const FOCUS_LAUNCH_PROBE = [
@@ -395,7 +395,7 @@ const FOCUS_LAUNCH_PROBE = [
 
 /**
  * Raise an app's existing window by WM_CLASS, else spawn it — the focus primitive
- * rakazo-focus-or-launch provides inside the computer image, inline for provider desktops.
+ * botcamp-focus-or-launch provides inside the computer image, inline for provider desktops.
  * A URI still starts the launcher (Chrome forwards URLs into its live window) without
  * waiting for that process to exit before the match is raised.
  */
@@ -407,10 +407,10 @@ function focusOrLaunchActionCommand(
   const binary = (action.application.split("/").pop() ?? "").replaceAll(/[^A-Za-z0-9_-]/g, "");
   const quotedApp = shellQuote(action.application);
   const quotedArg = action.uri === undefined ? "" : ` ${shellQuote(action.uri)}`;
-  // Like rakazo-focus-or-launch, the launch never adopts the app's lifetime: a GUI that stays
+  // Like botcamp-focus-or-launch, the launch never adopts the app's lifetime: a GUI that stays
   // up must not hold the command open, and one that exits at once with an error still fails.
   const launch = browser
-    ? `nohup ${browserLauncherPath(layout.displayNumber)} ${shellQuote(action.uri ?? "about:blank")} </dev/null >/tmp/rakazo/browser-open-${layout.displayNumber}.log 2>&1 &`
+    ? `nohup ${browserLauncherPath(layout.displayNumber)} ${shellQuote(action.uri ?? "about:blank")} </dev/null >/tmp/botcamp/browser-open-${layout.displayNumber}.log 2>&1 &`
     : `DISPLAY=${layout.display} python3 -c ${shellQuote(FOCUS_LAUNCH_PROBE)} ${quotedApp}${quotedArg} || exit $?`;
   if (!browser && !binary) return launch;
   const classCase = browser ? CHROME_WM_CLASSES : binary.toLowerCase();
@@ -519,9 +519,9 @@ export const PREPARE_LINUX_DESKTOP = [
   "fi",
   `policy=${shellQuote(BROWSER_POLICY)}`,
   `for dir in ${BROWSER_POLICY_DIRS.join(" ")}; do`,
-  '  [ "$(cat "$dir/rakazo-browser.json" 2>/dev/null)" = "$policy" ] && continue',
+  '  [ "$(cat "$dir/botcamp-browser.json" 2>/dev/null)" = "$policy" ] && continue',
   // A sandbox without root keeps working; its browser just shows the prompts.
-  '  printf \'%s\\n\' "$policy" | $root sh -c \'mkdir -p "$1" && cat > "$1/rakazo-browser.json"\' sh "$dir" || echo "could not set browser policy in $dir" >&2',
+  '  printf \'%s\\n\' "$policy" | $root sh -c \'mkdir -p "$1" && cat > "$1/botcamp-browser.json"\' sh "$dir" || echo "could not set browser policy in $dir" >&2',
   "done",
 ].join("\n");
 
@@ -529,7 +529,7 @@ export const PREPARE_LINUX_DESKTOP = [
 export const INSTALL_LINUX_BROWSER = [
   "if ! command -v google-chrome >/dev/null && ! command -v chromium >/dev/null; then",
   '  if [ "$(id -u)" -eq 0 ]; then root=""; else root="sudo -n"; fi',
-  "  package=$(mktemp /tmp/rakazo-chrome-XXXXXX.deb)",
+  "  package=$(mktemp /tmp/botcamp-chrome-XXXXXX.deb)",
   "  trap 'rm -f \"$package\"' EXIT",
   '  curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o "$package"',
   '  $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$package"',

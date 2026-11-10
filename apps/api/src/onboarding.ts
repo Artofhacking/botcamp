@@ -1,19 +1,19 @@
-import type { SecretStore } from "@rakazo/adapter-kit";
-import type { ConnectorRegistry } from "@rakazo/adapters";
-import { loadSavedMailbox, MAILBOX_CONNECTOR_ID } from "@rakazo/adapters";
-import type { Actor, MessageBlock } from "@rakazo/contracts";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import type { ConnectorRegistry } from "@botcamp/adapters";
+import { loadSavedMailbox, MAILBOX_CONNECTOR_ID } from "@botcamp/adapters";
+import type { Actor, MessageBlock } from "@botcamp/contracts";
 import {
   appConnectCard,
   connectedAppBlocks,
   matchAppCatalog,
   matchesAppConnection,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   IsolationError,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { requireBotThread } from "./bot-thread.js";
 import { resolveThreadTarget } from "./thread-target.js";
 

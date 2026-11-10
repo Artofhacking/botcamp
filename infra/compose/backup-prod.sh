@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-PROJECT_DIR="${RAKAZO_DEPLOY_DIR:-/srv/rakazo}"
+PROJECT_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}"
 [[ "${PROJECT_DIR}" == /* ]] || { echo "RAKAZO_DEPLOY_DIR must be an absolute path" >&2; exit 1; }
 COMPOSE_FILE="${PROJECT_DIR}/infra/compose/docker-compose.prod.yml"
 ENV_FILE="${PROJECT_DIR}/.env"
@@ -10,15 +10,15 @@ BACKUP_ROOT="/var/backups/rakazo"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 SNAPSHOT_DIR="${BACKUP_ROOT}/${STAMP}"
 # Verified snapshots kept on this host.
-KEEP="${RAKAZO_BACKUP_KEEP:-3}"
+KEEP="${BOTCAMP_BACKUP_KEEP:-${RAKAZO_BACKUP_KEEP:-3}}"
 [[ "${KEEP}" =~ ^[1-9][0-9]*$ ]] || { echo "RAKAZO_BACKUP_KEEP must be a positive whole number" >&2; exit 1; }
-OFFSITE="${RAKAZO_BACKUP_OFFSITE_REMOTE:-}"
+OFFSITE="${BOTCAMP_BACKUP_OFFSITE_REMOTE:-${RAKAZO_BACKUP_OFFSITE_REMOTE:-}}"
 # Off-site snapshots to keep; 0 leaves pruning to the destination's own lifecycle rules.
-OFFSITE_KEEP="${RAKAZO_BACKUP_OFFSITE_KEEP:-14}"
+OFFSITE_KEEP="${BOTCAMP_BACKUP_OFFSITE_KEEP:-${RAKAZO_BACKUP_OFFSITE_KEEP:-14}}"
 [[ "${OFFSITE_KEEP}" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "RAKAZO_BACKUP_OFFSITE_KEEP must be a whole number" >&2; exit 1; }
 
-MIN_FREE_GB="${RAKAZO_BACKUP_MIN_FREE_GB:-5}"
-MAX_GB="${RAKAZO_BACKUP_MAX_GB:-50}"
+MIN_FREE_GB="${BOTCAMP_BACKUP_MIN_FREE_GB:-${RAKAZO_BACKUP_MIN_FREE_GB:-5}}"
+MAX_GB="${BOTCAMP_BACKUP_MAX_GB:-${RAKAZO_BACKUP_MAX_GB:-50}}"
 for value in "${MIN_FREE_GB}" "${MAX_GB}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Backup space limits must be positive whole GiB" >&2; exit 1; }
 done
@@ -26,9 +26,9 @@ done
 # Encrypt every artifact to public age recipients. The private key never lives on this host,
 # and plaintext is streamed straight into age, so it never touches disk.
 age_args=()
-read -r -a recipients <<<"${RAKAZO_BACKUP_AGE_RECIPIENTS:-}"
+read -r -a recipients <<<"${BOTCAMP_BACKUP_AGE_RECIPIENTS:-${RAKAZO_BACKUP_AGE_RECIPIENTS:-}}"
 for recipient in "${recipients[@]}"; do age_args+=(-r "${recipient}"); done
-RECIPIENTS_FILE="${RAKAZO_BACKUP_AGE_RECIPIENTS_FILE:-}"
+RECIPIENTS_FILE="${BOTCAMP_BACKUP_AGE_RECIPIENTS_FILE:-${RAKAZO_BACKUP_AGE_RECIPIENTS_FILE:-}}"
 if [[ -n "${RECIPIENTS_FILE}" ]]; then
   [[ -r "${RECIPIENTS_FILE}" && -s "${RECIPIENTS_FILE}" ]] || {
     echo "RAKAZO_BACKUP_AGE_RECIPIENTS_FILE is not a readable, non-empty file" >&2; exit 1;
@@ -45,7 +45,7 @@ fi
 # instead of quietly falling back to plaintext.
 ENCRYPTED_MARKER="${BACKUP_ROOT}/.encrypted"
 if [[ -z "${suffix}" ]]; then
-  if [[ -e "${ENCRYPTED_MARKER}" && "${RAKAZO_BACKUP_ALLOW_PLAINTEXT:-0}" != 1 ]]; then
+  if [[ -e "${ENCRYPTED_MARKER}" && "${BOTCAMP_BACKUP_ALLOW_PLAINTEXT:-${RAKAZO_BACKUP_ALLOW_PLAINTEXT:-0}}" != 1 ]]; then
     echo "Backups on this host are encrypted; refusing to write plaintext. Set RAKAZO_BACKUP_AGE_RECIPIENTS, or RAKAZO_BACKUP_ALLOW_PLAINTEXT=1 to accept plaintext." >&2
     exit 1
   fi
@@ -54,7 +54,7 @@ fi
 
 reserve_kb=$((MIN_FREE_GB * 1024 * 1024))
 budget_kb=$((MAX_GB * 1024 * 1024))
-if [[ "${RAKAZO_BACKUP_REQUIRE_VOLUME:-0}" == 1 ]]; then
+if [[ "${BOTCAMP_BACKUP_REQUIRE_VOLUME:-${RAKAZO_BACKUP_REQUIRE_VOLUME:-0}}" == 1 ]]; then
   mountpoint -q /var/backups || { echo "/var/backups must be a mounted backup volume" >&2; exit 1; }
   [[ "$(stat -c %d /var/backups)" != "$(stat -c %d /)" ]] || {
     echo "/var/backups must be on a separate filesystem" >&2; exit 1;

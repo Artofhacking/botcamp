@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { BotCampDesktop, DesktopUpdateState } from "@rakazo/contracts";
+import type { BotCampDesktop, DesktopUpdateState } from "@botcamp/contracts";
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";

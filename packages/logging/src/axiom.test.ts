@@ -26,7 +26,7 @@ function sampleEvent(): LogEvent {
     timestamp: "2026-01-02T03:04:05.000Z",
     level: "info",
     message: "hello",
-    "service.name": "rakazo-api",
+    "service.name": "botcamp-api",
   };
 }
 
@@ -34,14 +34,14 @@ describe("axiom sink", () => {
   it("ingests through the injected client and flushes", async () => {
     const client = new FakeAxiom();
     const sink = createAxiomSink({ dataset: "rakazo-logs", client });
-    const logger = createLogger({ service: "rakazo-api", sinks: [sink] });
+    const logger = createLogger({ service: "botcamp-api", sinks: [sink] });
     logger.info("hello", { "request.id": "r1" });
     await logger.flush();
     expect(client.ingested).toHaveLength(1);
     expect(client.ingested[0]?.dataset).toBe("rakazo-logs");
     expect(client.ingested[0]?.events[0]).toMatchObject({
       message: "hello",
-      "service.name": "rakazo-api",
+      "service.name": "botcamp-api",
       "request.id": "r1",
     });
     expect(client.flushed).toBe(1);

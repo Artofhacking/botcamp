@@ -1,6 +1,6 @@
 import type { ToolkitConnectionState } from "@composio/core";
-import type { AdapterContext, ConnectorEvent, ConnectorTool } from "@rakazo/adapter-kit";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+import type { AdapterContext, ConnectorEvent, ConnectorTool } from "@botcamp/adapter-kit";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { describe, expect, it, vi } from "vitest";
 import { composioToolkitDirectory } from "./composio-catalog-cache.js";
 import {
@@ -225,7 +225,7 @@ describe("composio tool mapping", () => {
     } as never;
     const connector = new ConnectorRegistry([destination, failing]);
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
 
     try {
       await expect(connector.discoverTools({ userId: "u" } as AdapterContext)).resolves.toEqual([
@@ -239,7 +239,7 @@ describe("composio tool mapping", () => {
       expect(logged).toContain("[redacted]");
       expect(logged).not.toContain("ak_secretvaluehere");
     } finally {
-      installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+      installLogger(createLogger({ service: "botcamp-api", level: "off", sinks: [] }));
     }
   });
 

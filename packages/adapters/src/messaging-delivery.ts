@@ -5,19 +5,24 @@ import type {
   MessagingOutboundAttachment,
   MessagingOutboundStatus,
   MessagingSurface,
-} from "@rakazo/adapter-kit";
-import { messagingDeliverJob, runContinueJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { botMessageHopExhausted, nextBotMessageHop, pageLinksAsTitles } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import { messagingDeliverJob, runContinueJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import {
+  botMessageHopExhausted,
+  chatMessageOrigin,
+  nextBotMessageHop,
+  pageLinksAsTitles,
+} from "@botcamp/core";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   CrossSpaceCommunicationBlockedError,
   createThreadMessageInTransaction,
   crossSpaceCommunicationAllowed,
   runAsSystem,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { MessagingSendError } from "./chat-sdk-surface.js";
 import { splitOutboundBody } from "./messaging-platforms.js";
 
@@ -292,6 +297,7 @@ async function fanOutToPeers(
             prompt: `[Group "${channel.name ?? "group"}" — ${fromLabel}]: ${text}`,
             trigger: "messaging",
             clientNonce,
+            origin: chatMessageOrigin(identity.provider),
             crossSpaceSenderBotId: identity.botId,
           })
           .catch((error: unknown) => {

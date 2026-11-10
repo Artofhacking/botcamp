@@ -461,10 +461,6 @@ msgstr "액세스 토큰(선택 사항)"
 msgid "Account"
 msgstr "계정"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Account default"
-msgstr "계정 기본값"
-
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Account ID"
@@ -701,6 +697,10 @@ msgstr ""
 msgid "Allow"
 msgstr "허용"
 
+#: src/lib/dictation.ts
+msgid "Allow BotCamp to use Speech Recognition and the microphone in System Settings."
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow cross-space bot communication"
 msgstr ""
@@ -712,10 +712,6 @@ msgstr ""
 #: src/components/AskCard.tsx
 msgid "Allow once"
 msgstr "한 번 허용"
-
-#: src/lib/dictation.ts
-msgid "Allow BotCamp to use Speech Recognition and the microphone in System Settings."
-msgstr ""
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -736,6 +732,10 @@ msgstr "이미 연결됨"
 #: src/pages/Auth.tsx
 msgid "Already have an account?"
 msgstr "이미 계정이 있나요?"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr ""
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Always act"
@@ -957,10 +957,17 @@ msgstr ""
 msgid "Authentication failed."
 msgstr "인증에 실패했습니다."
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Authorization code"
 msgstr "인증 코드"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Authorization code was rejected"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -1119,13 +1126,14 @@ msgstr "Bot 화면"
 msgid "Bot screen preview"
 msgstr "Bot 화면 미리보기"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Bot style"
-msgstr ""
-
 #: src/pages/RoutineEditor.tsx
 msgid "Bot's model"
 msgstr "봇의 모델"
+
+#: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
+msgid "BotCamp credits"
+msgstr ""
 
 #: src/components/SignupSurvey.tsx
 msgid "Both"
@@ -1145,10 +1153,6 @@ msgstr ""
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Brain label"
-msgstr ""
-
-#: src/components/integrations/skills-dialog.tsx
-msgid "Browse"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
@@ -1180,10 +1184,6 @@ msgstr ""
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr ""
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Calls"
-msgstr "호출"
 
 #: src/components/pages/SharePopover.tsx
 msgid "Can view without signing in"
@@ -1287,8 +1287,8 @@ msgstr "변경 중…"
 msgid "Chart failed to render: {error}"
 msgstr "차트를 표시하지 못했습니다: {error}"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat"
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
 msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -1363,7 +1363,6 @@ msgid "Checking connection…"
 msgstr "연결 확인 중…"
 
 #: src/components/ComputersUnavailableHint.tsx
-#: src/components/DesktopUpdates.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "확인 중…"
@@ -1592,6 +1591,11 @@ msgstr "컴퓨터"
 msgid "Computer failed to boot"
 msgstr "컴퓨터를 시작하지 못했습니다"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Computer failed to boot"
+msgstr ""
+
 #: src/components/ModelCredits.tsx
 msgid "Computer hours left"
 msgstr "남은 컴퓨터 시간"
@@ -1651,6 +1655,7 @@ msgstr ""
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "이 브라우저 세션에서 URL에 연결할 수 있는지 확인한 뒤 다시 테스트하세요."
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -1717,6 +1722,7 @@ msgid "Connect your own API key in Models or choose BotCamp credits in Billing."
 msgstr "AI 모델에서 자체 API 키를 연결하거나 결제에서 BotCamp 크레딧을 선택하세요."
 
 #: src/components/ComputerDeviceSettings.tsx
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -1785,7 +1791,6 @@ msgstr "컨텍스트 한도"
 #: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/dialogs.tsx
 msgid "Continue"
 msgstr "계속"
 
@@ -1850,10 +1855,6 @@ msgstr "프롬프트 복사"
 #: src/components/markdown-copy.tsx
 msgid "Copy rows"
 msgstr "행 복사"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Cost"
-msgstr "비용"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -1968,10 +1969,6 @@ msgstr "그룹을 만들지 못했습니다."
 #: src/pages/shell/dialogs.tsx
 msgid "Could not create section"
 msgstr "섹션을 만들지 못했습니다."
-
-#: src/pages/shell/dialogs.tsx
-msgid "Could not create space"
-msgstr "스페이스를 만들 수 없습니다"
 
 #: src/pages/Onboarding.tsx
 msgid "Could not create your bot"
@@ -2124,6 +2121,10 @@ msgstr "로그인 옵션을 불러올 수 없습니다"
 msgid "Could not load skill"
 msgstr "스킬을 불러오지 못했습니다"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Could not load the mailbox"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "Could not load this artifact."
 msgstr ""
@@ -2161,6 +2162,11 @@ msgstr "샘플 음성을 재생하지 못했습니다."
 
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Could not preview plugin"
+msgstr ""
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Could not reach the mailbox"
 msgstr ""
 
 #: src/lib/model-connection-preflight.ts
@@ -2254,7 +2260,6 @@ msgstr "루틴을 실행할 수 없습니다"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
-#: src/pages/shell/dialogs.tsx
 #: src/pages/shell/use-space-roster.ts
 msgid "Could not save"
 msgstr "저장하지 못했습니다."
@@ -2325,7 +2330,9 @@ msgstr "메시지를 보내지 못했습니다."
 msgid "Could not show the credential"
 msgstr "자격 증명을 표시할 수 없습니다"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Could not sign in"
 msgstr ""
 
@@ -2422,10 +2429,6 @@ msgstr "이 페이지를 불러올 수 없습니다. 다시 시도하세요."
 msgid "Couldn't load your wallet"
 msgstr ""
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Couldn't update bot style"
-msgstr ""
-
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
 msgstr "메시징 설정을 업데이트할 수 없습니다"
@@ -2468,7 +2471,6 @@ msgid "Create Routine"
 msgstr "자동 실행 만들기"
 
 #: src/components/AskCard.tsx
-#: src/pages/shell/dialogs.tsx
 msgid "Create space"
 msgstr "스페이스 만들기"
 
@@ -2527,10 +2529,6 @@ msgstr "현재 비밀번호"
 msgid "Custom header"
 msgstr ""
 
-#: src/pages/shell/dialogs.tsx
-msgid "Customer support"
-msgstr "고객 지원"
-
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Customize"
 msgstr "맞춤설정"
@@ -2585,7 +2583,6 @@ msgstr "기본값"
 
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
 #: src/pages/RoutineEditor.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
 msgstr "기본값 ({0})"
 
@@ -2700,10 +2697,6 @@ msgstr "설명"
 msgid "Design"
 msgstr ""
 
-#: src/components/DesktopUpdates.tsx
-msgid "Desktop app"
-msgstr ""
-
 #: src/components/ComputerProviderSettings.tsx
 msgid "Desktop ID"
 msgstr ""
@@ -2737,10 +2730,6 @@ msgstr ""
 msgid "Did you mean <0>{emailSuggestion}</0>?"
 msgstr "<0>{emailSuggestion}</0>을(를) 입력하려고 하셨나요?"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Disable a tool"
-msgstr "도구 비활성화"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "비활성화됨"
@@ -2749,6 +2738,7 @@ msgstr "비활성화됨"
 msgid "Discard recording"
 msgstr ""
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/MessagingSettingsPanel.tsx
@@ -2816,10 +2806,6 @@ msgstr ""
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker는 보안을 위해 컴퓨터 접근을 제한합니다. {hostLabel}에서는 Bot이 로컬 파일과 도구로 작업할 수 있습니다."
 
-#: src/components/SidebarFooter.tsx
-msgid "Docs"
-msgstr "문서"
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Document changed. Reopen to edit the latest version."
 msgstr "문서가 변경되었습니다. 최신 버전을 편집하려면 다시 여세요."
@@ -2827,6 +2813,10 @@ msgstr "문서가 변경되었습니다. 최신 버전을 편집하려면 다시
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "계정이 없나요?"
+
+#: src/pages/shell/takeover-prompt.tsx
+msgid "Don't show this again"
+msgstr ""
 
 #: src/components/AccountDataSettings.tsx
 #: src/components/ToolActivityDisclosure.tsx
@@ -2863,10 +2853,6 @@ msgstr "CSV 다운로드"
 #: src/components/pages/DownloadPdfButton.tsx
 msgid "Download PDF"
 msgstr "PDF 다운로드"
-
-#: src/components/DesktopUpdates.tsx
-msgid "Downloading…"
-msgstr ""
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Draft skill"
@@ -2922,11 +2908,6 @@ msgstr ""
 msgid "Email verification required"
 msgstr "이메일 인증이 필요합니다"
 
-#. placeholder {0}: humanizeTool(toolName)
-#: src/pages/shell/bot-panel.tsx
-msgid "Enable {0}"
-msgstr "{0} 활성화"
-
 #: src/components/ComputerProviderSettings.tsx
 msgid "End user ID"
 msgstr ""
@@ -2935,15 +2916,13 @@ msgstr ""
 msgid "Ends {day}"
 msgstr ""
 
-#: src/components/GitHubStarPrompt.tsx
-msgid "Enjoying BotCamp?"
-msgstr ""
-
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "비밀번호를 입력하세요"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/lib/user-error.ts
+#: src/pages/shell/message-cards.tsx
 msgid "Enter a valid email"
 msgstr "올바른 이메일을 입력하세요"
 
@@ -2965,6 +2944,11 @@ msgstr "이미지 한도는 1에서 1000 사이의 정수로 입력하세요."
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "테스트하기 전에 API 키를 입력하세요."
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Enter the 16-character authorization code"
+msgstr ""
 
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
@@ -3008,8 +2992,8 @@ msgid "Every {n} hours at :{minute}"
 msgstr "{n}시간마다 {minute}분"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Every bot in this space reads these notes and keeps them up to date."
-msgstr "이 공간의 모든 봇이 이 메모를 읽고 최신 상태로 유지합니다."
+msgid "Every bot reads these notes and keeps them up to date."
+msgstr ""
 
 #: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
@@ -3271,10 +3255,6 @@ msgstr ""
 msgid "General"
 msgstr "일반"
 
-#: src/components/SidebarFooter.tsx
-msgid "Get the mobile app"
-msgstr "모바일 앱 다운로드"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr ""
@@ -3435,10 +3415,6 @@ msgstr ""
 msgid "I’m done"
 msgstr "조작 끝내기"
 
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "Icon set"
-msgstr ""
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "If you heard that, voice is ready."
 msgstr "샘플이 들렸다면 음성 설정이 완료되었습니다."
@@ -3500,14 +3476,6 @@ msgstr "API 키 포함"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Incoming call"
 msgstr ""
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Inherit default"
-msgstr "기본 설정 사용"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Input"
-msgstr "입력"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3594,7 +3562,6 @@ msgid "Invite link"
 msgstr "초대 링크"
 
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
 msgstr "이 Bot만 사용"
 
@@ -3686,6 +3653,7 @@ msgstr "MEMORY.md와 함께 봇이 의미를 기준으로 사실을 저장하고
 msgid "Light"
 msgstr "라이트"
 
+#: src/pages/shell/chat-tool-link.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "Link"
 msgstr ""
@@ -3702,6 +3670,10 @@ msgstr "DM 연결"
 #: src/components/AccountAccess.tsx
 msgid "Link SSO"
 msgstr "SSO 연결"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr ""
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -3726,10 +3698,6 @@ msgstr ""
 #: src/pages/RoutineRunHistory.tsx
 msgid "Load older runs"
 msgstr "이전 실행 불러오기"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Load web images automatically"
-msgstr "웹 이미지 자동으로 불러오기"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
@@ -3761,7 +3729,6 @@ msgid "Loading voice providers…"
 msgstr "음성 서비스를 불러오는 중…"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-dialog.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/AdminAccessPage.tsx
 #: src/pages/Artifacts.tsx
@@ -3809,19 +3776,21 @@ msgstr "낮음"
 msgid "Low"
 msgstr "낮음"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Mailbox"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "기본 모델"
 
 #: src/pages/BillingSettingsPanel.tsx
-#: src/pages/SettingsOverlay.tsx
 msgid "Manage"
 msgstr "관리"
 
-#. placeholder {0}: option.name
 #. placeholder {0}: providerName(choice)
 #: src/pages/ModelRoleSettings.tsx
-#: src/pages/SettingsOverlay.tsx
 msgid "Manage {0}"
 msgstr "{0} 관리"
 
@@ -3833,10 +3802,6 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCP 서버 관리"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Manage other bots"
-msgstr "다른 봇 관리"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"
@@ -3937,10 +3902,6 @@ msgstr "기억 {position}"
 #: src/pages/shell/agent-import.tsx
 msgid "Memory for {title}"
 msgstr "{title}의 기억"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Memory scope"
-msgstr "기억 사용 범위"
 
 #: src/pages/shell/composer.tsx
 msgid "Mentions"
@@ -4045,22 +4006,16 @@ msgstr ""
 msgid "Mode"
 msgstr "모드"
 
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Model"
 msgstr "모델"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
 msgstr "\"{modelId}\" 모델이 목록에 없습니다."
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Model connections"
-msgstr "모델 연결"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4279,11 +4234,6 @@ msgstr "새 진행 작업"
 msgid "New password"
 msgstr "새 비밀번호"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-msgid "New private space"
-msgstr "새 비공개 스페이스"
-
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "New section"
@@ -4292,10 +4242,6 @@ msgstr "새 섹션"
 #: src/pages/KnowledgeSection.tsx
 msgid "New skill"
 msgstr "새 스킬"
-
-#: src/pages/shell/dialogs.tsx
-msgid "New space"
-msgstr "새 스페이스"
 
 #: src/pages/Board.tsx
 msgid "New ticket"
@@ -4461,7 +4407,6 @@ msgstr "BotCamp 카탈로그에 없음"
 msgid "Not in the plugin catalog"
 msgstr "플러그인 카탈로그에 없음"
 
-#: src/components/GitHubStarPrompt.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Not now"
 msgstr "나중에"
@@ -4491,6 +4436,10 @@ msgstr "알림"
 msgid "Number"
 msgstr ""
 
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr ""
+
 #: src/pages/McpOAuthCallback.tsx
 msgid "OAuth authorization was cancelled."
 msgstr "OAuth 인증이 취소되었습니다."
@@ -4511,12 +4460,17 @@ msgstr "OAuth 연결됨"
 msgid "OAuth connection failed"
 msgstr "OAuth 연결 실패"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth 만료됨"
 
 #: src/components/ComputerDeviceSettings.tsx
 msgid "Offline"
+msgstr ""
+
+#: src/pages/shell/takeover-prompt.tsx
+msgid "OK"
 msgstr ""
 
 #: src/pages/model-settings/connection-controls.tsx
@@ -4563,7 +4517,6 @@ msgstr "나만"
 #: src/pages/PaymentWalletSettingsPanel.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/import-setup-card.tsx
-#: src/pages/shell/message-view.tsx
 msgid "Open"
 msgstr "열기"
 
@@ -4585,6 +4538,11 @@ msgstr "{title} 열기"
 #: src/pages/Onboarding.tsx
 msgid "Open <0>{0}</0> and enter this code:"
 msgstr ""
+
+#: src/components/pages/PublicPageShell.tsx
+#: src/pages/SharedPage.tsx
+msgid "Open BotCamp"
+msgstr "BotCamp 열기"
 
 #: src/pages/shell/chat-header.tsx
 msgid "Open call"
@@ -4614,11 +4572,6 @@ msgstr "링크 열기"
 #: src/pages/shell/chat-header.tsx
 msgid "Open navigation"
 msgstr "메뉴 열기"
-
-#: src/components/pages/PublicPageShell.tsx
-#: src/pages/SharedPage.tsx
-msgid "Open BotCamp"
-msgstr "BotCamp 열기"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Open work"
@@ -4665,11 +4618,6 @@ msgstr ""
 msgid "Organization API key"
 msgstr "조직 API 키"
 
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "Original"
-msgstr ""
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "원본 메시지를 사용할 수 없습니다"
@@ -4678,10 +4626,6 @@ msgstr "원본 메시지를 사용할 수 없습니다"
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Other model…"
 msgstr "다른 모델 직접 입력…"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Output"
-msgstr "출력"
 
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts
@@ -4820,6 +4764,11 @@ msgstr "일시 중지됨"
 msgid "Pending"
 msgstr ""
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Permission"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
 msgstr "권한"
@@ -4939,10 +4888,6 @@ msgstr ""
 msgid "Private"
 msgstr "Bot 전용"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "Private workspace with its own bots and groups."
-msgstr ""
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Productivity"
 msgstr ""
@@ -4977,16 +4922,6 @@ msgstr "풀 리퀘스트"
 msgid "Queued"
 msgstr "대기 중"
 
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "BotCamp"
-msgstr "BotCamp"
-
-#: src/components/ModelCredits.tsx
-#: src/pages/Onboarding.tsx
-msgid "BotCamp credits"
-msgstr ""
-
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "rakazo-shared and IDs starting with bot- are reserved for BotCamp."
 msgstr ""
@@ -4998,10 +4933,6 @@ msgstr "반응하기"
 #: src/pages/shell/message-hover-actions.tsx
 msgid "Reactions"
 msgstr "반응"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Read replies aloud"
-msgstr "답변을 자동으로 읽기"
 
 #: src/pages/shell/import-status.ts
 msgid "Ready"
@@ -5036,6 +4967,7 @@ msgstr "최근"
 msgid "Recommended"
 msgstr ""
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Reconnect"
@@ -5382,7 +5314,6 @@ msgstr ""
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-dialog.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/AdminAccessPage.tsx
 #: src/pages/Auth.tsx
@@ -5402,15 +5333,15 @@ msgstr "지금 다시 시도"
 msgid "Retry screen"
 msgstr ""
 
-#. placeholder {0}: call.botName
-#: src/components/call/CallCard.tsx
-msgid "Return to call with {0}"
-msgstr ""
-
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/SlackInstallCallback.tsx
 msgid "Return to BotCamp"
 msgstr "BotCamp로 돌아가기"
+
+#. placeholder {0}: call.botName
+#: src/components/call/CallCard.tsx
+msgid "Return to call with {0}"
+msgstr ""
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -5482,10 +5413,6 @@ msgstr "실행 중"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "실행 중…"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Runs"
-msgstr "실행"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5638,10 +5565,6 @@ msgstr "모델 검색"
 msgid "Search runs"
 msgstr "실행 검색"
 
-#: src/components/integrations/skills-dialog.tsx
-msgid "Search skills"
-msgstr ""
-
 #: src/components/VaultSettings.tsx
 msgid "Search Vault"
 msgstr ""
@@ -5712,10 +5635,6 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Send reset link"
 msgstr "재설정 링크 보내기"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Send with Enter"
-msgstr "Enter 키로 전송"
 
 #: src/components/AskCard.tsx
 #: src/components/SecretAskCard.tsx
@@ -5801,7 +5720,6 @@ msgstr "공유, 링크가 있는 누구나 볼 수 있음"
 
 #: src/components/pages/PagesList.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Shared"
 msgstr "함께 사용"
 
@@ -5841,10 +5759,6 @@ msgstr "비밀번호 표시"
 msgid "Show selected"
 msgstr ""
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Show tool activity"
-msgstr ""
-
 #: src/components/call/VoiceChatCard.tsx
 msgid "Show transcript"
 msgstr "대화 기록 표시"
@@ -5876,10 +5790,6 @@ msgstr "다시 로그인"
 #: src/pages/Onboarding.tsx
 msgid "Sign in at <0>{0}</0>, then paste the code here."
 msgstr "<0>{0}</0>에서 로그인한 다음 코드를 여기에 붙여넣으세요."
-
-#: src/pages/Auth.tsx
-msgid "Sign in to BotCamp"
-msgstr "BotCamp 로그인"
 
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
@@ -5956,7 +5866,6 @@ msgstr ""
 msgid "Slide up to lock"
 msgstr ""
 
-#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -6003,10 +5912,6 @@ msgstr "스페이스"
 msgid "Space default"
 msgstr "스페이스 기본값"
 
-#: src/pages/SettingsOverlay.tsx
-msgid "Spaces"
-msgstr "스페이스"
-
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
 msgstr "읽기"
@@ -6030,10 +5935,6 @@ msgstr ""
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO를 일시적으로 사용할 수 없습니다. 다시 시도하세요."
-
-#: src/components/GitHubStarPrompt.tsx
-msgid "Star on GitHub"
-msgstr ""
 
 #: src/pages/shell/computer-overlay.tsx
 msgid "Start"
@@ -6128,10 +6029,6 @@ msgstr ""
 msgid "Stored encrypted"
 msgstr "암호화해 저장"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Stream replies"
-msgstr "답변 스트리밍"
-
 #: src/lib/identity-display.ts
 msgid "subagent"
 msgstr "보조 에이전트"
@@ -6140,10 +6037,6 @@ msgstr "보조 에이전트"
 #: src/pages/Onboarding.tsx
 msgid "Submit"
 msgstr "확인"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Submit a plugin"
-msgstr ""
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -6211,6 +6104,7 @@ msgid "Table"
 msgstr "표"
 
 #: src/pages/shell/computer-overlay.tsx
+#: src/pages/shell/message-view.tsx
 msgid "Take control"
 msgstr "제어권 가져오기"
 
@@ -6246,6 +6140,11 @@ msgstr ""
 msgid "Test"
 msgstr "시험 실행"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Test and save"
+msgstr ""
+
 #: src/components/ModelConnectionPreflightNotice.tsx
 msgid "Test API key"
 msgstr "API 키 테스트"
@@ -6263,7 +6162,9 @@ msgstr "테스트 실행"
 msgid "Testing"
 msgstr ""
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/ModelConnectionPreflightNotice.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Testing…"
 msgstr "테스트 중…"
 
@@ -6273,6 +6174,10 @@ msgstr "Bot은 파일을 사용할 수 있지만 이미지는 볼 수 없습니�
 
 #: src/lib/dictation.ts
 msgid "The browser keeps dropping the microphone. Start dictation again to retry."
+msgstr ""
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
 msgstr ""
 
 #: src/lib/model-connection-preflight.ts
@@ -6346,7 +6251,6 @@ msgstr "친구는 {weeks}주 동안 무료로 사용해요."
 #: src/components/call/CallCard.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "생각 깊이"
 
@@ -6354,6 +6258,12 @@ msgstr "생각 깊이"
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "사고: {0}"
+
+#: src/components/ToolActivityDisclosure.tsx
+#: src/lib/roster-status.ts
+#: src/pages/shell/transcript.tsx
+msgid "Thinking…"
+msgstr ""
 
 #: src/lib/user-error.ts
 msgid "This app needs its own sign-in setup to connect."
@@ -6475,7 +6385,7 @@ msgid "This provider is not connected yet."
 msgstr "이 서비스는 아직 연결되지 않았습니다."
 
 #: src/pages/ModelSettingsOverlay.tsx
-msgid "This removes the connection from every space."
+msgid "This removes the connection."
 msgstr ""
 
 #: src/pages/Auth.tsx
@@ -6549,10 +6459,6 @@ msgstr "받는 사람:"
 msgid "Today"
 msgstr "오늘"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Tokens"
-msgstr "토큰"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr "도구 인수 (JSON)"
@@ -6571,7 +6477,6 @@ msgid "Tool name"
 msgstr "도구 이름"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 
@@ -6663,6 +6568,7 @@ msgid "Uninstall"
 msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/shell/chat-tool-link.tsx
 msgid "Unlink"
 msgstr "연결 해제"
 
@@ -6683,10 +6589,6 @@ msgstr "읽지 않음"
 #: src/pages/shell/use-composer-actions.ts
 msgid "Unsupported file type: {0}"
 msgstr "지원하지 않는 파일 형식: {0}"
-
-#: src/components/DesktopUpdates.tsx
-msgid "Up to date"
-msgstr "최신 상태"
 
 #: src/components/ModelCredits.tsx
 msgid "Update"
@@ -6719,10 +6621,6 @@ msgstr ""
 #: src/lib/client-update.ts
 msgid "Update required"
 msgstr "업데이트가 필요합니다"
-
-#: src/pages/settings-nav.ts
-msgid "Updates"
-msgstr "업데이트"
 
 #. placeholder {0}: update.name
 #: src/components/ComputerUpdateProgress.tsx
@@ -6776,6 +6674,10 @@ msgstr "액세스 토큰에는 {oauthEnvReference}를 사용하세요."
 msgid "Use a found model"
 msgstr "찾은 모델 중에서 선택"
 
+#: src/components/ModelCredits.tsx
+msgid "Use BotCamp credits"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Use Connect to verify the key."
 msgstr "키를 확인하려면 연결을 사용하세요."
@@ -6798,10 +6700,6 @@ msgstr ""
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
-msgstr ""
-
-#: src/components/ModelCredits.tsx
-msgid "Use BotCamp credits"
 msgstr ""
 
 #: src/pages/model-settings/space-bots-model.tsx
@@ -6888,7 +6786,6 @@ msgid "View source"
 msgstr ""
 
 #: src/pages/settings-nav.ts
-#: src/pages/shell/bot-panel.tsx
 #: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
@@ -6956,10 +6853,6 @@ msgstr ""
 msgid "What about its memories?"
 msgstr "이 Bot의 기억은 어떻게 할까요?"
 
-#: src/pages/shell/dialogs.tsx
-msgid "What can this space use?"
-msgstr ""
-
 #: src/components/SignupSurvey.tsx
 msgid "What do you most want BotCamp to help with?"
 msgstr ""
@@ -7010,6 +6903,10 @@ msgstr "실행 시간"
 msgid "When to use"
 msgstr "언제 사용할지"
 
+#: src/pages/shell/takeover-prompt.tsx
+msgid "When you are finished, choose I’m done."
+msgstr ""
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "Where should bots run?"
 msgstr "Bot을 어디에서 실행할까요?"
@@ -7034,10 +6931,7 @@ msgstr "작업 중"
 msgid "Working instructions"
 msgstr "작업 지침"
 
-#: src/components/ToolActivityDisclosure.tsx
-#: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
-#: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "처리 중…"
 

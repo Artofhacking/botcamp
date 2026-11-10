@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough, Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
-import { getLogger } from "@rakazo/logging";
+import { getLogger } from "@botcamp/logging";
 import Docker from "dockerode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -19,7 +19,7 @@ import { COMPUTER_IMAGE_CONTEXT_FILES } from "./computer-spec.js";
 const context = path.resolve(import.meta.dirname, "../../computer");
 const noContext = path.join(import.meta.dirname, "no-such-computer-context");
 const published = "ghcr.io/artofhacking/botcamp/computer:edge";
-const local = "rakazo/computer:local";
+const local = "botcamp/computer:local";
 const image = { "container.image.name": published };
 const progressLine = '{"status":"Downloading"}\n';
 const errorLine = (message: string) => `${JSON.stringify({ errorDetail: { message } })}\n`;
@@ -144,7 +144,7 @@ describe("computer image", () => {
     expect(fake.docker.buildImage).not.toHaveBeenCalled();
   });
 
-  it.each([local, "rakazo/computer:topology"])(
+  it.each([local, "botcamp/computer:topology"])(
     "builds a missing %s with BuildKit from the full context",
     async (name) => {
       const fake = fakeDocker();
@@ -158,10 +158,10 @@ describe("computer image", () => {
   );
 
   it.each([
-    "rakazo-computer-brave:latest",
-    "myorg/rakazo-computer:edge",
+    "botcamp-computer-brave:latest",
+    "myorg/botcamp-computer:edge",
     "computer:local",
-    `rakazo/computer@sha256:${"0".repeat(64)}`,
+    `botcamp/computer@sha256:${"0".repeat(64)}`,
   ])("never replaces the custom image %s with a stock build", async (name) => {
     const fake = fakeDocker();
     await expect(fake.ensure(name, context)()).rejects.toThrow(new Error(missing(name)));

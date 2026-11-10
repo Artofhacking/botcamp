@@ -20,7 +20,7 @@ vi.mock("@lingui/react/macro", () => {
     String.raw({ raw: parts }, ...values);
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
-vi.mock("@rakazo/ui-web", () => ({
+vi.mock("@botcamp/ui-web", () => ({
   Button: ({
     variant: _variant,
     size: _size,

@@ -19,31 +19,12 @@ import { ES_MESSAGES } from "./locales/es.js";
 import { readUiLocale, writeUiLocale } from "./setup-store.js";
 
 const srcDir = import.meta.dirname;
-/** Product and vendor names the setup page shows as they are. */
-const UNTRANSLATED = new Set([
-  "BotCamp",
-  "BotCamp Cloud",
-  "Docker Desktop",
-  "OrbStack",
-  "Docker Engine",
-  "https://rakazo.example.com",
-]);
 
 /** Literal `t("…")` ids; the formatter keeps every string double-quoted. */
 function translationIds(source: string): string[] {
   return [...source.matchAll(/\bt\(\s*("(?:\\.|[^"\\])*")/g)].map(
     (match) => JSON.parse(match[1] ?? '""') as string,
   );
-}
-
-/** What setup.js translates in setup.html: its text and its title, aria-label and placeholder attributes. */
-function setupPageStrings(): string[] {
-  const html = readFileSync(path.join(srcDir, "setup.html"), "utf8");
-  const text = [...html.matchAll(/>([^<>]*)</g)].map((match) => match[1]?.trim() ?? "");
-  const attributes = [...html.matchAll(/\s(?:title|aria-label|placeholder)="([^"]*)"/g)].map(
-    (match) => match[1] ?? "",
-  );
-  return [...text, ...attributes].filter((value) => value !== "" && !UNTRANSLATED.has(value));
 }
 
 function placeholders(message: string): string[] {
@@ -241,8 +222,8 @@ describe.each(Object.entries(CATALOGS))(
       expect(mismatched).toEqual([]);
     });
 
-    it("translates every desktop t() id and setup page string, and nothing else", () => {
-      const ids = new Set(setupPageStrings());
+    it("translates every desktop t() id, and nothing else", () => {
+      const ids = new Set<string>();
       for (const file of readdirSync(srcDir)) {
         if (!/\.(ts|js|cjs)$/.test(file) || file.endsWith(".test.ts")) continue;
         for (const id of translationIds(readFileSync(path.join(srcDir, file), "utf8"))) ids.add(id);

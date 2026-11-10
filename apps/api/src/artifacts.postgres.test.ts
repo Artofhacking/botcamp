@@ -1,7 +1,7 @@
-import type { ArtifactStore } from "@rakazo/adapter-kit";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { asSystem, createDb, IsolationError, runAsTenant } from "@rakazo/db";
+import type { ArtifactStore } from "@botcamp/adapter-kit";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { asSystem, createDb, IsolationError, runAsTenant } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createOwnedArtifact } from "./artifacts.js";
 

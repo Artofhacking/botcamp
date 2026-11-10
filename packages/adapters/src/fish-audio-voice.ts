@@ -8,9 +8,9 @@ import type {
   VoiceSynthesizeRequest,
   VoiceTranscribeRequest,
   VoiceVerifyResult,
-} from "@rakazo/adapter-kit";
-import { VoiceAccountError } from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { VoiceAccountError } from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import {
   readVoiceAudio,
   readVoiceJson,

@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { forgetPageShareSecrets } from "@rakazo/adapters";
-import type { Actor, PageDetail, PageSummary, PageVisibility, SharedPage } from "@rakazo/contracts";
-import { pageShareTokenFromSlug, pageShareUrl } from "@rakazo/contracts";
-import type { PageShareSecret, PrismaClient } from "@rakazo/db";
-import { IsolationError, Prisma, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { forgetPageShareSecrets } from "@botcamp/adapters";
+import type { Actor, PageDetail, PageSummary, PageVisibility, SharedPage } from "@botcamp/contracts";
+import { pageShareTokenFromSlug, pageShareUrl } from "@botcamp/contracts";
+import type { PageShareSecret, PrismaClient } from "@botcamp/db";
+import { IsolationError, Prisma, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 
 const PAGE_SHARE_SECRET_KIND = "page_share";
 const DEFAULT_LIST_LIMIT = 30;

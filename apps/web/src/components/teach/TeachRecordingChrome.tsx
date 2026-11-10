@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { TaughtSkill } from "@rakazo/contracts";
-import { Button, Input } from "@rakazo/ui-web";
+import type { TaughtSkill } from "@botcamp/contracts";
+import { Button, Input } from "@botcamp/ui-web";
 import { CornerDownLeft } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";

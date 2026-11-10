@@ -4,10 +4,10 @@ import path from "node:path";
 import type { InferRouterInitialContext } from "@orpc/server";
 import { createRouterClient } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import type { ManagedConnectorProvider } from "@rakazo/adapter-kit";
-import { ConnectorAuthUnavailableError, SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import type { McpOAuthSummary } from "@rakazo/adapters";
-import * as adapters from "@rakazo/adapters";
+import type { ManagedConnectorProvider } from "@botcamp/adapter-kit";
+import { ConnectorAuthUnavailableError, SecretStoreUnavailableError } from "@botcamp/adapter-kit";
+import type { McpOAuthSummary } from "@botcamp/adapters";
+import * as adapters from "@botcamp/adapters";
 import {
   COMPUTER_SCREEN_UNAVAILABLE,
   CodexCatalogCache,
@@ -24,22 +24,22 @@ import {
   parseModelSecret,
   screenLeaseIdForRun,
   serializeModelSecret,
-} from "@rakazo/adapters";
-import type { Actor, Bot, ProductEvent } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import type { Actor, Bot, ProductEvent } from "@botcamp/contracts";
 import {
   CONNECTOR_AUTH_UNAVAILABLE,
   MCP_OAUTH_CLIENT_REQUIRED,
   MODEL_KEY_FORMAT_ERROR,
   REPLY_QUOTE_MAX_LENGTH,
-} from "@rakazo/contracts";
-import { openScreenCapability } from "@rakazo/core/node/screen-capability";
-import type { PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { openScreenCapability } from "@botcamp/core/node/screen-capability";
+import type { PrismaClient } from "@botcamp/db";
 import {
   AnswerTooLongError,
   configureProviderTransactionPool,
   runProviderTransaction,
-} from "@rakazo/db";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mainRole, withModelRoles } from "../../../packages/adapters/src/testing/model-roles.js";
 import type { RouterDeps } from "./router.js";
@@ -857,7 +857,7 @@ describe("thread answer delivery", () => {
     const answerRunInput = vi.fn().mockResolvedValue(true);
     const enqueue = vi.fn().mockRejectedValue(new Error("job broker unavailable"));
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     const prisma = {
       bot: {
         findFirst: vi.fn().mockResolvedValue({
@@ -918,7 +918,7 @@ describe("thread answer delivery", () => {
     );
     expect(enqueue).toHaveBeenCalledOnce();
     expect(sink.events.some((event) => event.message === "thread answer enqueue")).toBe(true);
-    installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+    installLogger(createLogger({ service: "botcamp-api", level: "off", sinks: [] }));
   });
 });
 
@@ -3514,7 +3514,7 @@ describe("connections.complete", () => {
   });
 
   afterEach(() => {
-    installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+    installLogger(createLogger({ service: "botcamp-api", level: "off", sinks: [] }));
   });
 
   function pollFixture(status: string) {
@@ -3578,7 +3578,7 @@ describe("connections.complete", () => {
       } as unknown as RouterDeps),
     );
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     async function complete(connectionId = row.id, signal?: AbortSignal) {
       return call("complete", connectionId, signal);
     }
@@ -3791,7 +3791,7 @@ describe("connections.complete", () => {
       },
     );
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
 
     await client.connections.catalog({ connectorId: "composio" });
     await client.connections.catalog({ connectorId: "composio" });

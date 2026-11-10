@@ -1,14 +1,14 @@
 import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { JobPublisher, JobWorkerHost, SandboxProvider } from "@rakazo/adapter-kit";
+import type { JobPublisher, JobWorkerHost, SandboxProvider } from "@botcamp/adapter-kit";
 import {
   ComposioConnector,
   IntegrationProviderSettings,
   unwrapEnvFromKeyManager,
-} from "@rakazo/adapters";
-import { phoneCallSettings } from "@rakazo/core";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
-import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
+} from "@botcamp/adapters";
+import { phoneCallSettings } from "@botcamp/core";
+import { loadRootEnv } from "@botcamp/core/node/load-root-env";
+import { stopOnShutdownSignals } from "@botcamp/core/node/shutdown-signals";
 import { startWorkerHealth, watchEventLoopStalls } from "./health.js";
 import { createWorkerSecretStore } from "./secret-store.js";
 
@@ -61,6 +61,8 @@ import {
   mcpStdioOptionsFromEnv,
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
+  PersonalChatBridge,
+  PersonalChatSurface,
   PiAgentRuntime,
   PipedreamConnector,
   PostgresRealtimeFanout,
@@ -87,8 +89,8 @@ import {
   userDeviceForwardSecret,
   withRunWorker,
   withSecretPersistence,
-} from "@rakazo/adapters";
-import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@rakazo/core";
+} from "@botcamp/adapters";
+import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@botcamp/core";
 import {
   createBoardEvents,
   createDb,
@@ -105,10 +107,10 @@ import {
   runAsSystem,
   securityEventRetentionDays,
   verifyContentKeys,
-} from "@rakazo/db";
-import { SERVICE_NAMES } from "@rakazo/logging";
-import { createRootLogger } from "@rakazo/logging/axiom";
-import { MarkdownMemoryStore } from "@rakazo/memory";
+} from "@botcamp/db";
+import { SERVICE_NAMES } from "@botcamp/logging";
+import { createRootLogger } from "@botcamp/logging/axiom";
+import { MarkdownMemoryStore } from "@botcamp/memory";
 
 const logger = createRootLogger(SERVICE_NAMES.worker);
 
@@ -126,7 +128,7 @@ async function main() {
   // A larger max competes for Postgres max_connections (53300).
   const created = createDb(databaseUrl, {
     poolMax,
-    applicationName: "rakazo-worker",
+    applicationName: "botcamp-worker",
     keyProvider: contentKeyProviderFromEnv(),
   });
   const { pool } = created;
@@ -284,7 +286,7 @@ async function main() {
   const runs = new RunStarter(realtime, { signal: shutdown.signal });
   const jobs: JobPublisher =
     inMemoryJobs ?? new RunJobPublisher(prisma, new GraphileJobPublisher(pool, prisma), runs);
-  const { messaging } = installedMessaging(
+  const { messaging: baseMessaging } = installedMessaging(
     prisma,
     secrets,
     {
@@ -296,6 +298,8 @@ async function main() {
     legacyMessaging,
     jobs,
   );
+  // Send only. The API process owns the long poll.
+  const messaging = new PersonalChatSurface(new PersonalChatBridge(prisma, secrets), baseMessaging);
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
     jobs,

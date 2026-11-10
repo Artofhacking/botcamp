@@ -1,6 +1,5 @@
-import { t } from "@lingui/core/macro";
-import type { BotAvatarSet, ProductEvent, ThreadMessage, ThreadSnapshot } from "@rakazo/contracts";
-import type { CallExchange } from "@rakazo/core";
+import type { BotAvatarSet, ProductEvent, ThreadMessage, ThreadSnapshot } from "@botcamp/contracts";
+import type { CallExchange } from "@botcamp/core";
 import {
   CALL_FAREWELL_TIMEOUT_MS,
   callClientNonce,
@@ -18,10 +17,12 @@ import {
   speechFromBlocks,
   spokenDecision,
   spokenMemory,
-} from "@rakazo/core";
+} from "@botcamp/core";
+import { t } from "@lingui/core/macro";
 import { getGlobalBroadcastChannel } from "better-auth/client";
 import { useSyncExternalStore } from "react";
 import { pickUp } from "./call-pickup.js";
+import { currentAppOrigin } from "./desktop.js";
 import { dictation } from "./dictation.js";
 import {
   newLogoAvatarActivitySource,
@@ -651,8 +652,8 @@ async function handleTranscript(text: string) {
           clientNonce,
         })
       : runActive(thread)
-        ? rpc.threads.followUp({ botId, text, clientNonce })
-        : rpc.threads.send({ botId, clientNonce, text });
+        ? rpc.threads.followUp({ botId, text, clientNonce, origin: currentAppOrigin() })
+        : rpc.threads.send({ botId, clientNonce, text, origin: currentAppOrigin() });
     releasePendingSend = callSends.track(turnCallId, sendRequest);
     const receipt = await sendRequest;
     if (!state || state.botId !== botId || callId !== turnCallId) return;

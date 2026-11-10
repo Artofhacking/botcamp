@@ -1,3 +1,4 @@
+import { firstNonEmpty } from "./env-name.js";
 export const DEV_AUTH_SECRET_PLACEHOLDER = "dev-secret-change-me-please-32chars";
 export const DEV_ENCRYPTION_KEY_PLACEHOLDER = "dev-encryption-key";
 export const DEV_SUPERVISOR_TOKEN_PLACEHOLDER = "dev-supervisor-token-change-me-32chars";
@@ -20,7 +21,8 @@ const DEDICATED_SECRET_PLACEHOLDERS = new Set([
 ]);
 
 export function isDevSecretAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.RAKAZO_ALLOW_DEV_SECRETS === "1") return true;
+  if (firstNonEmpty(env.BOTCAMP_ALLOW_DEV_SECRETS, env.RAKAZO_ALLOW_DEV_SECRETS) === "1")
+    return true;
   if (env.VITEST === "true" || env.VITEST === "1") return true;
   const nodeEnv = env.NODE_ENV;
   return nodeEnv === "development" || nodeEnv === "test";
@@ -37,7 +39,10 @@ export function resolveContentEncryption(env: NodeJS.ProcessEnv = process.env): 
   if (value === "on") return true;
   if (value === "off") return false;
   if (value) throw new Error('CONTENT_ENCRYPTION must be "on" or "off".');
-  return env.NODE_ENV !== "development" && env.RAKAZO_ALLOW_DEV_SECRETS !== "1";
+  return (
+    env.NODE_ENV !== "development" &&
+    firstNonEmpty(env.BOTCAMP_ALLOW_DEV_SECRETS, env.RAKAZO_ALLOW_DEV_SECRETS) !== "1"
+  );
 }
 
 export function resolveAuthSecret(env: NodeJS.ProcessEnv = process.env): string {
@@ -134,7 +139,9 @@ export function resolveScreenProxySecret(env: NodeJS.ProcessEnv = process.env): 
  * leak at one boundary must not unlock either of the others.
  */
 export function resolveUpdaterToken(env: NodeJS.ProcessEnv = process.env): string {
-  return resolveDedicatedSecret(env, {
+  const preferred = firstNonEmpty(env.BOTCAMP_UPDATER_TOKEN, env.RAKAZO_UPDATER_TOKEN);
+  const source = preferred === undefined ? env : { ...env, RAKAZO_UPDATER_TOKEN: preferred };
+  return resolveDedicatedSecret(source, {
     name: "RAKAZO_UPDATER_TOKEN",
     conflicts: ["BETTER_AUTH_SECRET", "SANDBOX_SUPERVISOR_TOKEN", "SCREEN_PROXY_SECRET"],
     missingMessage: "Set RAKAZO_UPDATER_TOKEN to a dedicated random updater credential.",
@@ -164,7 +171,7 @@ export function timingSafeStringEqual(supplied: string | undefined, expected: st
  * Constant-time bearer comparison, shared by every privileged sidecar.
  *
  * Deliberately not `node:crypto`'s `timingSafeEqual`: this module is reachable from the web bundle
- * through `@rakazo/core`, and importing `node:crypto` here fails the production Vite build. The XOR
+ * through `@botcamp/core`, and importing `node:crypto` here fails the production Vite build. The XOR
  * accumulation inspects every byte no matter where the first difference falls. Length is compared
  * first because a length mismatch is already observable from the response.
  */

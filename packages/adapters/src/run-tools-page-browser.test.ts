@@ -1,5 +1,5 @@
-import type { AdapterContext, ComputerRef, PageBrowserCommand } from "@rakazo/adapter-kit";
-import { createStreamingRedactor } from "@rakazo/core";
+import type { AdapterContext, ComputerRef, PageBrowserCommand } from "@botcamp/adapter-kit";
+import { createStreamingRedactor } from "@botcamp/core";
 import { describe, expect, it, vi } from "vitest";
 import { encodeRunCode, storeBotSecret } from "./bot-secrets.js";
 import { fakeDatabase } from "./bot-secrets.test-support.js";

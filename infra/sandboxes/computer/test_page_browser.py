@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-loader = importlib.machinery.SourceFileLoader("page_browser", str(HERE / "rakazo-page-browser"))
+loader = importlib.machinery.SourceFileLoader("page_browser", str(HERE / "botcamp-page-browser"))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 helper = importlib.util.module_from_spec(spec)
 loader.exec_module(helper)
@@ -131,7 +131,7 @@ class FakeAgentBrowser:
                 return {"result": {"timeOrigin": 1, "href": "https://portal.example.test/"}}
             if script.startswith("({ timeOrigin"):
                 return {"result": {"timeOrigin": 1 if self.stuck else 2, "href": self.state["url"], "ready": "complete"}}
-            if "__rakazoTyping = " in script:
+            if "__botcampTyping = " in script:
                 return self.typing
             if "Typing stopped" in script:
                 self.checks.append(script)
@@ -634,18 +634,18 @@ class PurchaseTest(unittest.TestCase):
     def test_a_purchase_check_with_no_browser_finds_nothing_and_one_that_cannot_list_tabs_fails(self):
         with patch.dict(os.environ, {"RAKAZO_CDP_PORT": "1"}), patch.object(helper, "browser_closed", return_value=True), \
                 patch("builtins.print") as printed:
-            helper.run(["rakazo-page-browser", "purchase_check", '{"desktop": true}'])
+            helper.run(["botcamp-page-browser", "purchase_check", '{"desktop": true}'])
         self.assertEqual(json.loads(printed.call_args.args[0])["purchase"], None)
         # A browser that is running but slow to answer is a failed check, which asks.
         with patch.dict(os.environ, {"RAKAZO_CDP_PORT": "1"}), patch.object(helper, "browser_closed", return_value=False), \
                 patch.object(helper, "wait_for_cdp", side_effect=RuntimeError("CDP not ready on port 1: timed out")), \
                 patch("builtins.print") as printed:
-            helper.run(["rakazo-page-browser", "purchase_check", '{"desktop": true}'])
+            helper.run(["botcamp-page-browser", "purchase_check", '{"desktop": true}'])
         self.assertEqual(json.loads(printed.call_args.args[0])["ok"], False)
         with patch.dict(os.environ, {"RAKAZO_CDP_PORT": "1"}), patch.object(helper, "wait_for_cdp"), \
                 patch.object(helper, "page_tabs", side_effect=RuntimeError("tab list too large")), \
                 patch("builtins.print") as printed:
-            helper.run(["rakazo-page-browser", "purchase_check", '{"desktop": true}'])
+            helper.run(["botcamp-page-browser", "purchase_check", '{"desktop": true}'])
         self.assertEqual(json.loads(printed.call_args.args[0])["ok"], False)
 
     def test_a_purchase_check_leaves_the_tabs_alone(self):
@@ -656,7 +656,7 @@ class PurchaseTest(unittest.TestCase):
                 patch.object(helper, "AgentBrowser", return_value=browser), \
                 patch.object(browser, "use_tab", create=True), \
                 patch.object(helper, "Tabs") as tabs, patch("builtins.print") as printed:
-            helper.run(["rakazo-page-browser", "purchase_check", '{"desktop": true}'])
+            helper.run(["botcamp-page-browser", "purchase_check", '{"desktop": true}'])
         tabs.assert_not_called()
         self.assertEqual(json.loads(printed.call_args.args[0])["ok"], True)
 
@@ -665,7 +665,7 @@ class PurchaseTest(unittest.TestCase):
             with self.subTest(listing=listing), patch.dict(os.environ, {"RAKAZO_CDP_PORT": "1"}), \
                     patch.object(helper, "wait_for_cdp"), patch.object(helper, "http_get_json", return_value=listing), \
                     patch("builtins.print") as printed:
-                self.assertEqual(helper.run(["rakazo-page-browser", "purchase_check", '{"desktop": true}']), 0)
+                self.assertEqual(helper.run(["botcamp-page-browser", "purchase_check", '{"desktop": true}']), 0)
             self.assertEqual(json.loads(printed.call_args.args[0]),
                              {"ok": True, "site": "", "purchase": None, "url": listing[0]["url"] if listing else "",
                               "title": ""})
@@ -951,7 +951,7 @@ class ActTest(unittest.TestCase):
                 patch.object(helper, "AgentBrowser", return_value=browser), \
                 patch.object(browser, "use_tab", create=True), \
                 patch.object(helper.time, "sleep"), patch("builtins.print") as printed:
-            helper.run(["rakazo-page-browser", "snapshot"])
+            helper.run(["botcamp-page-browser", "snapshot"])
         self.assertEqual(json.loads(printed.call_args.args[0]), {
             "ok": False, "error": 'A confirm dialog is open on the screen: "Delete this?"', "dialog": "confirm",
             "fallback": "computer_act"})
@@ -965,7 +965,7 @@ class ActTest(unittest.TestCase):
                 patch.object(helper, "AgentBrowser"), \
                 patch.object(helper.PageBrowser, "snapshot", return_value={"ok": True}) as snapshot, \
                 patch("builtins.print"):
-            helper.run(["rakazo-page-browser", "snapshot"])
+            helper.run(["botcamp-page-browser", "snapshot"])
         snapshot.assert_called_once_with(query="zip")
 
     def test_uploads_only_files_inside_the_trusted_roots(self):
@@ -1386,7 +1386,7 @@ class NewTabTest(unittest.TestCase):
                              side_effect=lambda current, _: {**snapshot(current), "completed": 1}), \
                 patch("builtins.print") as printed:
             args = '{"actions": [{"kind": "click", "ref": "e1"}]}' if command == "act" else "{}"
-            self.assertEqual(helper.run(["rakazo-page-browser", command, args]), 0)
+            self.assertEqual(helper.run(["botcamp-page-browser", command, args]), 0)
         return json.loads(printed.call_args.args[0]), reads, use_tab
 
     def test_a_report_a_page_opened_after_the_last_call_is_named_in_the_next_result(self):
@@ -1470,7 +1470,7 @@ class RunTest(unittest.TestCase):
         with patch.dict(os.environ, {"RAKAZO_CDP_PORT": "1"}), patch.object(helper, "wait_for_cdp",
                                                                               side_effect=RuntimeError("CDP not ready on port 1: refused")), \
                 patch("builtins.print") as printed:
-            self.assertEqual(helper.run(["rakazo-page-browser", "act", '{"actions": []}']), 0)
+            self.assertEqual(helper.run(["botcamp-page-browser", "act", '{"actions": []}']), 0)
         self.assertEqual(json.loads(printed.call_args.args[0]), {
             "ok": False, "error": "CDP not ready on port 1: refused", "fallback": "computer_act", "uncertain": False})
 
@@ -1488,7 +1488,7 @@ class RunTest(unittest.TestCase):
 
     def test_closed_stdin_cancels_helper_without_a_browser(self):
         env = {**os.environ, "RAKAZO_BROWSER_WATCH_STDIN": "1", "RAKAZO_CDP_PORT": "1"}
-        with subprocess.Popen([sys.executable, str(HERE / "rakazo-page-browser"), "snapshot", "{}"], env=env,
+        with subprocess.Popen([sys.executable, str(HERE / "botcamp-page-browser"), "snapshot", "{}"], env=env,
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE) as process:
             process.stdin.close()
             self.assertEqual(process.wait(timeout=5), 130)
@@ -1528,7 +1528,7 @@ class RunTest(unittest.TestCase):
                 patch.object(helper, "AgentBrowser", return_value=browser), \
                 patch.object(browser, "use_tab", create=True) as use_tab, \
                 patch.object(helper.time, "sleep"), patch("builtins.print") as printed:
-            self.assertEqual(helper.run(["rakazo-page-browser", "navigate", '{"url": "https://portal.example.test/"}']), 0)
+            self.assertEqual(helper.run(["botcamp-page-browser", "navigate", '{"url": "https://portal.example.test/"}']), 0)
         self.assertEqual(json.loads(printed.call_args.args[0])["ok"], True)
         self.assertEqual(browser.sent[0], ["tab", "new", "https://portal.example.test/"])
         use_tab.assert_called_once_with("site")
@@ -1547,7 +1547,7 @@ class RunTest(unittest.TestCase):
                 patch.object(helper, "AgentBrowser", return_value=browser), \
                 patch.object(browser, "use_tab", create=True) as use_tab, \
                 patch.object(helper.time, "sleep"), patch("builtins.print"):
-            helper.run(["rakazo-page-browser", "navigate", '{"url": "https://portal.example.test/"}'])
+            helper.run(["botcamp-page-browser", "navigate", '{"url": "https://portal.example.test/"}'])
         use_tab.assert_called_once_with("site")
 
     def test_a_navigation_that_never_reaches_a_new_page_is_left_to_the_desktop(self):
@@ -2129,7 +2129,7 @@ class DownloadTest(unittest.TestCase):
     def test_finish_command_reports_placement_failure(self):
         with patch.object(helper, "finish_later", side_effect=RuntimeError(helper.DOWNLOAD_FAILED)), \
                 patch("builtins.print") as output:
-            self.assertEqual(helper.run(["rakazo-page-browser", "finish", '{"downloads": []}']), 1)
+            self.assertEqual(helper.run(["botcamp-page-browser", "finish", '{"downloads": []}']), 1)
         self.assertEqual(json.loads(output.call_args.args[0]),
                          {"downloads": [{"error": helper.DOWNLOAD_FAILED}]})
 
@@ -2293,7 +2293,7 @@ class DownloadTest(unittest.TestCase):
                 patch.object(helper.PageBrowser, command, side_effect=perform), \
                 patch.dict(os.environ, {"HOME": self.home}), patch("builtins.print") as output:
             os.makedirs(self.folder, exist_ok=True)
-            self.assertEqual(helper.run(["rakazo-page-browser", command, json.dumps(args)]), 0)
+            self.assertEqual(helper.run(["botcamp-page-browser", command, json.dumps(args)]), 0)
         return json.loads(output.call_args.args[0])
 
     def test_without_a_folder_the_helper_leaves_chromium_downloads_alone(self):
@@ -2341,7 +2341,7 @@ class DownloadTest(unittest.TestCase):
         # Waited for as a download link is, until Chromium begins the download.
         self.assertEqual(self.client.download_links, [1.0])
         self.assertIn('document.contentType !== "application/pdf"', helper.SAVE_PDF)
-        self.assertIn("window.__rakazoPdfSaved", helper.SAVE_PDF)
+        self.assertIn("window.__botcampPdfSaved", helper.SAVE_PDF)
 
     def test_a_saved_pdf_is_named_after_its_title_made_safe_unless_that_is_only_its_address(self):
         browser = FakeAgentBrowser()

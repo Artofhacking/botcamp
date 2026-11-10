@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { PeerCertificate } from "node:tls";
 import { rootCertificates } from "node:tls";
-import type { AdapterContext, ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
+import type { AdapterContext, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { encodeTarEntry } from "./exec-computer.js";
 import type {
@@ -63,7 +63,11 @@ function running(botId = "bot-a", address = "10.0.0.8"): Instance {
   return {
     status: "Running",
     ephemeral: true,
-    config: { "user.rakazo-bot-id": botId },
+    config: {
+      "user.botcamp-bot-id": botId,
+      "oci.entrypoint":
+        "setpriv --no-new-privs -- /usr/bin/env -u LD_PRELOAD /usr/local/bin/botcamp-computer",
+    },
     state: {
       network: {
         lo: { addresses: [{ family: "inet", address: "127.0.0.1", scope: "local" }] },
@@ -124,11 +128,13 @@ class FakeIncus implements IncusClient {
     if (parts[0] !== "instances") throw new IncusError("not found", 404);
     const name = parts[1];
     if (method === "GET" && !name) {
-      const [, botId] =
-        /^config\.user\.rakazo-bot-id eq (\S+)$/.exec(url.searchParams.get("filter") ?? "") ?? [];
+      const [, key, botId] =
+        /^config\.(user\.(?:botcamp|rakazo)-bot-id) eq (\S+)$/.exec(
+          url.searchParams.get("filter") ?? "",
+        ) ?? [];
       return {
         metadata: [...this.instances]
-          .filter(([, instance]) => instance.config["user.rakazo-bot-id"] === botId)
+          .filter(([, instance]) => key !== undefined && instance.config[key] === botId)
           .map(([instanceName, instance]) => ({
             name: instanceName,
             ...structuredClone(instance),
@@ -194,7 +200,7 @@ class FakeIncus implements IncusClient {
     const config = body.config as Record<string, string>;
     const created = (this.createGate ?? Promise.resolve()).then(() => {
       this.instances.set(name, {
-        ...running(config["user.rakazo-bot-id"]),
+        ...running(config["user.botcamp-bot-id"]),
         ...(this.failStart ? { status: "Stopped" } : {}),
         config: { ...config },
       });
@@ -319,7 +325,7 @@ describe("IncusSandboxProvider", () => {
       if (command.includes("find") || command.some((arg) => arg.includes("find . -regextype"))) {
         const directory = command.includes("find")
           ? command[command.indexOf("find") + 1]!
-          : "/home/rakazo";
+          : "/home/botcamp";
         let stdout = "";
         for (const [name, file] of files) {
           if (!name.startsWith(`${directory}/`)) continue;
@@ -332,7 +338,7 @@ describe("IncusSandboxProvider", () => {
       }
       if (command.includes("tar")) {
         const chunks = exportedNames.flatMap((name) => {
-          const file = files.get(`/home/rakazo/${name}`)!;
+          const file = files.get(`/home/botcamp/${name}`)!;
           return [...encodeTarEntry(name, file.content, file.executable)];
         });
         return { stdout: Buffer.concat([...chunks, Buffer.alloc(1024)]) };
@@ -358,7 +364,7 @@ describe("IncusSandboxProvider", () => {
     const fake = new FakeIncus();
     const provider = providerFor(fake, {
       project: "computers",
-      computerImage: "registry.example.test/rakazo/computer:v1",
+      computerImage: "registry.example.test/botcamp/computer:v1",
       cpuLimit: "1",
       memoryLimit: "1536MiB",
       processLimit: "512",
@@ -367,7 +373,7 @@ describe("IncusSandboxProvider", () => {
     const created = await provider.provision({ botId: "bot-a", homePath: "/unused" }, context);
 
     expect(created).toMatchObject({ kind: "incus", botId: "bot-a", fresh: true });
-    expect(created.providerRef).toMatch(/^rakazo-[0-9a-f-]{36}$/);
+    expect(created.providerRef).toMatch(/^botcamp-[0-9a-f-]{36}$/);
     const create = fake.requests.find(
       (entry) => entry.method === "POST" && entry.path.startsWith("/1.0/instances?"),
     );
@@ -381,10 +387,10 @@ describe("IncusSandboxProvider", () => {
         type: "image",
         protocol: "oci",
         server: "https://registry.example.test",
-        alias: "rakazo/computer:v1",
+        alias: "botcamp/computer:v1",
       },
       config: {
-        "user.rakazo-bot-id": "bot-a",
+        "user.botcamp-bot-id": "bot-a",
         "limits.cpu": "1",
         "limits.memory": "1536MiB",
         "limits.processes": "512",
@@ -443,7 +449,7 @@ describe("IncusSandboxProvider", () => {
     });
     await providerFor(fake).provision({ botId: "bot-a", homePath: "/unused" }, context);
     expect(probes).toBe(2);
-    expect(fake.execs[0]?.body).toMatchObject({ user: 1000, group: 1000, cwd: "/home/rakazo" });
+    expect(fake.execs[0]?.body).toMatchObject({ user: 1000, group: 1000, cwd: "/home/botcamp" });
   });
 
   it("reconnects to a running instance of the same bot without creating one", async () => {
@@ -457,6 +463,32 @@ describe("IncusSandboxProvider", () => {
     expect(
       fake.requests.some((entry) => entry.method === "POST" && !entry.path.includes("exec")),
     ).toBe(false);
+  });
+
+  it("replaces a running instance from the previous identity", async () => {
+    const fake = new FakeIncus();
+    fake.instances.set("box", {
+      ...running(),
+      config: {
+        "user.rakazo-bot-id": "bot-a",
+        "oci.entrypoint": "/usr/local/bin/rakazo-computer",
+      },
+    });
+    const provider = providerFor(fake);
+    await expect(
+      provider.acceptsRunningComputer(
+        { id: "box", botId: "bot-a", kind: "incus", providerRef: "box" },
+        context,
+      ),
+    ).resolves.toBe(false);
+    const result = await provider.provision(
+      { botId: "bot-a", homePath: "/unused", providerKind: "incus", providerRef: "box" },
+      context,
+    );
+    expect(result.fresh).toBe(true);
+    expect(result.providerRef).not.toBe("box");
+    expect(fake.instances.has("box")).toBe(false);
+    expect(fake.instances.has(result.providerRef!)).toBe(true);
   });
 
   it("never reuses or replaces another bot's instance", async () => {
@@ -633,6 +665,20 @@ describe("IncusSandboxProvider", () => {
     },
   );
 
+  it("removes an instance the previous release labelled for this bot", async () => {
+    const fake = new FakeIncus();
+    fake.instances.set("legacy", {
+      ...running(),
+      config: { "user.rakazo-bot-id": "bot-a" },
+    });
+    const result = await providerFor(fake).provision(
+      { botId: "bot-a", homePath: "/unused" },
+      context,
+    );
+    expect(fake.instances.has("legacy")).toBe(false);
+    expect(fake.instances.has(result.providerRef!)).toBe(true);
+  });
+
   it("removes this bot's instances that no saved reference points to before starting", async () => {
     const fake = new FakeIncus();
     fake.instances.set("orphan", running());
@@ -699,7 +745,7 @@ describe("IncusSandboxProvider", () => {
     // Setuid programs in the image cannot raise a bot command's privileges.
     expect(exec.command.slice(0, 3)).toEqual(["setpriv", "--no-new-privs", "--"]);
     expect(exec.command).toEqual(
-      expect.arrayContaining(["/home/rakazo/nested", "TEST_VALUE=value", "printf", "done"]),
+      expect.arrayContaining(["/home/botcamp/nested", "TEST_VALUE=value", "printf", "done"]),
     );
     // The input stream is closed so commands that read stdin see its end.
     expect(exec.inputClosed).toBe(true);
@@ -985,7 +1031,11 @@ describe("IncusSandboxProvider", () => {
 
 describe("ociImageSource", () => {
   it.each([
-    ["ghcr.io/artofhacking/botcamp/computer:edge", "https://ghcr.io", "artofhacking/botcamp/computer:edge"],
+    [
+      "ghcr.io/artofhacking/botcamp/computer:edge",
+      "https://ghcr.io",
+      "artofhacking/botcamp/computer:edge",
+    ],
     [
       "registry.example.test:5000/computer@sha256:abc",
       "https://registry.example.test:5000",

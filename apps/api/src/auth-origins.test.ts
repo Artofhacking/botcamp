@@ -1,4 +1,4 @@
-import { createAuth } from "@rakazo/auth";
+import { createAuth } from "@botcamp/auth";
 import { describe, expect, it } from "vitest";
 import { isTrustedOrigin, MOBILE_AUTH_ORIGINS } from "./app.js";
 

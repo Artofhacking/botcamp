@@ -1,7 +1,6 @@
-import { ORPCError } from "@orpc/server";
-import { runContinueJob, runJobKey } from "@rakazo/adapter-kit";
-import { settleCallRequest } from "@rakazo/adapters";
-import type { Actor, ProductEvent } from "@rakazo/contracts";
+import { runContinueJob, runJobKey } from "@botcamp/adapter-kit";
+import { settleCallRequest } from "@botcamp/adapters";
+import type { Actor, ProductEvent } from "@botcamp/contracts";
 import {
   AttachmentValidationError,
   CALL_CLIENT_NONCE_PREFIX,
@@ -9,8 +8,8 @@ import {
   expandSkillReferencesInPrompt,
   MODEL_REQUIRED_SEND_ERROR,
   QUEUE_HOLDING_RUN_STATUSES,
-} from "@rakazo/core";
-import type { Prisma } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma } from "@botcamp/db";
 import {
   AnswerTooLongError,
   appendEventInTransaction,
@@ -19,8 +18,9 @@ import {
   IsolationError,
   lockOwnedGroup,
   touchGroupUpdatedAt,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import type { RouterDeps } from "../router.js";
 import { createRoutineTestRun, routineTestRunNonce, routineTestTarget } from "../routines.js";
 import { withSerializableRetry } from "../serializable-retry.js";
@@ -392,6 +392,7 @@ export function threadsRoutes(ctx: RouterContext) {
             prompt: input.text,
             trigger: "follow_up",
             clientNonce: input.clientNonce,
+            origin: input.origin,
           });
           if (sent.taskId && sent.runId) {
             await deps.jobs.enqueue(runContinueJob(sent.runId)).catch((error) => {
@@ -426,6 +427,7 @@ export function threadsRoutes(ctx: RouterContext) {
             role: "user",
             blocks,
             clientNonce: input.clientNonce,
+            origin: input.origin,
           });
           const active = await tx.run.findFirst({
             where: {

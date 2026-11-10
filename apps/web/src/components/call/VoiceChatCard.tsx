@@ -1,12 +1,12 @@
 import { useLingui } from "@lingui/react/macro";
-import type { VoiceChatGroup } from "@rakazo/core";
+import type { VoiceChatGroup } from "@botcamp/core";
 import {
   callRequestBlock,
   speechFromBlocks,
   voiceChatDuration,
   voiceChatSummary,
-} from "@rakazo/core";
-import { Button, buttonVariants, Collapsible, CollapsibleContent, cn } from "@rakazo/ui-web";
+} from "@botcamp/core";
+import { Button, buttonVariants, Collapsible, CollapsibleContent, cn } from "@botcamp/ui-web";
 import { ChevronDown, Phone, PhoneIncoming, PhoneMissed } from "lucide-react";
 import { useState } from "react";
 import { BuiCard } from "../ai/primitives";

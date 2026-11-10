@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import type { SharedPage } from "@rakazo/contracts";
-import { pageShareTokenFromSlug, SHARED_PAGE_PATH_PREFIX } from "@rakazo/contracts";
-import { Button, buttonVariants, Spinner } from "@rakazo/ui-web";
+import type { SharedPage } from "@botcamp/contracts";
+import { pageShareTokenFromSlug, SHARED_PAGE_PATH_PREFIX } from "@botcamp/contracts";
+import { Button, buttonVariants, Spinner } from "@botcamp/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";

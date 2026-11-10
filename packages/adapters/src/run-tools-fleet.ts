@@ -1,11 +1,11 @@
-import { BotSettingsValuesSchema } from "@rakazo/contracts";
+import { BotSettingsValuesSchema } from "@botcamp/contracts";
 import {
   appendEventInTransaction,
   commitBotUpdate,
   InstructionConflictError,
   writeBotInstructions,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { uncertainEffectResult } from "./approval-effect.js";
 import { archiveSpawnedBot, deleteSpawnedBot, spawnBot } from "./child-bots.js";
 import {

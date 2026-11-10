@@ -121,6 +121,8 @@ export {
   readAgentMemory,
 } from "./memory-context.js";
 export * from "./memory-provider-factory.js";
+export * from "./personal-chat/bridge.js";
+export * from "./personal-chat/surface.js";
 export * from "./messaging-composition.js";
 export * from "./messaging-context.js";
 export * from "./messaging-delivery.js";

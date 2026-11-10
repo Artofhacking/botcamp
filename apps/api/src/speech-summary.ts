@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { AgentRunRequest, AgentRuntime, AgentRuntimeEvent } from "@rakazo/adapter-kit";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { recordUsage } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AgentRunRequest, AgentRuntime, AgentRuntimeEvent } from "@botcamp/adapter-kit";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { recordUsage } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 
 const SUMMARY_MAX_CHARS = 500;
 // Under the phone's 8-second request timeout, so a slow summary falls back to the full reply.

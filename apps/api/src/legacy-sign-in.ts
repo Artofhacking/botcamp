@@ -1,6 +1,6 @@
 import { pbkdf2Sync, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
-import type { PrismaClient } from "@rakazo/db";
+import type { PrismaClient } from "@botcamp/db";
 
 /**
  * One-time bridge for accounts whose password was hashed by the previous BotCamp backend

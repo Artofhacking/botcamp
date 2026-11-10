@@ -1,6 +1,6 @@
-import type { AdapterContext, ComputerRef, SandboxProvider } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext, ComputerRef, SandboxProvider } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { usesNativeShell } from "./native-shell.js";
 
 const MEASURE_TIMEOUT_MS = 5_000;

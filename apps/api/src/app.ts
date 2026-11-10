@@ -1,6 +1,4 @@
 import { hostname } from "node:os";
-import { ORPCError, onError } from "@orpc/server";
-import { RPCHandler } from "@orpc/server/fetch";
 import type {
   AgentContextStrategy,
   AgentRuntime,
@@ -14,7 +12,7 @@ import type {
   RealtimeFanout,
   SandboxProvider,
   TransactionalEmailProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   SandboxAllowanceUsedError,
   SandboxDamagedError,
@@ -22,7 +20,7 @@ import {
   SandboxUnavailableError,
   SandboxUnresponsiveError,
   VoiceAccountError,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import type {
   ComposioProvider,
   ConnectorRegistry,
@@ -30,7 +28,7 @@ import type {
   PluginTextReader,
   RemoteConnectorDependencies,
   UserDeviceGateway,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import {
   applyMessagingOutboundStatus,
   auditLogConfig,
@@ -77,6 +75,8 @@ import {
   McpOAuthBroker,
   messagingPlatformsFromEnv,
   ObjectAgentHomeStore,
+  PersonalChatBridge,
+  PersonalChatSurface,
   PiAgentRuntime,
   PiOAuthLogins,
   PipedreamConnector,
@@ -107,16 +107,16 @@ import {
   userDeviceInternalAddress,
   verifyModelServesAgents,
   withSecretPersistence,
-} from "@rakazo/adapters";
-import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
-import type { Actor, AuthCapabilities } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@botcamp/auth";
+import type { Actor, AuthCapabilities } from "@botcamp/contracts";
 import {
   isLocalhostOrLoopbackIp,
   PLUGIN_SUBMISSIONS_PATH,
   SERVER_BUILD_HEADER,
-} from "@rakazo/contracts";
-import { encryptionKeyWarning, signupPolicyFromEnv } from "@rakazo/core";
-import type { Pool, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { encryptionKeyWarning, signupPolicyFromEnv } from "@botcamp/core";
+import type { Pool, PrismaClient } from "@botcamp/db";
 import {
   configureProviderTransactionPool,
   createBoardEvents,
@@ -141,17 +141,19 @@ import {
   weekEnd,
   weeklyPointsUsed,
   weekStart,
-} from "@rakazo/db";
-import type { Logger } from "@rakazo/logging";
+} from "@botcamp/db";
+import type { Logger } from "@botcamp/logging";
 import {
   createServiceLogger,
   enrichLogContext,
   getLogger,
   installLogger,
   SERVICE_NAMES,
-} from "@rakazo/logging";
-import { markExpectedFailure, requestLogging } from "@rakazo/logging/hono";
-import { MarkdownMemoryStore } from "@rakazo/memory";
+} from "@botcamp/logging";
+import { markExpectedFailure, requestLogging } from "@botcamp/logging/hono";
+import { MarkdownMemoryStore } from "@botcamp/memory";
+import { ORPCError, onError } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { deleteAccountContent } from "./account-deletion.js";
@@ -309,7 +311,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     ? { prisma: prismaOverride, pool: undefined }
     : createDb(env.databaseUrl, {
         poolMax,
-        applicationName: "rakazo-api",
+        applicationName: "botcamp-api",
         keyProvider: contentKeyProviderFromEnv(),
         encryptContent: env.contentEncryption,
       });
@@ -376,7 +378,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (!inMemoryJobs && !created.pool) {
     ownedJobPool = createPool(env.databaseUrl, {
       poolMax: parsePositiveInteger(process.env.DB_POOL_MAX, 4),
-      applicationName: "rakazo-api-jobs",
+      applicationName: "botcamp-api-jobs",
     });
   }
   const jobPool = created.pool ?? ownedJobPool;
@@ -515,9 +517,14 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     })
       ? new ChatSdkMessagingSurface(messagingPlatforms)
       : undefined);
-  const { messaging, installations: messagingInstallations } = messagingOverride
+  const { messaging: baseMessaging, installations: messagingInstallations } = messagingOverride
     ? { messaging: messagingOverride, installations: undefined }
     : installedMessaging(prisma, secrets, env, legacyMessaging, jobs);
+  // A test double replaces the whole surface, so it must not long-poll a chat app.
+  const personalChat = messagingOverride ? undefined : new PersonalChatBridge(prisma, secrets);
+  const messaging = personalChat
+    ? new PersonalChatSurface(personalChat, baseMessaging)
+    : baseMessaging;
   const configuredEmail = emailOverride ?? configuredEmailProvider(env);
   const localEmailEmulator =
     !configuredEmail && env.emailEmulator
@@ -887,11 +894,12 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     dataDir: env.dataDir,
     billing,
     messagingInstallations,
+    chatTools: personalChat,
     messaging: {
-      enabled: Boolean(messaging),
-      providers: messaging?.platforms().map((platform) => platform.provider) ?? [],
+      enabled: Boolean(baseMessaging),
+      providers: baseMessaging?.platforms().map((platform) => platform.provider) ?? [],
       addresses: Object.fromEntries(
-        (messaging?.platforms() ?? []).flatMap((platform) =>
+        (baseMessaging?.platforms() ?? []).flatMap((platform) =>
           platform.address ? [[platform.provider, platform.address]] : [],
         ),
       ),
@@ -1093,7 +1101,11 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user) return null;
     const actor = await actorFromMembership(
-      requireMembership(prisma, session.user.id, request.headers.get("x-rakazo-space-id")),
+      requireMembership(
+        prisma,
+        session.user.id,
+        request.headers.get("x-botcamp-space-id") || request.headers.get("x-rakazo-space-id"),
+      ),
     );
     return actor && { actor, sessionId: session.session.id };
   };
@@ -1563,7 +1575,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         sandbox: env.sandboxProvider,
         composio: Boolean(stack.composio),
         pipedream: Boolean(pipedream),
-        messaging: Boolean(messaging),
+        messaging: Boolean(baseMessaging),
         email: email?.describe().id ?? null,
         billing: billingProvider?.describe().id ?? null,
         jobs: jobKind,

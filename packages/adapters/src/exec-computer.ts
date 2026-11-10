@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { SandboxDamagedError } from "@rakazo/adapter-kit";
+import { SandboxDamagedError } from "@botcamp/adapter-kit";
 import type {
   AdapterContext,
   CommandRequest,
@@ -9,9 +9,9 @@ import type {
   ComputerRef,
   PortableFile,
   ProcessEvent,
-} from "@rakazo/adapter-kit";
-import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
-import { COMPUTER_CACHE_ENV } from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/adapter-kit";
+import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
+import { COMPUTER_CACHE_ENV } from "@botcamp/core/node/desktop-runtime";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import { sandboxCommandArgv } from "./sandbox-command-environment.js";
 import {
@@ -20,7 +20,7 @@ import {
 } from "./workspace-save-policy.js";
 
 /** The published computer image's user home, which is also the portable workspace. */
-export const COMPUTER_IMAGE_WORKSPACE = "/home/rakazo";
+export const COMPUTER_IMAGE_WORKSPACE = "/home/botcamp";
 const WORKSPACE = COMPUTER_IMAGE_WORKSPACE;
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 /** How long the `timeout` wrapper waits after SIGTERM before it kills the command's process group. */
@@ -246,7 +246,7 @@ export class ExecComputer {
     let stderr = "";
     // Kata can stall large stdout while exec also has stdin attached. Stage the
     // NUL-delimited file list separately so the archive exec only reads stdout.
-    const listPath = `/tmp/rakazo-workspace-${randomUUID()}`;
+    const listPath = `/tmp/botcamp-workspace-${randomUUID()}`;
     try {
       const staged = await this.collect(
         computer,

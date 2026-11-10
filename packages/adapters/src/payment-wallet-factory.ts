@@ -1,4 +1,4 @@
-import type { PaymentWalletProvider } from "@rakazo/adapter-kit";
+import type { PaymentWalletProvider } from "@botcamp/adapter-kit";
 import { EmulatorPaymentWalletProvider } from "./payment-wallet-emulator.js";
 
 export type PaymentWalletProviderKind = "none" | "link" | "emulator";

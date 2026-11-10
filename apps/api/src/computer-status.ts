@@ -3,10 +3,10 @@ import {
   computerSupportsUpdate,
   DISK_WARNING_PERCENT,
   diskUsedPercent,
-} from "@rakazo/adapters";
-import type { ComputerStatus } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, computerScreenSize } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+} from "@botcamp/adapters";
+import type { ComputerStatus } from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES, computerScreenSize } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 
 /** Mirrors computer.takeover: an execution lease blocks user control unless a takeover is pending. */
 export function executionBlocksUserTakeover(input: {

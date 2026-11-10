@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { McpServer } from "@rakazo/contracts";
+import type { McpServer } from "@botcamp/contracts";
 import { captureScreenshot, completeOnboarding, openIntegrationsAdd, rpc, signup } from "./helpers";
 
 const server: McpServer = {

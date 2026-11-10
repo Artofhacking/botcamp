@@ -1,6 +1,6 @@
-import type { JobPublisher, NotificationMessage, NotificationProvider } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import type { StuckWorkStatus } from "@rakazo/core";
+import type { JobPublisher, NotificationMessage, NotificationProvider } from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import type { StuckWorkStatus } from "@botcamp/core";
 import {
   isStuckWorkStatus,
   STUCK_WORK_NOTICE,
@@ -10,10 +10,10 @@ import {
   stuckWorkDueAfterMs,
   stuckWorkReminder,
   stuckWorkStoppedNotification,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { appendEventInTransaction, expireStuckRun, withTransactionRetry } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
+import { appendEventInTransaction, expireStuckRun, withTransactionRetry } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { ExpoPushProvider } from "./expo-push.js";
 import { notificationIdentity } from "./notification-identity.js";
 

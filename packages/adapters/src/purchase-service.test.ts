@@ -1,5 +1,5 @@
-import type { AdapterContext } from "@rakazo/adapter-kit";
-import { PaymentWalletDisconnected, PaymentWalletRequestRejected } from "@rakazo/adapter-kit";
+import type { AdapterContext } from "@botcamp/adapter-kit";
+import { PaymentWalletDisconnected, PaymentWalletRequestRejected } from "@botcamp/adapter-kit";
 import { Challenge, Credential } from "mppx";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {

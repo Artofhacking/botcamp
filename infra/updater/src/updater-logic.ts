@@ -10,7 +10,8 @@ import {
   RECREATED_SERVICES,
   resolveComposeProjectName,
   resolveUpdaterToken,
-} from "@rakazo/core";
+} from "@botcamp/core";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 
 export const DEFAULT_UPDATER_PORT = 7092;
 export const DEFAULT_COMPOSE_FILE = "infra/compose/docker-compose.prod.yml";
@@ -44,18 +45,20 @@ export interface UpdaterConfig {
  * `docker compose -p` stack is the one that is updated.
  */
 export function resolveUpdaterConfig(env: NodeJS.ProcessEnv): UpdaterConfig {
-  const deployDir = env.RAKAZO_DEPLOY_DIR?.trim() ?? "";
+  const deployDir = firstNonEmpty(env.BOTCAMP_DEPLOY_DIR, env.RAKAZO_DEPLOY_DIR)?.trim() ?? "";
   if (deployDir === "" || !path.posix.isAbsolute(deployDir)) {
     throw new Error("Set RAKAZO_DEPLOY_DIR to the absolute path of the deployment directory.");
   }
-  const image = env.RAKAZO_IMAGE?.trim() || OFFICIAL_SERVER_IMAGE;
+  const image = firstNonEmpty(env.BOTCAMP_IMAGE, env.RAKAZO_IMAGE)?.trim() || OFFICIAL_SERVER_IMAGE;
   if (!isValidImageName(image))
     throw new Error(`RAKAZO_IMAGE is not a usable image name: ${image}`);
   // Compose itself takes a list here (COMPOSE_FILE with COMPOSE_PATH_SEPARATOR), and a deployment
   // that layers an overlay must be reconciled with the same list the operator runs by hand. Every
   // entry is validated separately: one bad path in a list is still a path escape.
   const separator = env.COMPOSE_PATH_SEPARATOR?.trim() || DEFAULT_COMPOSE_PATH_SEPARATOR;
-  const composeFiles = (env.RAKAZO_COMPOSE_FILE?.trim() || DEFAULT_COMPOSE_FILE)
+  const composeFiles = (
+    firstNonEmpty(env.BOTCAMP_COMPOSE_FILE, env.RAKAZO_COMPOSE_FILE)?.trim() || DEFAULT_COMPOSE_FILE
+  )
     .split(separator)
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "");
@@ -70,7 +73,9 @@ export function resolveUpdaterConfig(env: NodeJS.ProcessEnv): UpdaterConfig {
   // An overlay that adds a service built from the application image has to be recreated with the
   // rest, or an update leaves it running the old code. These are appended to the built-in set
   // rather than replacing it, so a typo cannot drop `api` from an update.
-  const extraServices = (env.RAKAZO_UPDATE_SERVICES ?? "")
+  const extraServices = (
+    firstNonEmpty(env.BOTCAMP_UPDATE_SERVICES, env.RAKAZO_UPDATE_SERVICES) ?? ""
+  )
     .split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "");
@@ -91,7 +96,9 @@ export function resolveUpdaterConfig(env: NodeJS.ProcessEnv): UpdaterConfig {
     ...RECREATED_SERVICES,
     ...extraServices.filter((service) => !RECREATED_SERVICES.includes(service as never)),
   ];
-  const port = Number(env.RAKAZO_UPDATER_PORT ?? DEFAULT_UPDATER_PORT);
+  const port = Number(
+    firstNonEmpty(env.BOTCAMP_UPDATER_PORT, env.RAKAZO_UPDATER_PORT) ?? DEFAULT_UPDATER_PORT,
+  );
   if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
     throw new Error("RAKAZO_UPDATER_PORT is not a port number.");
   }
@@ -103,7 +110,7 @@ export function resolveUpdaterConfig(env: NodeJS.ProcessEnv): UpdaterConfig {
     projectName: resolveComposeProjectName(env),
     image,
     token: resolveUpdaterToken(env),
-    host: env.RAKAZO_UPDATER_HOST?.trim() || "127.0.0.1",
+    host: firstNonEmpty(env.BOTCAMP_UPDATER_HOST, env.RAKAZO_UPDATER_HOST)?.trim() || "127.0.0.1",
     port,
   };
 }
@@ -148,13 +155,40 @@ export interface TagState {
   previousTag: string | null;
 }
 
+/** The name Compose checks first, then the previous name still written in older `.env` files. */
+function readPinnedAssignment(contents: string, preferred: string, legacy: string): string | null {
+  for (const key of [preferred, legacy]) {
+    const value = readEnvAssignment(contents, key);
+    if (value !== null && value.trim() !== "") return value.trim();
+  }
+  return null;
+}
+
 /** What the deployment is pinned to now, ignoring anything in the file that is not a usable tag. */
 export function readTagState(envContents: string): TagState {
-  const current = readEnvAssignment(envContents, IMAGE_TAG_ENV);
-  const previous = readEnvAssignment(envContents, PREVIOUS_IMAGE_TAG_ENV);
+  const current = readPinnedAssignment(envContents, "BOTCAMP_IMAGE_TAG", IMAGE_TAG_ENV);
+  const previous = readPinnedAssignment(
+    envContents,
+    "BOTCAMP_IMAGE_TAG_PREVIOUS",
+    PREVIOUS_IMAGE_TAG_ENV,
+  );
   return {
     currentTag: current !== null && isValidImageTag(current) ? current : DEFAULT_IMAGE_TAG,
     previousTag: previous !== null && isValidImageTag(previous) ? previous : null,
+  };
+}
+
+/** Process environment for a Compose command, so either image-tag name overrides the file. */
+export function pinnedImageTagEnv(tag: string): Record<string, string> {
+  return { BOTCAMP_IMAGE_TAG: tag, [IMAGE_TAG_ENV]: tag };
+}
+
+/** Assignments that pin the running tag and the rollback tag under both names. */
+export function pinnedImageTags(current: string, previous: string): Record<string, string> {
+  return {
+    ...pinnedImageTagEnv(current),
+    BOTCAMP_IMAGE_TAG_PREVIOUS: previous,
+    [PREVIOUS_IMAGE_TAG_ENV]: previous,
   };
 }
 

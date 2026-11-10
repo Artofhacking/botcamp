@@ -5,11 +5,11 @@ import type {
   BackgroundJobName,
   JobPublisher,
   JobWorkerHost,
-} from "@rakazo/adapter-kit";
-import { dispatchBackgroundJob } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { isPoolCheckoutTimeout, isTooManyDatabaseConnections, runAsSystem } from "@rakazo/db";
-import { getLogger, runCorrelatedJob, unwrapJobPayload, wrapJobPayload } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { dispatchBackgroundJob } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { isPoolCheckoutTimeout, isTooManyDatabaseConnections, runAsSystem } from "@botcamp/db";
+import { getLogger, runCorrelatedJob, unwrapJobPayload, wrapJobPayload } from "@botcamp/logging";
 import type { Runner, WorkerUtils } from "graphile-worker";
 import { makeWorkerUtils, run } from "graphile-worker";
 import type { Pool } from "pg";

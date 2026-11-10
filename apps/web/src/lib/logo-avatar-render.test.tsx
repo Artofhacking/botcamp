@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { ProductEvent } from "@rakazo/contracts";
-import { BotAvatar, BotAvatarActivityProvider } from "@rakazo/ui-web";
+import type { ProductEvent } from "@botcamp/contracts";
+import { BotAvatar, BotAvatarActivityProvider } from "@botcamp/ui-web";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";

@@ -4,10 +4,10 @@ import type {
   ActionAutoReviewSettings,
   ApprovalMode,
   SettingsScope,
-} from "@rakazo/contracts";
-import { humanizeToolName, toolNameFromLabel } from "@rakazo/core";
-import { writeSaved } from "@rakazo/core/query";
-import { Button, Input, ToggleGroup, ToggleGroupItem } from "@rakazo/ui-web";
+} from "@botcamp/contracts";
+import { humanizeToolName, toolNameFromLabel } from "@botcamp/core";
+import { writeSaved } from "@botcamp/core/query";
+import { Button, Input, ToggleGroup, ToggleGroupItem } from "@botcamp/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";

@@ -1,7 +1,7 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { CapabilityInstall, PluginMarketplaceEntry } from "@rakazo/contracts";
-import { PluginPreviewSchema } from "@rakazo/contracts";
-import { installedPluginParts } from "@rakazo/core";
+import type { CapabilityInstall, PluginMarketplaceEntry } from "@botcamp/contracts";
+import { PluginPreviewSchema } from "@botcamp/contracts";
+import { installedPluginParts } from "@botcamp/core";
 import {
   Button,
   Dialog,
@@ -12,7 +12,7 @@ import {
   Field,
   FieldLabel,
   Input,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, X } from "lucide-react";
 import { useState } from "react";

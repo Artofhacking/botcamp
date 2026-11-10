@@ -1,4 +1,4 @@
-import type { BotCampDesktopSpeechEvent } from "@rakazo/contracts";
+import type { BotCampDesktopSpeechEvent } from "@botcamp/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DesktopSpeechRecognition } from "./desktop-speech.js";
 import { Dictation } from "./dictation.js";

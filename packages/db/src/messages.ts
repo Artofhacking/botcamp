@@ -1,4 +1,5 @@
-import type { MessageBlock } from "@rakazo/contracts";
+import type { MessageBlock } from "@botcamp/contracts";
+import { normalizeMessageOrigin } from "@botcamp/core";
 import type { Prisma, PrismaClient } from "./client.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
@@ -43,6 +44,7 @@ export function loadRunHistoryMessages(
       replyQuote: true,
       replyTo: { select: { id: true, threadId: true, role: true, botId: true, blocks: true } },
       clientNonce: true,
+      origin: true,
       steeringMessages: { where: { botId: run.botId, runId: null }, select: { id: true } },
     },
   });
@@ -66,6 +68,8 @@ export interface CreateThreadMessageInput {
   replyQuote?: string;
   runId?: string;
   clientNonce?: string;
+  /** `web` | `mac` | `windows` | `linux` | `android`, or `chat:<provider>`. Anything else is not stored. */
+  origin?: string;
   markUnread?: boolean;
   /** Terminal echo after the run is already cancelled. Every other write stays rejected. */
   allowCancelledRun?: boolean;
@@ -97,6 +101,7 @@ export async function createThreadMessageInTransaction(
     allowCancelled: input.allowCancelledRun,
     lease: input.lease,
   });
+  const origin = normalizeMessageOrigin(input.origin);
   return tx.message.create({
     data: {
       threadId: input.threadId,
@@ -108,6 +113,7 @@ export async function createThreadMessageInTransaction(
       replyQuote: input.replyQuote,
       runId: input.runId,
       clientNonce: input.clientNonce,
+      ...(origin ? { origin } : {}),
     },
   });
 }

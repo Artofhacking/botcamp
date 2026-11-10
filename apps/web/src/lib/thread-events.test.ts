@@ -3,12 +3,12 @@ import type {
   ProductEvent,
   ThreadMessage,
   ThreadSnapshot,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   answerableAskMessageIds,
   dismissableAskMessageIds,
   withLiveStreamingProgress,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import { describe, expect, it } from "vitest";
 import {
   activeThreadRuns,

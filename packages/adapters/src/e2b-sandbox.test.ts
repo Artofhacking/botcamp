@@ -11,7 +11,7 @@ import {
   SandboxNotFoundError,
   TimeoutError,
 } from "@e2b/desktop";
-import type { CommandRequest, ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
+import type { CommandRequest, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { sandboxIdleMs } from "./computer-idle.js";
 import { shouldSkipPortableWorkspaceFile } from "./computer-workspace.js";
@@ -257,7 +257,7 @@ describe("E2B computer backend", () => {
   });
 
   it("falls back to the stock desktop template when this account has not built it", async () => {
-    const missing = Object.assign(new SandboxError("404: template 'rakazo-computer' not found"), {
+    const missing = Object.assign(new SandboxError("404: template 'botcamp-computer' not found"), {
       statusCode: 404,
     });
     const sdk: E2BSandboxSdk = {

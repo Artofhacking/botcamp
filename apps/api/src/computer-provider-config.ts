@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
-import type { SandboxProvider, SecretStore } from "@rakazo/adapter-kit";
-import type { ResolveHostname, StoredComputerSettings } from "@rakazo/adapters";
+import type { SandboxProvider, SecretStore } from "@botcamp/adapter-kit";
+import type { ResolveHostname, StoredComputerSettings } from "@botcamp/adapters";
 import {
   assertSafeWebUrl,
   COMPUTER_PROVIDER_SECRET_KIND,
@@ -11,11 +11,11 @@ import {
   loadComputerProviderSelection,
   loadAccountComputerSettings as loadSavedAccountComputerSettings,
   refreshComputerProvider,
-} from "@rakazo/adapters";
-import type { Actor, ComputerProviderSettings, ComputerProviderUpdate } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { Prisma, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapters";
+import type { Actor, ComputerProviderSettings, ComputerProviderUpdate } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { Prisma, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { requireAdmin } from "./admins.js";
 import type { RouterDeps } from "./router.js";
 import { withSerializableRetry } from "./serializable-retry.js";

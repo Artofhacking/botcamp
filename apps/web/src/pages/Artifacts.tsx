@@ -1,10 +1,10 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChatMarkdown } from "@rakazo/chat-ui/web";
-import type { Artifact, Bot } from "@rakazo/contracts";
-import { artifactPreviewKind } from "@rakazo/contracts";
-import { artifactTypeLabel } from "@rakazo/core";
-import { writeSaved } from "@rakazo/core/query";
+import { ChatMarkdown } from "@botcamp/chat-ui/web";
+import type { Artifact, Bot } from "@botcamp/contracts";
+import { artifactPreviewKind } from "@botcamp/contracts";
+import { artifactTypeLabel } from "@botcamp/core";
+import { writeSaved } from "@botcamp/core/query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
   Spinner,
   ToggleGroup,
   ToggleGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { skipToken, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,

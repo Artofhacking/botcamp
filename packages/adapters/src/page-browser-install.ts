@@ -26,7 +26,7 @@ function computerFile(name: string): string {
     // Source, tests and the bundled server all sit somewhere below the repository root.
     for (let dir = path.dirname(fileURLToPath(import.meta.url)); ; dir = path.dirname(dir)) {
       const candidate = path.join(dir, COMPUTER_DIR);
-      if (existsSync(path.join(candidate, "rakazo-page-browser"))) {
+      if (existsSync(path.join(candidate, "botcamp-page-browser"))) {
         computerDir = candidate;
         break;
       }
@@ -56,29 +56,29 @@ export function installAgentBrowserCommand(): string {
  * so a hosted computer always runs the helper its API was released with.
  */
 export function installPageBrowserFilesCommand(): string {
-  const wrapper = computerFile("rakazo-page-browser");
+  const wrapper = computerFile("botcamp-page-browser");
   const secrets = computerFile("page_secrets.py");
   const version = createHash("sha256").update(wrapper).update("\0").update(secrets).digest("hex");
   // One archive, so both files change together.
   const archive = gzipSync(
-    JSON.stringify({ "rakazo-page-browser": wrapper, "page_secrets.py": secrets }),
+    JSON.stringify({ "botcamp-page-browser": wrapper, "page_secrets.py": secrets }),
     { level: 9 },
   ).toString("base64");
   const unpack = [
     "import gzip, json, os, sys",
     "files = json.loads(gzip.decompress(sys.stdin.buffer.read()))",
-    "os.makedirs('/usr/local/lib/rakazo', exist_ok=True)",
-    "for name, mode, target in (('page_secrets.py', 0o644, '/usr/local/lib/rakazo/page_secrets.py'),",
-    "                           ('rakazo-page-browser', 0o755, '/usr/local/bin/rakazo-page-browser')):",
+    "os.makedirs('/usr/local/lib/botcamp', exist_ok=True)",
+    "for name, mode, target in (('page_secrets.py', 0o644, '/usr/local/lib/botcamp/page_secrets.py'),",
+    "                           ('botcamp-page-browser', 0o755, '/usr/local/bin/botcamp-page-browser')):",
     "    with open(target + '.new', 'w', encoding='utf-8') as file:",
     "        file.write(files[name])",
     "    os.chmod(target + '.new', mode)",
     "    os.replace(target + '.new', target)",
-    `open('/usr/local/lib/rakazo/page-browser.version', 'w').write(${JSON.stringify(version)})`,
+    `open('/usr/local/lib/botcamp/page-browser.version', 'w').write(${JSON.stringify(version)})`,
   ].join("\n");
   return [
     "set -eu",
-    `if [ "$(cat /usr/local/lib/rakazo/page-browser.version 2>/dev/null)" = ${version} ]; then exit 0; fi`,
+    `if [ "$(cat /usr/local/lib/botcamp/page-browser.version 2>/dev/null)" = ${version} ]; then exit 0; fi`,
     asRoot,
     `printf '%s' ${shellQuote(archive)} | base64 -d | $root python3 -c ${shellQuote(unpack)}`,
   ].join("\n");
@@ -92,11 +92,11 @@ export function installPageBrowserCommand(): string {
 }
 
 function pageBrowserBundle() {
-  const wrapper = computerFile("rakazo-page-browser");
+  const wrapper = computerFile("botcamp-page-browser");
   const secrets = computerFile("page_secrets.py");
   const version = createHash("sha256").update(wrapper).update("\0").update(secrets).digest("hex");
   const archive = gzipSync(
-    JSON.stringify({ "rakazo-page-browser": wrapper, "page_secrets.py": secrets }),
+    JSON.stringify({ "botcamp-page-browser": wrapper, "page_secrets.py": secrets }),
     { level: 9 },
   ).toString("base64");
   return { version, archive };
@@ -119,7 +119,7 @@ export function installUserPageBrowserCommand(): string {
     'root = os.environ["HOME"] + "/.local/bin"',
     "os.makedirs(root, exist_ok=True)",
     "files = json.loads(gzip.decompress(sys.stdin.buffer.read()))",
-    "for name, mode in (('page_secrets.py', 0o644), ('rakazo-page-browser', 0o755)):",
+    "for name, mode in (('page_secrets.py', 0o644), ('botcamp-page-browser', 0o755)):",
     "    target = os.path.join(root, name)",
     "    with open(target + '.new', 'w', encoding='utf-8') as file:",
     "        file.write(files[name])",
@@ -129,7 +129,7 @@ export function installUserPageBrowserCommand(): string {
   ].join("\n");
   return [
     "set -eu",
-    'export HOME="${HOME:-/home/rakazo}"',
+    'export HOME="${HOME:-/home/botcamp}"',
     'prefix="${HOME:?}/.local/bin"',
     'mkdir -p "$prefix"',
     `if [ "$(cat "$prefix/page-browser.version" 2>/dev/null || true)" = ${version} ]; then exit 0; fi`,
@@ -141,9 +141,9 @@ export function installUserPageBrowserCommand(): string {
 export function pageBrowserProbeCommand(): string {
   return [
     "set -eu",
-    'export HOME="${HOME:-/home/rakazo}"',
+    'export HOME="${HOME:-/home/botcamp}"',
     'prefix="${HOME:?}/.local/bin"',
-    'if [ -x /usr/local/bin/rakazo-page-browser ] && [ -x /usr/local/bin/agent-browser ]; then echo image_ok; exit 0; fi',
+    'if [ -x /usr/local/bin/botcamp-page-browser ] && [ -x /usr/local/bin/agent-browser ]; then echo image_ok; exit 0; fi',
     "echo image_missing",
     "uname -m",
     'if [ -x "$prefix/agent-browser" ]; then sha256sum "$prefix/agent-browser"; else echo missing; fi',
@@ -176,7 +176,7 @@ export function installUserAgentBrowserCommand(arch: AgentBrowserArch): string {
   const sha256 = AGENT_BROWSER_SHA256[arch];
   return [
     "set -eu",
-    'export HOME="${HOME:-/home/rakazo}"',
+    'export HOME="${HOME:-/home/botcamp}"',
     'prefix="${HOME:?}/.local/bin"',
     'mkdir -p "$prefix"',
     'tmp="$prefix/agent-browser.new"',

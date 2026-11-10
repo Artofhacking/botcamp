@@ -1,7 +1,7 @@
-import type { Actor } from "@rakazo/contracts";
-import { RoutineHistorySchema } from "@rakazo/contracts";
-import { runFailureError } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import type { Actor } from "@botcamp/contracts";
+import { RoutineHistorySchema } from "@botcamp/contracts";
+import { runFailureError } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import { listRoutineRuns } from "./routine-runs.js";
 

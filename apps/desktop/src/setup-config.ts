@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import type { DesktopSetup, DesktopStackProbeResponse } from "@rakazo/contracts";
-import { parseServerHeaders } from "@rakazo/contracts";
-import { isLoopbackHost, isPrivateNetworkHost } from "@rakazo/contracts/network-host";
+import type { DesktopSetup, DesktopStackProbeResponse } from "@botcamp/contracts";
+import { parseServerHeaders } from "@botcamp/contracts";
+import { isLoopbackHost, isPrivateNetworkHost } from "@botcamp/contracts/network-host";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { t } from "./i18n.js";
 
 /** Managed desktop origin; development keeps its usual web/API ports. */
@@ -16,9 +17,7 @@ export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 export const SETUP_FILE_NAME = "setup.json";
 
-export type StartupTarget =
-  | { kind: "app"; url: string; source: "env" | "saved" | "cloud" }
-  | { kind: "setup" };
+export type StartupTarget = { kind: "app"; url: string; source: "env" | "cloud" };
 
 /** The hosted instance a fresh install opens, stored like a chosen existing server. */
 export function botcampCloudSetup(): DesktopSetup {
@@ -196,38 +195,27 @@ export function serializeSetup(setup: DesktopSetup): string {
 }
 
 /**
- * Replaces BotCamp Cloud when nothing is saved. `RAKAZO_WEB_URL` and a saved setup still win.
+ * Replaces the hosted console when set. `RAKAZO_WEB_URL` still wins over it.
  */
-export const DEFAULT_SERVER_URL = (process.env.RAKAZO_DEFAULT_SERVER_URL ?? "").trim();
+export const DEFAULT_SERVER_URL = (
+  firstNonEmpty(process.env.BOTCAMP_DEFAULT_SERVER_URL, process.env.RAKAZO_DEFAULT_SERVER_URL) ?? ""
+).trim();
 
 /**
- * Decides between the server chooser and the app window.
- * `RAKAZO_WEB_URL` still wins over saved configuration so test and performance
- * harnesses can point the shell anywhere without touching a user's real setup.
- * `RAKAZO_FORCE_SETUP` shows the chooser. A fresh install opens BotCamp Cloud's
- * console. A saved choice is reopened at its page when it has one. An unusable
- * saved address shows the chooser.
+ * Decides which page the desktop window opens.
+ * `RAKAZO_WEB_URL` still wins so a development shell can point at a local checkout.
+ * A person opening the app goes to the hosted console, including when an older
+ * install saved another server. There is no server chooser.
  */
 export function resolveStartupTarget(input: {
   envUrl?: string;
   saved?: DesktopSetup | null;
-  forceSetup?: boolean;
 }): StartupTarget {
-  if (input.forceSetup === true) return { kind: "setup" };
-
   const envUrl = input.envUrl?.trim();
   if (envUrl !== undefined && envUrl !== "") return { kind: "app", url: envUrl, source: "env" };
 
-  if (DEFAULT_SERVER_URL !== "" && input.saved == null) {
+  if (DEFAULT_SERVER_URL !== "") {
     return { kind: "app", url: DEFAULT_SERVER_URL, source: "env" };
-  }
-
-  if (input.saved != null) {
-    const saved = parseSetupInput(input.saved);
-    if (saved !== null) {
-      return { kind: "app", url: saved.pageUrl ?? saved.serverUrl, source: "saved" };
-    }
-    return { kind: "setup" };
   }
 
   const cloud = botcampCloudSetup();

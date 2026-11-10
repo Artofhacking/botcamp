@@ -1,5 +1,5 @@
-import { escapePromptData } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import { escapePromptData } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import type { ScratchpadToolDeps } from "./scratchpad-tools.js";
 import { listScratchpadItems } from "./scratchpad-tools.js";
 import { byteLength, truncateUtf8 } from "./utf8.js";

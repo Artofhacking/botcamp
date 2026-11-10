@@ -1,6 +1,6 @@
-import type { DurableMemoryScope, SecretStore, SemanticMemoryProvider } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { DurableMemoryScope, SecretStore, SemanticMemoryProvider } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import {
   createHonchoProvider,
   HONCHO_PROVIDER_ID,

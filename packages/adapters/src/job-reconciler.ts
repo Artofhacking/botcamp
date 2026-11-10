@@ -1,11 +1,11 @@
 import { setImmediate } from "node:timers/promises";
-import type { JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
-import { messagingDeliverJob, routineWakeupJob, runContinueJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { stuckWorkStatusMessages } from "@rakazo/core";
-import type { Pool, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { reconcileComputerRuns } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { JobPublisher, NotificationProvider } from "@botcamp/adapter-kit";
+import { messagingDeliverJob, routineWakeupJob, runContinueJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { stuckWorkStatusMessages } from "@botcamp/core";
+import type { Pool, PrismaClient, ThreadEvents } from "@botcamp/db";
+import { reconcileComputerRuns } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { PoolClient } from "pg";
 import { returnBotMessageOutcome } from "./bot-messages.js";
 import { reconcileCallRequests } from "./call-request.js";

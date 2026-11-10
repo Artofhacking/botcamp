@@ -43,6 +43,8 @@ test("desktop, android, admin, homepage, computer, and supervisor stay apart", (
 test("the plan names the command and an empty diff says so", () => {
   const text = formatPlan(shipPlaces(["apps/api/src/router.ts"]));
   assert.match(text, /pnpm --filter @botcamp\/api build/);
+  assert.match(text, /release-tag\.sh deploy/);
+  assert.match(text, /Only a vX\.Y\.Z tag/);
   assert.match(text, /Leave \.env/);
   assert.equal(formatPlan([]), "ship-plan\nnothing to publish\n");
 });

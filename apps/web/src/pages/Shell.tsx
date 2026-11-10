@@ -5,8 +5,8 @@ import type {
   SpaceMemoryConfig,
   ThreadMessage,
   VoiceStatus,
-} from "@rakazo/contracts";
-import { DEFAULT_NEW_BOT_AVATAR_SET } from "@rakazo/contracts";
+} from "@botcamp/contracts";
+import { DEFAULT_NEW_BOT_AVATAR_SET } from "@botcamp/contracts";
 import {
   answerableAskMessageIds,
   channelMessageSender,
@@ -17,11 +17,11 @@ import {
   isActive,
   isRunWorking,
   memberName,
-} from "@rakazo/core";
-import { fetchFresh, writeSaved } from "@rakazo/core/query";
-import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { Button } from "@rakazo/ui-web";
-import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
+} from "@botcamp/core";
+import { fetchFresh, writeSaved } from "@botcamp/core/query";
+import type { GroupAvatarMember } from "@botcamp/ui-web";
+import { Button } from "@botcamp/ui-web";
+import { useIsMobile } from "@botcamp/ui-web/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {

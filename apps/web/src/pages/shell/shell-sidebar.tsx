@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot, Group, NavLink } from "@rakazo/contracts";
-import { accountDisplay } from "@rakazo/core";
+import type { Bot, Group, NavLink } from "@botcamp/contracts";
+import { accountDisplay } from "@botcamp/core";
 import {
   Button,
   InputGroup,
@@ -8,7 +8,7 @@ import {
   InputGroupButton,
   InputGroupInput,
   Sidebar,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { Search, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";

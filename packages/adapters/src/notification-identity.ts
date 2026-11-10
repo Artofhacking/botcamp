@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { notificationAvatarSource } from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+import { notificationAvatarSource } from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 
 const MAX_AVATAR_BYTES = 1050;
 const MAX_CACHED_AVATARS = 1000;

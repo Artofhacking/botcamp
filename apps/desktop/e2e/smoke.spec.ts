@@ -1,6 +1,6 @@
 import path from "node:path";
 import { _electron as electron, expect, test } from "@playwright/test";
-import type { BotCampDesktop } from "@rakazo/contracts";
+import type { BotCampDesktop } from "@botcamp/contracts";
 
 const fixture = `<!doctype html>
 <html lang="en">

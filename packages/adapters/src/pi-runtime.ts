@@ -17,15 +17,15 @@ import type {
   AgentSteeringMessage,
   AgentUsage,
   ModelCallObserver,
-} from "@rakazo/adapter-kit";
-import { ModelAccountError, ModelOutputError, TransientModelError } from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
+import { ModelAccountError, ModelOutputError, TransientModelError } from "@botcamp/adapter-kit";
 import {
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
   MODEL_IMAGE_INPUT_ERROR,
   MODEL_OUTPUT_CUT_ERROR,
   modelFallbackFailure,
-} from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 import {
   isTerminatingReplyResult,
   terminatingReplyText,
@@ -122,7 +122,7 @@ export const SILENT_ALLOWED_TOOL_CONTINUATION_PROMPT = automated(
 // Shown as a failed-run error, not an assistant message. Asking the user to
 // continue stores that sentence as the reply, and the next "continue" runs
 // tools and misses a final answer again.
-export { MISSING_TOOL_FINAL_RESPONSE_ERROR } from "@rakazo/core";
+export { MISSING_TOOL_FINAL_RESPONSE_ERROR } from "@botcamp/core";
 
 export interface PiAgentRuntimeOptions {
   /** Directory where Pi JSONL sessions are written. Omit to disable recording. */

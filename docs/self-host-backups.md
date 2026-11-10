@@ -11,7 +11,7 @@ a snapshot or a moment in time.
 
 This dumps Postgres (`pg_dump`) and archives `data/` into `backups/<stamp>/`. Backup
 directories have mode `0700`, and both artifacts have mode `0600`, including on reused paths.
-A missing `data/` or `RAKAZO_BACKUP_SKIP_HOMES=1` produces an empty archive that restore treats
+A missing `data/` or `BOTCAMP_BACKUP_SKIP_HOMES=1` produces an empty archive that restore treats
 as omitted homes. Database or archive errors fail the backup. Discard the output directory of
 any failed run.
 
@@ -52,8 +52,8 @@ need that rollback. This script does not consume the production snapshot's custo
 For the single-VM production layout, install `infra/compose/backup-prod.sh` as
 `/usr/local/sbin/rakazo-backup` and enable the supplied `rakazo-backup.timer`. It creates a verified
 Postgres custom-format dump plus an application-data archive under `/var/backups/rakazo`, with mode
-`0600`. It keeps up to `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`), bounded by
-`RAKAZO_BACKUP_MAX_GB` (default `50` GiB), and reserves `RAKAZO_BACKUP_MIN_FREE_GB` (default `5`
+`0600`. It keeps up to `BOTCAMP_BACKUP_KEEP` verified snapshots (default `3`), bounded by
+`BOTCAMP_BACKUP_MAX_GB` (default `50` GiB), and reserves `BOTCAMP_BACKUP_MIN_FREE_GB` (default `5`
 GiB) of free disk space. Before starting, it removes abandoned partial snapshots and excess history,
 then checks capacity by scaling only the previous appdata archive by appdata source growth,
 plus the previous database dump size. Snapshots without source-size
@@ -63,7 +63,7 @@ partial snapshot. Local snapshots alone do not survive losing the host; encrypt 
 off-site as described below.
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
-`RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
+`BOTCAMP_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
 (mode `0600`). The service reads this optional file on each run; the script uses the selected
 checkout's `.env` and production Compose file. If the stack was started with a custom `-p`,
 set the same `COMPOSE_PROJECT_NAME` in that file. Set the retention and space settings there too.
@@ -72,7 +72,7 @@ When updating an existing installation, reinstall the script and units, then run
 
 For a dedicated backup disk, mount it persistently and bind its `backups` directory onto
 `/var/backups` in `/etc/fstab`. Add `x-systemd.requires-mounts-for=/mnt/your-backup-volume` to the bind
-mount options. Set `RAKAZO_BACKUP_REQUIRE_VOLUME=1` and add a service drop-in containing
+mount options. Set `BOTCAMP_BACKUP_REQUIRE_VOLUME=1` and add a service drop-in containing
 `RequiresMountsFor=/var/backups` and `AssertPathIsMountPoint=/var/backups` under `[Unit]`. The script
 then refuses to fall back to root storage if the mount is missing or points at the root filesystem.
 
@@ -91,8 +91,8 @@ age-keygen -o rakazo-backup.key   # prints "Public key: age1..."
 `/etc/rakazo/backup.env`, separated by spaces, or point at a recipients file with one key per line:
 
 ```env
-RAKAZO_BACKUP_AGE_RECIPIENTS=age1exampleprimaryrecipient age1examplerecoveryrecipient
-# or: RAKAZO_BACKUP_AGE_RECIPIENTS_FILE=/etc/rakazo/backup-recipients.txt
+BOTCAMP_BACKUP_AGE_RECIPIENTS=age1exampleprimaryrecipient age1examplerecoveryrecipient
+# or: BOTCAMP_BACKUP_AGE_RECIPIENTS_FILE=/etc/rakazo/backup-recipients.txt
 ```
 
 With recipients set, each snapshot holds `rakazo.dump.age`, `appdata.tgz.age`, `SOURCE_SIZE_KB`,
@@ -103,16 +103,16 @@ files.
 
 Without recipients the backup stays plaintext as before, logs a warning, and the host check alerts
 that the latest backup is not encrypted. After the first encrypted backup, a run without recipients
-fails instead of quietly writing plaintext. Set `RAKAZO_BACKUP_ALLOW_PLAINTEXT=1` only to accept
+fails instead of quietly writing plaintext. Set `BOTCAMP_BACKUP_ALLOW_PLAINTEXT=1` only to accept
 plaintext on purpose; it also silences the host-check alert.
 
-For an off-site copy, install `rclone` and set `RAKAZO_BACKUP_OFFSITE_REMOTE` to any
+For an off-site copy, install `rclone` and set `BOTCAMP_BACKUP_OFFSITE_REMOTE` to any
 [rclone remote](https://rclone.org/overview/) and path, such as an S3-compatible bucket or an SFTP
 server. Configure the remote with rclone's own settings in the same file, for example:
 
 ```env
-RAKAZO_BACKUP_OFFSITE_REMOTE=offsite:rakazo-backups
-RAKAZO_BACKUP_OFFSITE_KEEP=14
+BOTCAMP_BACKUP_OFFSITE_REMOTE=offsite:rakazo-backups
+BOTCAMP_BACKUP_OFFSITE_KEEP=14
 RCLONE_CONFIG_OFFSITE_TYPE=s3
 RCLONE_CONFIG_OFFSITE_PROVIDER=Other
 RCLONE_CONFIG_OFFSITE_ENDPOINT=https://s3.example.com
@@ -122,8 +122,8 @@ RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY=replace-me
 
 After each verified local snapshot, the encrypted files are uploaded to `<remote>/<stamp>/`,
 checked with `rclone check`, and only then given `SHA256SUMS`, which marks the copy complete. Off-site copies require encryption. The remote
-keeps the newest `RAKAZO_BACKUP_OFFSITE_KEEP` complete snapshots (default `14`), independent of
-`RAKAZO_BACKUP_KEEP`; only stamp-named directories are removed. Set it to `0` to leave deletion to
+keeps the newest `BOTCAMP_BACKUP_OFFSITE_KEEP` complete snapshots (default `14`), independent of
+`BOTCAMP_BACKUP_KEEP`; only stamp-named directories are removed. Set it to `0` to leave deletion to
 the bucket's lifecycle rules, so the credentials need list, read and write but no delete permission. A failed upload keeps the
 local snapshot but fails the service, so the backup alert fires.
 
@@ -206,14 +206,14 @@ before moving anything. Switching the tree alone does not roll back the database
 Plaintext snapshots use `cat` in place of `age -d` and the filenames `rakazo.dump` and
 `appdata.tgz`. Use the same clean-directory procedure.
 
-To restore into a new stack, create the `rakazo_app` role before the procedure above. The dump
+To restore into a new stack, create the `botcamp_app` role before the procedure above. The dump
 grants to it, and on a new stack only the migration step would create it, so `pg_restore`
 stops without it. Do not run the migrations first: tables newer than the snapshot would block
 the restore. The procedure's final start applies them.
 
 ```bash
 ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait postgres"
-ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"CREATE ROLE rakazo_app NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE\"'"
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"CREATE ROLE botcamp_app NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE\"'"
 ```
 
 ## Point-in-time recovery
@@ -270,7 +270,7 @@ cluster's system identifier, so a new cluster never overwrites an old one's WAL.
 
 The sidecar's health check fails when an upload has waited over ten minutes, streaming is paused,
 nothing is streaming from the slot, or the last base backup is over 30 hours old. With
-`RAKAZO_MONITOR_COMPOSE_PROJECT` set, the host check alerts on it. For details:
+`BOTCAMP_MONITOR_COMPOSE_PROJECT` set, the host check alerts on it. For details:
 
 ```bash
 sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec pitr rakazo-pitr health

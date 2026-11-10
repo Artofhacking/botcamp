@@ -1,7 +1,7 @@
 // `tsx src/cli/set-bot-tier.ts <botId|botName> <small|big>`
 // Moves one bot's computer between the deployment's default provider and the burst one.
-import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
-import { createDb, runAsSystem } from "@rakazo/db";
+import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
+import { createDb, runAsSystem } from "@botcamp/db";
 
 const [target, tier] = process.argv.slice(2);
 const tiers = new Set(["small", "big", "desktop"]);

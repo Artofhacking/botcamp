@@ -1,5 +1,5 @@
-import { FLEET_WRITE_TOOL_NAMES } from "@rakazo/contracts";
-import { runReadsThreadHistory, toolRequiresExplicitApproval } from "@rakazo/core";
+import { FLEET_WRITE_TOOL_NAMES } from "@botcamp/contracts";
+import { runReadsThreadHistory, toolRequiresExplicitApproval } from "@botcamp/core";
 import { MODEL_CANNOT_SEE_MESSAGE } from "./model-vision.js";
 import { replyGuidanceForOfferedTools } from "./run-replies.js";
 import type { UserComputerState } from "./run-tools-user-computer.js";
@@ -299,7 +299,7 @@ function toolUsageLine(parts: {
     webLookupClause(disabled),
     ...secretGuidance(disabled),
     builtinOffered(disabled, "connect_app")
-      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱, then wait for them. When mailbox_list is available, use it to read the connected mailbox."
+      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱 and Notion, then wait for them. When mailbox_list is available, use it to read the connected mailbox."
       : undefined,
     builtinOffered(disabled, "remember") ? "Use remember for durable facts." : undefined,
     scratchpadClause(disabled),

@@ -1,13 +1,13 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { EncryptedSecretStore, InMemoryRealtimeFanout } from "@rakazo/adapters";
-import type { AgentImportPlan, Bot, MemoryDocument } from "@rakazo/contracts";
-import { resolveEncryptionKey } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
-import { createDb, createSpaceForMember } from "@rakazo/db";
+import { EncryptedSecretStore, InMemoryRealtimeFanout } from "@botcamp/adapters";
+import type { AgentImportPlan, Bot, MemoryDocument } from "@botcamp/contracts";
+import { resolveEncryptionKey } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
+import { createDb, createSpaceForMember } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-// The app's own logger module (the API resolves `@rakazo/logging` to this file).
+// The app's own logger module (the API resolves `@botcamp/logging` to this file).
 import { createLogger, createTestSink, installLogger } from "../../logging/src/index.js";
 import { sessionCookieHeader } from "./index.js";
 import { asSystem } from "./system-db.js";
@@ -115,7 +115,7 @@ describeIntegration("agent import", () => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-agent-import-"));
 
   beforeAll(async () => {
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     const handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,
       dataDir,
@@ -1032,7 +1032,7 @@ describeIntegration("agent import", () => {
     // Short enough that a JSON parse error quotes it whole, so a leaked error would show it.
     const canary = "ph7f3e9";
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     try {
       for (const ciphertext of [
         (await store.put(`${canary} is not JSON`, putContext, { recordId: secret.id })).ciphertext,
@@ -1066,7 +1066,7 @@ describeIntegration("agent import", () => {
         "imported mcp server credential could not be read",
       );
     } finally {
-      installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+      installLogger(createLogger({ service: "botcamp-api", level: "off", sinks: [] }));
     }
 
     // A record without the requirements it was shown (older data) counts as not done.

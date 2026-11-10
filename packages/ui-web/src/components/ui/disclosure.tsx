@@ -2,8 +2,8 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@rakazo/ui-web/components/ui/collapsible";
-import { cn } from "@rakazo/ui-web/lib/utils";
+} from "@botcamp/ui-web/components/ui/collapsible";
+import { cn } from "@botcamp/ui-web/lib/utils";
 import { ChevronDown } from "lucide-react";
 import type * as React from "react";
 

@@ -1,7 +1,7 @@
-import type { Actor } from "@rakazo/contracts";
-import { AuditEventFilterSchema } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { auditLogOrganization, exportAuditEvents, recordAuditEvent } from "@rakazo/db";
+import type { Actor } from "@botcamp/contracts";
+import { AuditEventFilterSchema } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { auditLogOrganization, exportAuditEvents, recordAuditEvent } from "@botcamp/db";
 import type { Hono } from "hono";
 
 /** `GET /api/audit-events/export`: the organization's audit log as JSON Lines, newest first. */

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import type { BotCampDesktop, BotCampSetup } from "@rakazo/contracts";
+import type { BotCampDesktop, BotCampSetup } from "@botcamp/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 function runPreload(

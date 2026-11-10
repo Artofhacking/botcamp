@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { Routine, RoutineHistory } from "@rakazo/contracts";
+import type { Routine, RoutineHistory } from "@botcamp/contracts";
 import {
   activeBotId,
   captureScreenshot,

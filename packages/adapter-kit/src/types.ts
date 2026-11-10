@@ -5,7 +5,7 @@ import type {
   ModelApiProtocol,
   PurchaseCardField,
   SandboxKind,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 
 export interface AdapterContext {
   operationId: string;

@@ -1,5 +1,5 @@
-import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
-import { secureHttpOrigin } from "@rakazo/contracts/network-host";
+import { USER_DEVICE_CONNECT_PATH } from "@botcamp/contracts";
+import { secureHttpOrigin } from "@botcamp/contracts/network-host";
 import WebSocket from "ws";
 import type { HostComputerFrame } from "./host-computer-protocol.js";
 import { HOST_COMPUTER_MAX_BYTES } from "./host-computer-protocol.js";

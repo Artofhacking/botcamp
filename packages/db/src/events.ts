@@ -1,4 +1,4 @@
-import type { ProductAnalytics, RealtimeFanout } from "@rakazo/adapter-kit";
+import type { ProductAnalytics, RealtimeFanout } from "@botcamp/adapter-kit";
 import type {
   BotSecretDestination,
   ChatAlert,
@@ -6,7 +6,7 @@ import type {
   MessageBlock,
   OneTimeCodeTarget,
   ProductEvent,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   AnalyticsTrigger,
   BOT_INSTRUCTIONS_MAX_LENGTH,
@@ -17,11 +17,12 @@ import {
   MessageBlock as MessageBlockSchema,
   normalizeOneTimeCode,
   ThreadActivityPayloadSchema,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   blocksToAgentHistoryText,
   callIdFromClientNonce,
+  formatMessageOriginInstruction,
   instructionUpdateDiff,
   isApprovalAskBlock,
   isConversationalRun,
@@ -37,10 +38,10 @@ import {
   SITE_SENDING_TOOLS,
   STEERING_CONTINUATION_PROMPT,
   sanitizeJsonValue,
-} from "@rakazo/core";
-import { urlSite } from "@rakazo/core/egress";
-import { approvalEffectKey } from "@rakazo/core/node/approval-effect-key";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import { urlSite } from "@botcamp/core/egress";
+import { approvalEffectKey } from "@botcamp/core/node/approval-effect-key";
+import { getLogger } from "@botcamp/logging";
 import { saveApprovalRule, storedBatchActions } from "./approval-settings.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import { createChatAlerts } from "./chat-alerts.js";
@@ -175,6 +176,8 @@ export interface ClaimedSteeringMessage {
    * chat, someone else in a connected chat, or a webhook.
    */
   origin: "user" | "member" | "messaging" | "webhook";
+  /** Where the message arrived from, when that is known. */
+  arrivedFrom?: string;
 }
 
 export interface FinalizeRunResult {
@@ -312,6 +315,8 @@ export interface SendUserMessageInput {
   prompt: string;
   trigger: "user" | "follow_up" | "webhook" | "messaging";
   clientNonce?: string;
+  /** `web` | `mac` | `windows` | `linux` | `android`, or `chat:<provider>`. */
+  origin?: string;
   linkMessageToRun?: boolean;
   /** Internal bot sender: enforce both bots' cross-space policy in the write transaction. */
   crossSpaceSenderBotId?: string;
@@ -537,6 +542,7 @@ export async function sendUserMessage(
         role: "user",
         blocks: input.blocks,
         clientNonce: input.clientNonce,
+        origin: input.origin,
       });
       if (
         input.crossSpaceSenderBotId &&
@@ -748,7 +754,7 @@ async function claimSteeringOnce(
               : {}),
         },
       },
-      include: { message: { select: { blocks: true, seq: true } } },
+      include: { message: { select: { blocks: true, seq: true, origin: true } } },
       orderBy: [{ message: { seq: "asc" } }, { id: "asc" }],
     });
     if (steering.length === 0) return [];
@@ -799,20 +805,24 @@ async function claimSteeringOnce(
         ? ownAddresses.has(`${group.provider}:${group.fromAddress}`)
         : item.userId === run.userId;
     };
-    return steering.map((item) => ({
-      id: item.id,
-      messageId: item.messageId,
-      text: blocksToAgentHistoryText(item.message.blocks as MessageBlock[]),
-      blocks: item.message.blocks as MessageBlock[],
-      origin:
-        item.originTrigger === "webhook"
-          ? ("webhook" as const)
-          : sentByRunPerson(item)
-            ? ("user" as const)
-            : item.originTrigger === "messaging"
-              ? ("messaging" as const)
-              : ("member" as const),
-    }));
+    return steering.map((item) => {
+      const arrivedFrom = formatMessageOriginInstruction(item.message.origin);
+      return {
+        id: item.id,
+        messageId: item.messageId,
+        text: blocksToAgentHistoryText(item.message.blocks as MessageBlock[]),
+        blocks: item.message.blocks as MessageBlock[],
+        ...(arrivedFrom ? { arrivedFrom } : {}),
+        origin:
+          item.originTrigger === "webhook"
+            ? ("webhook" as const)
+            : sentByRunPerson(item)
+              ? ("user" as const)
+              : item.originTrigger === "messaging"
+                ? ("messaging" as const)
+                : ("member" as const),
+      };
+    });
   });
 }
 

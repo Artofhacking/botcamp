@@ -1,21 +1,23 @@
-import type { AgentRunRequest, ComputerRef, SemanticMemoryProvider } from "@rakazo/adapter-kit";
+import type { AgentRunRequest, ComputerRef, SemanticMemoryProvider } from "@botcamp/adapter-kit";
 import {
   DEFAULT_CONTEXT_STRATEGY,
   isModelCredentialRejected,
   runContinueJob,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
-} from "@rakazo/adapter-kit";
-import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import type { MessageBlock, ModelRoleChoice, RunStatus } from "@botcamp/contracts";
 import {
   BOT_MANAGEMENT_TOOL_NAMES,
   disabledBuiltinToolSet,
   usableModelId,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
+  appendMessageOrigin,
   assertTransition,
   botMessageAllowsSilence,
   expandSkillReferencesInPrompt,
+  formatMessageOriginInstruction,
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
   isBackgroundRunTrigger,
@@ -35,8 +37,8 @@ import {
   renderBotDirectory,
   userRunError,
   userTurnMessageForRun,
-} from "@rakazo/core";
-import type { ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import type { ThreadEvents } from "@botcamp/db";
 import {
   availableInSpace,
   effectiveMemoryScope,
@@ -51,9 +53,9 @@ import {
   settleReleasedTakeoverCards,
   spaceHasModelAccess,
   teamChatRunFromOwner,
-} from "@rakazo/db";
-import { enrichLogContext, getLogger } from "@rakazo/logging";
-import { sanitizedError } from "@rakazo/logging/monitoring";
+} from "@botcamp/db";
+import { enrichLogContext, getLogger } from "@botcamp/logging";
+import { sanitizedError } from "@botcamp/logging/monitoring";
 import { formatAgentEnvironmentInstruction } from "./agent-environment.js";
 import { createApprovedEffectReplayQueue } from "./approval-effect.js";
 import { PARTIAL_REPLY_NOTE } from "./automated-messages.js";
@@ -545,7 +547,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           run.trigger === "messaging" && run.sourceMessageId
             ? await deps.prisma.message.findUnique({
                 where: { id: run.sourceMessageId },
-                select: { blocks: true, clientNonce: true },
+                select: { blocks: true, clientNonce: true, origin: true },
               })
             : null;
         const sourceBlocks = messagingSource?.blocks as MessageBlock[] | undefined;
@@ -734,9 +736,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             messages: [...messages].reverse().map((m) => {
               const speaker = historySpeaker(speakers, m);
               // In a group, turns from several speakers are joined, so no line may pose as a label.
-              const text = speakers
+              const body = speakers
                 ? neutralizeSpeakerLabels(messageToAgentHistoryText(m))
                 : messageToAgentHistoryText(m);
+              const text = m.role === "user" ? appendMessageOrigin(body, m.origin) : body;
               return {
                 id: m.id,
                 createdAt: m.createdAt?.toISOString(),
@@ -1338,7 +1341,13 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           (run.trigger === "user" || run.trigger === "follow_up") && run.sourceMessageId
             ? await deps.prisma.message.findUnique({
                 where: { id: run.sourceMessageId },
-                select: { clientNonce: true, role: true, blocks: true, threadId: true },
+                select: {
+                  clientNonce: true,
+                  role: true,
+                  blocks: true,
+                  threadId: true,
+                  origin: true,
+                },
               })
             : null;
         // Calls carry no schema flag: the sending client encodes them in the clientNonce.
@@ -1714,7 +1723,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           approvalContinuation,
           // A hang-up turn is read, not heard: no spoken-reply constraint.
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
-          // Per-turn, not in the system prompt: the timestamp changes every call and would break the cacheable prefix.
+          // Per-turn, not in the system prompt. The next message can arrive from somewhere else,
+          // and the clock changes every call; either one would break the cacheable prefix.
+          formatMessageOriginInstruction(sourceMessage?.origin ?? messagingSource?.origin),
           formatCurrentTimeInstruction(new Date(), userTimeZone),
           lateRoutineNote,
         ]

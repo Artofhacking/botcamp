@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
@@ -13,7 +14,9 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     // The migrate command passes a copy without the deferred migrations it holds back.
-    path: process.env.RAKAZO_MIGRATIONS_PATH || "prisma/migrations",
+    path:
+      firstNonEmpty(process.env.BOTCAMP_MIGRATIONS_PATH, process.env.RAKAZO_MIGRATIONS_PATH) ||
+      "prisma/migrations",
   },
   datasource: {
     // Migrations run as the owner role; DATABASE_URL may be the app's runtime login.

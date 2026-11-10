@@ -1,6 +1,6 @@
-import type { SandboxProvider } from "@rakazo/adapter-kit";
-import { computerProviderDescriptors } from "@rakazo/adapters";
-import type { PrismaClient } from "@rakazo/db";
+import type { SandboxProvider } from "@botcamp/adapter-kit";
+import { computerProviderDescriptors } from "@botcamp/adapters";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   effectiveSandboxProvider,

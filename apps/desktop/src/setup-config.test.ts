@@ -235,18 +235,17 @@ describe("startup target", () => {
       url: BOTCAMP_CLOUD_PAGE_URL,
       source: "cloud",
     });
-    expect(resolveStartupTarget({ forceSetup: true })).toEqual({ kind: "setup" });
   });
 
-  it("opens the saved instance on later launches", () => {
+  it("opens the hosted console even when an older install saved another server", () => {
     expect(resolveStartupTarget({ saved })).toEqual({
       kind: "app",
-      url: "https://rakazo.example.com",
-      source: "saved",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
     });
   });
 
-  it("reopens a saved page instead of the server origin", () => {
+  it("opens the hosted console instead of a saved page", () => {
     expect(
       resolveStartupTarget({
         saved: {
@@ -259,7 +258,7 @@ describe("startup target", () => {
     ).toEqual({
       kind: "app",
       url: BOTCAMP_CLOUD_PAGE_URL,
-      source: "saved",
+      source: "cloud",
     });
   });
 
@@ -272,23 +271,28 @@ describe("startup target", () => {
   });
 
   it("ignores an empty RAKAZO_WEB_URL", () => {
-    expect(resolveStartupTarget({ envUrl: "   ", saved }).kind).toBe("app");
-    expect(resolveStartupTarget({ envUrl: "   ", saved })).toMatchObject({ source: "saved" });
+    expect(resolveStartupTarget({ envUrl: "   ", saved })).toEqual({
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
+    });
   });
 
-  it("re-runs setup when forced, even with saved configuration", () => {
-    expect(resolveStartupTarget({ saved, forceSetup: true })).toEqual({ kind: "setup" });
-  });
-
-  it("re-runs setup when the saved address is unusable", () => {
+  it("opens the hosted console when the saved address is unusable", () => {
     expect(resolveStartupTarget({ saved: { mode: "new", serverUrl: "nope://x" } })).toEqual({
-      kind: "setup",
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
     });
     expect(
       resolveStartupTarget({
         saved: { mode: "new", serverUrl: "http://192.168.1.20:3100" },
       }),
-    ).toEqual({ kind: "setup" });
+    ).toEqual({
+      kind: "app",
+      url: BOTCAMP_CLOUD_PAGE_URL,
+      source: "cloud",
+    });
   });
 });
 

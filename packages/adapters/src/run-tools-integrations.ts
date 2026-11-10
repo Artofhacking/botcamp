@@ -1,10 +1,11 @@
-import { normalizedHttpUrl } from "@rakazo/core/egress";
+import { normalizedHttpUrl } from "@botcamp/core/egress";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
 import { isMailboxAppName } from "./mailbox-app.js";
 import { loadSavedMailbox } from "./mailbox-connection.js";
 import { addMcpServerFromTool } from "./mcp-server-tool.js";
+import { isNotionAppName, NOTION_APP_NAME, NOTION_MCP_ENDPOINT } from "./notion-app.js";
 import type { RunContext } from "./run-context.js";
 import { runScopedToolExecutionId } from "./run-effects.js";
 import { flushProgress, publishMidTurnNarration, showNarrationStatus } from "./run-progress.js";
@@ -91,10 +92,37 @@ export const integrationTools: ToolHandlers = {
     return call.finish(await addMcpServerFromTool(deps, run, bot.id, args, executionId));
   },
   async connect_app(ctx, call) {
-    const { deps, run, runId, context } = ctx;
+    const { deps, run, runId, context, bot } = ctx;
     const { args, executionId, applied } = call;
     await flushProgress(ctx);
     await showNarrationStatus(ctx, await publishMidTurnNarration(ctx, true));
+    if (typeof args.app === "string" && isNotionAppName(args.app)) {
+      const existing = await deps.prisma.mcpServer.findFirst({
+        where: { userId: run.userId, spaceId: run.spaceId, endpoint: NOTION_MCP_ENDPOINT },
+        select: { id: true },
+      });
+      if (existing) {
+        return call.finish({
+          status: "pending",
+          message:
+            "Notion is already added. Ask the user to choose Connect on Notion in Integrations, or to authorize the card already in the chat.",
+        });
+      }
+      return call.finish(
+        await addMcpServerFromTool(
+          deps,
+          run,
+          bot.id,
+          {
+            name: NOTION_APP_NAME,
+            transport: "streamable_http",
+            endpoint: NOTION_MCP_ENDPOINT,
+            description: "Search and edit pages and databases.",
+          },
+          executionId,
+        ),
+      );
+    }
     const mailboxConnected =
       typeof args.app === "string" && isMailboxAppName(args.app)
         ? Boolean(

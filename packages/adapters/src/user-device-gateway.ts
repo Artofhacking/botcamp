@@ -2,11 +2,11 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { IncomingMessage } from "node:http";
 import { networkInterfaces } from "node:os";
 import type { Duplex } from "node:stream";
-import type { UserDeviceSummary } from "@rakazo/contracts";
-import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { recordSecurityEvent, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { UserDeviceSummary } from "@botcamp/contracts";
+import { USER_DEVICE_CONNECT_PATH } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { recordSecurityEvent, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 import type { HostComputerFrame, HostComputerRequest } from "./host-computer-protocol.js";

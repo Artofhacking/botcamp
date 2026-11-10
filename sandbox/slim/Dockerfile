@@ -5,7 +5,7 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
-    HOME=/home/rakazo
+    HOME=/home/botcamp
 
 # Tencent mirror: the stock Debian host is slow from this region.
 RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g; s|security.debian.org|mirrors.cloud.tencent.com|g' \
@@ -20,13 +20,15 @@ RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g; s|security.debian.org|
       procps \
       busybox-static \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 1000 rakazo \
-    && useradd --uid 1000 --gid rakazo --create-home --shell /bin/bash rakazo
+    && groupadd --gid 1000 botcamp \
+    && useradd --uid 1000 --gid botcamp --create-home --shell /bin/bash botcamp
 
-COPY start.sh /usr/local/bin/rakazo-computer-slim
-RUN chmod 755 /usr/local/bin/rakazo-computer-slim
+COPY start.sh /usr/local/bin/botcamp-computer-slim
+RUN chmod 755 /usr/local/bin/botcamp-computer-slim
 
-WORKDIR /home/rakazo
+WORKDIR /home/botcamp
+# Saved files can still name the previous home. The link stays on the image root.
+RUN ln -sfn /home/botcamp /home/rakazo
 USER 1000:1000
 EXPOSE 6080
-CMD ["/usr/local/bin/rakazo-computer-slim"]
+CMD ["/usr/local/bin/botcamp-computer-slim"]

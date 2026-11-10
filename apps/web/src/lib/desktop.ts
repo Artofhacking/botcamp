@@ -1,15 +1,24 @@
-import type { BotCampDesktop, BotCampDesktopOAuthCallback } from "@rakazo/contracts";
+import type { BotCampDesktop, BotCampDesktopOAuthCallback } from "@botcamp/contracts";
+import { appMessageOrigin } from "@botcamp/core";
 
-export type { BotCampDesktop, BotCampDesktopOAuthCallback } from "@rakazo/contracts";
+export type { BotCampDesktop, BotCampDesktopOAuthCallback } from "@botcamp/contracts";
 
 declare global {
   interface Window {
     rakazoDesktop?: BotCampDesktop;
+    /** Injected by a native shell (the Android app) so the page knows what wraps it. */
+    __BOTCAMP_APP__?: { platform?: string; version?: string };
   }
 }
 
 export function desktopBridge(): BotCampDesktop | undefined {
   return typeof window === "undefined" ? undefined : window.rakazoDesktop;
+}
+
+/** The app this page is running in. A browser is the web app. */
+export function currentAppOrigin() {
+  const shell = typeof window === "undefined" ? undefined : window.__BOTCAMP_APP__?.platform;
+  return appMessageOrigin(desktopBridge()?.platform, shell);
 }
 
 /** The compact `code#state` form the manual paste flow already accepts. */

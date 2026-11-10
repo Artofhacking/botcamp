@@ -76,7 +76,7 @@ describe("job correlation envelope", () => {
 
   it("restores context, logs completion, and rethrows failures", async () => {
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-worker", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-worker", sinks: [sink] }));
     await runCorrelatedJob({
       name: "run.continue",
       payload: { runId: "run-9" },
@@ -111,7 +111,7 @@ describe("job correlation envelope", () => {
   });
   it("keeps failed queue outcomes without reporting an already reported cause twice", async () => {
     const sink = createTestSink();
-    const logger = createLogger({ service: "rakazo-worker", sinks: [sink] });
+    const logger = createLogger({ service: "botcamp-worker", sinks: [sink] });
     installLogger(logger);
     const error = new Error("setup failed");
     await expect(

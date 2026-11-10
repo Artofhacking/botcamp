@@ -1,4 +1,4 @@
-import type { BotCampDesktopOAuthCallback } from "@rakazo/contracts";
+import type { BotCampDesktopOAuthCallback } from "@botcamp/contracts";
 
 export type OAuthCallbackFromOptions = {
   /** SSO callbacks must reach the API, including a loopback API on a separate port. */

@@ -27,9 +27,9 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { abortableDelay, boundedSandboxCommandTimeoutMs } from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { abortableDelay, boundedSandboxCommandTimeoutMs } from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 import { screenSessionKey } from "./computer-screens.js";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import { PORTABLE_TRANSFER_BATCH_BYTES } from "./computer-workspace.js";
@@ -198,7 +198,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     // The unique name lets a create that fails after Daytona accepted it find and delete the
     // sandbox: it never auto-stops or auto-deletes, so a leaked one bills until removed.
-    const name = `rakazo-${randomUUID()}`;
+    const name = `botcamp-${randomUUID()}`;
     let sandbox: DaytonaSandbox;
     try {
       sandbox = await this.client.create(
@@ -853,7 +853,7 @@ function daytonaCwd(root: string, cwd: string | undefined): string {
     !cwd ||
     cwd === "." ||
     cwd === "/" ||
-    cwd === "/home/rakazo" ||
+    cwd === "/home/botcamp" ||
     cwd === "/home/user" ||
     cwd === "/home/daytona" ||
     cwd === root

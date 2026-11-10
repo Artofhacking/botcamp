@@ -26,14 +26,14 @@ test(
     });
 
     await page.goto("/sign-up");
-    await expect(page.locator('[data-rakazo-app-state="session-pending"]')).toBeVisible();
+    await expect(page.locator('[data-botcamp-app-state="session-pending"]')).toBeVisible();
     await expect(page.locator("#root")).toHaveText("");
     await captureScreenshot(page, testInfo, "signup-session-pending");
 
     const capabilitiesRequested = page.waitForRequest("**/api/auth/capabilities");
     releaseSession();
     await capabilitiesRequested;
-    await expect(page.locator('[data-rakazo-app-state="ready"]')).toBeVisible();
+    await expect(page.locator('[data-botcamp-app-state="ready"]')).toBeVisible();
     await expect(page.locator("#root")).toHaveText("");
     await captureScreenshot(page, testInfo, "signup-options-pending");
 

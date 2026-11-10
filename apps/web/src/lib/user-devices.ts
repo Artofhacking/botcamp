@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
-import type { UserDeviceSummary } from "@rakazo/contracts";
-import { USER_DEVICE_PATH, userDeviceListSchema } from "@rakazo/contracts";
-import { readBoundedJsonResponse } from "@rakazo/core";
+import type { UserDeviceSummary } from "@botcamp/contracts";
+import { USER_DEVICE_PATH, userDeviceListSchema } from "@botcamp/contracts";
+import { readBoundedJsonResponse } from "@botcamp/core";
 
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";

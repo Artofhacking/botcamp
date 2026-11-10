@@ -10,8 +10,8 @@ import {
 
 const OWNER = { allowPrivate: true };
 
-const savedAllowPublic = process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
-const savedPrivateHosts = process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS;
+const savedAllowPublic = (process.env.BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC ?? process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC);
+const savedPrivateHosts = (process.env.BOTCAMP_OPENAI_COMPAT_PRIVATE_HOSTS ?? process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS);
 
 afterEach(() => {
   if (savedAllowPublic === undefined) delete process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;

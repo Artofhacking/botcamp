@@ -1,12 +1,12 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { callIdFromClientNonce, isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
-import type { Prisma, RunLease } from "@rakazo/db";
+import type { MessageBlock } from "@botcamp/contracts";
+import { callIdFromClientNonce, isBackgroundRunTrigger, redactSecrets } from "@botcamp/core";
+import type { Prisma, RunLease } from "@botcamp/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   withTransactionRetry,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { ExecutorDeps } from "./executor-deps.js";
 
 /** Deps for one attempt: its run's history writes carry the lease, so a superseded attempt cannot write. */

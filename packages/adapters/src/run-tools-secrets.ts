@@ -1,8 +1,8 @@
-import { runContinueJob } from "@rakazo/adapter-kit";
-import { BotSecretName, botSecretSubmissionSchema } from "@rakazo/contracts";
-import { createStreamingRedactor, displayName } from "@rakazo/core";
-import { runCodeKind, runLoginKind, runSecretKind } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import { BotSecretName, botSecretSubmissionSchema } from "@botcamp/contracts";
+import { createStreamingRedactor, displayName } from "@botcamp/core";
+import { runCodeKind, runLoginKind, runSecretKind } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import {
   completeExternalEffect,
   replaceCompletedExternalEffectResult,

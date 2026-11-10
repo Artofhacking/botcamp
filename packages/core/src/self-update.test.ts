@@ -184,6 +184,25 @@ describe("detectRestartSupervisor", () => {
     });
   });
 
+  it("keeps a legacy declaration when the new name is empty", () => {
+    expect(
+      detectRestartSupervisor({
+        BOTCAMP_UPDATE_RESTART_SUPERVISOR: "",
+        [RESTART_SUPERVISOR_ENV]: "docker",
+      }),
+    ).toEqual({ kind: "declared", label: "docker" });
+    expect(detectRestartSupervisor({ BOTCAMP_UPDATE_RESTART_SUPERVISOR: "pm2" })).toEqual({
+      kind: "declared",
+      label: "pm2",
+    });
+    expect(
+      detectRestartSupervisor({
+        BOTCAMP_UPDATE_RESTART_SUPERVISOR: "systemd-unit",
+        [RESTART_SUPERVISOR_ENV]: "docker",
+      }),
+    ).toEqual({ kind: "declared", label: "systemd-unit" });
+  });
+
   it("recognises systemd and pm2 from the variables they set", () => {
     expect(detectRestartSupervisor({ INVOCATION_ID: "abc" })).toEqual({
       kind: "systemd",

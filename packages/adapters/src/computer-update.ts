@@ -1,10 +1,10 @@
-import type { AdapterContext } from "@rakazo/adapter-kit";
-import { computerControlExpireJobKey, SandboxAllowanceUsedError } from "@rakazo/adapter-kit";
-import type { ComputerUpdate } from "@rakazo/contracts";
-import { ComputerUpdateSchema } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext } from "@botcamp/adapter-kit";
+import { computerControlExpireJobKey, SandboxAllowanceUsedError } from "@botcamp/adapter-kit";
+import type { ComputerUpdate } from "@botcamp/contracts";
+import { ComputerUpdateSchema } from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES } from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import {
   enqueueTakeoverContinuation,
   isIdleOwnComputerTakeover,

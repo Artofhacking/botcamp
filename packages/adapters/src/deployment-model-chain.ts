@@ -1,8 +1,8 @@
 import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { canonicalPiProviderId, usableModelId } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { canonicalPiProviderId, usableModelId } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { findConnectedModelCredential } from "./model-selection.js";
 import { parseModelSecret } from "./pi-oauth.js";
 import { OPENCODE_GO_PROVIDER, openCodeUsageVerdict } from "./subscription-quota.js";

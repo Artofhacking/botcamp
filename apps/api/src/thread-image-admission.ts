@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import type { CodexLiveCatalog } from "@rakazo/adapters";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import type { CodexLiveCatalog } from "@botcamp/adapters";
 import {
   CHATGPT_OAUTH_PROVIDER,
   codexLiveModel,
@@ -13,11 +13,11 @@ import {
   runModelChoice,
   runtimeModelAcceptsImages,
   selectConfiguredModel,
-} from "@rakazo/adapters";
-import type { Actor, MessageBlock } from "@rakazo/contracts";
-import { MODEL_IMAGE_INPUT_ERROR, MODEL_IMAGE_INPUT_UNKNOWN } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { appliedModelRole, findModelCredential, findModelCredentialById } from "@rakazo/db";
+} from "@botcamp/adapters";
+import type { Actor, MessageBlock } from "@botcamp/contracts";
+import { MODEL_IMAGE_INPUT_ERROR, MODEL_IMAGE_INPUT_UNKNOWN } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
+import { appliedModelRole, findModelCredential, findModelCredentialById } from "@botcamp/db";
 
 type ModelChoice = {
   modelProvider: string | null;

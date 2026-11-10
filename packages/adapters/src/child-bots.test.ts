@@ -20,11 +20,11 @@ import type {
   CommandRequest,
   JobPublisher,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
-import { SandboxDamagedError } from "@rakazo/adapter-kit";
-import { browserProfilePathForScreen } from "@rakazo/core/node/desktop-runtime";
-import type { createRepos, PrismaClient } from "@rakazo/db";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { SandboxDamagedError } from "@botcamp/adapter-kit";
+import { browserProfilePathForScreen } from "@botcamp/core/node/desktop-runtime";
+import type { createRepos, PrismaClient } from "@botcamp/db";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { describe, expect, it, vi } from "vitest";
 import {
   archiveBot,
@@ -138,7 +138,7 @@ describe("spawned bot creation", () => {
       name: "Painter",
       threadId: "thread-2",
     });
-    const createReposSpy = vi.spyOn(await import("@rakazo/db"), "createRepos").mockReturnValue({
+    const createReposSpy = vi.spyOn(await import("@botcamp/db"), "createRepos").mockReturnValue({
       createBot,
     } as unknown as ReturnType<typeof createRepos>);
 
@@ -1548,7 +1548,7 @@ describe("destroyBot", () => {
 
     async function deleteWithBusyProfile(busyAttempts: number) {
       const sink = createTestSink();
-      installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+      installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       let profileAttempts = 0;
       const execute = vi.fn(async function* (_computer: unknown, request: CommandRequest) {
@@ -1589,7 +1589,7 @@ describe("destroyBot", () => {
         return { profileAttempts, events: sink.events };
       } finally {
         vi.useRealTimers();
-        installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+        installLogger(createLogger({ service: "botcamp-api", level: "off", sinks: [] }));
       }
     }
 

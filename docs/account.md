@@ -57,6 +57,3 @@ plan:
 
 **Invite friends** in the account menu gives you a link. You get a free month for each friend who
 starts a trial.
-
-> [!NOTE]
-> A self-hosted server has no billing. See [Self-hosting](./self-host.md).

@@ -1,7 +1,6 @@
-import { ORPCError } from "@orpc/server";
-import type { JobPublisher, ProductAnalytics, SandboxProvider } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import { cancelComputerRunWork, screenLeaseIdForRun, toComputerRef } from "@rakazo/adapters";
+import type { JobPublisher, ProductAnalytics, SandboxProvider } from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import { cancelComputerRunWork, screenLeaseIdForRun, toComputerRef } from "@botcamp/adapters";
 import type {
   Actor,
   GroupMember,
@@ -9,12 +8,12 @@ import type {
   MessageReaction,
   ReplyPreview,
   ThreadSnapshot,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   GROUP_MEMBER_MIN,
   MessageBlock as MessageBlockSchema,
   resolveBotAvatarSet,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_RUN_TRIGGERS,
@@ -29,9 +28,9 @@ import {
   resolveGroupTargetBotIds,
   runFailureError,
   runReadsThreadHistory,
-} from "@rakazo/core";
-import { deriveMessageQuote, messageReplyPreview } from "@rakazo/core/message-quote";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import { deriveMessageQuote, messageReplyPreview } from "@botcamp/core/message-quote";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   answerWaitingRunWithTextInTransaction,
   appendEventInTransaction,
@@ -47,8 +46,9 @@ import {
   retireWaitingQuestionInTransaction,
   touchGroupUpdatedAt,
   transientRunEventsWhere,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import {
   buildSendPrompt,
   buildUserMessageBlocks,
@@ -745,6 +745,7 @@ export async function sendThreadMessage(
     replyQuote?: string;
     fromPage?: true;
     clientNonce?: string;
+    origin?: string;
     /** No model to start a turn: the send may only stop active work. */
     noModel?: boolean;
   },
@@ -871,6 +872,7 @@ export async function sendThreadMessage(
           replyToMessageId,
           replyQuote,
           clientNonce: input.clientNonce,
+          origin: input.origin,
         });
         // A bare "stop" from the owner while work is active is the Stop button, not a reply.
         const stopping = activeRuns.length > 0 && !routineRuns.length && isStopMessage(input);
@@ -1084,6 +1086,7 @@ export async function sendThreadMessage(
         replyToMessageId,
         replyQuote,
         clientNonce: input.clientNonce,
+        origin: input.origin,
       });
       const activeByBotId = new Map<string, (typeof activeRuns)[number]>();
       const answeredByBotId = new Map<string, Array<(typeof activeRuns)[number]>>();

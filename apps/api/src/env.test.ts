@@ -66,6 +66,30 @@ describe("loadEnv", () => {
       loadEnv({ ...base, RAKAZO_NAV_LINKS: '[{"id":"x","label":"X","path":"/api/me"}]' }),
     ).toThrow("RAKAZO_NAV_LINKS");
   });
+  it("keeps a legacy setting when the new name is empty", () => {
+    const links = '[{"id":"clients","label":"Clients","path":"/ext/clients/"}]';
+    const parsed = [{ id: "clients", label: "Clients", path: "/ext/clients/", trusted: false }];
+    expect(loadEnv({ ...base, RAKAZO_NAV_LINKS: links }).navLinks).toEqual(parsed);
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: links }).navLinks).toEqual(parsed);
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: "", RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      parsed,
+    );
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: "  ", RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      parsed,
+    );
+    const next = '[{"id":"models","label":"Models","path":"/ext/models/"}]';
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: next, RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      [{ id: "models", label: "Models", path: "/ext/models/", trusted: false }],
+    );
+    expect(loadEnv({ ...base, RAKAZO_GIT_SHA: "legacy-sha" }).gitSha).toBe("legacy-sha");
+    expect(loadEnv({ ...base, BOTCAMP_GIT_SHA: "next-sha" }).gitSha).toBe("next-sha");
+    expect(loadEnv({ ...base, BOTCAMP_GIT_SHA: "", RAKAZO_GIT_SHA: "legacy-sha" }).gitSha).toBe(
+      "legacy-sha",
+    );
+    expect(
+      loadEnv({ ...base, BOTCAMP_GIT_SHA: "next-sha", RAKAZO_GIT_SHA: "legacy-sha" }).gitSha,
+    ).toBe("next-sha");
+  });
   it("keeps Crisp chat off unless a valid website ID is set", () => {
     expect(loadEnv(base).crispWebsiteId).toBeNull();
     expect(

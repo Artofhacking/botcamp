@@ -1,5 +1,22 @@
 import { build } from "esbuild";
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim() !== "") return value.trim();
+  }
+  return undefined;
+}
+
+const desktopRelease = firstNonEmpty(
+  process.env.BOTCAMP_DESKTOP_RELEASE,
+  process.env.RAKAZO_DESKTOP_RELEASE,
+);
+const defaultServerUrl = firstNonEmpty(
+  process.env.BOTCAMP_DEFAULT_SERVER_URL,
+  process.env.RAKAZO_DEFAULT_SERVER_URL,
+);
+const passkeyRpId = firstNonEmpty(process.env.BOTCAMP_PASSKEY_RP_ID, process.env.RAKAZO_PASSKEY_RP_ID);
+
 await build({
   entryPoints: ["src/main.ts"],
   outfile: "dist/main.js",
@@ -14,12 +31,13 @@ await build({
   external: ["electron", "electron-updater", "koffi", "@sentry/electron"],
   // Only the release workflow's builds report errors; local and agent builds never do.
   define: {
-    "process.env.RAKAZO_DESKTOP_RELEASE": JSON.stringify(process.env.RAKAZO_DESKTOP_RELEASE ?? ""),
+    "process.env.BOTCAMP_DESKTOP_RELEASE": JSON.stringify(desktopRelease ?? ""),
+    "process.env.RAKAZO_DESKTOP_RELEASE": JSON.stringify(desktopRelease ?? ""),
     // A branded build opens straight into its own console instead of the setup window.
-    "process.env.RAKAZO_DEFAULT_SERVER_URL": JSON.stringify(
-      process.env.RAKAZO_DEFAULT_SERVER_URL ?? "",
-    ),
+    "process.env.BOTCAMP_DEFAULT_SERVER_URL": JSON.stringify(defaultServerUrl ?? ""),
+    "process.env.RAKAZO_DEFAULT_SERVER_URL": JSON.stringify(defaultServerUrl ?? ""),
     // Self-hosted builds associated with their own passkey domain (see src/passkeys.ts).
-    "process.env.RAKAZO_PASSKEY_RP_ID": JSON.stringify(process.env.RAKAZO_PASSKEY_RP_ID ?? ""),
+    "process.env.BOTCAMP_PASSKEY_RP_ID": JSON.stringify(passkeyRpId ?? ""),
+    "process.env.RAKAZO_PASSKEY_RP_ID": JSON.stringify(passkeyRpId ?? ""),
   },
 });

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { BackgroundJobHandlers } from "@rakazo/adapter-kit";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+import type { BackgroundJobHandlers } from "@botcamp/adapter-kit";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ABANDONED_SUSPEND_CLAIM_MS } from "./computer-idle.js";
 import {
@@ -400,10 +400,10 @@ describe("InMemoryJobQueue", () => {
 
   it("unwraps correlation envelopes and restores request traces", async () => {
     const { createLogger, createTestSink, installLogger, runWithLogContext } = await import(
-      "@rakazo/logging"
+      "@botcamp/logging"
     );
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-worker", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-worker", sinks: [sink] }));
     const queue = new InMemoryJobQueue();
     const target = handlers();
     await queue.start(target);
@@ -424,8 +424,8 @@ describe("InMemoryJobQueue", () => {
   });
 
   it("keeps wrapped payloads readable by workers that do not unwrap envelopes", async () => {
-    const { wrapJobPayload } = await import("@rakazo/logging");
-    const { parseBackgroundJob } = await import("@rakazo/adapter-kit");
+    const { wrapJobPayload } = await import("@botcamp/logging");
+    const { parseBackgroundJob } = await import("@botcamp/adapter-kit");
     const wrapped = wrapJobPayload(
       { runId: "run-rollback" },
       { jobId: "job-1", traceId: "a".repeat(32) },
@@ -482,7 +482,7 @@ describe("JOB_DRAIN_TIMEOUT_MS", () => {
   });
 
   // Docker kills the worker once its stop_grace_period runs out, which would leave its jobs locked.
-  it.each(["docker-compose.yml", "docker-compose.images.yml", "docker-compose.prod.yml"])(
+  it.each(["docker-compose.yml", "docker-compose.prod.yml"])(
     "ends before %s kills a stopping worker",
     (file) => {
       const compose = readFileSync(

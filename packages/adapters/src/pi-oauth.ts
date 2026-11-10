@@ -10,7 +10,7 @@ import type {
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
   SecretStore,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import type {
   ModelApiProtocol,
   ModelContextLimits,
@@ -18,7 +18,7 @@ import type {
   ModelOAuthSignInMode,
   SettingsScope,
   ThinkingLevel,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   canonicalPiProviderId,
   MAX_MODEL_CONTEXT_WINDOW,
@@ -27,10 +27,10 @@ import {
   ModelContextLimitsSchema,
   parseModelHeaders,
   ThinkingLevelSchema,
-} from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { retireModelCredential, runAsSystem, runAsTenant } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { retireModelCredential, runAsSystem, runAsTenant } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { createManualAnthropicOAuthLogin } from "./pi-anthropic-oauth.js";
 
 export const CHATGPT_OAUTH_PROVIDER = "openai-codex";

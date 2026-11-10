@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
+import type { ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkpointComputerWorkspace,
@@ -149,7 +149,7 @@ describe("native host computer transport", () => {
           argv: [
             process.execPath,
             "-e",
-            "console.log(process.argv[1]); console.error(process.env.RAKAZO_TEST_REMOVED ?? 'unset')",
+            "console.log(process.argv[1]); console.error((process.env.BOTCAMP_TEST_REMOVED ?? process.env.RAKAZO_TEST_REMOVED) ?? 'unset')",
             payload,
           ],
           env: { ...nodeEnv, RAKAZO_TEST_REMOVED: "remove" },

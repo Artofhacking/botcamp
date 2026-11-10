@@ -4,7 +4,7 @@ import type {
   ComputerRef,
   JobPublisher,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   computerSleepJob,
   runJobKey,
@@ -12,10 +12,10 @@ import {
   SandboxUnavailableError,
   SandboxUnresponsiveError,
   WorkspaceTooLargeError,
-} from "@rakazo/adapter-kit";
-import { COMPUTER_ALLOWANCE_USED_ERROR } from "@rakazo/contracts";
-import { QUEUE_HOLDING_RUN_STATUSES, withAbort } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import { COMPUTER_ALLOWANCE_USED_ERROR } from "@botcamp/contracts";
+import { QUEUE_HOLDING_RUN_STATUSES, withAbort } from "@botcamp/core";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   clearEndedExecutionRunBinding,
@@ -23,8 +23,8 @@ import {
   createThreadMessageInTransaction,
   recordComputerRunEnd,
   recordComputerRunSeen,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { activeCodingAgent } from "./coding-agent-activity.js";
 import { expireComputerControl, hasActiveComputerControl } from "./computer-control.js";
 import { diskUpdate, measureComputerDisk } from "./computer-disk.js";
@@ -58,7 +58,7 @@ export const ABANDONED_SUSPEND_CLAIM_MS = 60 * 60 * 1000;
 const IDLE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 const STATUS_CHECK_TIMEOUT_MS = 15_000;
 const EXECUTING_RUN_STATUSES = ["leased", "running"] as const;
-const BACKGROUND_WORK_MARKER_PREFIX = "/tmp/rakazo-background-";
+const BACKGROUND_WORK_MARKER_PREFIX = "/tmp/botcamp-background-";
 const BACKGROUND_WORK_IDLE_SENTINEL = "rakazo-background-idle";
 
 export const BACKGROUND_WORK_LAUNCH = [
@@ -491,9 +491,16 @@ export async function sleepComputerIfIdle(
     allowanceUsed
       ? Promise.resolve(null)
       : findActiveRun(deps.prisma, computerId, activeStatuses, limitReached);
+  // A burst computer is billed by the minute. Ordinary background work, including a
+  // leftover server, belongs on the resident small computer, so it does not keep the
+  // burst machine up. A run that is executing, a user at the screen, or a coding agent
+  // still writing its session does.
+  const burstComputer = computer.kind === "kubernetes";
   const backgroundHolds = async () =>
     !allowanceUsed &&
-    ((!limitReached && (await hasActiveBackgroundWork(deps.sandbox, ref, ctx, computerId))) ||
+    ((!limitReached &&
+      !burstComputer &&
+      (await hasActiveBackgroundWork(deps.sandbox, ref, ctx, computerId))) ||
       (await activeCodingAgent(deps.sandbox, ref, ctx, sandboxIdleMs())) !== undefined);
   const graceEndsAt = () =>
     allowanceUsed || activeControl || deps.sandbox.billsWhileRunning?.(ref) === true
@@ -597,7 +604,10 @@ export async function sleepComputerIfIdle(
           controlRunId: null,
         },
       });
-      if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer, "gone");
+      if (cleared.count === 1) {
+        await recordComputerRunEnd(deps.prisma, computer, "gone");
+        await settleBurstComputer(deps.prisma, computer);
+      }
       return;
     }
     if (isSandboxDamagedError(error)) {
@@ -698,6 +708,7 @@ export async function sleepComputerIfIdle(
   }
   const reason = allowanceUsed ? "allowance" : limitReached ? "active_limit" : "idle";
   await recordComputerRunEnd(deps.prisma, computer, reason);
+  await settleBurstComputer(deps.prisma, computer);
   getLogger().info("computer.suspended", {
     "computer.id": computerId,
     provider: computer.kind,
@@ -712,6 +723,25 @@ export async function sleepComputerIfIdle(
       `computer-allowance:${computer.id}:${computer.runningSince?.toISOString() ?? ""}`,
       `${COMPUTER_ALLOWANCE_USED_ERROR} The computer was saved and stopped.`,
     );
+}
+
+/**
+ * A burst computer that has stopped goes back to the resident small tier. The next command
+ * starts there. Opening the screen is what promotes it again. The pod is already gone.
+ */
+async function settleBurstComputer(
+  prisma: PrismaClient,
+  computer: { id: string; kind: string },
+): Promise<void> {
+  if (computer.kind !== "kubernetes") return;
+  await prisma.bot.updateMany({
+    where: { computerId: computer.id },
+    data: { computerTier: "small" },
+  });
+  await prisma.computer.updateMany({
+    where: { id: computer.id, kind: "kubernetes" },
+    data: { kind: "docker", providerRef: null, state: "stopped" },
+  });
 }
 
 /**
@@ -752,6 +782,7 @@ async function suspendStoppedComputer(
   });
   if (suspended.count !== 1) return false;
   await recordComputerRunEnd(deps.prisma, computer, "gone");
+  await settleBurstComputer(deps.prisma, computer);
   getLogger().info("computer.suspended", {
     "computer.id": computer.id,
     provider: computer.kind,

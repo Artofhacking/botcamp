@@ -1,6 +1,6 @@
-import type { RealtimeFanout } from "@rakazo/adapter-kit";
-import type { ChatAlert } from "@rakazo/contracts";
-import { ChatAlertSchema } from "@rakazo/contracts";
+import type { RealtimeFanout } from "@botcamp/adapter-kit";
+import type { ChatAlert } from "@botcamp/contracts";
+import { ChatAlertSchema } from "@botcamp/contracts";
 
 /** Transient: an alert published while the user has no app open is not replayed. */
 export interface ChatAlerts {

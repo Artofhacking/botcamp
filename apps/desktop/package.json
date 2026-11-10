@@ -1,5 +1,5 @@
 {
-  "name": "@rakazo/desktop",
+  "name": "@botcamp/desktop",
   "productName": "BotCamp",
   "version": "0.6.0",
   "author": {
@@ -11,25 +11,25 @@
   "scripts": {
     "dev": "pnpm build && electron .",
     "build": "node scripts/build.mjs && node scripts/copy-static.mjs && node scripts/build-speech.mjs",
-    "pack": "pnpm --filter @rakazo/web build && pnpm build && electron-builder --mac --win --linux",
-    "pack:dir": "pnpm --filter @rakazo/web build && pnpm build && electron-builder --dir",
+    "pack": "pnpm --filter @botcamp/web build && pnpm build && electron-builder --mac --win --linux",
+    "pack:dir": "pnpm --filter @botcamp/web build && pnpm build && electron-builder --dir",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.jsdom.json",
     "test": "vitest run --root ../.. apps/desktop/src",
     "test:e2e": "pnpm build && playwright test --config e2e/playwright.config.ts",
-    "release": "pnpm --filter @rakazo/web build && pnpm build && electron-builder --publish never"
+    "release": "pnpm --filter @botcamp/web build && pnpm build && electron-builder --publish never"
   },
   "dependencies": {
-    "@rakazo/contracts": "workspace:*",
-    "@rakazo/logging": "workspace:*",
+    "@botcamp/contracts": "workspace:*",
+    "@botcamp/logging": "workspace:*",
     "@sentry/electron": "8.3.0",
     "electron-updater": "6.8.11",
     "koffi": "3.3.4"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "@rakazo/adapters": "workspace:*",
-    "@rakazo/core": "workspace:*",
-    "@rakazo/ui-tokens": "workspace:*",
+    "@botcamp/adapters": "workspace:*",
+    "@botcamp/core": "workspace:*",
+    "@botcamp/ui-tokens": "workspace:*",
     "electron": "45.0.0",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
@@ -51,14 +51,6 @@
       {
         "from": "../web/dist",
         "to": "web"
-      },
-      {
-        "from": "../../infra/compose/docker-compose.images.yml",
-        "to": "stack/docker-compose.images.yml"
-      },
-      {
-        "from": "../../infra/compose/.env.images.example",
-        "to": "stack/.env.images.example"
       }
     ],
     "extraMetadata": {

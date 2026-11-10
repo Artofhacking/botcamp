@@ -1,6 +1,6 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import type { BotCampDesktopSpeechEvent } from "@rakazo/contracts";
-import { secureHttpOrigin } from "@rakazo/contracts/network-host";
+import type { BotCampDesktopSpeechEvent } from "@botcamp/contracts";
+import { secureHttpOrigin } from "@botcamp/contracts/network-host";
 import type { IpcMainInvokeEvent, WebContents } from "electron";
 import type { AppTarget } from "./app-frame.js";
 import { fromAppFrame } from "./app-frame.js";

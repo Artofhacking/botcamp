@@ -1,5 +1,5 @@
-import { AppLocaleSchema } from "@rakazo/contracts";
-import { matchUiLocale } from "@rakazo/core";
+import { AppLocaleSchema } from "@botcamp/contracts";
+import { matchUiLocale } from "@botcamp/core";
 
 export const UI_LOCALES = AppLocaleSchema.options;
 

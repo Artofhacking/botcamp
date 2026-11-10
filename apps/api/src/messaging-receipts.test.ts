@@ -1,5 +1,5 @@
-import type { AdapterContext, MessagingPlatformDescriptor } from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext, MessagingPlatformDescriptor } from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMessagingReceipts } from "./messaging-receipts.js";
 

@@ -63,7 +63,7 @@ Stdio MCP servers can use OAuth too. They do not authorize themselves (the MCP s
 read credentials from the environment), so BotCamp runs the flow for them. They are off unless
 the API and worker have `MCP_STDIO_ENABLED=true` and the command is listed in
 `MCP_STDIO_ALLOWED_COMMANDS`. A stdio server runs inside the API and worker with their access,
-so only admins (verified accounts listed in `RAKAZO_ADMIN_EMAILS`) can add or edit one, in
+so only admins (verified accounts listed in `BOTCAMP_ADMIN_EMAILS`) can add or edit one, in
 **Settings** or through an agent import; with no admins listed, nobody can. Bots never add stdio servers. Everyone can still add remote servers, and a
 stdio server an admin added keeps working for everyone it is available to. When adding the
 server, enter the OAuth client, its
@@ -127,6 +127,8 @@ base URL; BotCamp appends `api/search`.
 ## Messaging apps
 
 Optional messaging platforms (iMessage through Sendblue or Photon, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. The Lark adapter and official SDK load only when configured. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Personal group linking works on iMessage and Telegram (see the Telegram privacy note below); WhatsApp and Feishu/Lark are direct-only, and Slack channels use workspace installations below. Telegram can run several bots side by side (`TELEGRAM_BOT_TOKEN_<NAME>` plus `TELEGRAM_WEBHOOK_SECRET_TOKEN_<NAME>`), for example one per space, so the same person can chat with a different BotCamp bot through each. Photon works the same way: each extra project (`PHOTON_PROJECT_ID_<NAME>` plus `PHOTON_PROJECT_SECRET_<NAME>`, and `PHOTON_WEBHOOK_SECRET_<NAME>` for webhooks) gives the person a different number, mounted as provider `photon-<name>`. Photon receives iMessage over an outbound stream from the API, so it works on a server with no public URL; on Photon's shared lines the person texts first, and group chats are not available.
+
+The primary bot can link a personal chat app from its own settings. That link has no environment credential. The API long-polls `https://ilinkai.weixin.qq.com` for new messages and the worker sends replies, so both processes need outbound access to that host.
 
 Each platform turns on when its full set of credentials is present on the API and worker.
 Webhooks arrive at `/api/v1/messaging/webhook/<provider>`.

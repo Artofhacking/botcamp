@@ -1,6 +1,6 @@
-import { destroyBot } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import type { createRepos } from "@rakazo/db";
+import { destroyBot } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import type { createRepos } from "@botcamp/db";
 import type { RouterDeps } from "./router.js";
 
 export function createBotRemoval(deps: RouterDeps, repos: ReturnType<typeof createRepos>) {

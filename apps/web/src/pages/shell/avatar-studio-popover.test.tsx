@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { BotAvatarSet } from "@rakazo/contracts";
-import { resolvePersonaColorDef } from "@rakazo/ui-web";
+import type { BotAvatarSet } from "@botcamp/contracts";
+import { resolvePersonaColorDef } from "@botcamp/ui-web";
 import type { ReactNode } from "react";
 import { act, useState } from "react";
 import type { Root } from "react-dom/client";

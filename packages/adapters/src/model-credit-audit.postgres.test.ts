@@ -1,5 +1,5 @@
-import type { AgentRuntimeEvent, AgentUsage, ModelUsageLookup } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
+import type { AgentRuntimeEvent, AgentUsage, ModelUsageLookup } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
 import {
   asSystem,
   createDb,
@@ -8,7 +8,7 @@ import {
   recordModelCreditReceipt,
   recordUsage,
   reserveModelCredits,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createModelCreditReconciler } from "./model-credit-reconciler.js";
 

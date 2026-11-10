@@ -1,10 +1,11 @@
+import { PageIcon } from "@botcamp/chat-ui/web";
+import { PAGE_TITLE_MAX_LENGTH } from "@botcamp/contracts";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@botcamp/ui-web";
 import { useLingui } from "@lingui/react/macro";
-import { PageIcon } from "@rakazo/chat-ui/web";
-import { PAGE_TITLE_MAX_LENGTH } from "@rakazo/contracts";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
 import { Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { desktopBridge, windowChromeKind } from "../../lib/desktop";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { PageFrame } from "./PageFrame";
 import { PageLoading, PageNotice } from "./PageNotice";
@@ -15,7 +16,8 @@ const FRAME_TIMEOUT_MS = 15_000;
 /**
  * A page full screen: close at the top left, the title pill in the middle (click to rename),
  * Download PDF and sharing at the top right, and the bot's composer docked over the bottom of the
- * page. Printed, only the page shows, at its full height.
+ * page. On the macOS client the close control sits to the right of the traffic lights.
+ * Printed, only the page shows, at its full height.
  */
 export function PageView({
   open,
@@ -51,6 +53,14 @@ export function PageView({
 }) {
   const { t } = useLingui();
   const closeButton = useRef<HTMLButtonElement>(null);
+  // macOS draws the traffic lights over this corner, about x=16–75.
+  // The corner control would cover them.
+  const macChrome = !compact && windowChromeKind(desktopBridge()) === "darwin";
+  const closePosition = compact
+    ? "top-[6px] left-[6px] size-11"
+    : macChrome
+      ? "top-[6px] left-[88px] size-9"
+      : "top-[6px] left-[11px] size-9";
   // The frame stays hidden until the page inside reports it has drawn, so neither a blank
   // frame nor a browser error page shows; a page that never draws gets a way to try again.
   const [drawn, setDrawn] = useState(false);
@@ -111,7 +121,7 @@ export function PageView({
           <DialogClose
             ref={closeButton}
             aria-label={t`Close page`}
-            className={`absolute z-10 grid place-items-center print:hidden ${compact ? "top-[6px] left-[6px] size-11" : "top-[6px] left-[11px] size-9"} rounded-full border border-foreground/[0.06] text-foreground/90 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring`}
+            className={`absolute z-10 grid place-items-center print:hidden ${closePosition} rounded-full border border-foreground/[0.06] text-foreground/90 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring`}
           >
             <X className={compact ? "size-6" : "size-[18px]"} strokeWidth={compact ? 2.2 : 1.7} />
           </DialogClose>

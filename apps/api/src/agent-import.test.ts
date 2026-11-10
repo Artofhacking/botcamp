@@ -1,5 +1,5 @@
-import type { Actor, Bot } from "@rakazo/contracts";
-import { AgentImportCreateInput } from "@rakazo/contracts";
+import type { Actor, Bot } from "@botcamp/contracts";
+import { AgentImportCreateInput } from "@botcamp/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentImportServices } from "./agent-import.js";
 import { agentImportSetupState, createImportedBot, requestDigest } from "./agent-import.js";

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
-import { callExpireJob } from "@rakazo/adapter-kit";
-import type { IncomingBotCall, MessageBlock } from "@rakazo/contracts";
-import { resolveBotAvatarSet } from "@rakazo/contracts";
-import type { CallRequestBlock } from "@rakazo/core";
+import type { JobPublisher, NotificationProvider } from "@botcamp/adapter-kit";
+import { callExpireJob } from "@botcamp/adapter-kit";
+import type { IncomingBotCall, MessageBlock } from "@botcamp/contracts";
+import { resolveBotAvatarSet } from "@botcamp/contracts";
+import type { CallRequestBlock } from "@botcamp/core";
 import {
   CALL_CLIENT_NONCE_PREFIX,
   callIdFromClientNonce,
@@ -12,14 +12,14 @@ import {
   callRequestClientNonce,
   phoneCallSettings,
   ringingCall,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   runAsSystem,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { isUniqueViolation, publishMessage, runLeaseFor } from "./run-messages.js";
 

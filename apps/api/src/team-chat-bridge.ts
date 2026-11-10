@@ -4,14 +4,19 @@ import type {
   TeamChatInboundMessage,
   TeamChatSendRequest,
   TeamChatSendResult,
-} from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { ATTACHMENT_MAX_COUNT, AutomatedSenderPoliciesSchema } from "@rakazo/contracts";
-import { botMessageMaxHops, messageBlockForArtifact, promptTextForAttachments } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { clearEndedRunState, teamChatRunClientNonce } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { ATTACHMENT_MAX_COUNT, AutomatedSenderPoliciesSchema } from "@botcamp/contracts";
+import {
+  botMessageMaxHops,
+  chatMessageOrigin,
+  messageBlockForArtifact,
+  promptTextForAttachments,
+} from "@botcamp/core";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { clearEndedRunState, teamChatRunClientNonce } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { MessagingReceipts } from "./messaging-receipts.js";
 import type { TeamChatEngagementJudge } from "./team-chat-judge.js";
 import {
@@ -731,6 +736,7 @@ export class TeamChatBridge {
         prompt: promptTextForAttachments(text, stored.artifacts),
         trigger: "messaging",
         clientNonce: `teamchat-transcript:${this.deps.providerId}:${message.providerEventId}`,
+        origin: chatMessageOrigin(this.deps.providerId),
         createRun: false,
       });
       await this.deps.prisma.externalMessage.update({
@@ -1363,6 +1369,7 @@ export class TeamChatBridge {
       prompt,
       trigger: "messaging",
       clientNonce: teamChatRunClientNonce(this.deps.providerId, message.providerEventId),
+      origin: chatMessageOrigin(this.deps.providerId),
       linkMessageToRun: true,
       allowParallelRun: true,
     });

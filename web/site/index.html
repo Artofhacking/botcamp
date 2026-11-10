@@ -494,12 +494,12 @@
     <div class="release">
       <strong>macOS</strong>
       <p>首次打开后，到「系统设置 → 隐私与安全性」里允许。仅支持 Apple 芯片（M 系列）。</p>
-      <a class="btn btn-primary btn-sm" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-0.7.2-arm64.dmg">下载 <span id="mac-version">0.7.2</span></a>
+      <a class="btn btn-primary btn-sm" id="mac" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-0.7.5-arm64.dmg">下载 <span id="mac-version">0.7.5</span></a>
     </div>
     <div class="release">
       <strong>Windows</strong>
       <p>未签名安装包。SmartScreen 提示时选「仍要运行」。</p>
-      <a class="btn btn-primary btn-sm" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-Setup-0.7.4.exe">下载 <span id="windows-version">0.7.4</span></a>
+      <a class="btn btn-primary btn-sm" id="windows" href="https://botcamp.aigc.sx.cn/downloads/BotCamp-Setup-0.7.6.exe">下载 <span id="windows-version">0.7.6</span></a>
     </div>
     <div class="release">
       <strong>iOS</strong>
@@ -520,18 +520,51 @@
 
 <script>
   const ANDROID_VERSION = "2.1.2";
-  const MAC_VERSION = "0.7.2";
-  const WINDOWS_VERSION = "0.7.4";
   const API = "https://botcamp.aigc.sx.cn";
   const accountNode = document.getElementById("account");
   const accountCtaNode = document.getElementById("account-cta");
   const ctaMainNode = document.getElementById("cta-main");
   const versionNode = document.getElementById("version");
   document.getElementById("year").textContent = String(new Date().getFullYear());
-  document.getElementById("android-version").textContent = ANDROID_VERSION;
-  document.getElementById("mac-version").textContent = MAC_VERSION;
-  document.getElementById("windows-version").textContent = WINDOWS_VERSION;
   versionNode.textContent = "Android " + ANDROID_VERSION + " 已发布";
+
+  // The buttons start on the last published files. The catalog replaces both
+  // the label and the file together, and only when both are a real release.
+  const releaseVersion = (value) => {
+    const version = String(value || "").trim().replace(/^v/i, "");
+    return /^\d+\.\d+\.\d+(?:[-+].*)?$/.test(version) ? version : "";
+  };
+  const downloadUrl = (value) => {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.host !== "botcamp.aigc.sx.cn") return "";
+      if (!url.pathname.startsWith("/downloads/")) return "";
+      return url.href;
+    } catch (e) {
+      return "";
+    }
+  };
+  const paintRelease = (id, version, url) => {
+    const shown = releaseVersion(version);
+    const href = downloadUrl(url);
+    if (!shown || !href) return "";
+    const link = document.getElementById(id);
+    const label = document.getElementById(id + "-version");
+    if (!link || !label) return "";
+    label.textContent = shown;
+    link.href = href;
+    return shown;
+  };
+  fetch(API + "/downloads/latest.json", { cache: "no-store" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data) => {
+      if (!data || typeof data !== "object") return;
+      const android = paintRelease("android", data.androidVersion || data.version, data.android);
+      paintRelease("mac", data.macVersion || data.desktopVersion || data.version, data.mac);
+      paintRelease("windows", data.windowsVersion || data.desktopVersion || data.version, data.windows);
+      if (android) versionNode.textContent = "Android " + android + " 已发布";
+    })
+    .catch(() => {});
 
   const machines = {
     small: { name: "专属电脑", tag: "常驻", on: true, text: "每个用户一台。查文件、跑短命令，打开就能用。" },

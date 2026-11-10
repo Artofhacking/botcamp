@@ -250,6 +250,32 @@ describe("secrets-guard", () => {
     ).toThrow(/at least 32 characters/);
   });
 
+  it("reads the updater token from either name and ignores a blank new name", () => {
+    const legacy = "legacy-updater-token-000000000000";
+    const next = "botcamp-updater-token-00000000000";
+    const base = {
+      NODE_ENV: "test",
+      BETTER_AUTH_SECRET: "custom-auth",
+      SANDBOX_SUPERVISOR_TOKEN: "supervisor-only",
+      SCREEN_PROXY_SECRET: "screen-only",
+    };
+    expect(resolveUpdaterToken({ ...base, RAKAZO_UPDATER_TOKEN: legacy })).toBe(legacy);
+    expect(resolveUpdaterToken({ ...base, BOTCAMP_UPDATER_TOKEN: next })).toBe(next);
+    expect(
+      resolveUpdaterToken({ ...base, BOTCAMP_UPDATER_TOKEN: "", RAKAZO_UPDATER_TOKEN: legacy }),
+    ).toBe(legacy);
+    expect(
+      resolveUpdaterToken({ ...base, BOTCAMP_UPDATER_TOKEN: "  ", RAKAZO_UPDATER_TOKEN: legacy }),
+    ).toBe(legacy);
+    expect(
+      resolveUpdaterToken({
+        ...base,
+        BOTCAMP_UPDATER_TOKEN: next,
+        RAKAZO_UPDATER_TOKEN: legacy,
+      }),
+    ).toBe(next);
+  });
+
   it("compares raw strings in constant time", () => {
     expect(timingSafeStringEqual("secret-token", "secret-token")).toBe(true);
     expect(timingSafeStringEqual("secret-token-longer", "secret-token")).toBe(false);

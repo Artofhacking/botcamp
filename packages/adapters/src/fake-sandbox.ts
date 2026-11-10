@@ -12,8 +12,8 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { canReleaseScreenLease, canTakeScreenLease } from "@rakazo/core";
+} from "@botcamp/adapter-kit";
+import { canReleaseScreenLease, canTakeScreenLease } from "@botcamp/core";
 import { ComputerScreenUnavailableError, screenSessionKey } from "./computer-screens.js";
 import {
   applyPlaceholderAction,
@@ -36,6 +36,7 @@ export interface FakeBox {
 
 export class FakeSandboxProvider implements SandboxProvider {
   readonly boxes = new Map<string, FakeBox>();
+  acceptsRunningComputer?: SandboxProvider["acceptsRunningComputer"];
   private readonly terminals = new FakeTerminalGateway();
   private readonly screenServer = new FakeScreenServer();
 
@@ -152,7 +153,7 @@ export class FakeSandboxProvider implements SandboxProvider {
       url: await this.terminals.open(
         computer.id,
         request.controlToken,
-        workspacePath("/home/rakazo", request.cwd ?? ""),
+        workspacePath("/home/botcamp", request.cwd ?? ""),
       ),
     };
   }

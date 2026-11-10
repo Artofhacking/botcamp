@@ -4,11 +4,11 @@
 # this launcher is installed, and it rarely changes.
 set -Eeuo pipefail
 
-if [[ -z "${RAKAZO_DEPLOY_DIR:-}" && -r /etc/rakazo/deploy.env ]]; then
+if [[ -z "${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-}}" && -r /etc/rakazo/deploy.env ]]; then
   # shellcheck disable=SC1091
   source /etc/rakazo/deploy.env
 fi
-APP_DIR="${RAKAZO_DEPLOY_DIR:-/srv/rakazo}"
+APP_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}"
 [[ "${APP_DIR}" == /* ]] || { echo "RAKAZO_DEPLOY_DIR must be an absolute path" >&2; exit 1; }
 
 cd "${APP_DIR}"

@@ -4,14 +4,14 @@ import type {
   BrowserProvider,
   ConnectorCall,
   ConnectorTool,
-} from "@rakazo/adapter-kit";
-import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
-import type { ModelRoleSettings } from "@rakazo/contracts";
-import type { ActionApprovalRule } from "@rakazo/core";
-import { inboundRoutineBlock } from "@rakazo/core";
-import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import type { PrismaClient } from "@rakazo/db";
-import { createPendingSteeringRun, sendUserMessage } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import { MEMORY_REVISION_CONFLICT_ERROR } from "@botcamp/adapter-kit";
+import type { ModelRoleSettings } from "@botcamp/contracts";
+import type { ActionApprovalRule } from "@botcamp/core";
+import { inboundRoutineBlock } from "@botcamp/core";
+import { approvalEffectKey, toolEffectIdempotencyKey } from "@botcamp/core/node/approval-effect-key";
+import type { PrismaClient } from "@botcamp/db";
+import { createPendingSteeringRun, sendUserMessage } from "@botcamp/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DENIED_ACTION_ERROR, isApprovalPausedResult } from "./approval-effect.js";
 import { MAX_SHARED_MEMORY_CHARS } from "./builtin-tools.js";

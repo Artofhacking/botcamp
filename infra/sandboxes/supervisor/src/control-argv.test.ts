@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { browserProfilePathForScreen } from "@rakazo/core/node/desktop-runtime";
+import { browserProfilePathForScreen } from "@botcamp/core/node/desktop-runtime";
 import { describe, expect, it } from "vitest";
 import { containerActionStep } from "./supervisor-logic.js";
 
@@ -104,7 +104,7 @@ describe.each([undefined, profile])(
             ((action.kind === "launch" || action.kind === "focus") &&
               action.application === "chromium"))
         ) {
-          expect(argv[2]).toBe(`RAKAZO_BROWSER_PROFILE=${browserProfile}`);
+          expect(argv[2]).toBe(`BOTCAMP_BROWSER_PROFILE=${browserProfile}`);
         }
         expect(check(argv), JSON.stringify(action)).toEqual({
           allowed: true,
@@ -123,58 +123,58 @@ describe.each([undefined, profile])(
 
 describe("controller argv restrictions", () => {
   const unauthorized = [
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}`],
-    ["env", `DISPLAY=${display}`, "RAKAZO_BROWSER_PROFILE=", "rakazo-browser"],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}a`, "rakazo-browser"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}`],
+    ["env", `DISPLAY=${display}`, "BOTCAMP_BROWSER_PROFILE=", "botcamp-browser"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}a`, "botcamp-browser"],
     [
       "env",
       `DISPLAY=${display}`,
-      `RAKAZO_BROWSER_PROFILE=${profile.toUpperCase()}`,
-      "rakazo-browser",
+      `BOTCAMP_BROWSER_PROFILE=${profile.toUpperCase()}`,
+      "botcamp-browser",
     ],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}`, "xterm"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}`, "xterm"],
     [
       "env",
       `DISPLAY=${display}`,
-      `RAKAZO_BROWSER_PROFILE=${profile}`,
+      `BOTCAMP_BROWSER_PROFILE=${profile}`,
       "/usr/bin/xdg-open",
       "https://example.com",
     ],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}`, "xdg-open"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}`, "xdg-open"],
     [
       "env",
       `DISPLAY=${display}`,
-      `RAKAZO_BROWSER_PROFILE=${profile}`,
-      "rakazo-browser",
+      `BOTCAMP_BROWSER_PROFILE=${profile}`,
+      "botcamp-browser",
       "one",
       "two",
     ],
-    ["env", "DISPLAY=:8", `RAKAZO_BROWSER_PROFILE=${profile}`, "rakazo-browser"],
+    ["env", "DISPLAY=:8", `BOTCAMP_BROWSER_PROFILE=${profile}`, "botcamp-browser"],
     ["env", "DISPLAY=:8", "xdg-open", "https://example.com"],
-    ["env", `DISPLAY=${display}`, "rakazo-focus-or-launch"],
-    ["env", `DISPLAY=${display}`, "rakazo-focus-or-launch", "sh"],
-    ["env", `DISPLAY=${display}`, "rakazo-focus-or-launch", "rakazo-focus-or-launch"],
-    ["env", `DISPLAY=${display}`, "rakazo-focus-or-launch", "/usr/bin/xterm"],
-    ["env", `DISPLAY=${display}`, "rakazo-focus-or-launch", "xterm", "one", "two"],
+    ["env", `DISPLAY=${display}`, "botcamp-focus-or-launch"],
+    ["env", `DISPLAY=${display}`, "botcamp-focus-or-launch", "sh"],
+    ["env", `DISPLAY=${display}`, "botcamp-focus-or-launch", "botcamp-focus-or-launch"],
+    ["env", `DISPLAY=${display}`, "botcamp-focus-or-launch", "/usr/bin/xterm"],
+    ["env", `DISPLAY=${display}`, "botcamp-focus-or-launch", "xterm", "one", "two"],
     [
       "env",
       `DISPLAY=${display}`,
-      `RAKAZO_BROWSER_PROFILE=${profile}`,
-      "rakazo-focus-or-launch",
+      `BOTCAMP_BROWSER_PROFILE=${profile}`,
+      "botcamp-focus-or-launch",
       "xterm",
     ],
-    ["env", "DISPLAY=:8", "rakazo-focus-or-launch", "xterm"],
+    ["env", "DISPLAY=:8", "botcamp-focus-or-launch", "xterm"],
     ["env", `DISPLAY=${display}`, "LD_PRELOAD=/tmp/unsafe", "xdg-open", "https://example.com"],
-    ["env", `DISPLAY=${display}`, "RAKAZO_BROWSER_PROFILE=/tmp/unsafe", "rakazo-browser"],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}/../other`, "rakazo-browser"],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}`, "sh", "-c", "true"],
-    ["env", `DISPLAY=${display}`, `RAKAZO_BROWSER_PROFILE=${profile}`, "xdotool", "key", "Return"],
+    ["env", `DISPLAY=${display}`, "BOTCAMP_BROWSER_PROFILE=/tmp/unsafe", "botcamp-browser"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}/../other`, "botcamp-browser"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}`, "sh", "-c", "true"],
+    ["env", `DISPLAY=${display}`, `BOTCAMP_BROWSER_PROFILE=${profile}`, "xdotool", "key", "Return"],
     [
       "env",
       `DISPLAY=${display}`,
-      `RAKAZO_BROWSER_PROFILE=${profile}`,
-      `RAKAZO_BROWSER_PROFILE=${profile}`,
-      "rakazo-browser",
+      `BOTCAMP_BROWSER_PROFILE=${profile}`,
+      `BOTCAMP_BROWSER_PROFILE=${profile}`,
+      "botcamp-browser",
     ],
   ].map(register);
 

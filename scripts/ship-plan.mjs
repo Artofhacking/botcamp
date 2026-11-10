@@ -11,6 +11,7 @@ const PLACES = [
     match: (file) => file.startsWith("web/site/"),
     steps: [
       "The page source is the publish. Upload web/site/index.html to /.",
+      "The buttons read /downloads/latest.json, so a new installer does not need a new page.",
       "A full site zip replaces every object, so it also has to contain /console/ and /admin/.",
     ],
   },
@@ -53,17 +54,23 @@ const PLACES = [
       file.startsWith("packages/memory/") ||
       file.startsWith("packages/page-kit/"),
     steps: [
-      "Copy the revision over the source checkout. Leave .env, node_modules, and apps/web/public/config.js.",
+      "infra/compose/release-tag.sh deploy <checkout> vX.Y.Z",
+      "Only a vX.Y.Z tag from GitHub. A branch, a commit, and a copied file are refused.",
+      "Leave .env, node_modules, data, and apps/web/public/config.js.",
       "pnpm --filter @botcamp/api build && pnpm --filter @botcamp/worker build",
       "pnpm --filter @botcamp/api db:migrate",
-      "Restart the API and the worker. GET /health returns {\"ok\":true}.",
+      "infra/compose/release-tag.sh seal <checkout>",
+      "Restart the API and the worker. They start only when release-tag.sh require passes. GET /health returns {\"ok\":true}.",
     ],
   },
   {
     id: "cvm-supervisor",
     title: "CVM  computer supervisor",
     match: (file) => file.startsWith("infra/sandboxes/supervisor/"),
-    steps: ["Restart the supervisor on the API host.", "A computer that is already running keeps its current image."],
+    steps: [
+      "Restart the supervisor only after release-tag.sh require passes.",
+      "A computer that is already running keeps its current image.",
+    ],
   },
   {
     id: "downloads",
@@ -72,7 +79,7 @@ const PLACES = [
     steps: [
       "(cd android && ./build-apk.sh)",
       "Copy android/build/manual/BotCamp-<version>.apk to /downloads/ under that versioned name.",
-      "Point the Android button in web/site/index.html at it, then publish Demox /.",
+      "Set version and android in /downloads/latest.json. The homepage reads that catalog.",
       "VERSION_NAME and VERSION_CODE live at the top of android/build-apk.sh. Set the same pair in android/app/build.gradle.kts.",
     ],
   },
@@ -84,17 +91,16 @@ const PLACES = [
       "gh workflow run desktop-unsigned.yml --ref main -f publish=true",
       "platform is mac, windows, or omitted for both. version overrides apps/desktop/package.json.",
       "This uploads the installer, its blockmap, and latest.yml or latest-mac.yml. The macOS zip stays out.",
-      "The Demox buttons and /downloads/ stay as they are until you change those too.",
+      "Set the matching version and URL in /downloads/latest.json when this installer is the one the homepage should offer.",
     ],
   },
   {
     id: "registry",
-    title: "Image registry   ghcr.io/<owner>/<repo>/{app,computer,updater}",
+    title: "Image registry   ghcr.io/<owner>/<repo>/computer",
     match: (file) => file.startsWith("infra/sandboxes/computer/") || file.startsWith("infra/sandboxes/desktop/"),
     steps: [
       "Push to main. After Checks and Postgres journeys, sha-<commit> and edge move.",
       "computer:edge is what a new computer pulls. One that is already running is left as it started.",
-      "The CVM does not run the app image.",
     ],
   },
 ];

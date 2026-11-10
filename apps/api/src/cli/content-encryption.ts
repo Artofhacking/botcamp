@@ -9,10 +9,10 @@ import {
   unwrapEnvFromKeyManager,
   upgradeLegacySecrets,
   withSecretPersistence,
-} from "@rakazo/adapters";
-import { resolveContentEncryption, resolveEncryptionKey } from "@rakazo/core";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
-import type { ContentMigrationMode } from "@rakazo/db";
+} from "@botcamp/adapters";
+import { resolveContentEncryption, resolveEncryptionKey } from "@botcamp/core";
+import { loadRootEnv } from "@botcamp/core/node/load-root-env";
+import type { ContentMigrationMode } from "@botcamp/db";
 import {
   contentEncryptionStatus,
   createDb,
@@ -21,7 +21,7 @@ import {
   rewrapSpaceKeys,
   rotateSpaceDataKeys,
   runAsSystem,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { moveMcpArgsIntoSecrets } from "../mcp-args-migration.js";
 import { createSecretMigrationRepository } from "../secret-migration.js";
 

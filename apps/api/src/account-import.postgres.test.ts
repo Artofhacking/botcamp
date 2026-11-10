@@ -7,12 +7,12 @@ import type {
   ArtifactStore,
   JobPublisher,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
-import { LocalAgentHomeStore } from "@rakazo/adapters";
-import type { AccountExportRecord, Actor } from "@rakazo/contracts";
-import { PAGE_SOURCE_MAX_BYTES } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { asSystem, createDb } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import { LocalAgentHomeStore } from "@botcamp/adapters";
+import type { AccountExportRecord, Actor } from "@botcamp/contracts";
+import { PAGE_SOURCE_MAX_BYTES } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { asSystem, createDb } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AccountImportError, importAccount } from "./account-import.js";
 import { buildArchive, chunked, exportFiles, manifestFor } from "./account-import.test-support.js";

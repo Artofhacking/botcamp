@@ -5,11 +5,11 @@ import type {
   BrowserDownload,
   BrowserProvider,
   ComputerRef,
-} from "@rakazo/adapter-kit";
-import { MAX_BROWSER_UPLOAD_FILES } from "@rakazo/adapter-kit";
-import type { PurchaseCardField } from "@rakazo/contracts";
-import { PURCHASE_CARD_FIELDS } from "@rakazo/contracts";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { MAX_BROWSER_UPLOAD_FILES } from "@botcamp/adapter-kit";
+import type { PurchaseCardField } from "@botcamp/contracts";
+import { PURCHASE_CARD_FIELDS } from "@botcamp/contracts";
+import { getLogger } from "@botcamp/logging";
 import { redactConnectorPayload } from "./connector-safety.js";
 import { TOOL_RESULT_TEXT_LIMIT } from "./pi-runtime-limits.js";
 import type { PurchaseApproval } from "./purchase-gate.js";

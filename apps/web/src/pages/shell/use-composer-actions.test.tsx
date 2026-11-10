@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Bot, ComputerStatus, Me, ThreadSnapshot } from "@rakazo/contracts";
+import type { Bot, ComputerStatus, Me, ThreadSnapshot } from "@botcamp/contracts";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -192,6 +192,7 @@ it("runs routines without text in one request", async () => {
   expect(rpc.threads.sendWithRoutines).toHaveBeenCalledWith({
     botId: "bot-1",
     clientNonce: "nonce-1",
+    origin: "web",
     routineIds: ["routine-1", "routine-2"],
   });
 
@@ -247,6 +248,7 @@ it("names the open page only on text the chat itself sends", async () => {
   expect(rpc.threads.sendWithRoutines).toHaveBeenLastCalledWith({
     botId: "bot-1",
     clientNonce: "nonce-1",
+    origin: "web",
     routineIds: ["routine-1"],
   });
   await act(async () => void (await latest.sendMessage("@Team", [team], "nonce-2")));

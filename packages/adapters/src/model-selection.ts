@@ -1,13 +1,13 @@
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import type { Actor } from "@rakazo/contracts";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
+import type { Actor } from "@botcamp/contracts";
 import {
   canonicalPiProviderId,
   selectCompatibleModelCredential,
   usableModelId,
-} from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { chooseModelCredential, findModelCredential, findModelCredentialById } from "@rakazo/db";
+} from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { chooseModelCredential, findModelCredential, findModelCredentialById } from "@botcamp/db";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { modelCredentialDto } from "./model-connect.js";
 import type { ModelCredentialAuthKind } from "./pi-catalog-availability.js";

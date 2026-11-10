@@ -1,4 +1,4 @@
-import { BOT_MEMORY_MAX_BYTES } from "@rakazo/contracts";
+import { BOT_MEMORY_MAX_BYTES } from "@botcamp/contracts";
 import type { Criterion, EvalCase, Evidence } from "./cases.js";
 import type { JudgeInput } from "./judge.js";
 

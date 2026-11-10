@@ -5,7 +5,7 @@ import {
   COMPUTER_CACHE_ENV,
   MAX_DESKTOP_DISPLAY,
   screenPorts,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 import type Docker from "dockerode";
 
 /**
@@ -14,11 +14,14 @@ import type Docker from "dockerode";
  * (`:latest`) name. An image that already carries a tag or digest is used as is.
  */
 export function resolveComputerImage(
-  image = process.env.RAKAZO_COMPUTER_IMAGE,
-  tag = process.env.RAKAZO_COMPUTER_IMAGE_TAG,
+  image = firstNonEmpty(process.env.BOTCAMP_COMPUTER_IMAGE, process.env.RAKAZO_COMPUTER_IMAGE),
+  tag = firstNonEmpty(
+    process.env.BOTCAMP_COMPUTER_IMAGE_TAG,
+    process.env.RAKAZO_COMPUTER_IMAGE_TAG,
+  ),
 ): string {
   const name = image?.trim();
-  if (!name) return "rakazo/computer:local";
+  if (!name) return "botcamp/computer:local";
   const wantedTag = tag?.trim();
   const lastSegment = name.slice(name.lastIndexOf("/") + 1);
   if (!wantedTag || name.includes("@") || lastSegment.includes(":")) return name;
@@ -34,12 +37,12 @@ export const COMPUTER_IMAGE_CONTEXT_FILES = [
   "user-env.sh",
   "control.py",
   "xcapture.c",
-  "rakazo-browser",
-  "rakazo-focus-or-launch",
-  "rakazo-page-browser",
+  "botcamp-browser",
+  "botcamp-focus-or-launch",
+  "botcamp-page-browser",
   "page_secrets.py",
   "install-agent-browser.sh",
-  "rakazo-browser.desktop",
+  "botcamp-browser.desktop",
   "browser-policy.json",
   "embed.html",
   "clipboard-bridge.js",
@@ -47,7 +50,7 @@ export const COMPUTER_IMAGE_CONTEXT_FILES = [
   "fluxbox.init",
   "fluxbox.apps",
   "fluxbox.menu",
-  "rakazo-local-bin.sh",
+  "botcamp-local-bin.sh",
   "90-cjk-fallback.conf",
 ] as const;
 
@@ -55,7 +58,7 @@ export const COMPUTER_IMAGE_CONTEXT_FILES = [
  * Docker's rule for a name that carries its registry: the first path component has a "." or
  * ":", is "localhost", or has an uppercase letter. The supervisor pulls only such names, never an
  * unqualified one that Docker would look up on Docker Hub, where anyone could register
- * rakazo/computer.
+ * botcamp/computer.
  */
 export function isRegistryQualifiedImage(image: string): boolean {
   const slash = image.indexOf("/");
@@ -69,6 +72,8 @@ export const COMPUTER_GID = 1000;
 export const COMPUTER_USER = `${COMPUTER_UID}:${COMPUTER_GID}`;
 
 export { screenPorts };
+
+import { firstNonEmpty } from "@botcamp/core/env-name";
 export const COMPUTER_CONTROL_PORT = 7070;
 export const SCREEN_HOST = process.env.SANDBOX_SCREEN_HOST ?? "127.0.0.1";
 export type ScreenNetworkMode = "published" | "internal" | "isolated";
@@ -164,7 +169,11 @@ function parsePidsLimit(name: string, raw: string): number {
 
 /** An unset variable and one present but blank both mean "use the default". */
 function envOrDefault(name: string, fallback: string): string {
-  const raw = process.env[name];
+  const suffix = name.replace(/^(?:BOTCAMP_|RAKAZO_)/, "");
+  const raw =
+    name === suffix
+      ? process.env[name]
+      : firstNonEmpty(process.env[`BOTCAMP_${suffix}`], process.env[`RAKAZO_${suffix}`]);
   return raw === undefined || raw.trim() === "" ? fallback : raw;
 }
 
@@ -203,7 +212,7 @@ export function resolveScreenNetworkMode(value: string | undefined): ScreenNetwo
  * endpoints. `restricted` keeps public internet egress but lets the operator drop
  * everything else with one host-side iptables rule set — the supervisor gives each
  * computer network a deterministic bridge interface name so the rules match by
- * interface (`-i rakazo-c+`) instead of ephemeral subnets. Enforcement lives on the
+ * interface (`-i botcamp+`) instead of ephemeral subnets. Enforcement lives on the
  * Docker host (infra/compose/restrict-computer-egress.sh) and is verified before
  * computers start (egress-probe.ts). The Compose stacks default to `auto`: restricted
  * when that check passes, open otherwise, so a stack installed before the rules
@@ -315,7 +324,7 @@ export function assertComputerMountSources(
  * Host directories mounted into every computer in every Space, from SANDBOX_COMPUTER_MOUNTS:
  * comma-separated `source:target[:option...]` entries with options ro (default), rw and rslave.
  * Both paths are absolute without `..`. A target sits below /mnt, /media or /srv: inside
- * /home/rakazo Docker would create the mount point root-owned in the bot's home, which then
+ * /home/botcamp Docker would create the mount point root-owned in the bot's home, which then
  * fails the home ownership check, and system directories are not the operator's to replace.
  */
 export function resolveComputerMounts(
@@ -373,7 +382,8 @@ function computerMountSettings(mount: ComputerMount): Docker.MountSettings {
  * as its own VM path when the container also mounts a volume, as every Compose computer's home
  * does, so the inspected Source cannot be compared with the setting.
  */
-const MOUNT_SOURCES_LABEL = "rakazo.mountSources";
+const MOUNT_SOURCES_LABEL = "botcamp.mountSources";
+const LEGACY_MOUNT_SOURCES_LABEL = "rakazo.mountSources";
 
 function mountSourcesLabel(mounts: ComputerMount[]) {
   return JSON.stringify(Object.fromEntries(mounts.map((mount) => [mount.target, mount.source])));
@@ -381,7 +391,9 @@ function mountSourcesLabel(mounts: ComputerMount[]) {
 
 function labeledMountSources(labels: Record<string, string> | undefined): Record<string, unknown> {
   try {
-    const parsed: unknown = JSON.parse(labels?.[MOUNT_SOURCES_LABEL] ?? "{}");
+    const parsed: unknown = JSON.parse(
+      labels?.[MOUNT_SOURCES_LABEL] ?? labels?.[LEGACY_MOUNT_SOURCES_LABEL] ?? "{}",
+    );
     return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};
@@ -397,7 +409,7 @@ export function computerMountsMatch(
   desired: ComputerMount[],
 ) {
   const binds = (info.HostConfig.Mounts ?? []).filter(
-    (mount) => mount.Type === "bind" && mount.Target !== "/home/rakazo",
+    (mount) => mount.Type === "bind" && mount.Target !== "/home/botcamp",
   );
   const sources = labeledMountSources(info.Config.Labels);
   return (
@@ -416,12 +428,12 @@ export function computerMountsMatch(
 
 /**
  * Host bridge interface name for a computer network. Linux caps interface names
- * at 15 bytes (IFNAMSIZ), so "rakazo-c" gets a 7-hex-char suffix derived from the
- * same digest as the network name — deterministic across recreate, unique per bot.
+ * at 15 bytes (IFNAMSIZ). "botcamp" plus a 7-hex-char suffix is 14 bytes, derived
+ * from the same digest as the network name — deterministic across recreate, unique per bot.
  */
 export function computerBridgeNameFor(botId: string) {
   const hash = createHash("sha256").update(botId).digest("hex").slice(0, 7);
-  return `rakazo-c${hash}`;
+  return `botcamp${hash}`;
 }
 
 /**
@@ -448,7 +460,7 @@ export function computerNetworkCreateOptions(
     Name: computerNetworkNameFor(botId),
     Driver: "bridge",
     CheckDuplicate: true,
-    Labels: { "rakazo.computerOwner": owner, "rakazo.botId": botId },
+    Labels: { "botcamp.computerOwner": owner, "botcamp.botId": botId },
     ...(egress === "restricted"
       ? { Options: { "com.docker.network.bridge.name": computerBridgeNameFor(botId) } }
       : {}),
@@ -531,7 +543,7 @@ export function homeVolumeMatches(
   return (
     mounts?.some(
       (mount) =>
-        mount.Target === "/home/rakazo" &&
+        mount.Target === "/home/botcamp" &&
         mount.Type === "volume" &&
         mount.Source === volume.name &&
         mount.VolumeOptions?.Subpath === volume.subpath &&
@@ -579,16 +591,16 @@ export function containerCreateOptions(input: ComputerCreateInput) {
     Env: [
       ...Object.entries(COMPUTER_CACHE_ENV).map(([key, value]) => `${key}=${value}`),
       "DISPLAY=:1",
-      "HOME=/home/rakazo",
-      "PATH=/home/rakazo/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      "NPM_CONFIG_PREFIX=/home/rakazo/.local",
+      "HOME=/home/botcamp",
+      "PATH=/home/botcamp/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NPM_CONFIG_PREFIX=/home/botcamp/.local",
       "PIP_USER=1",
-      ...(input.controlToken ? [`RAKAZO_COMPUTER_CONTROL_TOKEN=${input.controlToken}`] : []),
+      ...(input.controlToken ? [`BOTCAMP_COMPUTER_CONTROL_TOKEN=${input.controlToken}`] : []),
     ],
     Labels: {
-      "rakazo.managed": "true",
-      "rakazo.botId": input.botId,
-      "rakazo.spaceId": input.spaceId,
+      "botcamp.managed": "true",
+      "botcamp.botId": input.botId,
+      "botcamp.spaceId": input.spaceId,
       ...(input.mounts?.length ? { [MOUNT_SOURCES_LABEL]: mountSourcesLabel(input.mounts) } : {}),
     },
     ExposedPorts: ports.ExposedPorts,
@@ -600,7 +612,7 @@ export function containerCreateOptions(input: ComputerCreateInput) {
               {
                 Type: "volume" as const,
                 Source: input.homeVolume.name,
-                Target: "/home/rakazo",
+                Target: "/home/botcamp",
                 // Docker makes Labels and DriverConfig optional; dockerode's types do not.
                 VolumeOptions: {
                   NoCopy: true,
@@ -611,7 +623,7 @@ export function containerCreateOptions(input: ComputerCreateInput) {
             ],
           }
         : {
-            Binds: [`${input.homePath}:/home/rakazo`],
+            Binds: [`${input.homePath}:/home/botcamp`],
             Mounts: extraMounts.length ? extraMounts : undefined,
           }),
       PortBindings: ports.PortBindings,
@@ -624,7 +636,7 @@ export function containerCreateOptions(input: ComputerCreateInput) {
       NetworkMode: input.networkMode ?? "bridge",
       ...(input.dns ? { Dns: input.dns } : {}),
     },
-    WorkingDir: "/home/rakazo",
+    WorkingDir: "/home/botcamp",
   };
 }
 
@@ -634,7 +646,7 @@ export function sanitizeIdentifier(botId: string) {
 }
 
 export function containerNameFor(botId: string) {
-  return `rakazo-bot-${sanitizeIdentifier(botId)}`;
+  return `botcamp-bot-${sanitizeIdentifier(botId)}`;
 }
 
 export function computerNetworkNameFor(botId: string) {
@@ -642,7 +654,7 @@ export function computerNetworkNameFor(botId: string) {
   // characters (e.g. "a/b" and "ab"). Do not change containerNameFor — that
   // name must stay stable so an existing computer can resume.
   const hash = createHash("sha256").update(botId).digest("hex").slice(0, 32);
-  return `rakazo-computer-${sanitizeIdentifier(botId).slice(0, 32)}-${hash}`;
+  return `botcamp-computer-${sanitizeIdentifier(botId).slice(0, 32)}-${hash}`;
 }
 
 /** Current and prior network names, for delete cleanup. */
@@ -651,6 +663,10 @@ export function computerNetworkNamesForCleanup(botId: string) {
   const digest = createHash("sha256").update(botId).digest("hex");
   return [
     computerNetworkNameFor(botId),
+    `botcamp-computer-${safe}`,
+    `botcamp-computer-${safe.slice(0, 32)}-${digest.slice(0, 8)}`,
+    // Names the previous release created. Cleanup still has to find them.
+    `rakazo-computer-${safe.slice(0, 32)}-${digest.slice(0, 32)}`,
     `rakazo-computer-${safe}`,
     `rakazo-computer-${safe.slice(0, 32)}-${digest.slice(0, 8)}`,
   ];

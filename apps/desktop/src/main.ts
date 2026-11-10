@@ -3,15 +3,16 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { HostScreen } from "@rakazo/adapters/host-screen";
-import { startUserDeviceClient } from "@rakazo/adapters/user-device-client";
+import type { HostScreen } from "@botcamp/adapters/host-screen";
+import { startUserDeviceClient } from "@botcamp/adapters/user-device-client";
 import type {
   BotCampDesktopDevice,
   DesktopMenuCommand,
   DesktopReachability,
   DesktopSetup,
-} from "@rakazo/contracts";
-import { parseServerHeaders, SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
+} from "@botcamp/contracts";
+import { parseServerHeaders, SESSION_BEARER_STORAGE_KEY } from "@botcamp/contracts";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import type { Session } from "electron";
 import {
   app,
@@ -49,7 +50,6 @@ import {
   desktopDirection,
   desktopLocale,
   desktopMessages,
-  errorDetail,
   startDesktopLocale,
   t,
   withDetail,
@@ -109,11 +109,14 @@ import { clearSetup, readSetup, readUiLocale, writeSetup, writeUiLocale } from "
 import { createSystemSpeech } from "./system-speech.js";
 import type { UserDeviceAccess } from "./user-device.js";
 import { createUserDeviceAccess, deviceName } from "./user-device.js";
-import { oauthPopupSessionPreferences, shouldOpenInAppPopup } from "./window-open.js";
+import {
+  oauthPopupSessionPreferences,
+  openInSystemBrowser,
+  shouldOpenInAppPopup,
+} from "./window-open.js";
 import {
   browserWindowOptions,
   developmentIconFile,
-  setupWindowOptions,
   warmWindowTtlMs,
   windowsAppUserModelId,
 } from "./window-options.js";
@@ -121,9 +124,14 @@ import {
 process.setSourceMapsEnabled(true);
 installDesktopEarlyErrorReporting();
 
-const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
+const PERFORMANCE_USER_DATA = firstNonEmpty(
+  process.env.BOTCAMP_PERFORMANCE_USER_DATA,
+  process.env.RAKAZO_PERFORMANCE_USER_DATA,
+);
 /** Test hook: where the app-managed stack answers. Mode `new` still requires loopback. */
-const LOCAL_WEB_URL = process.env.RAKAZO_LOCAL_WEB_URL?.trim() || DEFAULT_LOCAL_WEB_URL;
+const LOCAL_WEB_URL =
+  firstNonEmpty(process.env.BOTCAMP_LOCAL_WEB_URL, process.env.RAKAZO_LOCAL_WEB_URL)?.trim() ||
+  DEFAULT_LOCAL_WEB_URL;
 const PROBE_TIMEOUT_MS = 8_000;
 const DESKTOP_STACK_PROBE_PATH = "/.well-known/rakazo-desktop-stack";
 const DESKTOP_STACK_TOKEN_HEADER = "x-rakazo-desktop-stack-token";
@@ -151,14 +159,20 @@ let warmWindowTimer: NodeJS.Timeout | undefined;
 // destroying the last window fires "window-all-closed" -> app.quit(); a probe
 // that runs before the first real window exists must not count as "all closed".
 let liveProbeWindows = 0;
-const WARM_WINDOW_TTL_MS = warmWindowTtlMs(process.env.RAKAZO_WARM_WINDOW_TTL_MS);
+const WARM_WINDOW_TTL_MS = warmWindowTtlMs(
+  firstNonEmpty(process.env.BOTCAMP_WARM_WINDOW_TTL_MS, process.env.RAKAZO_WARM_WINDOW_TTL_MS),
+);
 
 const reportsErrors = desktopReportsErrors(app.isPackaged);
 const updaterEnvironment = {
   // A `--dir` build has no update feed to read.
   packaged: app.isPackaged && existsSync(path.join(process.resourcesPath, "app-update.yml")),
   version: app.getVersion(),
-  disabled: process.env.RAKAZO_DISABLE_AUTO_UPDATE === "1",
+  disabled:
+    firstNonEmpty(
+      process.env.BOTCAMP_DISABLE_AUTO_UPDATE,
+      process.env.RAKAZO_DISABLE_AUTO_UPDATE,
+    ) === "1",
 };
 /** Created once the app's language is known, so its first message is in it. */
 let desktopUpdater: DesktopUpdateController;
@@ -345,7 +359,9 @@ function createWindow(url: string, partition: string | null) {
       };
     }
     const external = safeExternalUrl(childUrl);
-    if (external !== null) void shell.openExternal(external);
+    if (external !== null) {
+      openInSystemBrowser((target) => void shell.openExternal(target), external);
+    }
     return { action: "deny" };
   });
   // Signing in lands on a new page; pair then instead of waiting for the next launch.
@@ -360,7 +376,9 @@ function createWindow(url: string, partition: string | null) {
     if (targetOrigin !== null && safeOrigin(event.url) === targetOrigin) return;
     event.preventDefault();
     const external = safeExternalUrl(event.url);
-    if (external !== null) void shell.openExternal(external);
+    if (external !== null) {
+      openInSystemBrowser((target) => void shell.openExternal(target), external);
+    }
   };
   win.webContents.on("will-navigate", keepOnAppOrigin);
   win.webContents.on("will-redirect", keepOnAppOrigin);
@@ -391,7 +409,10 @@ function createWindow(url: string, partition: string | null) {
     if (
       process.platform === "darwin" &&
       !quitting &&
-      process.env.RAKAZO_DISABLE_WARM_WINDOW !== "1"
+      firstNonEmpty(
+        process.env.BOTCAMP_DISABLE_WARM_WINDOW,
+        process.env.RAKAZO_DISABLE_WARM_WINDOW,
+      ) !== "1"
     ) {
       event.preventDefault();
       win.hide();
@@ -564,7 +585,14 @@ async function installBundledRenderer(
   partition: string | null,
   managedLocalStack: boolean,
 ) {
-  if (!app.isPackaged || process.env.RAKAZO_DISABLE_BUNDLED_RENDERER === "1") return;
+  if (
+    !app.isPackaged ||
+    firstNonEmpty(
+      process.env.BOTCAMP_DISABLE_BUNDLED_RENDERER,
+      process.env.RAKAZO_DISABLE_BUNDLED_RENDERER,
+    ) === "1"
+  )
+    return;
   if (!servesBundledRenderer(targetUrl, managedLocalStack)) return;
   const webUrl = new URL(targetUrl);
   const installationKey = `${partition ?? "default"}:${webUrl.protocol}`;
@@ -615,58 +643,6 @@ function oauthPopupWindowOptions(partition: string | null) {
     backgroundColor: "#0A0A0A",
     webPreferences: oauthPopupSessionPreferences(partition),
   };
-}
-
-function createSetupWindow() {
-  const icon = developmentIcon();
-  const win = new BrowserWindow({
-    ...setupWindowOptions(process.platform, screen.getPrimaryDisplay().workAreaSize),
-    ...(icon ? { icon } : {}),
-    webPreferences: {
-      preload: path.join(import.meta.dirname, "setup-preload.cjs"),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      // A long pull runs while this window sits behind others; throttled timers would freeze it.
-      backgroundThrottling: false,
-    },
-  });
-  setupWindow = win;
-  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  win.once("closed", () => {
-    if (setupWindow === win) setupWindow = null;
-    // Closing setup without saving restores a connected session (Change Server cancel).
-    restoreAppWindowAfterSetup();
-  });
-  void win.loadFile(path.join(import.meta.dirname, "setup.html"));
-  markOnce("rk:main:setup-window-created");
-  return win;
-}
-
-/** Hide the app while setup is open; do not clear the saved target until a new one opens. */
-function showSetupWindow(error: string | null = null) {
-  setupError = error;
-
-  let win: BrowserWindow;
-  if (setupWindow !== null && !setupWindow.isDestroyed()) {
-    if (error !== null) setupWindow.reload();
-    win = setupWindow;
-  } else {
-    win = createSetupWindow();
-  }
-  if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.hide();
-  win.show();
-  win.focus();
-  return win;
-}
-
-function restoreAppWindowAfterSetup() {
-  if (quitting) return;
-  if (setupWindow !== null && !setupWindow.isDestroyed()) return;
-  if (mainWindow === null || mainWindow.isDestroyed() || currentTargetUrl === null) return;
-  clearTimeout(warmWindowTimer);
-  mainWindow.show();
-  mainWindow.focus();
 }
 
 let menuUpdateCheck: Promise<void> | null = null;
@@ -763,16 +739,11 @@ function installApplicationMenu() {
     visible: process.platform !== "darwin" && updaterSupport(updaterEnvironment).supported,
     click: () => void checkForUpdatesFromMenu(),
   };
-  const changeServer: Electron.MenuItemConstructorOptions = {
-    id: "change-rakazo-server",
-    label: t("Change BotCamp Server…"),
-    accelerator: "CmdOrCtrl+Shift+K",
-    click: () => showSetupWindow(),
-  };
   const stopStack: Electron.MenuItemConstructorOptions = {
     id: "stop-local-stack",
     label: t("Stop Local Stack"),
-    // The stack keeps running after quit (bots are always on); this is the explicit off switch.
+    // Only a stack this app already started can be stopped here. The chooser no longer starts one.
+    visible: currentSetup?.mode === "new",
     click: () => {
       if (currentSetup?.mode === "new") {
         hostComputer?.activate(false);
@@ -872,7 +843,6 @@ function installApplicationMenu() {
               { type: "separator" },
               computerAccess,
               revokeComputerAccess,
-              changeServer,
               stopStack,
               { type: "separator" },
               { role: "hide", label: t("Hide {name}", { name: app.name }) },
@@ -907,7 +877,6 @@ function installApplicationMenu() {
               openSettings,
               computerAccess,
               revokeComputerAccess,
-              changeServer,
               stopStack,
               { type: "separator" },
               checkForUpdates,
@@ -1021,14 +990,6 @@ async function probeManagedStack(
   }
 }
 
-/**
- * Failures raised here carry their translated detail; any other is a network error. Their
- * messages stay English for error reports.
- */
-function openFailureDetail(error: unknown): string {
-  return errorDetail(error) ?? probeFailureMessage(error);
-}
-
 function activateDesktopMonitoring(url: string | undefined, targetSession?: Session) {
   if (monitoringTargetUrl === url && monitoringSession === targetSession) return;
   stopMonitoringSession?.();
@@ -1081,8 +1042,12 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
   const previous = mainWindow;
   let win: BrowserWindow | null = null;
   try {
-    const documentError = await probeDocument(targetUrl);
-    if (documentError !== null) throw documentError;
+    // The first window is the hosted console even when a probe fails. Switching
+    // still refuses a page that is not there.
+    if (switching) {
+      const documentError = await probeDocument(targetUrl);
+      if (documentError !== null) throw documentError;
+    }
     await installBundledRenderer(
       targetUrl,
       target.value,
@@ -1124,12 +1089,15 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
     if (previous !== null && !previous.isDestroyed()) mainWindow = previous;
     // Closing the window while it loads is the user leaving, not a failure to explain.
     if (closed) return false;
-    // Show the setup window BEFORE destroying the failed one: on Windows/Linux,
-    // destroying the last window fires "window-all-closed" -> app.quit() before
-    // showSetupWindow() runs, so the app silently exits instead of showing this error.
-    showSetupWindow(
-      t("Could not open that server. {detail}", { detail: openFailureDetail(error) }),
-    );
+    // Launch keeps the page window. The server chooser is gone, so a failed open
+    // must not destroy the only window: on Windows/Linux that quits the app.
+    if (!switching || previous === null || previous.isDestroyed()) {
+      if (win !== null && !win.isDestroyed()) {
+        currentTargetUrl = targetUrl;
+        return true;
+      }
+      return false;
+    }
     if (win !== null && !win.isDestroyed()) win.destroy();
     return false;
   }
@@ -1338,7 +1306,11 @@ async function recoverFromCrashedSave(
           "Could not open that server. Renderer stopped. The previous instance was restored for the next launch.",
         )
       : t("Could not open that server. Renderer stopped.");
-  showSetupWindow(message);
+  if ((mainWindow === null || mainWindow.isDestroyed()) && !appOpener.busy()) {
+    const cloud = botcampCloudSetup();
+    currentSetup = cloud;
+    void appOpener.open(cloud.pageUrl ?? cloud.serverUrl);
+  }
   return message;
 }
 
@@ -1477,12 +1449,12 @@ app.whenReady().then(async () => {
       appPath: app.getAppPath(),
     }),
     localWebUrl:
-      process.env.RAKAZO_LOCAL_WEB_URL?.trim() ||
+      firstNonEmpty(process.env.BOTCAMP_LOCAL_WEB_URL, process.env.RAKAZO_LOCAL_WEB_URL)?.trim() ||
       (await readStackWebUrl(stackDir(userDataDir), LOCAL_WEB_URL)),
     imageTag: resolveImageTag({
       version: app.getVersion(),
       packaged: app.isPackaged,
-      override: process.env.RAKAZO_IMAGE_TAG,
+      override: firstNonEmpty(process.env.BOTCAMP_IMAGE_TAG, process.env.RAKAZO_IMAGE_TAG),
     }),
     probe: (url, signal, token) => probeManagedStack(url, token, signal),
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
@@ -1494,11 +1466,16 @@ app.whenReady().then(async () => {
   });
   currentSetup = await readSetup(userDataDir);
   const target = resolveStartupTarget({
-    envUrl: process.env.RAKAZO_WEB_URL,
+    envUrl: firstNonEmpty(process.env.BOTCAMP_WEB_URL, process.env.RAKAZO_WEB_URL),
     saved: currentSetup,
-    forceSetup: process.env.RAKAZO_FORCE_SETUP === "1",
   });
-  if (process.env.RAKAZO_PERFORMANCE_CLEAR_CACHE === "1") {
+  if (target.source === "cloud") currentSetup = botcampCloudSetup();
+  if (
+    firstNonEmpty(
+      process.env.BOTCAMP_PERFORMANCE_CLEAR_CACHE,
+      process.env.RAKAZO_PERFORMANCE_CLEAR_CACHE,
+    ) === "1"
+  ) {
     const cacheSessions = new Set<Session>([session.defaultSession]);
     if (target.kind === "app") {
       cacheSessions.add((await resolveSessionForTarget(target.url)).value);
@@ -1860,17 +1837,14 @@ app.whenReady().then(async () => {
       return;
     }
     if (appOpener.busy()) return;
-    if (currentTargetUrl === null) showSetupWindow(setupError);
-    else
-      void appOpener.open(currentTargetUrl).then((opened) => {
-        if (opened) commitPendingAppSwitch();
-      });
+    const url = currentTargetUrl ?? botcampCloudSetup().pageUrl ?? botcampCloudSetup().serverUrl;
+    void appOpener.open(url).then((opened) => {
+      if (opened) commitPendingAppSwitch();
+    });
   });
 
-  if (target.kind === "setup") {
-    showSetupWindow();
-  } else if (target.source === "cloud") {
-    // A fresh install is BotCamp Cloud. Persist only after the console opens.
+  if (target.source === "cloud") {
+    // Persist the hosted console only after it opens. An older saved server is replaced.
     const cloud = botcampCloudSetup();
     currentSetup = cloud;
     if (await appOpener.open(cloud.pageUrl ?? cloud.serverUrl)) {
@@ -1884,47 +1858,9 @@ app.whenReady().then(async () => {
     } else {
       currentSetup = null;
     }
-  } else if (target.source === "saved") {
-    if (currentSetup?.mode === "new") {
-      const managedUrl = managedLocalOpenUrl(target.url, localStack.webUrl());
-      const managedStackReady =
-        managedUrl !== null ? await localStack.matchesDesiredStack() : false;
-      if (managedStackReady && managedUrl !== null) {
-        if (await appOpener.open(managedUrl)) {
-          commitPendingAppSwitch();
-          destroySetupWindow();
-        }
-      } else {
-        // Missing, stale, foreign, or owned by another process: reconcile the
-        // app-managed stack before any API or computer traffic is allowed.
-        void localStack.start();
-        showSetupWindow();
-      }
-    } else {
-      const reachability = await probeServer(
-        target.url,
-        undefined,
-        currentSetup?.headers,
-        currentSetup?.apiUrl,
-      );
-      if (reachability.ok) {
-        if (await appOpener.open(target.url)) {
-          commitPendingAppSwitch();
-          destroySetupWindow();
-        }
-      } else {
-        showSetupWindow(
-          t("Could not reconnect to the saved server. {detail}", {
-            detail: reachability.error ?? "",
-          }),
-        );
-      }
-    }
-  } else {
-    if (await appOpener.open(target.url)) {
-      commitPendingAppSwitch();
-      destroySetupWindow();
-    }
+  } else if (await appOpener.open(target.url)) {
+    commitPendingAppSwitch();
+    destroySetupWindow();
   }
 });
 

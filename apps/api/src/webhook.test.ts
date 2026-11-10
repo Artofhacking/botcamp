@@ -1,11 +1,11 @@
 import { createHash, createHmac } from "node:crypto";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
 import {
   ComposedSecretStore,
   EncryptedSecretStore,
   GithubWebhookEmulator,
   InfisicalSecretStore,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { infisicalFake } from "../../../packages/adapters/src/secret-store-fake.js";

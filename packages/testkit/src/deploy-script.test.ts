@@ -27,7 +27,7 @@ const rolloutSteps = (revision: string) => [
   `${WORKERS} worker-old`,
   // Only this container gets the database owner login; the old API keeps serving meanwhile.
   `${COMPOSE} config --services`,
-  `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= migrate`,
+  `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= -e BOTCAMP_DEPLOYED_MIGRATIONS= migrate`,
   ...["api", "web"].flatMap((service) => [
     `${COMPOSE} ps --all --quiet ${service}`,
     ...startBeside(service),
@@ -274,7 +274,28 @@ describe("production deploy script", () => {
     expect(result.status).toBe(0);
     expect(deploy.head()).toBe(next);
     expect(deploy.deployed()).toBe(next);
-    expect(rollout(deploy.commands())).toEqual([...rolloutSteps(next), ...finishDraining]);
+    const rolled = rollout(deploy.commands());
+    expect(rolled).toEqual([...rolloutSteps(next), ...finishDraining]);
+    const migrateAt = rolled.indexOf(
+      `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= -e BOTCAMP_DEPLOYED_MIGRATIONS= migrate`,
+    );
+    const stopApiAt = rolled.indexOf("docker stop --time 30 api-old");
+    // The old API and worker are still up at migrate. That is safe because the
+    // migration adds botcamp_app beside rakazo_app instead of renaming the login.
+    expect(migrateAt).toBeGreaterThan(-1);
+    expect(stopApiAt).toBeGreaterThan(migrateAt);
+    expect(rolled.slice(0, migrateAt).some((line) => line.startsWith("docker stop"))).toBe(false);
+    const roleSql = readFileSync(
+      path.join(
+        repoRoot,
+        "packages/db/prisma/migrations/20261210000000_rename_runtime_role/migration.sql",
+      ),
+      "utf8",
+    );
+    expect(roleSql).toContain("CREATE ROLE botcamp_app");
+    expect(roleSql).toContain("GRANT rakazo_app TO botcamp_app");
+    expect(roleSql).not.toMatch(/ALTER\s+ROLE\s+rakazo_app\s+RENAME/i);
+    expect(roleSql).not.toMatch(/RAISE\s+EXCEPTION/i);
     expect(deploy.commands().some((line) => line.includes(" caddy"))).toBe(false);
     const commands = deploy.commands().map((line) => line.split(" @ ")[0]!);
     expect(
@@ -495,22 +516,30 @@ describe("production deploy script", () => {
     // Both the failed rollout and its rollback retain the last healthy release's eligibility.
     expect(migrationCommands()).toHaveLength(2);
     for (const line of migrationCommands()) {
-      expect(line).toContain("RAKAZO_DEPLOYED_MIGRATIONS=001_add migrate");
+      expect(line).toContain(
+        "RAKAZO_DEPLOYED_MIGRATIONS=001_add -e BOTCAMP_DEPLOYED_MIGRATIONS=001_add migrate",
+      );
     }
     start = deploy.commands().length;
     expect(deploy.run({ FAIL_HEALTH: "1" }).status).toBe(1);
     for (const line of migrationCommands()) {
-      expect(line).toContain("RAKAZO_DEPLOYED_MIGRATIONS=001_add migrate");
+      expect(line).toContain(
+        "RAKAZO_DEPLOYED_MIGRATIONS=001_add -e BOTCAMP_DEPLOYED_MIGRATIONS=001_add migrate",
+      );
     }
     commit(deploy.upstream, "release-c");
     start = deploy.commands().length;
     expect(deploy.run().status).toBe(0);
-    expect(migrationCommands()[0]).toContain("RAKAZO_DEPLOYED_MIGRATIONS=001_add migrate");
+    expect(migrationCommands()[0]).toContain(
+      "RAKAZO_DEPLOYED_MIGRATIONS=001_add -e BOTCAMP_DEPLOYED_MIGRATIONS=001_add migrate",
+    );
 
     commit(deploy.upstream, "release-d");
     start = deploy.commands().length;
     expect(deploy.run().status).toBe(0);
-    expect(migrationCommands()[0]).toContain("RAKAZO_DEPLOYED_MIGRATIONS=001_add,002_drop migrate");
+    expect(migrationCommands()[0]).toContain(
+      "RAKAZO_DEPLOYED_MIGRATIONS=001_add,002_drop -e BOTCAMP_DEPLOYED_MIGRATIONS=001_add,002_drop migrate",
+    );
   });
 
   it("starts no new container and keeps the old one serving when migrations fail", () => {
@@ -518,7 +547,9 @@ describe("production deploy script", () => {
     commit(deploy.upstream, "next");
     expect(deploy.run({ FAIL_MIGRATE: "1" }).status).toBe(1);
     const commands = rollout(deploy.commands());
-    expect(commands).toContain(`${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= migrate`);
+    expect(commands).toContain(
+      `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= -e BOTCAMP_DEPLOYED_MIGRATIONS= migrate`,
+    );
     expect(commands.some((line) => line.includes(" up "))).toBe(false);
     expect(commands.some((line) => line.startsWith("docker stop"))).toBe(false);
     expect(deploy.head()).toBe(deploy.first);
@@ -561,7 +592,7 @@ describe("production deploy script", () => {
     expect(deploy.run({ EXTRA_WORKER: "running" }).status).toBe(0);
     const commands = rollout(deploy.commands());
     const migrate = commands.indexOf(
-      `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= migrate`,
+      `${COMPOSE} run --rm -T -e RAKAZO_DEPLOYED_MIGRATIONS= -e BOTCAMP_DEPLOYED_MIGRATIONS= migrate`,
     );
     expect(commands.slice(migrate - 4, migrate)).toEqual([
       `${WORKERS} worker-old worker-older`,

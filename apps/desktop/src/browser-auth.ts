@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import { createServer } from "node:http";
-import type { BotCampDesktopOAuthCallback } from "@rakazo/contracts";
+import type { BotCampDesktopOAuthCallback } from "@botcamp/contracts";
 import { t } from "./i18n.js";
 import { LOOPBACK_HOSTS } from "./oauth-callback.js";
 

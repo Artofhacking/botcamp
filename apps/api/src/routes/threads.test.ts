@@ -1,4 +1,4 @@
-import type { Actor } from "@rakazo/contracts";
+import type { Actor } from "@botcamp/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
 import type { ThreadTarget } from "../thread-target.js";

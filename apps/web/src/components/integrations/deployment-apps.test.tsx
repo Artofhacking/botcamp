@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { McpServer } from "@rakazo/contracts";
+import type { McpServer } from "@botcamp/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -26,7 +26,7 @@ vi.mock("@lingui/react", () => ({
   Trans: ({ children, message }: { children?: ReactNode; message?: string }) =>
     children ?? message ?? null,
 }));
-vi.mock("@rakazo/ui-web", () => {
+vi.mock("@botcamp/ui-web", () => {
   const Container = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
     Button: ({
@@ -238,6 +238,36 @@ it("shows a connected app with its disconnect, and disconnects it", async () => 
   );
   await act(async () => disconnect?.click());
   expect(onDisconnect).toHaveBeenCalledWith(APP);
+});
+
+it("starts Notion sign-in without the mailbox form, and a saved mailbox does not connect it", async () => {
+  const notion: DeploymentApp = {
+    name: "Notion",
+    endpoint: "https://mcp.notion.com/mcp",
+    scopes: [],
+  };
+  const onConnect = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[APP, notion]}
+      servers={[]}
+      pending={null}
+      error={null}
+      linked
+      onSave={vi.fn()}
+      onConnect={onConnect}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  const rows = appRows(container);
+  expect(rows[0]?.textContent).toContain("Connected");
+  expect(rows[1]?.textContent).not.toContain("Connected");
+  const connect = [...rows[1]!.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  );
+  await act(async () => connect?.click());
+  expect(onConnect).toHaveBeenCalledWith(notion);
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
 it("shows a saved mailbox as connected", async () => {

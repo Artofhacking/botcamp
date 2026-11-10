@@ -1,4 +1,4 @@
-import type { MessageBlock } from "@rakazo/contracts";
+import type { MessageBlock } from "@botcamp/contracts";
 
 const TOPICS = [
   "the onboarding funnel",

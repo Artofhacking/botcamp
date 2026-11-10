@@ -32,12 +32,12 @@ describe("DaytonaSandboxProvider", () => {
   it("forwards an optional snapshot name to create()", async () => {
     const fixture = daytonaFixture();
     const provider = new DaytonaSandboxProvider(
-      { apiKey: "test-key", snapshot: "rakazo-computer" },
+      { apiKey: "test-key", snapshot: "botcamp-computer" },
       fixture.client,
     );
     await provider.provision({ botId: "bot-a", homePath: "/unused" }, context);
     expect(fixture.create).toHaveBeenCalledWith(
-      expect.objectContaining({ snapshot: "rakazo-computer" }),
+      expect.objectContaining({ snapshot: "botcamp-computer" }),
       { timeout: 120 },
     );
   });

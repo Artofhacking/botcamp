@@ -17,7 +17,7 @@ server integration credentials, or deployment updates, and cannot read deploymen
 
 There is no app-admin role, first-user privilege, or `ADMINS` list. Workspace owners manage only their own workspace.
 
-`RAKAZO_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions, add stdio
+`BOTCAMP_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions, add stdio
 MCP servers ([integrations](self-host-integrations.md)), and, on deployments that sell model
 credits, give free access at `/admin/access`. An account counts only once its email is verified.
 It grants nothing else.
@@ -53,11 +53,11 @@ Create the intended account privately (the password stays in the shell environme
 read -r -p "Account email: " OWNER_EMAIL
 read -r -s -p "Account password (at least 16 characters): " OWNER_PASSWORD
 export OWNER_EMAIL OWNER_PASSWORD
-docker compose --env-file .env -f docker-compose.images.yml exec -e OWNER_EMAIL -e OWNER_PASSWORD api node dist/cli/bootstrap-owner.js
+docker compose -f infra/compose/docker-compose.yml exec -e OWNER_EMAIL -e OWNER_PASSWORD api node dist/cli/bootstrap-owner.js
 unset OWNER_EMAIL OWNER_PASSWORD
 ```
 
-For a source checkout, use `-f infra/compose/docker-compose.yml` instead. This creates an ordinary verified account and a personal workspace, with no server privileges. For an existing unverified account, its password must match before it can be verified; an existing verified account is left unchanged.
+This creates an ordinary verified account and a personal workspace, with no server privileges. For an existing unverified account, its password must match before it can be verified; an existing verified account is left unchanged.
 Keep an installation without email on a trusted local network.
 
 ## Verification and password recovery email
@@ -221,13 +221,13 @@ desktop app uses the system passkey sheet, which only serves the domain the rele
 associated with (`botcamp.demox.site`), so it hides passkeys for other servers.
 
 Native apps can use a domain's passkeys only when the domain vouches for them and the app was
-built for that domain. A macOS desktop build takes it from `RAKAZO_PASSKEY_RP_ID` (default
+built for that domain. A macOS desktop build takes it from `BOTCAMP_PASSKEY_RP_ID` (default
 `botcamp.demox.site`): set it to the same domain for `pnpm build` and for
 `apps/desktop/scripts/passkey-entitlements.ts`, then package with electron-builder's
 `-c.mac.entitlements` set to that script's output and `-c.mac.provisioningProfile` set to a
 profile for your App ID with the Associated Domains capability. Without both, macOS ignores the
 association and the app hides passkeys. When Apple's CDN cannot reach the server (a private
-network or a VPN such as Tailscale), also set `RAKAZO_PASSKEY_DEVELOPER_MODE=1`: a
+network or a VPN such as Tailscale), also set `BOTCAMP_PASSKEY_DEVELOPER_MODE=1`: a
 development-signed app then fetches the association file itself, once associated-domains
 developer mode is on (`sudo swcutil developer-mode -e true` on macOS, where the app must also
 live in

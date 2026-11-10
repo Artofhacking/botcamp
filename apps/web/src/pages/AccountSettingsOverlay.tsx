@@ -1,11 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { AccountSecurity, UsageSummary } from "@rakazo/contracts";
+import type { AccountSecurity, UsageSummary } from "@botcamp/contracts";
 import {
   accountDisplay,
   displayName,
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import {
   Button,
   Field,
@@ -16,7 +16,7 @@ import {
   OptionSelect,
   ToggleGroup,
   ToggleGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@rakazo/ui-web/components/ui/table";
+} from "@botcamp/ui-web/components/ui/table";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 

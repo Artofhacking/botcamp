@@ -1,5 +1,5 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { newestPageCards, pageCardSuperseded } from "@rakazo/core";
+import type { MessageBlock } from "@botcamp/contracts";
+import { newestPageCards, pageCardSuperseded } from "@botcamp/core";
 
 export type PageBlock = Extract<MessageBlock, { kind: "page" }>;
 

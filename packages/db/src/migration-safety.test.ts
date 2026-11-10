@@ -43,6 +43,19 @@ describe("migration safety", () => {
     ).toEqual([]);
   });
 
+  it("adds the new app login beside the previous one", () => {
+    const sql = readFileSync(
+      path.join(migrationsDir, "20261210000000_rename_runtime_role", "migration.sql"),
+      "utf8",
+    );
+    expect(sql).toContain("CREATE ROLE botcamp_app");
+    expect(sql).toContain("GRANT rakazo_app TO botcamp_app");
+    expect(sql).not.toMatch(/ALTER\s+ROLE\s+rakazo_app\s+RENAME/i);
+    expect(sql).not.toMatch(/RAISE\s+EXCEPTION/i);
+    expect(sql).not.toMatch(/pg_stat_activity/i);
+    expect(unsafeStatements(sql)).toEqual([]);
+  });
+
   it("flags undeferred drops and every table or column rename", () => {
     const sql = `
       -- DROP COLUMN in a comment is fine

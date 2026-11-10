@@ -1,4 +1,4 @@
-import { COMPUTER_RATE_LIMIT_ERROR } from "@rakazo/contracts";
+import { COMPUTER_RATE_LIMIT_ERROR } from "@botcamp/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   APPROVED_ACTION_NOT_RUN_ERROR,
@@ -91,10 +91,10 @@ describe("normalizeRunError", () => {
     ["Something unexpected happened", "The model provider returned an error."],
     ["could not prepare Kubernetes computer", "Computer failed to boot"],
     ["The computer did not start. Try again.", "Computer failed to boot"],
-    ["Kubernetes pod rakazo-bot-example entered phase Failed", "Computer failed to boot"],
-    ["Kubernetes pod rakazo-bot-example disappeared while starting", "Computer failed to boot"],
+    ["Kubernetes pod botcamp-bot-example entered phase Failed", "Computer failed to boot"],
+    ["Kubernetes pod botcamp-bot-example disappeared while starting", "Computer failed to boot"],
     [
-      "Kubernetes pod rakazo-bot-example did not become ready within 120000 ms",
+      "Kubernetes pod botcamp-bot-example did not become ready within 120000 ms",
       "Computer failed to boot",
     ],
     [

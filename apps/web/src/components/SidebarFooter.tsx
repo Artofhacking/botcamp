@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { NavLink } from "@rakazo/contracts";
-import { AppMarkStack, Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
+import type { NavLink } from "@botcamp/contracts";
+import { AppMarkStack, Button, Popover, PopoverContent, PopoverTrigger } from "@botcamp/ui-web";
 import {
   Download,
   FolderOpen,

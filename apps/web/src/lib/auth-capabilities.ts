@@ -1,10 +1,10 @@
-import type { AuthCapabilities } from "@rakazo/contracts";
-import { authCapabilitiesSchema, legacyAuthCapabilitiesSchema } from "@rakazo/contracts";
-import { ResponseBodyTooLargeError, readBoundedJsonResponse } from "@rakazo/core";
+import type { AuthCapabilities } from "@botcamp/contracts";
+import { authCapabilitiesSchema, legacyAuthCapabilitiesSchema } from "@botcamp/contracts";
+import { ResponseBodyTooLargeError, readBoundedJsonResponse } from "@botcamp/core";
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";
 
-export type { AuthCapabilities } from "@rakazo/contracts";
+export type { AuthCapabilities } from "@botcamp/contracts";
 
 const TIMEOUT_MS = 8_000;
 const MAX_RESPONSE_BYTES = 64 * 1024;

@@ -13,9 +13,9 @@ import type {
   TerminalRequest,
   WorkspaceDirectoryRequest,
   WorkspaceExportLimits,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
-import { runAsSystem } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
+import { runAsSystem } from "@botcamp/db";
 import { cancelComputerRunWork, probeBackgroundWork } from "./computer-idle.js";
 import {
   computerProviderDescriptor,
@@ -356,6 +356,11 @@ export class ConfiguredSandbox implements SandboxProvider {
 
   async isRunning(computer: ComputerRef, context: AdapterContext) {
     return (await this.route(computer)).isRunning?.(computer, context) ?? false;
+  }
+
+  async acceptsRunningComputer(computer: ComputerRef, context: AdapterContext) {
+    const provider = await this.route(computer);
+    return (await provider.acceptsRunningComputer?.(computer, context)) !== false;
   }
 
   async isStopped(computer: ComputerRef, context: AdapterContext) {

@@ -14,13 +14,13 @@ import type {
   SandboxProvider,
   ScreenRequest,
   ScreenSession,
-} from "@rakazo/adapter-kit";
-import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
+} from "@botcamp/adapter-kit";
+import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
 import {
   browserProfilePathForScreen,
   DEFAULT_DESKTOP_ENV,
   quiesceBrowserProfilesCommand,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 import { computerIdleSleepEnabled, sandboxIdleMs } from "./computer-idle.js";
 import { screenSessionKey } from "./computer-screens.js";
 import {
@@ -1184,7 +1184,7 @@ print(json.dumps(out))
         `--user-data-dir=${profileQuoted}`,
         "--new-tab",
         shellQuote(uri),
-        ">/tmp/rakazo-chrome.log 2>&1 </dev/null &",
+        ">/tmp/botcamp-chrome.log 2>&1 </dev/null &",
       ].join(" "),
       "else",
       `python3 -c ${shellQuote(CHROME_STOP_PROFILE_SCRIPT)} ${profileQuoted}`,
@@ -1217,7 +1217,7 @@ print(json.dumps(out))
         "--remote-debugging-port=$debug_port",
         `--user-data-dir=${profileQuoted}`,
         shellQuote(uri),
-        ">/tmp/rakazo-chrome.log 2>&1 </dev/null &",
+        ">/tmp/botcamp-chrome.log 2>&1 </dev/null &",
       ].join(" "),
       "probe=0",
       'while [ "$probe" -lt 8 ]; do',
@@ -1828,7 +1828,7 @@ function isAllowedCreateOSScreenHost(hostname: string, baseHost: string): boolea
 }
 
 function createosCwd(cwd: string | undefined): string {
-  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/rakazo" || cwd === "/home/desktop") {
+  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/botcamp" || cwd === "/home/desktop") {
     return CREATEOS_WORKSPACE;
   }
   if (cwd === CREATEOS_WORKSPACE || cwd.startsWith(`${CREATEOS_WORKSPACE}/`)) return cwd;
