@@ -74,7 +74,7 @@ The computer screen page loads `WuyingWebSDK.js` next to `packages/adapters/src/
 
 `docs/ci.md` is the workflow map and the list of secret names. Automatic production deploy is off until the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`, and it only targets a host installed as `docs/self-host-production.md` describes. This repo does not list hosts. Do not add a second deploy path in a feature change. If a host does not match that installer, say so and change `docs/ci.md` in the same PR.
 
-Desktop installers are the `desktop-unsigned` workflow, not a side effect of merging. Android packages are `android/build-apk.sh`. The version that script writes is `VERSION_NAME` and `VERSION_CODE` at the top of that file. `android/app/build.gradle.kts` is the optional Gradle path and can lag; bump both when you cut a shell release. Keystores and `keystore.properties` are gitignored.
+Desktop installers are the `desktop-unsigned` workflow, not a side effect of merging. It publishes to the update feed only from `main`. Android packages are `android/build-apk.sh`. The version that script writes is `VERSION_NAME` and `VERSION_CODE` at the top of that file. `android/app/build.gradle.kts` is the optional Gradle path and can lag; bump both when you cut a shell release. Keystores and `keystore.properties` are gitignored.
 
 Feature pull requests do not edit `CHANGELOG.md`. Cutting a version is `.agents/skills/release/SKILL.md`. After opening a PR, stay with it as `.agents/skills/pr-watch/SKILL.md` describes.
 

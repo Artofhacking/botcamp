@@ -54,7 +54,7 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 | `playwright.yml` | Called by `ci.yml` and by the nightly run. Also manual. |
 | `publish-playwright-report.yml` | After the `ci` workflow completes. Publishes the report. |
 | `nightly-verification.yml` | Nightly, and manual. Refreshes the web screenshot baseline. |
-| `desktop-unsigned.yml` | Manual. macOS arm64 (ad-hoc signed) and unsigned Windows. An input can override `apps/desktop/package.json` `version`. Artifacts stay on the workflow run until someone publishes them. |
+| `desktop-unsigned.yml` | Manual. macOS arm64 (ad-hoc signed) and unsigned Windows. An input can override `apps/desktop/package.json` `version`. Artifacts stay on the workflow run until someone publishes them. The `publish` input works only on `main`. |
 | `desktop-macos-screenshot.yml` | Pull requests and `main` when desktop setup files change. |
 | `build-win.yml` | Manual. Checks out this repo beside the upstream desktop tree named in the workflow. Current installers are `desktop-unsigned.yml`. |
 | `computer-replay.yml` | Pull requests that change the computer image or its supervisor, and manual runs. |
@@ -67,7 +67,7 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 
 Desktop and Android are not published by `ci.yml`.
 
-- Desktop: run `desktop-unsigned.yml`. The generic update feed URL is the `publish` provider in `apps/desktop/package.json`. Do not treat a previously uploaded installer as the git version. `apps/desktop/package.json` `version` changes in the release pull request (`.agents/skills/release/SKILL.md`).
+- Desktop: run `desktop-unsigned.yml` from `main`. With `publish` checked, a run on any other branch fails before it builds, so the update feed always matches `main`. The generic update feed URL is the `publish` provider in `apps/desktop/package.json`. Do not treat a previously uploaded installer as the git version. `apps/desktop/package.json` `version` changes in the release pull request (`.agents/skills/release/SKILL.md`).
 - Android: `android/build-apk.sh`. The version is the pair at the top of that script. Keep `android/app/build.gradle.kts` on the same pair when cutting a shell. The signing keystore is not in git.
 
 ## What not to add

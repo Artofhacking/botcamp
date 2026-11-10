@@ -29,8 +29,16 @@ jobs:
       - id: targets
         env:
           PLATFORM: ${{ inputs.platform }}
+          PUBLISH: ${{ inputs.publish }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          # The update feed must match main. An installer built from any other branch drifts
+          # from what main ships, and the next build from main silently drops its changes.
+          if [ "$PUBLISH" = "true" ] && [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::Publishing is allowed only from main (this run is $REF). Merge to main first, or build without publish."
+            exit 1
+          fi
           mac='{"os":"macos-26","target":"--mac","arch":"--arm64","artifact":"botcamp-macos","platform":"mac"}'
           windows='{"os":"windows-latest","target":"--win","arch":"--x64","artifact":"botcamp-windows","platform":"windows"}'
           case "$PLATFORM" in
