@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { messagingProviderName } from "@rakazo/core";
-import { Button, Input, SectionHeading } from "@rakazo/ui-web";
+import { linkableChatApps, messagingProviderName } from "@rakazo/core";
+import { Button, Input, NativeSelect, NativeSelectOption, SectionHeading } from "@rakazo/ui-web";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { rpc } from "../../lib/rpc";
@@ -53,6 +53,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [provider, setProvider] = useState(linkableChatApps()[0] ?? "");
   const copy = useRef({ expired: "", already: "" });
   copy.current = { expired: t`The code expired`, already: t`Already linked` };
 
@@ -125,7 +126,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     setBusy(true);
     setError(null);
     try {
-      const started = await rpc.messaging.chatTools.start({ botId });
+      const started = await rpc.messaging.chatTools.start({ botId, provider });
       setImage(started.image);
       setLoginId(started.loginId);
       setNeedPin(false);
@@ -181,9 +182,10 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     }
   }
 
+  const headingId = `chat-tool-${botId}`;
   return (
     <section className="mt-6" data-testid="chat-tool-link">
-      <SectionHeading variant="label" className="mb-2">
+      <SectionHeading id={headingId} variant="label" className="mb-2">
         <Trans>Link your chat app</Trans>
       </SectionHeading>
       {linked.length > 0 ? (
@@ -228,9 +230,24 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
           ) : null}
         </div>
       ) : (
-        <Button type="button" size="sm" disabled={busy} onClick={() => void start()}>
-          <Trans>Link</Trans>
-        </Button>
+        <div className="flex items-center gap-2">
+          <NativeSelect
+            aria-labelledby={headingId}
+            size="sm"
+            value={provider}
+            disabled={busy}
+            onChange={(event) => setProvider(event.target.value)}
+          >
+            {linkableChatApps().map((id) => (
+              <NativeSelectOption key={id} value={id}>
+                {messagingProviderName(id)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <Button type="button" size="sm" disabled={busy || !provider} onClick={() => void start()}>
+            <Trans>Link</Trans>
+          </Button>
+        </div>
       )}
       {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
     </section>

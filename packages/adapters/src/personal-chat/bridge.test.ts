@@ -62,8 +62,10 @@ describe("one bot, one WeChat", () => {
     prisma.chatToolLink.findFirst.mockResolvedValue({ id: "link-1" });
     const fetchQr = vi.fn();
     const linked = bridge(prisma, secrets, { fetchQr });
-    await expect(linked.start(actor, "bot-1")).rejects.toBeInstanceOf(PersonalChatError);
-    await expect(linked.start(actor, "bot-1")).rejects.toMatchObject({ code: "already_linked" });
+    await expect(linked.start(actor, "bot-1", "weixin")).rejects.toBeInstanceOf(PersonalChatError);
+    await expect(linked.start(actor, "bot-1", "weixin")).rejects.toMatchObject({
+      code: "already_linked",
+    });
     expect(fetchQr).not.toHaveBeenCalled();
     expect(prisma.chatToolLink.create).not.toHaveBeenCalled();
   });
@@ -72,9 +74,20 @@ describe("one bot, one WeChat", () => {
     const { prisma, secrets } = stores();
     prisma.messagingIdentity.findFirst.mockResolvedValue({ id: "identity-1" });
     const fetchQr = vi.fn();
-    await expect(bridge(prisma, secrets, { fetchQr }).start(actor, "bot-1")).rejects.toMatchObject({
+    await expect(
+      bridge(prisma, secrets, { fetchQr }).start(actor, "bot-1", "weixin"),
+    ).rejects.toMatchObject({
       code: "already_linked",
     });
+    expect(fetchQr).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch a code for a chat app that is not offered", async () => {
+    const { prisma, secrets } = stores();
+    const fetchQr = vi.fn();
+    await expect(
+      bridge(prisma, secrets, { fetchQr }).start(actor, "bot-1", "telegram"),
+    ).rejects.toMatchObject({ code: "unavailable" });
     expect(fetchQr).not.toHaveBeenCalled();
   });
 

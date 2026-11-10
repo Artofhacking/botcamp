@@ -1208,7 +1208,7 @@ export const appContract = {
     /** QR link for the primary bot's personal chat app. */
     chatTools: {
       list: oc.input(z.object({ botId: Id })).output(z.array(ChatToolLinkSchema)),
-      start: oc.input(z.object({ botId: Id })).output(
+      start: oc.input(z.object({ botId: Id, provider: z.string().trim().min(1).max(64) })).output(
         z.object({
           loginId: z.string(),
           image: z.string(),

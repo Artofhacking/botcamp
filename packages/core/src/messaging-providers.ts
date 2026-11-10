@@ -8,6 +8,11 @@ const PROVIDER_NAMES: Record<string, string> = {
   weixin: "WeChat",
 };
 
+/** Chat apps a primary bot can link, in the order the settings list shows them. */
+export function linkableChatApps(): readonly string[] {
+  return ["weixin"];
+}
+
 /** User-facing name of a messaging provider (falls back to the raw id). */
 export function messagingProviderName(provider: string): string {
   // Extra named Telegram bots mount as "telegram-<name>".

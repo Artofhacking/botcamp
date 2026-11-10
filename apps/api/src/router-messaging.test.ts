@@ -990,7 +990,10 @@ describe("messaging.chatTools", () => {
         },
       }),
     );
-    const response = await call(handler, actor, "messaging/chatTools/start", { botId: "bot-1" });
+    const response = await call(handler, actor, "messaging/chatTools/start", {
+      botId: "bot-1",
+      provider: "weixin",
+    });
     expect(response.status).toBe(400);
     const body = (await response.json()) as { json?: { message?: string } };
     expect(body.json?.message).toBe("Only the primary bot can link a chat app.");

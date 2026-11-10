@@ -48,7 +48,9 @@ vi.mock("@rakazo/ui-web", () => ({
   }: ComponentProps<"button"> & { variant?: string; size?: string }) => <button {...props} />,
   Input: (props: ComponentProps<"input">) => <input {...props} />,
   Textarea: (props: ComponentProps<"textarea">) => <textarea {...props} />,
-  NativeSelect: (props: ComponentProps<"select">) => <select {...props} />,
+  NativeSelect: ({ size: _size, ...props }: ComponentProps<"select"> & { size?: string }) => (
+    <select {...props} />
+  ),
   NativeSelectOption: (props: ComponentProps<"option">) => <option {...props} />,
   Switch: ({
     checked,
@@ -249,6 +251,9 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   expect(container.querySelector("[data-testid=chat-tool-link]")?.textContent).toContain(
     "Link your chat app",
   );
+  const choice = container.querySelector("select");
+  expect(choice?.value).toBe("weixin");
+  expect(choice?.querySelector("option")?.textContent).toBe("WeChat");
   const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
   start.mockResolvedValue({
     loginId: "login-1",
@@ -260,7 +265,7 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   );
   await act(async () => link?.click());
   await flush();
-  expect(start).toHaveBeenCalledWith({ botId: "bot-1" });
+  expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "weixin" });
   expect(container.querySelector("img")?.getAttribute("alt")).toBe("Chat app code");
   expect(container.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,aaaa");
 });

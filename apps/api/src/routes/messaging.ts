@@ -165,7 +165,9 @@ export function messagingRoutes(ctx: RouterContext) {
         }),
         start: authed.messaging.chatTools.start.handler(async ({ context, input }) => {
           if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");
-          return chatToolCall(() => deps.chatTools!.start(context.actor, input.botId));
+          return chatToolCall(() =>
+            deps.chatTools!.start(context.actor, input.botId, input.provider),
+          );
         }),
         poll: authed.messaging.chatTools.poll.handler(async ({ context, input }) => {
           if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");

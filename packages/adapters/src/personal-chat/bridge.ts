@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { AdapterContext, MessagingInboundMessage, SecretStore } from "@rakazo/adapter-kit";
+import { linkableChatApps } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -84,6 +85,7 @@ export class PersonalChatBridge {
   async start(
     actor: PersonalChatActor,
     botId: string,
+    provider: string,
   ): Promise<{
     loginId: string;
     image: string;
@@ -95,6 +97,7 @@ export class PersonalChatBridge {
     });
     if (!bot?.isPrimary) throw new PersonalChatError("not_primary");
     if (await this.alreadyLinked(actor, botId)) throw new PersonalChatError("already_linked");
+    if (!linkableChatApps().includes(provider)) throw new PersonalChatError("unavailable");
     await this.clearLogins(actor, botId);
     const qr = await this.client.fetchQr();
     if (qr.image.length > 1_000_000) throw new PersonalChatError("unavailable");
