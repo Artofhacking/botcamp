@@ -71,6 +71,8 @@ import {
   ByokIntervalSchema,
   CapabilityInstallSchema,
   ChatAlertSchema,
+  ChatToolLinkSchema,
+  ChatToolPollSchema,
   CONNECTION_LABEL_MAX_LENGTH,
   ComputerModeSchema,
   ComputerProviderSettingsSchema,
@@ -1202,6 +1204,21 @@ export const appContract = {
         .input(z.object({ identityId: Id, botId: Id }))
         .output(MessagingLinkedIdentitySchema),
       unlink: oc.input(z.object({ identityId: Id })).output(z.object({ ok: z.literal(true) })),
+    },
+    /** QR link for the primary bot's personal chat app. */
+    chatTools: {
+      list: oc.input(z.object({ botId: Id })).output(z.array(ChatToolLinkSchema)),
+      start: oc.input(z.object({ botId: Id })).output(
+        z.object({
+          loginId: z.string(),
+          image: z.string(),
+          expiresAt: z.string(),
+        }),
+      ),
+      poll: oc
+        .input(z.object({ loginId: z.string().min(1).max(64), pin: z.string().max(8).optional() }))
+        .output(ChatToolPollSchema),
+      unlink: oc.input(z.object({ botId: Id })).output(z.object({ ok: z.literal(true) })),
     },
     channels: {
       list: oc.output(z.array(MessagingChannelMembershipSchema)),

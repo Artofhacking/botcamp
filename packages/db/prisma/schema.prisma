@@ -88,6 +88,8 @@ model User {
   @@map("user")
   messagingInstallations MessagingInstallation[]
   messagingInstallSessions MessagingInstallSession[]
+  chatToolLinks ChatToolLink[]
+  chatToolLogins ChatToolLogin[]
 }
 
 /// A row with no answers means the user skipped the survey.
@@ -486,6 +488,8 @@ model Space {
   @@map("spaces")
   messagingInstallations MessagingInstallation[]
   messagingInstallSessions MessagingInstallSession[]
+  chatToolLinks ChatToolLink[]
+  chatToolLogins ChatToolLogin[]
 }
 
 /// A space's data encryption key, wrapped by a master key. There is no foreign key:
@@ -820,6 +824,8 @@ model Bot {
   @@map("bots")
   messagingInstallations MessagingInstallation[]
   messagingInstallSessions MessagingInstallSession[]
+  chatToolLinks ChatToolLink[]
+  chatToolLogins ChatToolLogin[]
 }
 
 model BotSection {
@@ -2414,6 +2420,52 @@ model MessagingInstallSession {
   expiresAt DateTime
   @@index([expiresAt])
   @@map("messaging_install_sessions")
+}
+
+/// A primary bot's linked personal chat app. The ciphertext holds the login.
+model ChatToolLink {
+  id          String    @id
+  provider    String
+  accountId   String
+  address     String
+  spaceId     String
+  space       Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botId       String    @unique
+  bot         Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  ciphertext  String
+  syncCursor  String    @default("")
+  /// Lease owner. Only that process long-polls until pollUntil passes.
+  pollOwner   String?
+  pollUntil   DateTime?
+  pausedUntil DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([provider, accountId])
+  @@index([userId])
+  @@map("chat_tool_links")
+}
+
+/// A QR login that has not finished. The ciphertext holds the code being polled.
+model ChatToolLogin {
+  id         String   @id
+  provider   String
+  spaceId    String
+  space      Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botId      String
+  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  ciphertext String
+  image      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("chat_tool_logins")
 }
 
 model AgentSkillSpace {

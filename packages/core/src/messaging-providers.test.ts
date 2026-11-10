@@ -10,6 +10,7 @@ describe("messaging provider labels", () => {
     expect(messagingProviderName("sendblue")).toBe("iMessage");
     expect(messagingProviderName("telegram")).toBe("Telegram");
     expect(messagingProviderName("photon")).toBe("iMessage (Photon)");
+    expect(messagingProviderName("weixin")).toBe("WeChat");
     expect(messagingProviderName("teams")).toBe("teams");
   });
 

@@ -77,6 +77,8 @@ import {
   McpOAuthBroker,
   messagingPlatformsFromEnv,
   ObjectAgentHomeStore,
+  PersonalChatBridge,
+  PersonalChatSurface,
   PiAgentRuntime,
   PiOAuthLogins,
   PipedreamConnector,
@@ -515,9 +517,14 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     })
       ? new ChatSdkMessagingSurface(messagingPlatforms)
       : undefined);
-  const { messaging, installations: messagingInstallations } = messagingOverride
+  const { messaging: baseMessaging, installations: messagingInstallations } = messagingOverride
     ? { messaging: messagingOverride, installations: undefined }
     : installedMessaging(prisma, secrets, env, legacyMessaging, jobs);
+  // A test double replaces the whole surface, so it must not long-poll a chat app.
+  const personalChat = messagingOverride ? undefined : new PersonalChatBridge(prisma, secrets);
+  const messaging = personalChat
+    ? new PersonalChatSurface(personalChat, baseMessaging)
+    : baseMessaging;
   const configuredEmail = emailOverride ?? configuredEmailProvider(env);
   const localEmailEmulator =
     !configuredEmail && env.emailEmulator
@@ -887,11 +894,12 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     dataDir: env.dataDir,
     billing,
     messagingInstallations,
+    chatTools: personalChat,
     messaging: {
-      enabled: Boolean(messaging),
-      providers: messaging?.platforms().map((platform) => platform.provider) ?? [],
+      enabled: Boolean(baseMessaging),
+      providers: baseMessaging?.platforms().map((platform) => platform.provider) ?? [],
       addresses: Object.fromEntries(
-        (messaging?.platforms() ?? []).flatMap((platform) =>
+        (baseMessaging?.platforms() ?? []).flatMap((platform) =>
           platform.address ? [[platform.provider, platform.address]] : [],
         ),
       ),
@@ -1563,7 +1571,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         sandbox: env.sandboxProvider,
         composio: Boolean(stack.composio),
         pipedream: Boolean(pipedream),
-        messaging: Boolean(messaging),
+        messaging: Boolean(baseMessaging),
         email: email?.describe().id ?? null,
         billing: billingProvider?.describe().id ?? null,
         jobs: jobKind,

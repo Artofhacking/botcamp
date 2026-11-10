@@ -16,6 +16,14 @@ vi.mock("../../lib/rpc", () => {
       list: vi.fn(async () => []),
     },
     me: vi.fn(async () => ({})),
+    messaging: {
+      chatTools: {
+        list: vi.fn(async () => []),
+        start: vi.fn(async () => ({ loginId: "login-1", image: "", expiresAt: "" })),
+        poll: vi.fn(async () => ({ status: "wait" })),
+        unlink: vi.fn(async () => ({ ok: true })),
+      },
+    },
   };
   return {
     rpc,
@@ -86,6 +94,7 @@ vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => null }));
 vi.mock("../KnowledgeSection", () => ({ KnowledgeSection: () => null }));
 vi.mock("./avatar-studio-popover", () => ({ AvatarStudioPopover: () => null }));
 
+import { rpc } from "../../lib/rpc";
 import { BotSettings } from "./bot-panel";
 
 const bot = {
@@ -223,6 +232,37 @@ it("treats cross-space communication as on unless turned off", async () => {
   await act(async () => toggle?.click());
   await flush();
   expect(onSave).toHaveBeenCalledWith({ crossSpaceCommunication: false });
+});
+
+it("links a chat app from the primary bot and hides it on the others", async () => {
+  const list = rpc.messaging.chatTools.list as ReturnType<typeof vi.fn>;
+  list.mockClear();
+  await renderSettings(vi.fn(async () => undefined));
+  expect(container.querySelector("[data-testid=chat-tool-link]")).toBeNull();
+  expect(list).not.toHaveBeenCalled();
+
+  await renderSettings(
+    vi.fn(async () => undefined),
+    { ...bot, isPrimary: true },
+  );
+  await flush();
+  expect(container.querySelector("[data-testid=chat-tool-link]")?.textContent).toContain(
+    "Link your chat app",
+  );
+  const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
+  start.mockResolvedValue({
+    loginId: "login-1",
+    image: "data:image/png;base64,aaaa",
+    expiresAt: "2026-11-10T00:00:00.000Z",
+  });
+  const link = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Link",
+  );
+  await act(async () => link?.click());
+  await flush();
+  expect(start).toHaveBeenCalledWith({ botId: "bot-1" });
+  expect(container.querySelector("img")?.getAttribute("alt")).toBe("Chat app code");
+  expect(container.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,aaaa");
 });
 
 it("defaults daily check-ins on and saves the opt-out", async () => {

@@ -1328,6 +1328,23 @@ export type ComputerStatus = z.infer<typeof ComputerStatusSchema>;
 export const ComputerReleaseReasonSchema = z.enum(["done", "skipped"]);
 export type ComputerReleaseReason = z.infer<typeof ComputerReleaseReasonSchema>;
 
+export const ChatToolLinkSchema = z.object({
+  provider: z.string(),
+  address: z.string(),
+  botId: Id,
+});
+export type ChatToolLink = z.infer<typeof ChatToolLinkSchema>;
+
+export const ChatToolPollSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("wait") }),
+  z.object({ status: z.literal("scanned") }),
+  z.object({ status: z.literal("need_pin") }),
+  z.object({ status: z.literal("linked"), link: ChatToolLinkSchema }),
+  z.object({ status: z.literal("expired") }),
+  z.object({ status: z.literal("already_linked") }),
+]);
+export type ChatToolPoll = z.infer<typeof ChatToolPollSchema>;
+
 export const MessagingLinkedIdentitySchema = z.object({
   id: Id,
   provider: z.string(),

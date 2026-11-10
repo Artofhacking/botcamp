@@ -144,6 +144,8 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "MessagingIdentity",
   "MessagingInstallation",
   "MessagingInstallSession",
+  "ChatToolLink",
+  "ChatToolLogin",
   "MessagingOutbound",
   "ExternalConversation",
   "ExternalMessage",

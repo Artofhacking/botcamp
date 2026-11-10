@@ -61,6 +61,8 @@ import {
   mcpStdioOptionsFromEnv,
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
+  PersonalChatBridge,
+  PersonalChatSurface,
   PiAgentRuntime,
   PipedreamConnector,
   PostgresRealtimeFanout,
@@ -284,7 +286,7 @@ async function main() {
   const runs = new RunStarter(realtime, { signal: shutdown.signal });
   const jobs: JobPublisher =
     inMemoryJobs ?? new RunJobPublisher(prisma, new GraphileJobPublisher(pool, prisma), runs);
-  const { messaging } = installedMessaging(
+  const { messaging: baseMessaging } = installedMessaging(
     prisma,
     secrets,
     {
@@ -296,6 +298,8 @@ async function main() {
     legacyMessaging,
     jobs,
   );
+  // Send only. The API process owns the long poll.
+  const messaging = new PersonalChatSurface(new PersonalChatBridge(prisma, secrets), baseMessaging);
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
     jobs,

@@ -49,6 +49,7 @@ import { useSpaceQueries } from "../../lib/query";
 import { errorText } from "../../lib/user-error";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { ChatModelPicker } from "./chat-model-picker";
+import { ChatToolLink } from "./chat-tool-link";
 
 const ScratchpadSection = lazyComponent(() =>
   import("../ScratchpadSection").then((module) => module.ScratchpadSection),
@@ -231,7 +232,7 @@ export function BotSettings({
         isPrimary?: boolean;
         crossSpaceCommunication?: boolean;
         dailyCheckIns?: boolean;
-            baseDisabledBuiltinTools?: string[];
+        baseDisabledBuiltinTools?: string[];
       },
       revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
     ) => Promise<void>
@@ -319,7 +320,7 @@ export function BotSettings({
       isPrimary?: boolean;
       crossSpaceCommunication?: boolean;
       dailyCheckIns?: boolean;
-        baseDisabledBuiltinTools?: string[];
+      baseDisabledBuiltinTools?: string[];
     },
     revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
   ) {
@@ -502,6 +503,7 @@ export function BotSettings({
         </TabsContent>
         {/* Stays mounted so scratchpad and knowledge drafts survive a tab switch. */}
         <TabsContent value="settings" keepMounted data-testid="bot-settings-advanced">
+          <ChatToolLink botId={bot.id} isPrimary={bot.isPrimary} />
           <section className="mt-6">
             <SectionHeading variant="label" className="mb-2">
               <Trans>Notifications</Trans>
