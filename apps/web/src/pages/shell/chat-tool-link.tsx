@@ -1,6 +1,16 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { linkableChatApps, messagingProviderName } from "@rakazo/core";
-import { Button, Input, NativeSelect, NativeSelectOption, SectionHeading } from "@rakazo/ui-web";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from "@rakazo/ui-web";
+import { ChevronLeft } from "lucide-react";
+import QRCode from "qrcode";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { rpc } from "../../lib/rpc";
@@ -11,14 +21,23 @@ type ChatToolPoll =
   | { status: "wait" | "scanned" | "need_pin" | "expired" | "already_linked" }
   | { status: "linked"; link: ChatToolRow };
 
-/** Only an https URL or an image data URL may become the code image. */
-function chatToolImage(image: string): string | null {
+/** A real picture can be shown directly. A login URL is drawn as a code instead. */
+function chatToolPicture(image: string): string | null {
   const value = image.trim();
-  if (value.startsWith("https://") || value.startsWith("data:image/")) return value;
-  if (/^[A-Za-z0-9+/=\r\n]+$/.test(value)) {
+  if (value.startsWith("data:image/")) return value;
+  if (value.length > 32 && /^[A-Za-z0-9+/=\r\n]+$/.test(value)) {
     return `data:image/png;base64,${value.replace(/\s/g, "")}`;
   }
   return null;
+}
+
+async function chatToolCodeSrc(image: string): Promise<string | null> {
+  const picture = chatToolPicture(image);
+  if (picture) return picture;
+  const text = image.trim();
+  if (!text) return null;
+  const svg = await QRCode.toString(text, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -48,12 +67,15 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   const { t } = useLingui();
   const [rows, setRows] = useState<ChatToolRow[] | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | null>(null);
   const [loginId, setLoginId] = useState<string | null>(null);
   const [needPin, setNeedPin] = useState(false);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [provider, setProvider] = useState(linkableChatApps()[0] ?? "");
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"choose" | "code">("choose");
+  const [provider, setProvider] = useState("");
   const copy = useRef({ expired: "", already: "" });
   copy.current = { expired: t`The code expired`, already: t`Already linked` };
 
@@ -74,7 +96,21 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   }, [botId, isPrimary]);
 
   useEffect(() => {
-    if (!isPrimary || !loginId || needPin) return;
+    if (!image) {
+      setSrc(null);
+      return;
+    }
+    let stop = false;
+    void chatToolCodeSrc(image).then((next) => {
+      if (!stop) setSrc(next);
+    });
+    return () => {
+      stop = true;
+    };
+  }, [image]);
+
+  useEffect(() => {
+    if (!isPrimary || !open || !loginId || needPin) return;
     const controller = new AbortController();
     const current = loginId;
     const applyPoll = (result: ChatToolPoll): boolean => {
@@ -87,6 +123,8 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
         setLoginId(null);
         setImage(null);
         setNeedPin(false);
+        setStep("choose");
+        setOpen(false);
         return true;
       }
       if (result.status === "expired" || result.status === "already_linked") {
@@ -115,27 +153,38 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
       }
     })();
     return () => controller.abort();
-  }, [isPrimary, loginId, needPin]);
+  }, [isPrimary, open, loginId, needPin]);
 
   if (!isPrimary) return null;
 
   const linked = rows ?? [];
-  const src = image ? chatToolImage(image) : null;
 
-  async function start() {
+  async function choose(id: string) {
     setBusy(true);
     setError(null);
+    setProvider(id);
+    setStep("code");
     try {
-      const started = await rpc.messaging.chatTools.start({ botId, provider });
+      const started = await rpc.messaging.chatTools.start({ botId, provider: id });
       setImage(started.image);
       setLoginId(started.loginId);
       setNeedPin(false);
       setPin("");
     } catch (err) {
+      setStep("choose");
       setError(errorText(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  function back() {
+    setLoginId(null);
+    setImage(null);
+    setNeedPin(false);
+    setPin("");
+    setError(null);
+    setStep("choose");
   }
 
   async function submitPin(event: FormEvent) {
@@ -151,6 +200,8 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
         setLoginId(null);
         setImage(null);
         setNeedPin(false);
+        setStep("choose");
+        setOpen(false);
         return;
       }
       if (result.status === "expired" || result.status === "already_linked") {
@@ -182,74 +233,112 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     }
   }
 
-  const headingId = `chat-tool-${botId}`;
+  const title = step === "code" && provider ? messagingProviderName(provider) : undefined;
+
   return (
-    <section className="mt-6" data-testid="chat-tool-link">
-      <SectionHeading id={headingId} variant="label" className="mb-2">
-        <Trans>Link your chat app</Trans>
-      </SectionHeading>
-      {linked.length > 0 ? (
-        <div className="space-y-3">
-          {linked.map((row) => (
-            <div
-              key={row.provider}
-              className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 text-sm"
-            >
-              <span>{messagingProviderName(row.provider)}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void unlink()}
-              >
-                <Trans>Unlink</Trans>
-              </Button>
-            </div>
-          ))}
-        </div>
-      ) : rows === null ? null : loginId ? (
-        <div className="space-y-3">
-          {src ? (
-            <img alt={t`Chat app code`} src={src} className="size-40 rounded-xl bg-muted/50" />
-          ) : null}
-          {needPin ? (
-            <form className="flex items-center gap-2" onSubmit={(event) => void submitPin(event)}>
-              <Input
-                aria-label={t`Number from your phone`}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={8}
-                value={pin}
-                onChange={(event) => setPin(event.target.value)}
-              />
-              <Button type="submit" size="sm" disabled={busy || !/^\d{1,8}$/.test(pin)}>
-                <Trans>Link</Trans>
-              </Button>
-            </form>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <NativeSelect
-            aria-labelledby={headingId}
+    <div data-testid="chat-tool-link" className="overflow-hidden rounded-xl bg-muted/50 px-4">
+      <div className="flex min-h-12 items-center justify-between gap-3 text-sm">
+        <span>
+          <Trans>Link your chat app</Trans>
+        </span>
+        {linked.length > 0 ? (
+          <Button
+            type="button"
             size="sm"
-            value={provider}
+            variant="outline"
             disabled={busy}
-            onChange={(event) => setProvider(event.target.value)}
+            onClick={() => void unlink()}
           >
-            {linkableChatApps().map((id) => (
-              <NativeSelectOption key={id} value={id}>
-                {messagingProviderName(id)}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <Button type="button" size="sm" disabled={busy || !provider} onClick={() => void start()}>
+            <Trans>Unlink</Trans>
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || rows === null}
+            onClick={() => {
+              setError(null);
+              setStep(loginId ? "code" : "choose");
+              setOpen(true);
+            }}
+          >
             <Trans>Link</Trans>
           </Button>
-        </div>
-      )}
-      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
-    </section>
+        )}
+      </div>
+      {error && !open ? (
+        <p className="border-t border-border py-3 text-sm text-destructive">{error}</p>
+      ) : null}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              {step === "code" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t`Back`}
+                  onClick={back}
+                >
+                  <ChevronLeft />
+                </Button>
+              ) : null}
+              <DialogTitle>{title ?? <Trans>Link your chat app</Trans>}</DialogTitle>
+            </div>
+            <DialogDescription className="sr-only">
+              {title ?? <Trans>Link your chat app</Trans>}
+            </DialogDescription>
+          </DialogHeader>
+          {step === "choose" ? (
+            <div className="grid gap-2">
+              {linkableChatApps().map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="flex min-h-12 items-center rounded-xl bg-muted/50 px-4 text-start text-sm"
+                  disabled={busy}
+                  onClick={() => void choose(id)}
+                >
+                  {messagingProviderName(id)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              {src ? (
+                <img
+                  alt={t`Chat app code`}
+                  src={src}
+                  className="size-64 max-w-full rounded-xl bg-muted/50"
+                />
+              ) : (
+                <div className="size-64 max-w-full rounded-xl bg-muted/50" />
+              )}
+              {needPin ? (
+                <form
+                  className="flex w-full items-center gap-2"
+                  onSubmit={(event) => void submitPin(event)}
+                >
+                  <Input
+                    aria-label={t`Number from your phone`}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={8}
+                    value={pin}
+                    onChange={(event) => setPin(event.target.value)}
+                  />
+                  <Button type="submit" size="sm" disabled={busy || !/^\d{1,8}$/.test(pin)}>
+                    <Trans>Link</Trans>
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+          )}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

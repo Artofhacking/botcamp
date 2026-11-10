@@ -1030,6 +1030,7 @@ msgstr "Avatar Stüdyosu"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/chat-tool-link.tsx
 msgid "Back"
 msgstr "Geri"
 

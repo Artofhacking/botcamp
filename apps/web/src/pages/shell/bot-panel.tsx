@@ -503,7 +503,6 @@ export function BotSettings({
         </TabsContent>
         {/* Stays mounted so scratchpad and knowledge drafts survive a tab switch. */}
         <TabsContent value="settings" keepMounted data-testid="bot-settings-advanced">
-          <ChatToolLink botId={bot.id} isPrimary={bot.isPrimary} />
           <section className="mt-6">
             <SectionHeading variant="label" className="mb-2">
               <Trans>Notifications</Trans>
@@ -608,6 +607,7 @@ export function BotSettings({
                 className="min-h-16 resize-none field-sizing-content"
               />
             </SettingsGroup>
+            <ChatToolLink botId={bot.id} isPrimary={bot.isPrimary} />
             <div className="overflow-hidden rounded-xl bg-muted/50 px-4">
               <button
                 type="button"

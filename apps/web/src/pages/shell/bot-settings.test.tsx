@@ -52,6 +52,12 @@ vi.mock("@rakazo/ui-web", () => ({
     <select {...props} />
   ),
   NativeSelectOption: (props: ComponentProps<"option">) => <option {...props} />,
+  Dialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
+    open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: { children?: ReactNode }) => <div role="dialog">{children}</div>,
+  DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: { children?: ReactNode }) => <p>{children}</p>,
   Switch: ({
     checked,
     onCheckedChange,
@@ -248,16 +254,20 @@ it("links a chat app from the primary bot and hides it on the others", async () 
     { ...bot, isPrimary: true },
   );
   await flush();
-  expect(container.querySelector("[data-testid=chat-tool-link]")?.textContent).toContain(
-    "Link your chat app",
+  const row = container.querySelector("[data-testid=chat-tool-link]");
+  expect(row?.textContent).toContain("Link your chat app");
+  expect(row?.querySelector("select")).toBeNull();
+  const description = container.querySelector('textarea[aria-label="How other bots see it"]');
+  const exportButton = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Export",
   );
-  const choice = container.querySelector("select");
-  expect(choice?.value).toBe("weixin");
-  expect(choice?.querySelector("option")?.textContent).toBe("WeChat");
+  if (!row || !description || !exportButton) throw new Error("missing chat app row");
+  expect(description.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(row.compareDocumentPosition(exportButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
   start.mockResolvedValue({
     loginId: "login-1",
-    image: "data:image/png;base64,aaaa",
+    image: "https://liteapp.weixin.qq.com/q/abc",
     expiresAt: "2026-11-10T00:00:00.000Z",
   });
   const link = [...container.querySelectorAll("button")].find(
@@ -265,9 +275,18 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   );
   await act(async () => link?.click());
   await flush();
+  const wechat = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "WeChat",
+  );
+  expect(wechat).toBeDefined();
+  await act(async () => wechat?.click());
+  await flush();
+  await flush();
   expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "weixin" });
-  expect(container.querySelector("img")?.getAttribute("alt")).toBe("Chat app code");
-  expect(container.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,aaaa");
+  const code = container.querySelector("img");
+  expect(code?.getAttribute("alt")).toBe("Chat app code");
+  expect(code?.getAttribute("src")?.startsWith("data:image/svg+xml")).toBe(true);
+  expect(code?.getAttribute("src")).not.toBe("https://liteapp.weixin.qq.com/q/abc");
 });
 
 it("defaults daily check-ins on and saves the opt-out", async () => {
