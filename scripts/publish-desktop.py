@@ -34,11 +34,11 @@ DEFAULTS = {
 }
 
 # What each platform publishes. electron-builder names the manifest after the target.
-# The macOS zip is left out on purpose: Squirrel installs from it, and this build cannot hand
-# the swap to Squirrel, so shipping 150 MB nobody downloads would double the publish time.
+# The Mac manifest names the zip. The app installs that zip on restart, and the disk image
+# is the first download an older build still opens.
 ARTIFACTS = {
     "mac": {
-        "suffixes": (".dmg", ".dmg.blockmap"),
+        "suffixes": (".dmg", ".dmg.blockmap", ".zip", ".zip.blockmap"),
         "feed": "latest-mac.yml",
     },
     "win": {"suffixes": (".exe", ".exe.blockmap"), "feed": "latest.yml"},
