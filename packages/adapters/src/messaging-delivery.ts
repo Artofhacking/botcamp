@@ -8,7 +8,12 @@ import type {
 } from "@rakazo/adapter-kit";
 import { messagingDeliverJob, runContinueJob } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
-import { botMessageHopExhausted, nextBotMessageHop, pageLinksAsTitles } from "@rakazo/core";
+import {
+  botMessageHopExhausted,
+  chatMessageOrigin,
+  nextBotMessageHop,
+  pageLinksAsTitles,
+} from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -292,6 +297,7 @@ async function fanOutToPeers(
             prompt: `[Group "${channel.name ?? "group"}" — ${fromLabel}]: ${text}`,
             trigger: "messaging",
             clientNonce,
+            origin: chatMessageOrigin(identity.provider),
             crossSpaceSenderBotId: identity.botId,
           })
           .catch((error: unknown) => {

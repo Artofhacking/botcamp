@@ -941,6 +941,8 @@ model Message {
   replies          Message[] @relation("MessageReplies")
   runId            String?
   clientNonce      String?
+  /// App (`web`, `mac`, `windows`, `linux`, `android`) or chat channel (`chat:<provider>`) this message arrived on.
+  origin           String?
   /// Blind-index search tokens for the encrypted blocks; NULL until the row is encrypted.
   searchTokens     Int[]
   sourceRuns            Run[]             @relation("RunSourceMessage")

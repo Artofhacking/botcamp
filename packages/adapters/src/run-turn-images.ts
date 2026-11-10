@@ -392,6 +392,7 @@ export async function claimRunSteering(
         text: [
           await loadReplyContext(deps.prisma, lease.threadId, item.messageId),
           item.text,
+          item.arrivedFrom,
           filesInstruction,
           unavailableInstruction,
         ]

@@ -161,6 +161,7 @@ import {
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
 import { MailboxSaveInput, MailboxStatusSchema } from "./mailbox.js";
+import { AppMessageOriginSchema } from "./message-origin.js";
 import { ModelHeadersSchema } from "./model-headers.js";
 import { ModelRoleSchema, ModelRoleUpdateSchema, ModelRoleViewSchema } from "./model-roles.js";
 import {
@@ -224,6 +225,8 @@ const threadSendFields = threadTarget.safeExtend({
   /** Sent from the open page: a reply to its card that quotes nothing. */
   fromPage: z.literal(true).optional(),
   clientNonce: z.string().min(1).max(200).optional(),
+  /** The app that sent this message. Chat channels set their own origin on the server. */
+  origin: AppMessageOriginSchema.optional(),
 });
 
 const threadSendInput = threadSendFields.superRefine((input, ctx) => {
@@ -614,6 +617,8 @@ export const appContract = {
           text: z.string().min(1),
           /** Carries the call id, so a turn taken mid-run stays in the call's card. */
           clientNonce: z.string().min(1).max(200).optional(),
+          /** The app that sent this message. Chat channels set their own origin on the server. */
+          origin: AppMessageOriginSchema.optional(),
         }),
       )
       .output(z.object({ ok: z.literal(true) })),

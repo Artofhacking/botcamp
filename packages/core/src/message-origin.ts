@@ -1,0 +1,66 @@
+import type { AppMessageOrigin } from "@rakazo/contracts";
+import { AppMessageOriginSchema } from "@rakazo/contracts";
+import { messagingProviderName } from "./messaging-providers.js";
+
+/**
+ * The page calls this with the desktop bridge's platform, or with nothing in a browser.
+ * `darwin`, `win32`, and `linux` are the desktop apps. The Android shell reports itself
+ * separately. A phone browser does not, and stays the web app.
+ */
+export function appMessageOrigin(
+  desktopPlatform: string | null | undefined,
+  shellPlatform?: string | null,
+): AppMessageOrigin {
+  if (desktopPlatform === "darwin") return "mac";
+  if (desktopPlatform === "win32") return "windows";
+  if (desktopPlatform === "linux") return "linux";
+  if (shellPlatform?.trim().toLowerCase() === "android") return "android";
+  return "web";
+}
+
+const CHAT_PROVIDER_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+/** Stored origin for a messaging provider. Undefined when the id is not safe to keep. */
+export function chatMessageOrigin(provider: string): string | undefined {
+  if (!CHAT_PROVIDER_ID.test(provider)) return undefined;
+  return `chat:${provider}`;
+}
+
+/** Accept only origins this process knows how to describe. Anything else is dropped. */
+export function normalizeMessageOrigin(origin: string | null | undefined): string | undefined {
+  if (!origin) return undefined;
+  if (AppMessageOriginSchema.safeParse(origin).success) return origin;
+  if (!origin.startsWith("chat:")) return undefined;
+  return chatMessageOrigin(origin.slice("chat:".length));
+}
+
+const APP_ORIGIN_LINE: Record<AppMessageOrigin, string> = {
+  web: "This message arrived from the web app.",
+  mac: "This message arrived from the Mac app.",
+  windows: "This message arrived from the Windows app.",
+  linux: "This message arrived from the Linux app.",
+  android: "This message arrived from the Android app.",
+};
+
+/**
+ * One sentence for the model. It stays off the system prompt: the next message can arrive
+ * from a different place, and that change must not rewrite the cacheable prefix.
+ * Names come from the provider list. An id that is not in the list is shown as itself.
+ */
+export function formatMessageOriginInstruction(
+  origin: string | null | undefined,
+): string | undefined {
+  const stored = normalizeMessageOrigin(origin);
+  if (!stored) return undefined;
+  const app = AppMessageOriginSchema.safeParse(stored);
+  if (app.success) return APP_ORIGIN_LINE[app.data];
+  const provider = stored.slice("chat:".length);
+  return `This message arrived from ${messagingProviderName(provider)}.`;
+}
+
+/** Keep the sender's words, then say where they arrived from when that is known. */
+export function appendMessageOrigin(text: string, origin: string | null | undefined): string {
+  const line = formatMessageOriginInstruction(origin);
+  if (!line) return text;
+  return text ? `${text}\n\n${line}` : line;
+}

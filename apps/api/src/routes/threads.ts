@@ -392,6 +392,7 @@ export function threadsRoutes(ctx: RouterContext) {
             prompt: input.text,
             trigger: "follow_up",
             clientNonce: input.clientNonce,
+            origin: input.origin,
           });
           if (sent.taskId && sent.runId) {
             await deps.jobs.enqueue(runContinueJob(sent.runId)).catch((error) => {
@@ -426,6 +427,7 @@ export function threadsRoutes(ctx: RouterContext) {
             role: "user",
             blocks,
             clientNonce: input.clientNonce,
+            origin: input.origin,
           });
           const active = await tx.run.findFirst({
             where: {

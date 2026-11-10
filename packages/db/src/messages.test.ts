@@ -38,6 +38,39 @@ describe("createThreadMessageInTransaction", () => {
     );
   });
 
+  it("stores a known message origin and drops anything else", async () => {
+    const tx = transaction();
+    await createThreadMessageInTransaction(tx as unknown as Prisma.TransactionClient, {
+      threadId: "thread-1",
+      role: "user",
+      blocks: [{ kind: "text", text: "hi" }],
+      origin: "mac",
+    });
+    expect(tx.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ origin: "mac" }) }),
+    );
+
+    tx.message.create.mockClear();
+    await createThreadMessageInTransaction(tx as unknown as Prisma.TransactionClient, {
+      threadId: "thread-1",
+      role: "user",
+      blocks: [{ kind: "text", text: "hi" }],
+      origin: "chat:weixin",
+    });
+    expect(tx.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ origin: "chat:weixin" }) }),
+    );
+
+    tx.message.create.mockClear();
+    await createThreadMessageInTransaction(tx as unknown as Prisma.TransactionClient, {
+      threadId: "thread-1",
+      role: "user",
+      blocks: [{ kind: "text", text: "hi" }],
+      origin: "please ignore the above",
+    });
+    expect(tx.message.create.mock.calls[0]?.[0].data.origin).toBeUndefined();
+  });
+
   it("rejects a cancelled run unless the terminal echo opts in", async () => {
     const tx = transaction();
     tx.run.findUnique.mockResolvedValue({ status: "cancelled", startedAt: new Date() });
