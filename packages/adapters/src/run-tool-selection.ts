@@ -46,6 +46,21 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
 /** Offered only to a user who connected a wallet. */
 const PURCHASE_TOOL_NAMES = new Set(["request_purchase", "purchase_status", "paid_request"]);
 
+/**
+ * These wait for a tap in the app. A chat channel (`chat:<provider>`) can only exchange
+ * plain text, so a card, takeover, or call started here never reaches the person.
+ * `purchase_status` stays: it only reads.
+ */
+export const PLAIN_TEXT_CHANNEL_TOOL_NAMES = new Set([
+  "ask_user",
+  "request_takeover",
+  "request_secret",
+  "connect_app",
+  "call_user",
+  "request_purchase",
+  "paid_request",
+]);
+
 export const BUILTIN_AGENT_TOOL_NAMES = new Set(builtinAgentTools.map((tool) => tool.name));
 
 const FLEET_TOOL_NAMES_SET: ReadonlySet<string> = new Set(FLEET_TOOL_NAMES);
@@ -94,6 +109,8 @@ export function selectBuiltinToolsForRun(options: {
   messagingChannelRun: boolean;
   /** Hanging up is only offered to a turn the caller spoke on a live call. */
   voiceCall?: boolean;
+  /** The waking message arrived on a chat channel, which can only carry plain text. */
+  plainTextChannel?: boolean;
   /** Built-in names this bot turned off. Unknown names are ignored. */
   disabledBuiltinTools?: readonly string[];
   fleetManagement?: boolean;
@@ -148,6 +165,7 @@ export function selectBuiltinToolsForRun(options: {
           "generate_video",
         ].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
+      (!options.plainTextChannel || !PLAIN_TEXT_CHANNEL_TOOL_NAMES.has(tool.name)) &&
       (options.userComputer || tool.name !== "user_computer_shell") &&
       ((options.userComputer && options.userComputerScreen) ||
         !USER_COMPUTER_SCREEN_TOOLS.has(tool.name)) &&

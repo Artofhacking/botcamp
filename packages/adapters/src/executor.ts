@@ -24,6 +24,7 @@ import {
   isCallClientNonce,
   isMessagingChannelRun,
   isOwnerStartedRun,
+  isPlainTextChannelOrigin,
   isTerminal,
   MISSING_MODEL_RUN_ERROR,
   MODEL_ACCESS_REQUIRED_RUN_ERROR,
@@ -191,6 +192,7 @@ import {
   BUILTIN_AGENT_TOOL_NAMES,
   followUpsOffered,
   offeredFleetTools,
+  PLAIN_TEXT_CHANNEL_TOOL_NAMES,
   selectBuiltinToolsForRun,
 } from "./run-tool-selection.js";
 import { applyTool } from "./run-tools.js";
@@ -1358,6 +1360,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const callEndRun = run.trigger === "call_end";
         const callClientNonceForRun = callEndRun ? run.clientNonce : sourceClientNonce;
         const voiceCall = callEndRun || isCallClientNonce(sourceClientNonce);
+        // A chat-channel message is plain text. App origins keep every tool.
+        const plainTextChannel = isPlainTextChannelOrigin(
+          sourceMessage?.origin ?? messagingSource?.origin,
+        );
         const graphicalToolsAllowed = graphical && acceptsImages && !heldForTakeover;
         const pageBrowserAllowed =
           graphical && browser.describe().capabilities.page && !heldForTakeover;
@@ -1369,6 +1375,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         const managesBots = fleetSwitch && primaryBot !== false;
         if (!managesBots) {
           for (const name of BOT_MANAGEMENT_TOOL_NAMES) disabledBuiltinTools.add(name);
+        }
+        // Instructions name only tools this run can call. A chat channel has no cards.
+        if (plainTextChannel) {
+          for (const name of PLAIN_TEXT_CHANNEL_TOOL_NAMES) disabledBuiltinTools.add(name);
         }
         const userComputerOwnerId = userComputerOwner({
           trigger: run.trigger,
@@ -1408,6 +1418,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             paymentWalletEnabled,
             messagingChannelRun: nonOwnerChatRun,
             voiceCall,
+            plainTextChannel,
             disabledBuiltinTools: bot.disabledBuiltinTools,
             fleetManagement: managesBots,
             followUpFromUser: sourceMessage?.role === "user",

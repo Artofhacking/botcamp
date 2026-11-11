@@ -43,9 +43,23 @@ const APP_ORIGIN_LINE: Record<AppMessageOrigin, string> = {
 };
 
 /**
+ * A linked chat app can only carry plain text. The person cannot tap a choice, take over
+ * the computer, or finish any other action that exists only in the app.
+ */
+export const PLAIN_TEXT_CHANNEL_LIMIT =
+  "This person can only read and send plain text on this channel, so answer in an ordinary message. Choice cards, computer takeover, and other actions that need the app are not available.";
+
+/** True when the stored origin is a chat channel (`chat:<provider>`), never an app. */
+export function isPlainTextChannelOrigin(origin: string | null | undefined): boolean {
+  const stored = normalizeMessageOrigin(origin);
+  return Boolean(stored?.startsWith("chat:"));
+}
+
+/**
  * One sentence for the model. It stays off the system prompt: the next message can arrive
  * from a different place, and that change must not rewrite the cacheable prefix.
  * Names come from the provider list. An id that is not in the list is shown as itself.
+ * A chat channel adds the plain-text limit, because that person cannot use the app.
  */
 export function formatMessageOriginInstruction(
   origin: string | null | undefined,
@@ -55,7 +69,7 @@ export function formatMessageOriginInstruction(
   const app = AppMessageOriginSchema.safeParse(stored);
   if (app.success) return APP_ORIGIN_LINE[app.data];
   const provider = stored.slice("chat:".length);
-  return `This message arrived from ${messagingProviderName(provider)}.`;
+  return `This message arrived from ${messagingProviderName(provider)}. ${PLAIN_TEXT_CHANNEL_LIMIT}`;
 }
 
 /** Keep the sender's words, then say where they arrived from when that is known. */
