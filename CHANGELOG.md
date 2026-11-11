@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.49] - 2026-11-11
+
+### Added
+
+- The primary bot can link a Feishu bot from its own settings, beside WeChat. Scanning confirms the bot. Direct text messages arrive in that chat, and replies go back as ordinary messages. A deployment-wide Feishu webhook is unchanged ([integrations](docs/self-host-integrations.md)).
+
+### Self-host upgrade notes
+
+- A linked Feishu bot needs outbound access from the API and the worker to the Feishu or Lark hosts named in the integrations doc. There is no new setting.
+
 ## [2.0.48] - 2026-11-11
 
 ### Added

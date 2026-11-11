@@ -5,8 +5,9 @@ import type {
   MessagingSendResult,
   MessagingSurface,
 } from "@botcamp/adapter-kit";
+import { linkableChatApps } from "@botcamp/core";
 import type { PersonalChatBridge } from "./bridge.js";
-import { PERSONAL_CHAT_PROVIDER } from "./bridge.js";
+import { parsePersonalChatThreadId } from "./bridge.js";
 
 /** Sends personal-chat replies without listing that app as a code-link provider. */
 export class PersonalChatSurface implements MessagingSurface {
@@ -43,7 +44,7 @@ export class PersonalChatSurface implements MessagingSurface {
     request: MessagingSendRequest,
     context: AdapterContext,
   ): Promise<MessagingSendResult> {
-    if (request.threadId.startsWith(`${PERSONAL_CHAT_PROVIDER}:`)) {
+    if (parsePersonalChatThreadId(request.threadId)) {
       return this.bridge.send(request.threadId, request.body);
     }
     if (!this.fallback) throw new Error("Messaging provider unavailable");
@@ -51,13 +52,15 @@ export class PersonalChatSurface implements MessagingSurface {
   }
 
   openDirectThread(provider: string, address: string, context: AdapterContext) {
-    if (provider === PERSONAL_CHAT_PROVIDER) return this.bridge.openDirect(address, context);
+    if (linkableChatApps().includes(provider)) {
+      return this.bridge.openDirect(provider, address, context);
+    }
     if (!this.fallback) throw new Error("Messaging provider unavailable");
     return this.fallback.openDirectThread(provider, address, context);
   }
 
   acknowledge(threadId: string, handle: string, context: AdapterContext) {
-    if (threadId.startsWith(`${PERSONAL_CHAT_PROVIDER}:`)) return Promise.resolve();
+    if (parsePersonalChatThreadId(threadId)) return Promise.resolve();
     return this.fallback?.acknowledge(threadId, handle, context) ?? Promise.resolve();
   }
 

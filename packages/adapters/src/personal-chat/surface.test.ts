@@ -6,7 +6,18 @@ import { PersonalChatSurface } from "./surface.js";
 describe("personal chat threads", () => {
   it("round-trips an account and the person, including a colon in the person id", () => {
     const threadId = personalChatThreadId("acct", "user:1");
-    expect(parsePersonalChatThreadId(threadId)).toEqual({ accountId: "acct", peerId: "user:1" });
+    expect(parsePersonalChatThreadId(threadId)).toEqual({
+      provider: "weixin",
+      accountId: "acct",
+      peerId: "user:1",
+    });
+    expect(parsePersonalChatThreadId(personalChatThreadId("cli_app", "ou_user", "feishu"))).toEqual(
+      {
+        provider: "feishu",
+        accountId: "cli_app",
+        peerId: "ou_user",
+      },
+    );
     expect(parsePersonalChatThreadId("slack:C1")).toBeNull();
   });
 });

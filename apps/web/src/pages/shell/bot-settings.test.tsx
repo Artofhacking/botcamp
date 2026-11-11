@@ -48,10 +48,9 @@ vi.mock("@botcamp/ui-web", () => ({
   }: ComponentProps<"button"> & { variant?: string; size?: string }) => <button {...props} />,
   Input: (props: ComponentProps<"input">) => <input {...props} />,
   Textarea: (props: ComponentProps<"textarea">) => <textarea {...props} />,
-  NativeSelect: ({
-    size: _size,
-    ...props
-  }: ComponentProps<"select"> & { size?: string }) => <select {...props} />,
+  NativeSelect: ({ size: _size, ...props }: ComponentProps<"select"> & { size?: string }) => (
+    <select {...props} />
+  ),
   NativeSelectOption: (props: ComponentProps<"option">) => <option {...props} />,
   Dialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
     open ? <div>{children}</div> : null,
@@ -279,7 +278,11 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   const wechat = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "WeChat",
   );
+  const feishu = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Feishu",
+  );
   expect(wechat).toBeDefined();
+  expect(feishu).toBeDefined();
   await act(async () => wechat?.click());
   await flush();
   await flush();

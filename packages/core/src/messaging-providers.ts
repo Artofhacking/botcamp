@@ -4,13 +4,14 @@ const PROVIDER_NAMES: Record<string, string> = {
   whatsapp: "WhatsApp",
   telegram: "Telegram",
   lark: "Feishu",
+  feishu: "Feishu",
   photon: "iMessage (Photon)",
   weixin: "WeChat",
 };
 
 /** Chat apps a primary bot can link, in the order the settings list shows them. */
 export function linkableChatApps(): readonly string[] {
-  return ["weixin"];
+  return ["weixin", "feishu"];
 }
 
 /** User-facing name of a messaging provider (falls back to the raw id). */
