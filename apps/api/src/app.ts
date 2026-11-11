@@ -44,6 +44,7 @@ import {
   createArtifactStore,
   createAuditLogReconciler,
   createBackgroundJobHandlers,
+  createChatApprovalReplyClassifier,
   createCloudAgentConnection,
   createConnectorStack,
   createIdleComputerSweeper,
@@ -135,6 +136,7 @@ import {
   provisionMessagingIdentity,
   pushSessionExpiresAt,
   quotaWindow,
+  recordUsage,
   requireMembership,
   rowSecurityWarning,
   runAsSystem,
@@ -1233,6 +1235,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           { spaceId, userId },
           { audio, mimeType, signal },
         ),
+      classifyApprovalReply: createChatApprovalReplyClassifier({
+        runtime,
+        onUsage: (event, attribution) => recordUsage(prisma, event, attribution),
+      }),
     } satisfies Parameters<typeof createMessagingInboundHandler>[0];
     const inbound = createMessagingInboundHandler(inboundDeps);
     const handleTeamChatInbound = async (

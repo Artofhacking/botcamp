@@ -79,6 +79,7 @@ function fixture({
   checkerConnected = true,
   skipApprovals = false,
   trigger = "user",
+  origin,
   secrets = [] as string[],
   prompt = "Read the item",
   bot = {
@@ -139,6 +140,8 @@ function fixture({
   checkerConnected?: boolean;
   skipApprovals?: boolean;
   trigger?: string;
+  /** Stored on the run's source message. A chat origin is a plain-text channel. */
+  origin?: string;
   secrets?: string[];
   prompt?: string;
   bot?: { name: string; description: string };
@@ -190,7 +193,7 @@ function fixture({
     userId: "user-1",
     status: "queued",
     trigger,
-    sourceMessageId: sourceRole ? "source-1" : null,
+    sourceMessageId: sourceRole || origin ? "source-1" : null,
     leaseFence: 0,
   };
   const createdAt = new Map<string, Date>();
@@ -381,7 +384,13 @@ function fixture({
         async (_query?: { where?: { OR?: unknown } }): Promise<{ id: string } | null> => null,
       ),
       findUnique: vi.fn(async () =>
-        sourceRole ? { role: sourceRole, blocks: [{ kind: "text", text: prompt }] } : null,
+        sourceRole || origin
+          ? {
+              role: sourceRole ?? "user",
+              blocks: [{ kind: "text", text: prompt }],
+              origin: origin ?? null,
+            }
+          : null,
       ),
       findMany: vi.fn(async () => []),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -1220,6 +1229,29 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(f.execute).not.toHaveBeenCalled();
       expect(f.pauseRunForInput).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("chat channel approval notice", () => {
+  it("sends the question as ordinary text beside the card", async () => {
+    const f = fixture({
+      trigger: "messaging",
+      sourceRole: "user",
+      origin: "chat:weixin",
+      rules: [{ effect: "require_approval", matchKind: "tool", matchValue: "demo_get_item" }],
+    });
+    await f.run();
+    expect(f.pauseRunForInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            kind: "text",
+            text: expect.stringContaining("Reply yes or 同意 to allow this once"),
+          }),
+          expect.objectContaining({ kind: "ask", approvalEffectId: f.effects[0]!.id }),
+        ],
+      }),
+    );
   });
 });
 
@@ -2525,7 +2557,11 @@ describe("outbound destinations", () => {
         args: { url: "https://botcamp.demox.site/docs/routines.md" },
         executionId: "call-1",
       },
-      { name: "web_fetch", args: { url: "https://botcamp.demox.site/?q=secret" }, executionId: "call-2" },
+      {
+        name: "web_fetch",
+        args: { url: "https://botcamp.demox.site/?q=secret" },
+        executionId: "call-2",
+      },
     ]);
     await f.run();
     expect(f.fetchedUrls).toEqual(["https://botcamp.demox.site/docs/routines.md"]);
