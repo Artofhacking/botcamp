@@ -188,6 +188,24 @@ it("selects a non-redirecting SSO request on desktop", async () => {
   );
 });
 
+it("starts directory login from the password form", async () => {
+  vi.mocked(fetchAuthCapabilities).mockResolvedValue({
+    ...capabilities,
+    passwordAuth: true,
+    directory: { name: "Directory", availability: "available" },
+  });
+  vi.mocked(authClient.signIn.social).mockResolvedValue({ data: null, error: null });
+  await render();
+  const button = Array.from(host.querySelectorAll("button")).find((item) =>
+    item.textContent?.includes("Continue with Directory"),
+  );
+  expect(button).toBeDefined();
+  await act(async () => button!.click());
+  expect(authClient.signIn.social).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "directory" }),
+  );
+});
+
 it("keeps SSO available for retry while an authorization request is pending", async () => {
   vi.mocked(fetchAuthCapabilities).mockResolvedValue(capabilities);
   vi.mocked(authClient.signIn.social).mockReturnValue(new Promise(() => undefined));

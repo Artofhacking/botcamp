@@ -216,7 +216,12 @@ describe("api and worker environment allowlists", () => {
       expect(api).toContain(key);
       expect(worker).toContain(key);
     }
-    for (const key of ["BETTER_AUTH_SECRET", "OIDC_CLIENT_SECRET", "SCREEN_PROXY_SECRET"]) {
+    for (const key of [
+      "BETTER_AUTH_SECRET",
+      "OIDC_CLIENT_SECRET",
+      "LARK_LOGIN_APP_SECRET",
+      "SCREEN_PROXY_SECRET",
+    ]) {
       expect(api).toContain(key);
       expect(worker).not.toContain(key);
     }
@@ -250,6 +255,7 @@ describe("api and worker environment allowlists", () => {
       for (const key of [
         "BETTER_AUTH_SECRET",
         "OIDC_CLIENT_SECRET",
+        "LARK_LOGIN_APP_SECRET",
         "SCREEN_PROXY_SECRET",
         "BOTCAMP_UPDATER_TOKEN",
         "RAKAZO_UPDATER_TOKEN",

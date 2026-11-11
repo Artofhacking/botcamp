@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.52] - 2026-11-11
+
+### Added
+
+- People can sign in with a directory account (Feishu or Lark). When that address already belongs to an account, sign-in joins it and leaves the account email and its verification unchanged. Settings shows this login method, and linking it there attaches the directory identity to the signed-in account even when the addresses differ. After linking, the row shows that person's name and picture ([accounts](docs/self-host-accounts.md#directory-login)).
+
+### Self-host upgrade notes
+
+- Directory login stays off until `LARK_LOGIN_APP_ID` and `LARK_LOGIN_APP_SECRET` are both set on the API. They are not the messaging app's credentials, and the secret is not passed to the worker. Register `{BETTER_AUTH_URL}/api/auth/callback/directory` on that app. The default scope is `contact:user.email:readonly`. Set `LARK_LOGIN_SCOPES` to also request the enterprise mailbox.
+
 ## [2.0.51] - 2026-11-11
 
 ### Fixed

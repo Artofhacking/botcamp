@@ -43,6 +43,44 @@ it("only accepts complete legacy capabilities without partial SSO fields", () =>
   }
 });
 
+it("accepts directory login as an optional capability", () => {
+  const base = { passwordAuth: true, passwordReset: false, resetUrl: null, sso: null };
+  expect(authCapabilitiesSchema.parse(base).directory).toBeUndefined();
+  expect(
+    authCapabilitiesSchema.parse({
+      ...base,
+      directory: { name: "Directory", availability: "available" },
+    }).directory?.name,
+  ).toBe("Directory");
+});
+
+it("accepts a directory profile and older security without one", () => {
+  const security = {
+    hasPassword: true,
+    freshOidcAuth: false,
+    ssoLinked: false,
+    emailDeletion: false,
+    sso: null,
+  };
+  expect(accountSecuritySchema.parse(security).directory).toBeUndefined();
+  expect(
+    accountSecuritySchema.parse({
+      ...security,
+      directoryLinked: true,
+      directory: {
+        name: "Directory",
+        profile: { name: "Person", image: "https://cdn.example.test/person.png" },
+      },
+    }).directory?.profile,
+  ).toEqual({ name: "Person", image: "https://cdn.example.test/person.png" });
+  expect(
+    accountSecuritySchema.safeParse({
+      ...security,
+      directory: { name: "Directory", profile: { name: "Person", image: "not a url" } },
+    }).success,
+  ).toBe(false);
+});
+
 it("accepts older account security and explicit password-change policy", () => {
   const security = {
     hasPassword: true,

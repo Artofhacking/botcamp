@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import {
   credentialIssue,
   MAX_PASSWORD_LENGTH,
@@ -7,17 +6,18 @@ import {
   suggestEmailCorrection,
 } from "@botcamp/core";
 import { Button, Input, InputOTP, InputOTPGroup, InputOTPSlot, Label } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PasskeySignIn } from "../components/PasskeySignIn";
 import { authClient } from "../lib/auth";
 import type { AuthCapabilities } from "../lib/auth-capabilities";
 import { fetchAuthCapabilities } from "../lib/auth-capabilities";
+import { upgradeLegacyPassword } from "../lib/legacy-login.js";
 import { clearSpaceSelection } from "../lib/rpc";
 import { runSsoFlow } from "../lib/sso-flow";
 import { authErrorText, credentialIssueText } from "../lib/user-error";
 import { WindowChrome } from "./WindowChrome";
-import { upgradeLegacyPassword } from "../lib/legacy-login.js";
 
 type AuthMode = "in" | "up" | "forgot";
 
@@ -215,14 +215,14 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError(null);
   }
 
-  async function signInWithSso() {
+  async function signInWithSso(provider: "oidc" | "directory") {
     setError(null);
     try {
       const result = await runSsoFlow(
         (disableRedirect, callbackURL) =>
           authClient.signIn.social({
             disableRedirect,
-            provider: "oidc",
+            provider,
             newUserCallbackURL: callbackURL("/onboarding"),
             callbackURL: callbackURL(
               searchParams.get("next") === "/integrations/setup" ? "/integrations/setup" : "/app",
@@ -270,9 +270,19 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               type="button"
               disabled={pending}
               className={submitClass}
-              onClick={() => void signInWithSso()}
+              onClick={() => void signInWithSso("oidc")}
             >
               <Trans>Continue with {reset.sso.name}</Trans>
+            </Button>
+          ) : null}
+          {reset?.directory && !reset.passwordAuth && mode !== "forgot" ? (
+            <Button
+              type="button"
+              disabled={pending}
+              className={submitClass}
+              onClick={() => void signInWithSso("directory")}
+            >
+              <Trans>Continue with {reset.directory.name}</Trans>
             </Button>
           ) : null}
           {error && !reset?.passwordAuth ? (
@@ -436,9 +446,21 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   size="sm"
                   disabled={pending}
                   className="mt-3 text-muted-foreground"
-                  onClick={() => void signInWithSso()}
+                  onClick={() => void signInWithSso("oidc")}
                 >
                   <Trans>Continue with {reset.sso.name}</Trans>
+                </Button>
+              ) : null}
+              {reset.directory && mode !== "forgot" && !codeStep ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  disabled={pending}
+                  className="mt-3 text-muted-foreground"
+                  onClick={() => void signInWithSso("directory")}
+                >
+                  <Trans>Continue with {reset.directory.name}</Trans>
                 </Button>
               ) : null}
               {codeStep ? null : (

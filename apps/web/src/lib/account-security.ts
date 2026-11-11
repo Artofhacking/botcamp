@@ -1,9 +1,27 @@
-import { t } from "@lingui/core/macro";
+import type { AccountSecurity } from "@botcamp/contracts";
 import { accountSecuritySchema, legacyAccountSecurity } from "@botcamp/contracts";
 import { readBoundedJsonResponse } from "@botcamp/core";
-import { authErrorText } from "./user-error";
+import { t } from "@lingui/core/macro";
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";
+import { authErrorText } from "./user-error";
+
+/** The linked directory or SSO identity that can confirm this session again. */
+export function linkedSignInProvider(security: AccountSecurity): "oidc" | "directory" | null {
+  if (security.sso && security.ssoLinked) return "oidc";
+  if (security.directory && security.directoryLinked) return "directory";
+  return null;
+}
+
+/** A configured directory or SSO button, preferring one this account has linked. */
+export function configuredSignInProvider(security: AccountSecurity): "oidc" | "directory" | null {
+  if (security.directory && !security.sso) return "directory";
+  if (security.sso && !security.directory) return "oidc";
+  if (security.directoryLinked && !security.ssoLinked) return "directory";
+  if (security.sso) return "oidc";
+  if (security.directory) return "directory";
+  return null;
+}
 
 export async function fetchAccountSecurity() {
   const response = await fetch(apiUrl("/api/auth/account-security"), {

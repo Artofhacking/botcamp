@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { AccountSecurity, UsageSummary } from "@botcamp/contracts";
 import {
   accountDisplay,
@@ -25,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@botcamp/ui-web/components/ui/table";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 
@@ -137,6 +137,7 @@ export function GeneralSettingsPanels({
   );
   const passkeysSupported = usePasskeysSupported();
   const canLinkSso = Boolean(accountSecurity?.sso && !accountSecurity.ssoLinked);
+  const directory = accountSecurity?.directory;
   const [timezonePending, setTimezonePending] = useState(false);
   const [timezoneError, setTimezoneError] = useState<string | null>(null);
   const deviceTimezone = localTimezone();
@@ -350,10 +351,18 @@ export function GeneralSettingsPanels({
       <TrustedLinkSitesSettings />
       <ComputerDeviceSettings />
 
-      {showPassword || passkeysSupported || canLinkSso ? (
+      {showPassword || passkeysSupported || canLinkSso || directory ? (
         <SettingsGroup title={<Trans>Security</Trans>}>
           {showPassword ? <ChangePasswordRow email={email} /> : null}
           {canLinkSso ? <LinkSsoRow /> : null}
+          {directory ? (
+            <LinkSsoRow
+              provider="directory"
+              label={directory.name}
+              linked={accountSecurity?.directoryLinked ? (directory.profile ?? null) : null}
+              attached={Boolean(accountSecurity?.directoryLinked)}
+            />
+          ) : null}
           <PasskeySettings />
         </SettingsGroup>
       ) : null}

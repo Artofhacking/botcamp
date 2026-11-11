@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { AccountSecurity } from "@botcamp/contracts";
 import { runWithIdentityConfirmation } from "@botcamp/contracts";
 import {
@@ -10,10 +9,12 @@ import {
   Input,
   Label,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   confirmIdentity,
   fetchAccountSecurity,
+  linkedSignInProvider,
   requestIdentityCode,
 } from "../lib/account-security";
 import { authClient } from "../lib/auth";
@@ -54,7 +55,7 @@ export function ConfirmIdentityDialog({
       .then((value) => {
         if (!active) return;
         setSecurity(value);
-        if (!value.hasPassword && !value.emailDeletion && !(value.sso && value.ssoLinked))
+        if (!value.hasPassword && !value.emailDeletion && !linkedSignInProvider(value))
           setError(t`Could not continue`);
       })
       .catch(() => {
@@ -115,7 +116,7 @@ export function ConfirmIdentityDialog({
             </div>
           ) : security ? (
             <>
-              {security.sso && security.ssoLinked ? (
+              {linkedSignInProvider(security) ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -123,11 +124,13 @@ export function ConfirmIdentityDialog({
                   disabled={pending}
                   onClick={() =>
                     void action(async () => {
+                      const provider = linkedSignInProvider(security);
+                      if (!provider) return;
                       const result = await runSsoFlow(
                         (disableRedirect, callbackURL) =>
                           authClient.signIn.social({
                             disableRedirect,
-                            provider: "oidc",
+                            provider,
                             additionalData: { reauthenticate: true },
                             callbackURL: callbackURL(window.location.href),
                             errorCallbackURL: callbackURL(window.location.href),

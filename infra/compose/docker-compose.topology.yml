@@ -1,3 +1,47 @@
+x-topology-app-environment: &app-environment
+  MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
+  MAX_ATTACHMENTS_PER_MESSAGE: ${MAX_ATTACHMENTS_PER_MESSAGE:-4}
+  NODE_ENV: production
+  DATABASE_URL: postgres://botcamp_app:topology-only-runtime-password@postgres:5432/rakazo
+  DATA_DIR: /data
+  BETTER_AUTH_SECRET: topology-only-auth-secret-at-least-32-characters
+  SCREEN_PROXY_SECRET: topology-only-screen-proxy-secret-at-least-32-characters
+  BETTER_AUTH_URL: http://127.0.0.1:${TOPOLOGY_API_PORT:-3199}
+  WEB_ORIGIN: http://127.0.0.1:${TOPOLOGY_API_PORT:-3199}
+  ENCRYPTION_KEY: topology-only-encryption-key-at-least-32-characters
+  CONTENT_ENCRYPTION: "on"
+  SANDBOX_SUPERVISOR_URL: http://supervisor:7091
+  SANDBOX_SUPERVISOR_TOKEN: topology-only-supervisor-token-at-least-32-characters
+  SIGNUPS_ENABLED: "true"
+  WAKEUP_DRIVER: graphile
+  SANDBOX_PROVIDER: docker
+  CLOUD_AGENT_PROVIDER: ${CLOUD_AGENT_PROVIDER:-none}
+  CLOUD_AGENT_SPACE_ID: ${CLOUD_AGENT_SPACE_ID:-}
+  PAYMENT_WALLET_PROVIDER: ${PAYMENT_WALLET_PROVIDER:-none}
+  PAYMENT_WALLET_CLIENT_ID: ${PAYMENT_WALLET_CLIENT_ID:-}
+  CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+  AGENT_RUNTIME: scripted
+  # Optional egress proxy (Mainland / corporate). Empty = unset; either case works.
+  HTTP_PROXY: ${HTTP_PROXY:-${http_proxy:-}}
+  HTTPS_PROXY: ${HTTPS_PROXY:-${https_proxy:-}}
+  NO_PROXY: ${NO_PROXY:-${no_proxy:-}}
+  http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+  https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+  no_proxy: ${no_proxy:-${NO_PROXY:-}}
+  API_PORT: "3100"
+  API_HOST: "0.0.0.0"
+  # Proxies whose X-Forwarded-For is believed. Unset trusts this stack's own networks: the web
+  # proxy and a reverse proxy on the host. See docs/self-host-production.md#client-addresses.
+  TRUSTED_PROXIES:
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_NAME: ${OIDC_NAME:-SSO}
+  OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
+  OIDC_ALLOW_SIGNUP_BYPASS: ${OIDC_ALLOW_SIGNUP_BYPASS:-false}
+  AUTH_PASSWORD_ENABLED: ${AUTH_PASSWORD_ENABLED:-true}
+  AUTH_BREACHED_PASSWORD_CHECK_ENABLED: ${AUTH_BREACHED_PASSWORD_CHECK_ENABLED:-false}
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -78,49 +122,15 @@ services:
       - -lc
       # The owner URL lives only in this command, so neither process environment holds it.
       - DATABASE_MIGRATION_URL=postgres://rakazo:topology-only-password@postgres:5432/rakazo pnpm db:deploy && exec node --enable-source-maps dist/index.js
-    environment: &app-environment
-      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
-      MAX_ATTACHMENTS_PER_MESSAGE: ${MAX_ATTACHMENTS_PER_MESSAGE:-4}
-      NODE_ENV: production
-      DATABASE_URL: postgres://botcamp_app:topology-only-runtime-password@postgres:5432/rakazo
-      DATA_DIR: /data
-      BETTER_AUTH_SECRET: topology-only-auth-secret-at-least-32-characters
-      SCREEN_PROXY_SECRET: topology-only-screen-proxy-secret-at-least-32-characters
-      BETTER_AUTH_URL: http://127.0.0.1:${TOPOLOGY_API_PORT:-3199}
-      WEB_ORIGIN: http://127.0.0.1:${TOPOLOGY_API_PORT:-3199}
-      ENCRYPTION_KEY: topology-only-encryption-key-at-least-32-characters
-      CONTENT_ENCRYPTION: "on"
-      SANDBOX_SUPERVISOR_URL: http://supervisor:7091
-      SANDBOX_SUPERVISOR_TOKEN: topology-only-supervisor-token-at-least-32-characters
-      SIGNUPS_ENABLED: "true"
-      WAKEUP_DRIVER: graphile
-      SANDBOX_PROVIDER: docker
-      CLOUD_AGENT_PROVIDER: ${CLOUD_AGENT_PROVIDER:-none}
-      CLOUD_AGENT_SPACE_ID: ${CLOUD_AGENT_SPACE_ID:-}
-      PAYMENT_WALLET_PROVIDER: ${PAYMENT_WALLET_PROVIDER:-none}
-      PAYMENT_WALLET_CLIENT_ID: ${PAYMENT_WALLET_CLIENT_ID:-}
-      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
-      AGENT_RUNTIME: scripted
-      # Optional egress proxy (Mainland / corporate). Empty = unset; either case works.
-      HTTP_PROXY: ${HTTP_PROXY:-${http_proxy:-}}
-      HTTPS_PROXY: ${HTTPS_PROXY:-${https_proxy:-}}
-      NO_PROXY: ${NO_PROXY:-${no_proxy:-}}
-      http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
-      https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
-      no_proxy: ${no_proxy:-${NO_PROXY:-}}
-      API_PORT: "3100"
-      API_HOST: "0.0.0.0"
-      # Proxies whose X-Forwarded-For is believed. Unset trusts this stack's own networks: the web
-      # proxy and a reverse proxy on the host. See docs/self-host-production.md#client-addresses.
-      TRUSTED_PROXIES:
-      OIDC_ISSUER: ${OIDC_ISSUER:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OIDC_NAME: ${OIDC_NAME:-SSO}
-      OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
-      OIDC_ALLOW_SIGNUP_BYPASS: ${OIDC_ALLOW_SIGNUP_BYPASS:-false}
-      AUTH_PASSWORD_ENABLED: ${AUTH_PASSWORD_ENABLED:-true}
-      AUTH_BREACHED_PASSWORD_CHECK_ENABLED: ${AUTH_BREACHED_PASSWORD_CHECK_ENABLED:-false}
+    environment:
+      <<: *app-environment
+      # Directory login is separate from the messaging app. The secret stays on the API.
+      LARK_LOGIN_APP_ID: ${LARK_LOGIN_APP_ID:-}
+      LARK_LOGIN_APP_SECRET: ${LARK_LOGIN_APP_SECRET:-}
+      LARK_LOGIN_NAME: ${LARK_LOGIN_NAME:-}
+      LARK_LOGIN_SCOPES: ${LARK_LOGIN_SCOPES:-contact:user.email:readonly}
+      LARK_LOGIN_TENANT: ${LARK_LOGIN_TENANT:-}
+      LARK_LOGIN_ALLOW_SIGNUP_BYPASS: ${LARK_LOGIN_ALLOW_SIGNUP_BYPASS:-false}
     ports:
       - "127.0.0.1:${TOPOLOGY_API_PORT:-3199}:3100"
     volumes:

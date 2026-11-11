@@ -195,9 +195,9 @@ when the IdP controls who may join this deployment. It does **not** reopen close
 and does not change email verification claims or linking rules. Existing admitted accounts can
 sign in while registration is closed.
 
-Set `AUTH_PASSWORD_ENABLED=false` for SSO-only operation. Password sign-in, signup, password
+Set `AUTH_PASSWORD_ENABLED=false` to leave password sign-in off. Password sign-in, signup, password
 reset and password mutation endpoints are disabled server-side, and sign-in forms are hidden.
-The API refuses to start in this mode unless all OIDC credentials are configured. It can still
+The API refuses to start in this mode unless OIDC or directory login is configured. With OIDC, it can still
 start while discovery is temporarily unavailable: the provider remains registered, sign-in
 returns a temporary error, and background retries recover without restarting. Discovery is lazy
 on first use, refreshed in the background, and failures back off up to one minute. Availability
@@ -211,12 +211,82 @@ email configured, **Send deletion code** sends a single-use code to the account 
 minutes. Enter it in account settings to confirm deletion. Email-code requests are rate-limited;
 invalid, expired or wrong-account codes fail. No password needs to be created for deletion.
 
+## Directory login
+
+Directory login is a second sign-in method beside passwords and OpenID Connect. It uses the
+Feishu or Lark authorization-code flow. Leave it unset to keep the other methods alone. It is
+not the Feishu messaging app: `LARK_APP_ID` does not turn this login on, and linking a bot does
+not sign anyone in. Configure both login credentials together on the API:
+
+```env
+LARK_LOGIN_APP_ID=replace-with-app-id
+LARK_LOGIN_APP_SECRET=replace-with-app-secret
+LARK_LOGIN_NAME=
+LARK_LOGIN_SCOPES=contact:user.email:readonly
+LARK_LOGIN_TENANT=
+LARK_LOGIN_ALLOW_SIGNUP_BYPASS=false
+LARK_DOMAIN=feishu
+```
+
+`LARK_DOMAIN` is the same setting messaging uses (`feishu`, the default, or `lark`). It selects
+the accounts and OpenAPI hosts. An unknown value refuses to start when these credentials are set.
+The button label is `LARK_LOGIN_NAME`. When that is empty, the label is 飞书 for `feishu` and Lark
+for `lark`. The app secret stays on the API. Compose does not pass it to the worker.
+
+Register this redirect URI on the Feishu or Lark app, using the public `BETTER_AUTH_URL` origin:
+
+```text
+https://app.example.com/api/auth/callback/directory
+```
+
+Web, Electron and mobile use that same redirect. Enable the permission that returns the user's
+email (获取用户邮箱信息, scope `contact:user.email:readonly`). Requesting a scope the app has not
+enabled makes the authorization page fail, so the default asks only for that permission. Extra
+scopes may be space- or comma-separated. Authorization uses PKCE. The token exchange is the v2
+endpoint, which is the one that accepts that PKCE verifier. Refresh tokens are not stored.
+
+When the profile includes an enterprise mailbox, that address is used. Otherwise the contact
+email is used. Feishu says both are imported by an administrator and are not proof that the
+person controls the mailbox. BotCamp stores the address as unverified and does not mark it
+verified from this login. A later directory sign-in does not change the account email or its
+verification. A profile with no email cannot sign in.
+
+The identity is that application's `open_id`, bound to the accounts host
+(`https://accounts.feishu.cn` or `https://accounts.larksuite.com`). Replacing the Feishu app
+changes `open_id`, so old links no longer match. Link the new identity from the existing
+signed-in account. `LARK_LOGIN_TENANT`, when set, must equal the profile's `tenant_key`. A
+different organization cannot sign in.
+
+Sign-in attaches this directory identity to an existing account when the addresses match. The
+existing account keeps its email and whether that email is verified. The directory address is an
+imported contact, not proof that the person controls the mailbox, so the merge trusts the
+directory for that address. A directory identity that is already linked stays on its account. Account settings shows this
+login method whenever it is configured. The row's label is the configured name. Before it is
+linked, the row offers a link. After linking, the row shows that person's name and picture.
+Linking uses the signed-in browser session and does not require the addresses to match. It does
+not change the account email or its verification.
+
+Signup follows closed registration and the deployment allowlist. A directory address does not
+satisfy an allowlist that also requires a verified mailbox. An account that already exists is
+signed in anyway, including when registration is closed or the address is outside the allowlist.
+`LARK_LOGIN_ALLOW_SIGNUP_BYPASS=true`
+admits these identities without applying the allowlist. Enable it only when the directory
+controls who may join this deployment. It does not reopen closed registration, and it does not
+mark the mailbox verified. Password-disabled mode can use this login instead of OIDC.
+
+Account deletion can ask the directory to show its consent screen again. The directory has no
+authentication-time claim, so the proof is that completed consent round-trip, bound to the same
+`open_id` and the session that started it. The proof expires five minutes after the callback.
+That is weaker than OpenID Connect, whose proof requires a fresh `auth_time`: a directory
+session that is still signed in can consent without a new password. Password verification and
+emailed deletion codes remain available. Callbacks are single-use.
+
 ## Passkeys
 
 Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
 relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
-stays on the same domain. They are off when password sign-in is disabled for SSO-only
-deployments. On web, a browser offers them where it has a platform authenticator. The macOS
+stays on the same domain. They are off when password sign-in is disabled. On web, a browser offers
+them where it has a platform authenticator. The macOS
 desktop app uses the system passkey sheet, which only serves the domain the release is
 associated with (`botcamp.demox.site`), so it hides passkeys for other servers.
 

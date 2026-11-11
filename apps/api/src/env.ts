@@ -15,7 +15,13 @@ import {
   secretStoreOptionsFromEnv,
   telegramBotsFromEnv,
 } from "@botcamp/adapters";
-import type { OidcConfig } from "@botcamp/auth";
+import {
+  DIRECTORY_LOGIN_EMAIL_SCOPE,
+  directoryLoginEndpoints,
+  directoryLoginProfile,
+  exchangeDirectoryAuthorizationCode,
+} from "@botcamp/adapters/lark-directory-login";
+import type { DirectoryLoginConfig, OidcConfig } from "@botcamp/auth";
 import type { MinimumClientBuilds, NavLink } from "@botcamp/contracts";
 import { parseMinimumClientBuilds, parseNavLinks } from "@botcamp/contracts";
 import { parseCrispWebsiteId } from "@botcamp/contracts/content-security-policy";
@@ -43,6 +49,8 @@ export interface AppEnv {
   /** Opt-in Have I Been Pwned check for new passwords. Default off: it calls an outside service. */
   breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
+  /** Directory login. Present only when its application credentials are set. */
+  directory?: DirectoryLoginConfig;
   nodeEnv: string;
   desktopStackToken?: string;
   databaseUrl: string;
@@ -204,14 +212,52 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     "AUTH_PASSWORD_ENABLED",
     "AUTH_BREACHED_PASSWORD_CHECK_ENABLED",
     "OIDC_ALLOW_SIGNUP_BYPASS",
+    "LARK_LOGIN_ALLOW_SIGNUP_BYPASS",
   ]) {
     const value = source[key];
     if (value && !["true", "false"].includes(value))
       throw new Error(`${key} must be true or false`);
   }
   const passwordAuth = source.AUTH_PASSWORD_ENABLED !== "false";
-  if (!passwordAuth && !issuer)
-    throw new Error("AUTH_PASSWORD_ENABLED=false requires OIDC configuration");
+  const directoryAppId = optional(source.LARK_LOGIN_APP_ID);
+  const directoryAppSecret = optional(source.LARK_LOGIN_APP_SECRET);
+  if (Boolean(directoryAppId) !== Boolean(directoryAppSecret)) {
+    throw new Error("LARK_LOGIN_APP_ID and LARK_LOGIN_APP_SECRET must be configured together");
+  }
+  const directoryDomain = optional(source.LARK_DOMAIN)?.toLowerCase();
+  const directoryEndpoints = directoryAppId ? directoryLoginEndpoints(directoryDomain) : null;
+  if (directoryAppId && !directoryEndpoints) {
+    throw new Error("LARK_DOMAIN must be feishu or lark when directory login is configured");
+  }
+  if (!passwordAuth && !issuer && !directoryAppId)
+    throw new Error("AUTH_PASSWORD_ENABLED=false requires OIDC or directory login configuration");
+  const directoryScopes = list(source.LARK_LOGIN_SCOPES);
+  const directory: DirectoryLoginConfig | undefined =
+    directoryAppId && directoryAppSecret && directoryEndpoints
+      ? {
+          issuer: directoryEndpoints.issuer,
+          name: optional(source.LARK_LOGIN_NAME) ?? (directoryDomain === "lark" ? "Lark" : "飞书"),
+          clientId: directoryAppId,
+          clientSecret: directoryAppSecret,
+          authorizationUrl: directoryEndpoints.authorizationUrl,
+          tokenUrl: directoryEndpoints.tokenUrl,
+          scopes: directoryScopes.length > 0 ? directoryScopes : [DIRECTORY_LOGIN_EMAIL_SCOPE],
+          allowSignupBypass: source.LARK_LOGIN_ALLOW_SIGNUP_BYPASS === "true",
+          exchange: (input) =>
+            exchangeDirectoryAuthorizationCode({
+              tokenUrl: directoryEndpoints.tokenUrl,
+              clientId: directoryAppId,
+              clientSecret: directoryAppSecret,
+              ...input,
+            }),
+          profile: (accessToken) =>
+            directoryLoginProfile(
+              directoryEndpoints.userInfoUrl,
+              accessToken,
+              optional(source.LARK_LOGIN_TENANT),
+            ),
+        }
+      : undefined;
   const oidc =
     issuer && clientId && clientSecret
       ? {
@@ -234,6 +280,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     passwordAuth,
     breachedPasswordCheck: source.AUTH_BREACHED_PASSWORD_CHECK_ENABLED === "true",
     oidc,
+    directory,
     nodeEnv: source.NODE_ENV ?? "",
     databaseUrl: required(source, "DATABASE_URL"),
     realtimeDatabaseUrl: source.REALTIME_DATABASE_URL ?? required(source, "DATABASE_URL"),

@@ -9,6 +9,7 @@ import {
   sessionMiddleware,
 } from "better-auth/api";
 import { bearer } from "better-auth/plugins";
+import { currentDirectoryProfile, isCurrentDirectoryAccount } from "./directory-login.js";
 import type { EmailLocaleOf } from "./email.js";
 import { accountDeletionEmail } from "./email.js";
 import { isCurrentOidcAccount } from "./oidc.js";
@@ -21,6 +22,7 @@ export function accountSecurity(
   ssoName?: string,
   ssoIssuer?: string,
   passwordChangeEnabled = true,
+  directory?: { name: string; issuer: string },
 ): BetterAuthPlugin {
   return {
     id: "account-security",
@@ -38,6 +40,13 @@ export function accountSecurity(
           const accounts = await ctx.context.internalAdapter.findAccounts(
             ctx.context.session.user.id,
           );
+          const directoryProfile = (
+            await Promise.all(
+              accounts.map((account) =>
+                currentDirectoryProfile(account, directory?.issuer, ctx.context.secretConfig),
+              ),
+            )
+          ).find((profile) => profile !== null);
           return ctx.json({
             freshOidcAuth: Boolean(
               proof &&
@@ -51,10 +60,20 @@ export function accountSecurity(
                 ),
               )
             ).some(Boolean),
+            directoryLinked: (
+              await Promise.all(
+                accounts.map((account) =>
+                  isCurrentDirectoryAccount(account, directory?.issuer, ctx.context.secretConfig),
+                ),
+              )
+            ).some(Boolean),
             hasPassword: Boolean(credential?.password),
             passwordChangeEnabled,
             emailDeletion: Boolean(email),
             sso: ssoName ? { name: ssoName } : null,
+            directory: directory
+              ? { name: directory.name, profile: directoryProfile ?? null }
+              : null,
           });
         },
       ),

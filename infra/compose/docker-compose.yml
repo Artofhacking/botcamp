@@ -423,6 +423,13 @@ services:
       OIDC_NAME: ${OIDC_NAME:-SSO}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
       OIDC_ALLOW_SIGNUP_BYPASS: ${OIDC_ALLOW_SIGNUP_BYPASS:-false}
+      # Directory login is separate from the messaging app. The secret stays on the API.
+      LARK_LOGIN_APP_ID: ${LARK_LOGIN_APP_ID:-}
+      LARK_LOGIN_APP_SECRET: ${LARK_LOGIN_APP_SECRET:-}
+      LARK_LOGIN_NAME: ${LARK_LOGIN_NAME:-}
+      LARK_LOGIN_SCOPES: ${LARK_LOGIN_SCOPES:-contact:user.email:readonly}
+      LARK_LOGIN_TENANT: ${LARK_LOGIN_TENANT:-}
+      LARK_LOGIN_ALLOW_SIGNUP_BYPASS: ${LARK_LOGIN_ALLOW_SIGNUP_BYPASS:-false}
       SIGNUPS_ENABLED:
       SIGNUP_ALLOWLIST:
       SCREEN_PROXY_SECRET: ${SCREEN_PROXY_SECRET:?Set SCREEN_PROXY_SECRET in .env}

@@ -390,6 +390,32 @@ describe("OIDC environment", () => {
     expect(() => loadEnv({ ...base, AUTH_PASSWORD_ENABLED: "false" })).toThrow(/requires OIDC/);
     expect(loadEnv({ ...base, ...oidc, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
   });
+  it("accepts directory login credentials in place of OIDC", () => {
+    const login = {
+      LARK_LOGIN_APP_ID: "cli-test",
+      LARK_LOGIN_APP_SECRET: "test-secret",
+      LARK_LOGIN_TENANT: "tenant-1",
+    };
+    expect(() => loadEnv({ ...base, LARK_LOGIN_APP_ID: "cli-test" })).toThrow(
+      /configured together/,
+    );
+    expect(() =>
+      loadEnv({ ...base, ...login, LARK_DOMAIN: "other", AUTH_PASSWORD_ENABLED: "false" }),
+    ).toThrow(/LARK_DOMAIN/);
+    const env = loadEnv({ ...base, ...login, LARK_DOMAIN: "lark" });
+    expect(env.directory).toMatchObject({
+      name: "Lark",
+      issuer: "https://accounts.larksuite.com",
+      clientId: "cli-test",
+      allowSignupBypass: false,
+      scopes: ["contact:user.email:readonly"],
+    });
+    expect(loadEnv({ ...base, ...login, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
+    expect(
+      loadEnv({ ...base, ...login, LARK_LOGIN_ALLOW_SIGNUP_BYPASS: "true" }).directory
+        ?.allowSignupBypass,
+    ).toBe(true);
+  });
   it("leaves the breached password check off unless explicitly enabled", () => {
     expect(loadEnv(base).breachedPasswordCheck).toBe(false);
     expect(
