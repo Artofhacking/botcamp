@@ -18,6 +18,7 @@ import {
   BROWSER_STILL_RUNNING_EXIT,
   browserCloseProgram,
   browserProfilePathForScreen,
+  continueWithoutScreenViewerCommand,
   DEFAULT_DESKTOP_ENV,
   desktopControlCommand,
   desktopTerminalCommand,
@@ -318,6 +319,57 @@ describe("shared Linux desktop lifecycle", () => {
     expect(f.run(desktopTerminalCommand("a", "old:0", env, "c", "t", ".")).status).toBe(75);
     expect(f.run(desktopTerminalCommand("a", "run:1", env, "c", "t", ".")).status).toBe(0);
     expect(() => terminalCommand("c", "bad token", ".")).toThrow("invalid terminal token");
+  });
+
+  it("opens the browser when the screen viewer is missing", () => {
+    const command = ensureScreenCommand(0, "bot", "token");
+    const cdp = command.indexOf("computer browser CDP not ready");
+    const marker = command.indexOf("RAKAZO_SCREEN_VIEWER=missing");
+    const gateway = command.indexOf("screen gateway did not start");
+    expect(cdp).toBeGreaterThan(0);
+    expect(marker).toBeGreaterThan(cdp);
+    expect(gateway).toBeGreaterThan(marker);
+    expect(command.slice(0, cdp)).not.toContain("This computer's screen did not start.");
+    expect(command.slice(marker - 160, marker + 40)).toContain("exit 0");
+    const terminal = terminalCommand("control", "terminal", "/work");
+    expect(terminal).not.toContain("RAKAZO_SCREEN_VIEWER=missing");
+    expect(terminal).toContain("exit 1");
+
+    const probe = continueWithoutScreenViewerCommand()
+      .replaceAll("/usr/share/novnc", "/no/such/novnc")
+      .replaceAll("/opt/noVNC", "/no/such/opt-novnc");
+    const missing = spawnSync("bash", ["-eu", "-c", `command() { return 1; }\n${probe}`], {
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(missing.status, missing.stderr).toBe(0);
+    expect(missing.stdout.trim()).toBe("RAKAZO_SCREEN_VIEWER=missing");
+    expect(missing.stderr.trim()).toBe("This computer's screen did not start.");
+
+    const root = mkdtempSync(path.join(tmpdir(), "desktop-viewer-"));
+    roots.push(root);
+    const bin = path.join(root, "bin");
+    const web = path.join(root, "novnc");
+    mkdirSync(bin);
+    mkdirSync(web);
+    writeFileSync(path.join(bin, "websockify"), "#!/bin/sh\n");
+    chmodSync(path.join(bin, "websockify"), 0o755);
+    const present = spawnSync(
+      "bash",
+      [
+        "-eu",
+        "-c",
+        `${probe.replaceAll("/no/such/novnc", web).replaceAll("/opt/noVNC/utils/websockify/run", path.join(bin, "missing"))}\necho viewer-present`,
+      ],
+      {
+        encoding: "utf8",
+        timeout: 5000,
+        env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}` },
+      },
+    );
+    expect(present.status, present.stderr).toBe(0);
+    expect(present.stdout.trim()).toBe("viewer-present");
+    expect(present.stderr).toBe("");
   });
 
   it("drops libnss_wrapper before the screen browser exec", () => {

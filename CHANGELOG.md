@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.51] - 2026-11-11
+
+### Fixed
+
+- A bot can still open a web page when that computer's screen did not start. The embedded screen and the terminal still report it ([computer runtime](docs/computer-runtime.md)).
+
 ## [2.0.50] - 2026-11-11
 
 ### Fixed

@@ -11,7 +11,11 @@ import {
   resolveSupervisorToken,
   uploadSizeFromEnv,
 } from "@botcamp/core";
-import { stopPageBrowserDaemonCommand } from "@botcamp/core/node/desktop-runtime";
+import {
+  SCREEN_VIEWER_MISSING,
+  SCREEN_VIEWER_MISSING_MARKER,
+  stopPageBrowserDaemonCommand,
+} from "@botcamp/core/node/desktop-runtime";
 import { loadRootEnv } from "@botcamp/core/node/load-root-env";
 import { getLogger, SERVICE_NAMES } from "@botcamp/logging";
 import { createRootLogger } from "@botcamp/logging/axiom";
@@ -932,7 +936,7 @@ app.post("/computers/:id/files", async (c) => {
 app.get("/computers/:id/screen", async (c) => {
   const id = c.req.param("id");
   try {
-    const { container, info, layout, viewToken } = await managedScreen(
+    const { container, info, layout, viewToken, viewerMissing } = await managedScreen(
       id,
       computerRequestHeader(c, "bot-id"),
       computerRequestHeader(c, "space-id"),
@@ -940,9 +944,12 @@ app.get("/computers/:id/screen", async (c) => {
       computerRequestHeader(c, "screen-lease-id"),
       false,
     );
+    if (viewerMissing) throw new Error(SCREEN_VIEWER_MISSING);
     const screenUrl = await publishedScreenUrl(container, info, layout.viewPort);
     return c.redirect(screenUrlWithToken(screenUrl, viewToken));
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === SCREEN_VIEWER_MISSING) return c.json({ error: message }, 400);
     return c.json({ error: "computer not found" }, 404);
   }
 });
@@ -977,6 +984,7 @@ app.post("/computers/:id/screen-mode", async (c) => {
         screenLeaseId,
         !body.interactive && body.revokeControl === false,
       );
+      if (screen.viewerMissing) throw new Error(SCREEN_VIEWER_MISSING);
       if (body.interactive || body.revokeControl !== false) {
         const changed = await setInteractiveScreen(
           container,
@@ -1510,6 +1518,7 @@ async function recentManagedScreen(
     screenKey,
     browserProfile: browserProfilePathForScreen(screenKey),
     viewToken: slot.viewToken,
+    viewerMissing: slot.viewerMissing === true,
     reused: true,
   };
 }
@@ -1537,7 +1546,11 @@ async function ensureManagedScreen(
       // Confirm the pending boot marker only after setup completes against the same boot.
       if (info.State?.StartedAt) computerScreenBoots.set(id, info.State.StartedAt);
       const slot = computerScreens.get(id)?.get(screen.screenKey);
-      if (slot) slot.ensuredAt = Date.now();
+      if (slot) {
+        slot.ensuredAt = Date.now();
+        if (screen.viewerMissing) slot.viewerMissing = true;
+        else delete slot.viewerMissing;
+      }
       try {
         await rejoinComputerNetwork(info);
       } catch (error) {
@@ -1625,6 +1638,7 @@ async function ensureManagedScreenAttempt(
     const detail = [ensured.stderr, browserLog.stdout].filter(Boolean).join("\n").trim();
     throw new Error(detail || `computer screen ${layout.display} failed to start`);
   }
+  const viewerMissing = ensured.stdout.includes(SCREEN_VIEWER_MISSING_MARKER);
   // Ensuring the view must also recover an active human lease after its VNC process dies.
   if (restoreControl && slot.controlToken) {
     await setInteractiveScreen(container, true, slot.controlToken, layout);
@@ -1637,6 +1651,7 @@ async function ensureManagedScreenAttempt(
     screenKey,
     browserProfile: browserProfilePathForScreen(screenKey),
     viewToken,
+    viewerMissing,
   };
 }
 

@@ -429,6 +429,8 @@ export interface ScreenAssignment {
   controlToken?: string;
   /** When the setup script last finished for this screen on the current boot. */
   ensuredAt?: number;
+  /** The browser is up, and this boot has no websockify or noVNC files. */
+  viewerMissing?: boolean;
 }
 
 /** The page helper opened a browser of its own instead of the one on the screen. */

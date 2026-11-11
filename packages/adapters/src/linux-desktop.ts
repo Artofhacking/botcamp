@@ -24,6 +24,8 @@ import {
   managedDesktopCommand,
   PAGE_BROWSER_DETACHED,
   releaseDesktopCommand,
+  SCREEN_VIEWER_MISSING,
+  SCREEN_VIEWER_MISSING_MARKER,
   screenDisplayArgv,
   screenPorts,
   shellQuote,
@@ -143,7 +145,13 @@ export class LinuxDesktop {
       viewPort: Number(ports.viewPort),
       controlPort: Number(ports.controlPort),
     };
-    return { env, key, layout, token: match[2]! };
+    return {
+      env,
+      key,
+      layout,
+      token: match[2]!,
+      viewerMissing: output.includes(SCREEN_VIEWER_MISSING_MARKER),
+    };
   }
 
   async connectScreen(
@@ -152,6 +160,7 @@ export class LinuxDesktop {
     context: AdapterContext,
   ): Promise<ScreenSession> {
     const screen = await this.ensure(computer, context);
+    if (screen.viewerMissing) throw new Error(SCREEN_VIEWER_MISSING);
     let token = screen.token;
     if (request.interactive) {
       if (!request.controlToken) throw new Error("interactive screen requires a control token");

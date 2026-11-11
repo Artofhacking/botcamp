@@ -414,7 +414,7 @@ export function stopPageBrowserDaemonCommand() {
     '  [ -e "$proc/exe" ] || continue',
     '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
     '  case "$exe" in',
-    "    */agent-browser) kill -TERM \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    '    */agent-browser) kill -TERM "${proc#/proc/}" 2>/dev/null || true ;;',
     "  esac",
     "done",
     "sleep 0.2",
@@ -422,7 +422,7 @@ export function stopPageBrowserDaemonCommand() {
     '  [ -e "$proc/exe" ] || continue',
     '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
     '  case "$exe" in',
-    "    */agent-browser) kill -KILL \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    '    */agent-browser) kill -KILL "${proc#/proc/}" 2>/dev/null || true ;;',
     "  esac",
     "done",
     "exit 0",
@@ -562,10 +562,40 @@ export function prepareBrowserProfileCommand(screenId: string, env = DEFAULT_DES
   return `mkdir -p ${shellQuote(browserProfilePathForScreen(screenId, env))}`;
 }
 
+/** Printed when websockify or the noVNC files are absent. The browser can still open pages. */
+export const SCREEN_VIEWER_MISSING = "This computer's screen did not start.";
+
+/** Stdout marker from a desktop setup that left the browser up without a screen viewer. */
+export const SCREEN_VIEWER_MISSING_MARKER = "RAKAZO_SCREEN_VIEWER=missing";
+
+function screenViewerProbeCommand() {
+  return [
+    'proxy=""',
+    'web=""',
+    "if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; fi",
+    "if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; fi",
+  ].join("\n");
+}
+
 function proxyEnvironmentCommand() {
   return [
-    'if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
-    'if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
+    screenViewerProbeCommand(),
+    `if [ -z "$proxy" ] || [ -z "$web" ]; then echo ${shellQuote(SCREEN_VIEWER_MISSING)} >&2; exit 1; fi`,
+  ].join("\n");
+}
+
+/**
+ * Page tools only need the browser. A computer without the screen viewer still opens pages,
+ * and tells the caller so a screen or terminal request can fail without waiting.
+ */
+export function continueWithoutScreenViewerCommand() {
+  return [
+    screenViewerProbeCommand(),
+    'if [ -z "$proxy" ] || [ -z "$web" ]; then',
+    `  echo ${shellQuote(SCREEN_VIEWER_MISSING)} >&2`,
+    `  echo ${SCREEN_VIEWER_MISSING_MARKER}`,
+    "  exit 0",
+    "fi",
   ].join("\n");
 }
 
@@ -627,7 +657,6 @@ function renderEnsureScreenCommand(
     ...layoutVariables(index, env),
     `desktop_view_token=${shellQuote(viewToken)}`,
     '[[ "$desktop_view_token" =~ ^[a-zA-Z0-9_-]{1,64}$ ]] || exit 75',
-    proxyEnvironmentCommand(),
     `mkdir -p /tmp/botcamp`,
     `printf %s ${shellQuote(browserLauncherCommand(index, screenId, env))} >${browserLauncherPath(layout.displayNumber)}`,
     `chmod 700 ${browserLauncherPath(layout.displayNumber)}`,
@@ -664,6 +693,8 @@ function renderEnsureScreenCommand(
     `  tail -c 4000 ${log}-browser.log >&2 || true`,
     "  exit 1",
     "fi",
+    // The debugging port is up. The viewer is only for the embedded screen and terminal.
+    continueWithoutScreenViewerCommand(),
     ...setupView,
     `for i in $(seq 1 50); do (echo >/dev/tcp/${gatewayProbeHost(layout.bindHost)}/${layout.viewPort}) >/dev/null 2>&1 && exit 0; sleep 0.1; done`,
     "echo 'screen view port did not open' >&2",
