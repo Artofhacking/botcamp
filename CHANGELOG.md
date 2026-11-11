@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.48] - 2026-11-11
+
+### Added
+
+- On a linked chat app, one pending approval arrives as an ordinary message. Reply yes or 同意 to allow it once, or no or 拒绝 to deny it. An unclear reply, or one that also asks for something else, leaves the request waiting. Allowing it every time, a secret, and the user's own computer still have to be answered in the app.
+
+### Changed
+
+- On a linked chat app, the bot replies with ordinary messages. Choice cards, computer takeover, calls, and purchase requests stay in the app.
+
 ## [2.0.47] - 2026-11-11
 
 ### Fixed
