@@ -1,3 +1,4 @@
+import { createCipheriv } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createIlinkClient, inbound, personalChatOrigin } from "./ilink.js";
 
@@ -115,8 +116,105 @@ describe("personal chat messages", () => {
     ).toBe("spoken");
     expect(inbound({ message_id: 11, message_type: 2, from_user_id: "bot-1" }, "bot-1")).toBeNull();
     expect(
-      inbound({ message_id: 12, message_type: 1, from_user_id: "user-1", group_id: "room" }, "bot-1"),
+      inbound(
+        { message_id: 12, message_type: 1, from_user_id: "user-1", group_id: "room" },
+        "bot-1",
+      ),
     ).toBeNull();
+    expect(
+      inbound(
+        {
+          message_id: 13,
+          message_type: 1,
+          from_user_id: "user-1",
+          item_list: [
+            {
+              type: 2,
+              image_item: {
+                aeskey: "00112233445566778899aabbccddeeff",
+                media: {
+                  encrypt_query_param: "query-1",
+                  full_url: "https://evil.example/picture",
+                },
+              },
+            },
+          ],
+        },
+        "bot-1",
+      ),
+    ).toMatchObject({
+      handle: "13",
+      text: "",
+      imageRefs: [{ query: "query-1" }],
+    });
+  });
+
+  it("downloads a picture from the chat cdn and ignores any other address", async () => {
+    const plain = Buffer.from([
+      0xff, 0xd8, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb,
+      0xcc,
+    ]);
+    const key = Buffer.alloc(16, 7);
+    const cipher = createCipheriv("aes-128-ecb", key, null);
+    const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      urls.push(String(url));
+      if (String(url).endsWith("/ilink/bot/getupdates")) {
+        return jsonResponse({
+          ret: 0,
+          get_updates_buf: "cursor-2",
+          msgs: [
+            {
+              message_id: 14,
+              message_type: 1,
+              from_user_id: "user-1",
+              item_list: [
+                {
+                  type: 2,
+                  image_item: {
+                    aeskey: key.toString("hex"),
+                    media: {
+                      encrypt_query_param: "query-1",
+                      full_url: "https://evil.example/picture",
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              message_id: 15,
+              message_type: 1,
+              from_user_id: "user-1",
+              item_list: [
+                {
+                  type: 2,
+                  image_item: {
+                    aeskey: "ffffffffffffffffffffffffffffffff",
+                    media: { encrypt_query_param: "query-2" },
+                  },
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return new Response(encrypted, { status: 200 });
+    });
+    const client = createIlinkClient(fetchImpl as typeof fetch);
+    const update = await client.getUpdates(session, "cursor-1", new AbortController().signal);
+    expect(update.messages[0]).toMatchObject({
+      handle: "14",
+      text: "",
+      images: [{ name: "photo.jpg", mimeType: "image/jpeg" }],
+    });
+    expect(Buffer.from(update.messages[0]?.images?.[0]?.bytes ?? [])).toEqual(plain);
+    expect(update.messages[1]).toMatchObject({ handle: "15", text: "", imageFailed: true });
+    expect(update.messages[1]?.images).toBeUndefined();
+    expect(urls.filter((url) => url.includes("evil.example"))).toEqual([]);
+    expect(
+      urls.some((url) => url.startsWith("https://novac2c.cdn.weixin.qq.com/c2c/download?")),
+    ).toBe(true);
   });
 
   it("polls with the saved cursor and replies with the context token", async () => {
@@ -142,7 +240,9 @@ describe("personal chat messages", () => {
       return jsonResponse({ ret: 0 });
     });
     const client = createIlinkClient(fetchImpl as typeof fetch);
-    await expect(client.getUpdates(session, "cursor-1", new AbortController().signal)).resolves.toEqual({
+    await expect(
+      client.getUpdates(session, "cursor-1", new AbortController().signal),
+    ).resolves.toEqual({
       cursor: "cursor-2",
       messages: [{ handle: "3", from: "user-1", text: "ping" }],
     });

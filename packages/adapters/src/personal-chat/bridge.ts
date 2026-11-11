@@ -322,6 +322,29 @@ export class PersonalChatBridge {
             participants: [],
             content: message.text,
             mediaUrl: null,
+            ...(message.images?.length || message.imageFailed
+              ? {
+                  attachments: [
+                    ...(message.images ?? []).map((image) => ({
+                      name: image.name,
+                      mimeType: image.mimeType,
+                      size: image.bytes.byteLength,
+                      fetch: async () => image.bytes,
+                    })),
+                    ...(message.imageFailed && !message.images?.length
+                      ? [
+                          {
+                            name: "photo.jpg",
+                            mimeType: "image/jpeg" as const,
+                            fetch: async () => {
+                              throw new Error("picture unavailable");
+                            },
+                          },
+                        ]
+                      : []),
+                  ],
+                }
+              : {}),
           });
           if (message.contextToken)
             await this.remember(claimed, message.from, message.contextToken);
