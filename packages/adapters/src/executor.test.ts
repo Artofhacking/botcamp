@@ -622,6 +622,40 @@ describe("run tool selection", () => {
     );
   });
 
+  it("withholds app-only actions when the message arrived on a chat channel", () => {
+    const options = {
+      graphicalToolsAllowed: true,
+      pageBrowserAllowed: true,
+      groupId: null,
+      trigger: "messaging" as const,
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      paymentWalletEnabled: true,
+      phoneCallsEnabled: true,
+    };
+    const names = (plainTextChannel: boolean) =>
+      selectBuiltinToolsForRun({ ...options, plainTextChannel }).map((tool) => tool.name);
+    const plain = names(true);
+    for (const name of [
+      "ask_user",
+      "request_takeover",
+      "request_secret",
+      "connect_app",
+      "call_user",
+      "request_purchase",
+      "paid_request",
+    ]) {
+      expect(plain, name).not.toContain(name);
+    }
+    expect(plain).toEqual(
+      expect.arrayContaining(["web_search", "computer_observe", "message_user", "purchase_status"]),
+    );
+    const app = names(false);
+    expect(app).toEqual(
+      expect.arrayContaining(["ask_user", "request_takeover", "connect_app", "call_user"]),
+    );
+  });
+
   it("offers end_call on a hang-up run so it can title the call", () => {
     const callEnd = selectBuiltinToolsForRun({
       graphicalToolsAllowed: true,
