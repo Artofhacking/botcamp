@@ -802,6 +802,8 @@ describe("OIDC callbacks", () => {
       "/sign-up/email",
       "/request-password-reset",
       "/set-password",
+      "/initial-password",
+      "/unlink-directory",
       "/email-otp/send-verification-otp",
       "/sign-in/email-otp",
     ]) {

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.53] - 2026-11-11
+
+### Added
+
+- A directory account can set a password under sign-in methods, then remove the directory link. The account email and its verification stay as they are. After the link is removed, sign-in uses that same email and the password. Removing the link before a password exists asks for a password first and leaves the link in place ([accounts](docs/self-host-accounts.md#directory-login)).
+
 ## [2.0.52] - 2026-11-11
 
 ### Added

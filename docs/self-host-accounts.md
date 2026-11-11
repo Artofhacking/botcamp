@@ -266,6 +266,12 @@ linked, the row offers a link. After linking, the row shows that person's name a
 Linking uses the signed-in browser session and does not require the addresses to match. It does
 not change the account email or its verification.
 
+A signed-in account can set a password from that same sign-in list. Setting it does not change
+the account email or whether that email is verified. The directory link can be removed only after
+a password exists. Until then, the row asks for a password first and the link stays. After the
+link is removed, sign-in uses that same email and the password. Password sign-in still follows
+the allowlist rule above: a nonempty allowlist requires a verified mailbox, including this one.
+
 Signup follows closed registration and the deployment allowlist. A directory address does not
 satisfy an allowlist that also requires a verified mailbox. An account that already exists is
 signed in anyway, including when registration is closed or the address is outside the allowlist.

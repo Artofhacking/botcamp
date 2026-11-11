@@ -141,6 +141,7 @@ const REVOCATION_PATHS = new Set(["/revoke-session", "/revoke-sessions", "/revok
 const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
   "/change-password": "auth.password.changed",
   "/set-password": "auth.password.changed",
+  "/initial-password": "auth.password.changed",
   "/passkey/verify-registration": "auth.passkey.added",
   "/passkey/update-passkey": "auth.passkey.changed",
   "/passkey/delete-passkey": "auth.passkey.removed",
@@ -159,6 +160,8 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
       "/confirm-identity": rule,
       "/passkey/verify-authentication": rule,
       "/passkey/verify-registration": rule,
+      "/initial-password": rule,
+      "/unlink-directory": rule,
       // Sign-in pages request a challenge on load for passkey autofill.
       "/passkey/generate-authenticate-options": { window: 60, max: 30 },
     },
@@ -527,9 +530,14 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         }
         if (
           env.passwordAuth === false &&
-          [...CREDENTIAL_PATHS, "/reset-password", "/change-password", "/set-password"].includes(
-            ctx.path,
-          )
+          [
+            ...CREDENTIAL_PATHS,
+            "/reset-password",
+            "/change-password",
+            "/set-password",
+            "/initial-password",
+            "/unlink-directory",
+          ].includes(ctx.path)
         ) {
           throw new APIError("FORBIDDEN", {
             code: "PASSWORD_AUTH_DISABLED",

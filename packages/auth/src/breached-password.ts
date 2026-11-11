@@ -9,6 +9,7 @@ const NEW_PASSWORD_FIELDS = new Map([
   ["/change-password", "newPassword"],
   ["/reset-password", "newPassword"],
   ["/set-password", "newPassword"],
+  ["/initial-password", "newPassword"],
 ]);
 
 const CHECK_TIMEOUT_MS = 3_000;

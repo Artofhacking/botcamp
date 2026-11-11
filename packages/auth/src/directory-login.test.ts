@@ -328,6 +328,98 @@ it("links the directory identity from the signed-in account when the address mat
   ).toEqual(["credential", "directory"]);
 });
 
+it("sets a password on the directory email, then removes only the directory link", async () => {
+  await request(await begin());
+  const before = rows("user")[0];
+  expect(before).toMatchObject({
+    email: "person@company.test",
+    emailVerified: false,
+    name: "Person",
+  });
+  const blocked = await request("/unlink-directory", {});
+  expect(blocked.status).toBe(400);
+  expect(await blocked.json()).toMatchObject({ code: "PASSWORD_REQUIRED" });
+  expect(rows("account").map((row) => row.providerId)).toEqual(["directory"]);
+
+  const short = await request("/initial-password", { newPassword: "short" });
+  expect(short.status).toBe(400);
+  expect(await short.json()).toMatchObject({ code: "PASSWORD_TOO_SHORT" });
+
+  const set = await request("/initial-password", { newPassword: "test-password-123" });
+  expect(set.status, await set.clone().text()).toBe(200);
+  expect(rows("user")[0]).toMatchObject({
+    id: before?.id,
+    email: "person@company.test",
+    emailVerified: false,
+    name: "Person",
+  });
+  expect(
+    rows("account")
+      .map((row) => row.providerId)
+      .sort(),
+  ).toEqual(["credential", "directory"]);
+  const again = await request("/initial-password", { newPassword: "another-password-123" });
+  expect(again.status).toBe(400);
+  expect(await again.json()).toMatchObject({ code: "PASSWORD_ALREADY_SET" });
+
+  cookies = "";
+  const signedIn = await request("/sign-in/email", {
+    email: "person@company.test",
+    password: "test-password-123",
+  });
+  expect(signedIn.status, await signedIn.clone().text()).toBe(200);
+  expect(rows("user")[0]).toMatchObject({ emailVerified: false, email: "person@company.test" });
+
+  const changed = await request("/change-password", {
+    currentPassword: "test-password-123",
+    newPassword: "another-password-123",
+    revokeOtherSessions: false,
+  });
+  expect(changed.status, await changed.clone().text()).toBe(200);
+  const removed = await request("/unlink-directory", {});
+  expect(removed.status, await removed.clone().text()).toBe(200);
+  expect(rows("account").map((row) => row.providerId)).toEqual(["credential"]);
+  expect(rows("user")[0]).toMatchObject({
+    id: before?.id,
+    email: "person@company.test",
+    emailVerified: false,
+    name: "Person",
+  });
+
+  cookies = "";
+  const later = await request("/sign-in/email", {
+    email: "person@company.test",
+    password: "another-password-123",
+  });
+  expect(later.status, await later.clone().text()).toBe(200);
+  expect(rows("user")[0]).toMatchObject({ emailVerified: false });
+});
+
+it("still requires a verified mailbox for password sign-in when an allowlist is set", async () => {
+  await request(await begin());
+  const set = await request("/initial-password", { newPassword: "test-password-123" });
+  expect(set.status, await set.clone().text()).toBe(200);
+  expect(rows("user")[0]).toMatchObject({ email: "person@company.test", emailVerified: false });
+  setup({ signupAllowlist: "person@company.test" });
+  cookies = "";
+  const signedIn = await request("/sign-in/email", {
+    email: "person@company.test",
+    password: "test-password-123",
+  });
+  expect(signedIn.status).toBeGreaterThanOrEqual(400);
+  expect(await signedIn.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
+  expect(rows("user")[0]).toMatchObject({ emailVerified: false, email: "person@company.test" });
+});
+
+it("refuses a directory password and unbind when password sign-in is off", async () => {
+  setup({ passwordAuth: false });
+  for (const path of ["/initial-password", "/unlink-directory"]) {
+    const response = await request(path, { newPassword: "test-password-123" });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(await response.json()).toMatchObject({ code: "PASSWORD_AUTH_DISABLED" });
+  }
+});
+
 it("records a fresh confirmation after the directory asks for consent again", async () => {
   await request(await begin());
   const userId = String(rows("user")[0]?.id);

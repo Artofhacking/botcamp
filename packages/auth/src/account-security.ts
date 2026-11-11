@@ -1,11 +1,13 @@
 import { randomBytes } from "node:crypto";
 import type { TransactionalEmailProvider } from "@botcamp/adapter-kit";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@botcamp/core";
 import type { BetterAuthPlugin } from "better-auth";
 import {
   APIError,
   createAuthEndpoint,
   createAuthMiddleware,
   getSessionFromCtx,
+  sensitiveSessionMiddleware,
   sessionMiddleware,
 } from "better-auth/api";
 import { bearer } from "better-auth/plugins";
@@ -15,6 +17,13 @@ import { accountDeletionEmail } from "./email.js";
 import { isCurrentOidcAccount } from "./oidc.js";
 
 export const oidcProofKey = (sessionId: string) => `oidc-reauth-${sessionId}`;
+
+function passwordAuthDisabled() {
+  return new APIError("FORBIDDEN", {
+    message: "Password authentication is disabled",
+    code: "PASSWORD_AUTH_DISABLED",
+  });
+}
 
 export function accountSecurity(
   email: TransactionalEmailProvider | undefined,
@@ -75,6 +84,78 @@ export function accountSecurity(
               ? { name: directory.name, profile: directoryProfile ?? null }
               : null,
           });
+        },
+      ),
+      initialPassword: createAuthEndpoint(
+        "/initial-password",
+        { method: "POST", use: [sensitiveSessionMiddleware] },
+        async (ctx) => {
+          if (!passwordChangeEnabled) throw passwordAuthDisabled();
+          const newPassword = typeof ctx.body?.newPassword === "string" ? ctx.body.newPassword : "";
+          if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Password too short",
+              code: "PASSWORD_TOO_SHORT",
+            });
+          }
+          if (newPassword.length > MAX_PASSWORD_LENGTH) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Password too long",
+              code: "PASSWORD_TOO_LONG",
+            });
+          }
+          const user = ctx.context.session.user;
+          const account = await ctx.context.internalAdapter.findCredentialAccount(user.id);
+          if (account?.password) {
+            throw new APIError("BAD_REQUEST", {
+              message: "User already has a password set",
+              code: "PASSWORD_ALREADY_SET",
+            });
+          }
+          const password = await ctx.context.password.hash(newPassword);
+          if (!account) {
+            await ctx.context.internalAdapter.linkAccount({
+              userId: user.id,
+              providerId: "credential",
+              accountId: user.id,
+              password,
+            });
+          } else {
+            await ctx.context.internalAdapter.updateAccount(account.id, { password });
+          }
+          return ctx.json({ status: true });
+        },
+      ),
+      unlinkDirectory: createAuthEndpoint(
+        "/unlink-directory",
+        { method: "POST", use: [sensitiveSessionMiddleware] },
+        async (ctx) => {
+          if (!passwordChangeEnabled) throw passwordAuthDisabled();
+          const user = ctx.context.session.user;
+          const credential = await ctx.context.internalAdapter.findCredentialAccount(user.id);
+          if (!credential?.password) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Set a password first",
+              code: "PASSWORD_REQUIRED",
+            });
+          }
+          const accounts = await ctx.context.internalAdapter.findAccounts(user.id);
+          const linked = [];
+          for (const account of accounts) {
+            if (
+              await isCurrentDirectoryAccount(account, directory?.issuer, ctx.context.secretConfig)
+            ) {
+              linked.push(account);
+            }
+          }
+          if (!linked.length) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Account not found",
+              code: "ACCOUNT_NOT_FOUND",
+            });
+          }
+          for (const account of linked) await ctx.context.internalAdapter.deleteAccount(account.id);
+          return ctx.json({ status: true });
         },
       ),
       requestAccountDeletion: createAuthEndpoint(
