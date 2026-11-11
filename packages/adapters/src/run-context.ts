@@ -231,6 +231,8 @@ export interface RunSource {
   peerMessage: Awaited<ReturnType<typeof loadBotMessageContext>>;
   /** Whose own computer user_computer_shell may reach (see userComputerOwner). */
   userComputerOwner: string | undefined;
+  /** The turn arrived on a chat channel, which can only carry plain text. */
+  plainTextChannel?: boolean;
 }
 
 export interface RunTools {

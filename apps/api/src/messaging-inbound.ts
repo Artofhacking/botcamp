@@ -7,10 +7,15 @@ import type {
 import { messagingDeliverJob, runContinueJob } from "@botcamp/adapter-kit";
 import type { MessageBlock } from "@botcamp/contracts";
 import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@botcamp/contracts";
-import type { MessagingCommand } from "@botcamp/core";
+import type { ChatApprovalChoice, ChatApprovalClassifyInput, MessagingCommand } from "@botcamp/core";
 import {
+  CHAT_APPROVAL_APP_ONLY_NOTE,
+  CHAT_APPROVAL_REPLY_REMINDER,
+  chatApprovalAnswerableEffect,
   chatMessageOrigin,
   displayName,
+  isApprovalAskBlock,
+  isPlainTextChannelOrigin,
   messageBlockForArtifact,
   normalizeVoiceTranscript,
   parseMessagingCommand,
@@ -48,7 +53,12 @@ import {
 
 export interface MessagingInboundDeps {
   prisma: PrismaClient;
-  events: Pick<ThreadEvents, "sendUserMessage" | "notify">;
+  events: Pick<ThreadEvents, "sendUserMessage" | "notify" | "answerRunInput">;
+  /**
+   * Judges one plain-text reply to one pending approval. Absent keeps today's
+   * exact YES/NO owner commands and does not look for approval cards.
+   */
+  classifyApprovalReply?: (input: ChatApprovalClassifyInput) => Promise<ChatApprovalChoice>;
   jobs: Pick<JobPublisher, "enqueue">;
   sandbox: SandboxProvider;
   provision: (
@@ -170,6 +180,10 @@ async function handleDirectEvent(
     // Media-only delivery is for linked identities; retain text-based signup.
     if (!text) return;
   }
+
+  // A plain-text reply can allow or deny the one approval this chat is waiting on.
+  // Exact YES/NO for an invite or connection was already handled above.
+  if (existing && (await answerPendingChatApproval(deps, existing, event))) return;
 
   let ids: ProvisionedMessagingIdentity;
   if (existing) {
@@ -739,6 +753,206 @@ async function enqueueDeliverJob(deps: MessagingInboundDeps): Promise<void> {
   await deps.jobs.enqueue(messagingDeliverJob()).catch((error) => {
     getLogger().error("messaging confirmation enqueue error", error);
   });
+}
+
+type PendingChatApproval = {
+  runId: string;
+  messageId: string;
+  effectId: string;
+  effectKind: string;
+  request: string;
+};
+
+function pendingApprovalsFromBlocks(
+  blocks: unknown,
+): Array<{ effectId: string; title: string; detail?: string }> {
+  if (!Array.isArray(blocks)) return [];
+  const found: Array<{ effectId: string; title: string; detail?: string }> = [];
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+    const candidate = block as {
+      kind?: string;
+      status?: string;
+      approvalEffectId?: string;
+      text?: string;
+      detail?: string;
+      actions?: Array<{ id: string; label: string }>;
+    };
+    if (
+      candidate.status === "answered" ||
+      candidate.kind !== "ask" ||
+      typeof candidate.approvalEffectId !== "string" ||
+      typeof candidate.text !== "string" ||
+      !candidate.actions
+    )
+      continue;
+    if (
+      !isApprovalAskBlock({
+        kind: "ask",
+        approvalEffectId: candidate.approvalEffectId,
+        actions: candidate.actions,
+      })
+    )
+      continue;
+    found.push({
+      effectId: candidate.approvalEffectId,
+      title: candidate.text,
+      detail: typeof candidate.detail === "string" ? candidate.detail : undefined,
+    });
+  }
+  return found;
+}
+
+/** The chat-origin approvals still waiting in this bot's thread. */
+async function listPendingChatApprovals(
+  deps: MessagingInboundDeps,
+  identity: IdentityRow,
+): Promise<{ threadId: string; pending: PendingChatApproval[] } | null> {
+  const thread = await deps.prisma.thread.findFirst({
+    where: { botId: identity.botId, spaceId: identity.spaceId },
+    select: { id: true },
+  });
+  if (!thread) return null;
+  const pending: PendingChatApproval[] = [];
+  const runs = await deps.prisma.run.findMany({
+    where: {
+      spaceId: identity.spaceId,
+      botId: identity.botId,
+      threadId: thread.id,
+      status: "waiting_input",
+    },
+    select: { id: true },
+  });
+  for (const run of runs) {
+    const source = await deps.prisma.message.findFirst({
+      where: { runId: run.id, role: "user" },
+      orderBy: { seq: "asc" },
+      select: { origin: true },
+    });
+    if (!isPlainTextChannelOrigin(source?.origin)) continue;
+    const messages = await deps.prisma.message.findMany({
+      where: { threadId: thread.id, runId: run.id, role: "bot" },
+      orderBy: { seq: "desc" },
+      take: 20,
+      select: { id: true, blocks: true },
+    });
+    for (const message of messages) {
+      for (const ask of pendingApprovalsFromBlocks(message.blocks)) {
+        const effect = await deps.prisma.externalEffect.findFirst({
+          where: {
+            id: ask.effectId,
+            runId: run.id,
+            spaceId: identity.spaceId,
+            status: "intended",
+          },
+          select: { id: true, kind: true },
+        });
+        if (!effect) continue;
+        pending.push({
+          runId: run.id,
+          messageId: message.id,
+          effectId: effect.id,
+          effectKind: effect.kind,
+          request: [ask.title, ask.detail].filter(Boolean).join("\n\n"),
+        });
+      }
+    }
+  }
+  return { threadId: thread.id, pending };
+}
+
+async function remindOnce(
+  deps: MessagingInboundDeps,
+  identity: IdentityRow,
+  key: string,
+  body: string,
+): Promise<void> {
+  await deps.prisma.messagingOutbound.createMany({
+    data: [{ idempotencyKey: key, kind: "dm", identityId: identity.id, body }],
+    skipDuplicates: true,
+  });
+  await enqueueDeliverJob(deps);
+}
+
+/**
+ * Allow or deny the single pending chat approval, or remind once.
+ * Returns false when this message should be delivered as a normal turn.
+ * An unclear reply does not start a second run.
+ */
+async function answerPendingChatApproval(
+  deps: MessagingInboundDeps,
+  identity: IdentityRow,
+  event: MessagingInboundMessage,
+): Promise<boolean> {
+  const classify = deps.classifyApprovalReply;
+  if (!classify) return false;
+  const reply = event.content?.trim() ?? "";
+  if (!reply || event.mediaUrl || (event.attachments?.length ?? 0) > 0) return false;
+  if (!isPlainTextChannelOrigin(chatMessageOrigin(event.provider))) return false;
+  const found = await listPendingChatApprovals(deps, identity);
+  const target = found?.pending.length === 1 ? found.pending[0] : undefined;
+  if (!found || !target) return false;
+  if (!chatApprovalAnswerableEffect(target.effectKind)) {
+    await remindOnce(
+      deps,
+      identity,
+      `approval-app:${target.effectId}`,
+      CHAT_APPROVAL_APP_ONLY_NOTE,
+    );
+    return true;
+  }
+  let choice: ChatApprovalChoice = "not_an_answer";
+  try {
+    choice = await classify({
+      spaceId: identity.spaceId,
+      userId: identity.userId,
+      botId: identity.botId,
+      threadId: found.threadId,
+      runId: target.runId,
+      request: target.request,
+      reply,
+    });
+  } catch (error) {
+    getLogger().warn("chat approval reply was not classified", {
+      reason: error instanceof Error ? error.name : "error",
+    });
+  }
+  if (choice === "allow_once" || choice === "deny") {
+    const answered = await deps.events.answerRunInput({
+      spaceId: identity.spaceId,
+      threadId: found.threadId,
+      runId: target.runId,
+      messageId: target.messageId,
+      answeredByUserId: identity.userId,
+      answer: choice === "allow_once" ? "allow" : "deny",
+      clientNonce: `messaging-approval:${event.handle}`,
+    });
+    if (!answered) return false;
+    const origin = chatMessageOrigin(event.provider);
+    await deps.events.sendUserMessage({
+      spaceId: identity.spaceId,
+      threadId: found.threadId,
+      botId: identity.botId,
+      userId: identity.userId,
+      blocks: [{ kind: "text", text: reply }],
+      prompt: reply,
+      trigger: "messaging",
+      clientNonce: `messaging:${event.provider}:${event.handle}`,
+      origin,
+      createRun: false,
+    });
+    await deps.jobs.enqueue(runContinueJob(target.runId)).catch((error) => {
+      getLogger().error("chat approval continue enqueue", error);
+    });
+    return true;
+  }
+  await remindOnce(
+    deps,
+    identity,
+    `approval-remind:${target.effectId}`,
+    CHAT_APPROVAL_REPLY_REMINDER,
+  );
+  return true;
 }
 
 async function handleChannelEvent(

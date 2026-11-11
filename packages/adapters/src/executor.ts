@@ -1613,6 +1613,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             callClientNonce: callClientNonceForRun,
             peerMessage,
             userComputerOwner: userComputerOwnerId,
+            plainTextChannel,
           },
           computer: {
             stored: storedComputer,

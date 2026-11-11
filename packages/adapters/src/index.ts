@@ -39,6 +39,7 @@ export * from "./builtin-tool-bridge.js";
 export * from "./builtin-tools.js";
 export { loadUserIncomingCalls, settleCallRequest } from "./call-request.js";
 export * from "./cartesia-voice.js";
+export * from "./chat-approval-reply.js";
 export * from "./chat-sdk-surface.js";
 export * from "./child-bots.js";
 export * from "./cloud-agent-emulator.js";

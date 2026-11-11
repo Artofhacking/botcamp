@@ -393,6 +393,7 @@ describe("createMessagingInboundHandler DM routing", () => {
       prompt: "hello bot",
       trigger: "messaging",
       clientNonce: "messaging:sendblue:handle-1",
+      origin: "chat:sendblue",
     });
     expect(deps.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ name: "run.continue", payload: { runId: "run-1" } }),
@@ -2608,6 +2609,247 @@ describe("createMessagingInboundHandler linking", () => {
     await handle(dmEvent);
     expect(deps.provision).toHaveBeenCalled();
     expect(deps.sendUserMessage).toHaveBeenCalled();
+  });
+});
+
+describe("chat approval replies", () => {
+  function approvalAsk(effectId: string) {
+    return {
+      kind: "ask",
+      approvalEffectId: effectId,
+      text: "Review before send mail",
+      detail: "To Ada",
+      status: "pending",
+      actions: [
+        { id: "allow", label: "Allow once" },
+        { id: "always", label: "Always allow this tool" },
+        { id: "deny", label: "Deny" },
+      ],
+    };
+  }
+
+  function pending(
+    deps: ReturnType<typeof createDeps>,
+    rows: Array<{
+      id?: string;
+      origin?: string | null;
+      effectId?: string;
+      effectKind?: string;
+      ask?: Record<string, unknown>;
+    }>,
+    choice: "allow_once" | "deny" | "not_an_answer" | "throw" = "allow_once",
+  ) {
+    const items = rows.map((row, index) => ({
+      id: row.id ?? `run-wait-${index}`,
+      origin: row.origin === undefined ? "chat:sendblue" : row.origin,
+      effectId: row.effectId ?? `effect-${index}`,
+      effectKind: row.effectKind ?? "mailbox_send",
+      ask: row.ask ?? approvalAsk(row.effectId ?? `effect-${index}`),
+    }));
+    const answerRunInput = vi.fn(async () => true);
+    deps.events.answerRunInput = answerRunInput;
+    const classify = vi.fn(async () => {
+      if (choice === "throw") throw new Error("checker down");
+      return choice;
+    });
+    deps.classifyApprovalReply = classify;
+    const prisma = deps.prisma as unknown as {
+      run: { findMany: ReturnType<typeof vi.fn> };
+      message: { findFirst: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+      externalEffect: { findFirst: ReturnType<typeof vi.fn> };
+    };
+    prisma.run.findMany = vi.fn(async () => items.map((item) => ({ id: item.id })));
+    prisma.message.findFirst = vi.fn(
+      async ({ where }: { where: { runId: string; role?: string } }) => {
+        const item = items.find((row) => row.id === where.runId);
+        if (!item || where.role !== "user") return null;
+        return { origin: item.origin };
+      },
+    );
+    prisma.message.findMany = vi.fn(
+      async ({ where }: { where: { runId?: string; role?: string } }) => {
+        if (where.role !== "bot") return [];
+        const item = items.find((row) => row.id === where.runId);
+        return item ? [{ id: `ask-${item.id}`, blocks: [item.ask] }] : [];
+      },
+    );
+    prisma.externalEffect = {
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) => {
+        const item = items.find((row) => row.effectId === where.id);
+        return item ? { id: where.id, kind: item.effectKind, status: "intended" } : null;
+      }),
+    };
+    return { answerRunInput, classify };
+  }
+
+  it("allows one pending chat approval once and does not start another run", async () => {
+    const deps = createDeps();
+    const { answerRunInput, classify } = pending(deps, [{}]);
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "同意" });
+
+    expect(classify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reply: "同意",
+        request: "Review before send mail\n\nTo Ada",
+        runId: "run-wait-0",
+      }),
+    );
+    expect(answerRunInput).toHaveBeenCalledWith({
+      spaceId: "ws-1",
+      threadId: "thread-1",
+      runId: "run-wait-0",
+      messageId: "ask-run-wait-0",
+      answeredByUserId: "user-1",
+      answer: "allow",
+      clientNonce: "messaging-approval:handle-1",
+    });
+    expect(deps.sendUserMessage).toHaveBeenCalledTimes(1);
+    expect(deps.sendUserMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ createRun: false, origin: "chat:sendblue", prompt: "同意" }),
+    );
+    expect(deps.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "run.continue", payload: { runId: "run-wait-0" } }),
+    );
+    expect(deps.prisma.routine.findMany).not.toHaveBeenCalled();
+  });
+
+  it("denies without saving an always-allow rule", async () => {
+    const deps = createDeps();
+    const { answerRunInput } = pending(deps, [{}], "deny");
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "不要" });
+    expect(answerRunInput).toHaveBeenCalledWith(expect.objectContaining({ answer: "deny" }));
+    expect(answerRunInput).not.toHaveBeenCalledWith(expect.objectContaining({ answer: "always" }));
+  });
+
+  it("keeps an unclear reply pending, reminds once, and does not start a run", async () => {
+    const deps = createDeps();
+    const { answerRunInput } = pending(deps, [{}], "not_an_answer");
+    const handle = createMessagingInboundHandler(deps);
+    await handle({ ...dmEvent, content: "同意，另外帮我订机票" });
+    await handle({ ...dmEvent, handle: "handle-2", content: "what?" });
+
+    expect(answerRunInput).not.toHaveBeenCalled();
+    expect(deps.sendUserMessage).not.toHaveBeenCalled();
+    const reminders = deps.outboundRows.filter(
+      (row) => row.idempotencyKey === "approval-remind:effect-0",
+    );
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0]?.body).toMatch(/did not allow or deny/i);
+  });
+
+  it("does not approve when the checker fails", async () => {
+    const deps = createDeps();
+    const { answerRunInput } = pending(deps, [{}], "throw");
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "同意" });
+    expect(answerRunInput).not.toHaveBeenCalled();
+    expect(deps.sendUserMessage).not.toHaveBeenCalled();
+    expect(deps.outboundRows.some((row) => row.idempotencyKey === "approval-remind:effect-0")).toBe(
+      true,
+    );
+  });
+
+  it("does not answer a secret, a computer grant, a second approval, or an app-origin card", async () => {
+    const secret = createDeps();
+    const secretHooks = pending(secret, [
+      {
+        ask: { kind: "ask", input: "secret", text: "API key", status: "pending" },
+        effectId: "missing",
+      },
+    ]);
+    await createMessagingInboundHandler(secret)({ ...dmEvent, content: "同意" });
+    expect(secretHooks.answerRunInput).not.toHaveBeenCalled();
+    expect(secretHooks.classify).not.toHaveBeenCalled();
+    expect(secret.sendUserMessage).toHaveBeenCalled();
+
+    const computer = createDeps();
+    const computerHooks = pending(computer, [{ effectKind: "user_computer_shell" }]);
+    await createMessagingInboundHandler(computer)({ ...dmEvent, content: "同意" });
+    expect(computerHooks.answerRunInput).not.toHaveBeenCalled();
+    expect(computerHooks.classify).not.toHaveBeenCalled();
+    expect(computer.sendUserMessage).not.toHaveBeenCalled();
+    expect(computer.outboundRows[0]?.body).toMatch(/cannot allow/i);
+
+    const two = createDeps();
+    const twoHooks = pending(two, [{ id: "run-a" }, { id: "run-b", effectId: "effect-b" }]);
+    await createMessagingInboundHandler(two)({ ...dmEvent, content: "同意" });
+    expect(twoHooks.answerRunInput).not.toHaveBeenCalled();
+    expect(twoHooks.classify).not.toHaveBeenCalled();
+    expect(two.sendUserMessage).toHaveBeenCalled();
+
+    const app = createDeps();
+    const appHooks = pending(app, [{ origin: "mac" }]);
+    await createMessagingInboundHandler(app)({ ...dmEvent, content: "同意" });
+    expect(appHooks.answerRunInput).not.toHaveBeenCalled();
+    expect(appHooks.classify).not.toHaveBeenCalled();
+    expect(app.sendUserMessage).toHaveBeenCalled();
+  });
+
+  it("keeps an exact YES for an invite and does not treat it as the approval", async () => {
+    const invited = {
+      id: "cm-1",
+      channelId: "ch-1",
+      address: "+15551111111",
+      identityId: "mi-1",
+      status: "invited",
+    };
+    const deps = createDeps({ invitedMember: invited });
+    const classify = vi.fn(async () => "allow_once" as const);
+    deps.classifyApprovalReply = classify;
+    sentPrompt(deps, "invite:ch-1:mi-1");
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "YES" });
+    expect(deps.prisma.messagingChannelMember.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "approved" } }),
+    );
+    expect(classify).not.toHaveBeenCalled();
+    expect(deps.sendUserMessage).not.toHaveBeenCalled();
+  });
+
+  it("leaves a file message as a normal delivery", async () => {
+    const deps = createDeps();
+    const { answerRunInput, classify } = pending(deps, [{}]);
+    await createMessagingInboundHandler(deps)({
+      ...dmEvent,
+      content: "同意",
+      attachments: [
+        {
+          name: "photo.jpg",
+          mimeType: "image/jpeg",
+          size: 4,
+          fetch: async () => new Uint8Array([1]),
+        },
+      ],
+    });
+    expect(classify).not.toHaveBeenCalled();
+    expect(answerRunInput).not.toHaveBeenCalled();
+    expect(deps.sendUserMessage).toHaveBeenCalled();
+  });
+
+  it("does not let a group message answer a direct approval", async () => {
+    const deps = createDeps();
+    const classify = vi.fn(async () => "allow_once" as const);
+    deps.classifyApprovalReply = classify;
+    await createMessagingInboundHandler(deps)({ ...groupEvent, content: "同意" });
+    expect(classify).not.toHaveBeenCalled();
+  });
+
+  it("delivers normally when no checker is configured", async () => {
+    const deps = createDeps();
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "同意" });
+    expect(deps.sendUserMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: "同意", trigger: "messaging" }),
+    );
+    expect(deps.sendUserMessage.mock.calls[0]?.[0]?.createRun).toBeUndefined();
+  });
+
+  it("delivers normally when the approval was already answered", async () => {
+    const deps = createDeps();
+    const { answerRunInput } = pending(deps, [{}]);
+    answerRunInput.mockResolvedValue(false);
+    await createMessagingInboundHandler(deps)({ ...dmEvent, content: "同意" });
+    expect(deps.sendUserMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: "同意", trigger: "messaging" }),
+    );
+    expect(deps.sendUserMessage.mock.calls[0]?.[0]?.createRun).toBeUndefined();
   });
 });
 

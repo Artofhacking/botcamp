@@ -49,6 +49,7 @@ import {
 } from "./auto-review.js";
 import { reviewWithBackups } from "./auto-review-backups.js";
 import { BOTCAMP_DOCS_URLS } from "./builtin-skills.js";
+import { approvalPauseBlocks } from "./chat-approval-reply.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { findConnectedModelCredential } from "./model-selection.js";
 import { paidRequestEffect } from "./paid-request.js";
@@ -701,6 +702,13 @@ async function showApprovalCard(ctx: RunContext, call: ToolCall, card: ApprovalC
   await ctx.computer.checkpoint.flush();
   await persistTurnCheckpoint(ctx, executionId);
   await ctx.settleRunningHelpers();
+  const ask = buildApprovalAskBlock(
+    applied!.effect.id,
+    name,
+    name === "update_bot" && "previousInstructions" in args ? { ...args, botId: bot.id } : args,
+    ctx.secrets,
+    card,
+  );
   const paused = await deps.events.pauseRunForInput({
     spaceId: run.spaceId,
     threadId: run.threadId,
@@ -709,15 +717,11 @@ async function showApprovalCard(ctx: RunContext, call: ToolCall, card: ApprovalC
     attemptId: ctx.attempt.id,
     leaseOwner: ctx.workerId,
     leaseFence: ctx.fence,
-    blocks: [
-      buildApprovalAskBlock(
-        applied!.effect.id,
-        name,
-        name === "update_bot" && "previousInstructions" in args ? { ...args, botId: bot.id } : args,
-        ctx.secrets,
-        card,
-      ),
-    ],
+    blocks: approvalPauseBlocks(ask, {
+      plainTextChannel: ctx.source.plainTextChannel === true,
+      appOnly: USER_COMPUTER_TOOLS.has(name),
+      secrets: ctx.secrets,
+    }),
   });
   // pauseRunForInput returning false after a successful renew means the run row no
   // longer matches this worker. Exiting via pauseForApproval() would leave the run
