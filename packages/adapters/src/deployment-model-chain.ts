@@ -1,8 +1,8 @@
-import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import { canonicalPiProviderId, usableModelId } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import { findConnectedModelCredential } from "./model-selection.js";
 import { parseModelSecret } from "./pi-oauth.js";
 import { OPENCODE_GO_PROVIDER, openCodeUsageVerdict } from "./subscription-quota.js";
@@ -15,6 +15,39 @@ export const DEPLOYMENT_IMAGE_MODEL = {
   provider: "openai-compatible",
   modelId: "deepseek/deepseek-v4-flash-vision-exp",
 } as const;
+
+/** What a send needs to know before it asks the text model whether it can see. */
+export type DeploymentImageChannel = {
+  provider: string | null;
+  scripted: boolean;
+  /** An empty list is filled before the run, and that run uses the vision model. */
+  seedWhenEmpty: boolean;
+};
+
+/**
+ * True when a picture in this send is read by the vision model.
+ * The text model's own image setting does not decide the send.
+ */
+export async function deploymentImageChannelActive(
+  prisma: {
+    deploymentModelChoice?: {
+      findMany(args: { orderBy: { position: "asc" } }): Promise<Array<{ enabled: boolean }>>;
+    };
+  },
+  input: DeploymentImageChannel,
+): Promise<boolean> {
+  if (input.scripted || input.provider !== DEPLOYMENT_IMAGE_MODEL.provider) return false;
+  const findMany = prisma.deploymentModelChoice?.findMany;
+  if (!findMany) return false;
+  try {
+    const rows = await findMany({ orderBy: { position: "asc" } });
+    if (rows.some((row) => row.enabled)) return true;
+    return rows.length === 0 && input.seedWhenEmpty;
+  } catch (error) {
+    getLogger().warn("image channel could not be read", { error });
+    return false;
+  }
+}
 
 /** The order a managed deployment starts with. An admin can reorder or disable these. */
 export const INITIAL_DEPLOYMENT_MODELS = [
@@ -167,23 +200,23 @@ export async function runnableDeploymentModels(
   const skipProviders = new Set<string>();
   const openCodeRow = rows.find((row) => row.enabled && row.provider === OPENCODE_GO_PROVIDER);
   if (openCodeRow) {
-      const key = await openCodeKey(deps.prisma, deps.secretStore, scope);
-      if (!key) {
+    const key = await openCodeKey(deps.prisma, deps.secretStore, scope);
+    if (!key) {
+      getLogger().warn("deployment model skipped", {
+        provider: OPENCODE_GO_PROVIDER,
+        reason: "no-key",
+      });
+      skipProviders.add(OPENCODE_GO_PROVIDER);
+    } else {
+      const verdict = await openCodeUsageVerdict(key);
+      if (verdict === "exhausted" || verdict === "unavailable") {
         getLogger().warn("deployment model skipped", {
           provider: OPENCODE_GO_PROVIDER,
-          reason: "no-key",
+          reason: verdict,
         });
         skipProviders.add(OPENCODE_GO_PROVIDER);
-      } else {
-        const verdict = await openCodeUsageVerdict(key);
-        if (verdict === "exhausted" || verdict === "unavailable") {
-          getLogger().warn("deployment model skipped", {
-            provider: OPENCODE_GO_PROVIDER,
-            reason: verdict,
-          });
-          skipProviders.add(OPENCODE_GO_PROVIDER);
-        }
       }
+    }
   }
   return selectableDeploymentModels(rows, skipProviders);
 }

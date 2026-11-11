@@ -54,6 +54,7 @@ import {
   computerContext,
   HEARTBEAT_MS,
   isUniqueViolation,
+  managedModelsOnly,
   modelSetup,
   SESSION_RECHECK_MS,
   THREAD_MESSAGE_PAGE_SIZE,
@@ -133,6 +134,11 @@ export function threadsRoutes(ctx: RouterContext) {
               deployment,
               hostedProvider: setup.creditsAvailable ? deployment?.provider : undefined,
               codexCatalog,
+              imageChannel: {
+                provider: deps.env.deploymentModelConfigured ? deps.env.defaultProvider : null,
+                scripted: deps.env.agentRuntime === "scripted",
+                seedWhenEmpty: managedModelsOnly(),
+              },
             }
           : undefined,
       },

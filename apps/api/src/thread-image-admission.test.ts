@@ -277,6 +277,107 @@ describe("current image send admission", () => {
     );
   });
 
+  it("lets the vision model read an image the text model is not configured for", async () => {
+    const { tx, send } = fixture();
+    Object.assign(tx, {
+      deploymentModelChoice: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            position: 0,
+            provider: "openai-compatible",
+            modelId: "tencent/deepseek-v4-flash",
+            enabled: true,
+          },
+        ]),
+        count: vi.fn(),
+        createMany: vi.fn(),
+      },
+    });
+    tx.bot.findFirst.mockResolvedValue({
+      id: "bot-1",
+      modelProvider: "openai-compatible",
+      modelId: "tencent/deepseek-v4-flash",
+    });
+    tx.run.findMany.mockResolvedValue([
+      {
+        id: "active",
+        taskId: "task-active",
+        status: "running",
+        trigger: "user",
+        modelProvider: "openai-compatible",
+        modelId: "tencent/deepseek-v4-flash",
+        modelPinned: false,
+      },
+    ] as never);
+    const load = vi.fn();
+    await expect(
+      send({
+        deployment: { provider: "openai-compatible", model: "tencent/deepseek-v4-flash" },
+        secrets: { load },
+        imageChannel: { provider: "openai-compatible", scripted: false, seedWhenEmpty: false },
+      }),
+    ).resolves.toMatchObject({ runId: "active" });
+    expect(load).not.toHaveBeenCalled();
+    expect(tx.steeringMessage.create).toHaveBeenCalled();
+    expect(tx.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          blocks: expect.arrayContaining([
+            expect.objectContaining({ kind: "image", artifactId: "image-1" }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it("still asks to configure image input when this deployment does not separate images", async () => {
+    const { tx, send } = fixture();
+    Object.assign(tx, {
+      deploymentModelChoice: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            position: 0,
+            provider: "openai-compatible",
+            modelId: "tencent/deepseek-v4-flash",
+            enabled: true,
+          },
+        ]),
+        count: vi.fn(),
+        createMany: vi.fn(),
+      },
+    });
+    tx.bot.findFirst.mockResolvedValue({
+      id: "bot-1",
+      modelProvider: "openai-compatible",
+      modelId: "custom-model",
+    });
+    tx.userModelCredential.findFirst.mockResolvedValue({
+      id: "credential-1",
+      provider: "openai-compatible",
+      secretId: "secret-1",
+      supportsImages: false,
+    });
+    await expect(
+      send({
+        deployment: null,
+        secrets: {
+          load: vi.fn(async () =>
+            JSON.stringify({
+              kind: "openai_compatible",
+              baseUrl: "https://model.example.test/v1",
+              enabledModelIds: ["custom-model"],
+            }),
+          ),
+        },
+        imageChannel: { provider: "openrouter", scripted: false, seedWhenEmpty: false },
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Image input is not configured for this model.",
+    });
+    expect(tx.message.create).not.toHaveBeenCalled();
+  });
+
   it("asks to configure image input for a legacy custom connection that never set it", async () => {
     const { tx, send } = fixture();
     tx.bot.findFirst.mockResolvedValue({

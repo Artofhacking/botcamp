@@ -1,9 +1,9 @@
-import { ORPCError } from "@orpc/server";
 import type { SecretStore } from "@botcamp/adapter-kit";
-import type { CodexLiveCatalog } from "@botcamp/adapters";
+import type { CodexLiveCatalog, DeploymentImageChannel } from "@botcamp/adapters";
 import {
   CHATGPT_OAUTH_PROVIDER,
   codexLiveModel,
+  deploymentImageChannelActive,
   findConnectedModelCredential,
   knownModelImageInput,
   modelAcceptsImageInput,
@@ -18,6 +18,7 @@ import type { Actor, MessageBlock } from "@botcamp/contracts";
 import { MODEL_IMAGE_INPUT_ERROR, MODEL_IMAGE_INPUT_UNKNOWN } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
 import { appliedModelRole, findModelCredential, findModelCredentialById } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 
 type ModelChoice = {
   modelProvider: string | null;
@@ -42,9 +43,19 @@ export async function assertThreadImageInput(
     deployment: { provider: string; model: string } | null;
     hostedProvider?: string;
     codexCatalog?: CodexLiveCatalog;
+    /** Set when this deployment may read images on a model other than the text model. */
+    imageChannel?: DeploymentImageChannel;
   },
 ) {
   if (!blocks.some((block) => block.kind === "image")) return;
+  // The vision model reads the picture. The text model is not asked to see it,
+  // so its missing image setting must not turn the send into a file.
+  if (
+    configuration?.imageChannel &&
+    (await deploymentImageChannelActive(prisma, configuration.imageChannel))
+  ) {
+    return;
+  }
   const bot = await prisma.bot.findFirst({
     where: { id: botId, userId: actor.userId, spaceId: actor.spaceId },
     select: { modelProvider: true, modelId: true, thinkingLevel: true },

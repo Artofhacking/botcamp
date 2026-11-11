@@ -18,10 +18,11 @@ Pick a vision-capable model so screenshot computer tools stay available.
 When `MANAGED_MODELS_ONLY` is set and the deployment provider is OpenAI-compatible, a call
 whose context contains an image uses a separate vision model on that same endpoint
 (`deepseek/deepseek-v4-flash-vision-exp`). The deployment list stays on text, including a
-listed model that could read images. A failure of the vision call does not move those
-images to a listed model. Text calls keep the list and can still move to a text backup.
-The vision call waits four minutes for the response to start. Text calls keep the shorter
-header budget.
+listed model that could read images. A picture sent in chat is read by that vision model, so
+the text model does not need image input turned on and the send is not held back for it.
+A failure of the vision call does not move those images to a listed model. Text calls keep
+the list and can still move to a text backup. The vision call waits four minutes for the
+response to start. Text calls keep the shorter header budget.
 
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set

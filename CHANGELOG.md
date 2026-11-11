@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.47] - 2026-11-11
+
+### Fixed
+
+- Sending a picture in chat is no longer stopped because the text model has no image input. On a managed OpenAI-compatible deployment the separate vision model reads the picture ([models](docs/self-host-models.md)).
+
 ## [0.6.0] - 2026-11-04
 
 ### Security
