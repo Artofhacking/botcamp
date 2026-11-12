@@ -12,7 +12,8 @@ describe("messaging provider labels", () => {
     expect(messagingProviderName("telegram")).toBe("Telegram");
     expect(messagingProviderName("photon")).toBe("iMessage (Photon)");
     expect(messagingProviderName("weixin")).toBe("WeChat");
-    expect(linkableChatApps()).toEqual(["weixin"]);
+    expect(messagingProviderName("feishu")).toBe("Feishu");
+    expect(linkableChatApps()).toEqual(["weixin", "feishu"]);
     expect(messagingProviderName("teams")).toBe("teams");
   });
 
