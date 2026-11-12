@@ -657,7 +657,7 @@ async function handleTranscript(text: string) {
     releasePendingSend = callSends.track(turnCallId, sendRequest);
     const receipt = await sendRequest;
     if (!state || state.botId !== botId || callId !== turnCallId) return;
-    if ("runId" in receipt) awaitedRunId = receipt.runId;
+    if ("runId" in receipt && receipt.runId) awaitedRunId = receipt.runId;
   } catch (error) {
     if (!state || state.botId !== botId || callId !== turnCallId) return;
     awaitingReply = false;

@@ -214,7 +214,11 @@ async function replayExistingSend(
   const linkedRun =
     message.sourceRuns[0] ??
     (message.runId ? await deps.prisma.run.findUnique({ where: { id: message.runId } }) : null);
-  if (!linkedRun && orderedReceiptRuns.length === 0) return null;
+  if (!linkedRun && orderedReceiptRuns.length === 0) {
+    // The saved message named no bot. Replay it without starting one.
+    if (message.senderUserId) return sendResult(message, [], { allowQuiet: true });
+    return null;
+  }
   const runs = orderedReceiptRuns.length
     ? orderedReceiptRuns
     : message.sourceRuns.length
@@ -248,9 +252,17 @@ function sendEventRunIds(payload: Prisma.JsonValue | undefined): string[] {
   return Array.isArray(runIds) ? runIds.filter((id): id is string => typeof id === "string") : [];
 }
 
-function sendResult(message: { seq: number }, runs: Array<{ id: string; taskId: string }>) {
+function sendResult(
+  message: { seq: number },
+  runs: Array<{ id: string; taskId: string }>,
+  options?: { allowQuiet?: boolean },
+) {
   const first = runs[0];
-  if (!first) throw new IsolationError("Send did not create a run");
+  if (!first) {
+    // A shared-group message can name no bot. The text stays; nothing starts.
+    if (options?.allowQuiet) return { seq: message.seq, runIds: [] as string[] };
+    throw new IsolationError("Send did not create a run");
+  }
   return {
     taskId: first.taskId,
     runId: first.id,
@@ -355,11 +367,11 @@ async function lockAndLoadGroupMembers(
   };
 }
 
-/** The bots a send wakes: the bot itself, or the group members it names (else the first). */
+/** The bots a send wakes. A private group with no name still wakes its first bot. */
 export function sendTargetBotIds(
   target:
     | { kind: "bot"; botId: string }
-    | { kind: "group"; members: Array<{ botId: string; name: string }> },
+    | { kind: "group"; shared?: boolean; members: Array<{ botId: string; name: string }> },
   input: { text?: string; mentions?: MentionTargetInput[] },
 ): string[] {
   if (target.kind === "bot") return [target.botId];
@@ -367,6 +379,7 @@ export function sendTargetBotIds(
     text: input.text ?? "",
     members: target.members.map((member) => ({ id: member.botId, name: member.name })),
     explicitMentions: splitMentionTargets(input.mentions).botMentionIds,
+    fallback: !target.shared,
   });
 }
 
@@ -1077,7 +1090,10 @@ export async function sendThreadMessage(
       const members = loaded.members;
       const memberBotIds = members.map((member) => member.botId);
       const mentionTargets = splitMentionTargets(input.mentions);
-      const targetBotIds = sendTargetBotIds({ kind: "group", members }, input);
+      const targetBotIds = sendTargetBotIds(
+        { kind: "group", members, shared: loaded.shared },
+        input,
+      );
       const { inThreadIds, foreign } = partitionSharedGroupBots(
         loaded.shared,
         loaded.spaceId,
@@ -1231,7 +1247,8 @@ export async function sendThreadMessage(
         runs.push(run);
       }
       const firstRun = runs[0];
-      const eventBotId = firstRun?.botId ?? inThreadIds[0] ?? (loaded.shared ? target.groupId : undefined);
+      const eventBotId =
+        firstRun?.botId ?? inThreadIds[0] ?? (loaded.shared ? target.groupId : undefined);
       if (!eventBotId) throw new IsolationError("Group send did not resolve a target");
       if (firstRun) {
         await tx.message.update({ where: { id: message.id }, data: { runId: firstRun.id } });
@@ -1271,6 +1288,7 @@ export async function sendThreadMessage(
         runs,
         routineRuns,
         eventSeq: event.seq,
+        quiet: loaded.shared && runs.length === 0,
         wake: foreign.length
           ? {
               groupId: target.groupId,
@@ -1320,7 +1338,11 @@ export async function sendThreadMessage(
     });
   }
   await enqueueRunsNeedingContinue(deps.jobs, [...committed.routineRuns, ...committed.runs]);
-  return sendResult(committed.message, committed.runs);
+  return sendResult(
+    committed.message,
+    committed.runs,
+    "quiet" in committed && committed.quiet ? { allowQuiet: true } : undefined,
+  );
 }
 
 const REACTION_TURN_COOLDOWN_MS = 30_000;
@@ -1390,7 +1412,8 @@ export async function reactToThreadMessage(
       replyBotId ??
       (currentTarget.kind === "bot" ? currentTarget.botId : currentTarget.memberBotIds[0]);
     const botId =
-      listedBotId ?? (loaded?.shared && currentTarget.kind === "group" ? currentTarget.groupId : undefined);
+      listedBotId ??
+      (loaded?.shared && currentTarget.kind === "group" ? currentTarget.groupId : undefined);
     if (!botId) throw new IsolationError();
     const blocks: MessageBlock[] = [{ kind: "text", text: input.reaction }];
     const message = await createThreadMessageInTransaction(tx, {

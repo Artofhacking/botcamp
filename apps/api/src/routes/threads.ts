@@ -439,7 +439,12 @@ export function threadsRoutes(ctx: RouterContext) {
               "read shared group member names",
               () => loadSharedGroupRosters(tx, [target.groupId], context.actor.userId),
             );
-            const member = rosters.get(target.groupId)?.members[0];
+            const roster = rosters.get(target.groupId);
+            const mentioned = sendTargetBotIds(
+              { kind: "group", members: roster?.members ?? [], shared: true },
+              { text: input.text },
+            );
+            const member = roster?.members.find((item) => item.botId === mentioned[0]);
             if (member) {
               bot = {
                 botId: member.botId,
@@ -521,7 +526,8 @@ export function threadsRoutes(ctx: RouterContext) {
             });
             await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });
           }
-          const eventBotId = bot && !foreign ? bot.botId : locked.shared ? target.groupId : undefined;
+          const eventBotId =
+            bot && !foreign ? bot.botId : locked.shared ? target.groupId : undefined;
           if (!eventBotId) throw new IsolationError();
           const event = await appendEventInTransaction(tx, {
             spaceId: writeSpaceId,

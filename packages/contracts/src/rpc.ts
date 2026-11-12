@@ -255,8 +255,9 @@ const threadSendInput = threadSendFields.superRefine((input, ctx) => {
 });
 
 const threadSendOutput = z.object({
-  taskId: Id,
-  runId: Id,
+  // Absent when a shared-group message names no bot, so nothing starts.
+  taskId: Id.optional(),
+  runId: Id.optional(),
   seq: z.number().int(),
   runIds: z.array(Id).optional(),
 });

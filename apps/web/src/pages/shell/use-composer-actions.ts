@@ -387,14 +387,16 @@ export function useComposerActions({
           ? (await rpc.threads.sendWithRoutines({ ...payload, routineIds: plan.routineIds })).send
           : await rpc.threads.send(payload);
         accepted = true;
-        if (sent && botTarget && activeBotId.current === botTarget) {
+        const runId = sent?.runId;
+        const taskId = sent?.taskId;
+        if (runId && taskId && botTarget && activeBotId.current === botTarget) {
           updateSnapshot((current) =>
             applyThreadSendReceipt(
               current,
               {
                 botId: botTarget,
-                runId: sent.runId,
-                taskId: sent.taskId,
+                runId,
+                taskId,
               },
               terminalRunReceipts.current,
             ),

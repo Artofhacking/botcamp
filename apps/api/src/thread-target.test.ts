@@ -8,6 +8,7 @@ import type { ThreadTarget } from "./thread-target.js";
 import {
   cancelSupersededQueuedRuns,
   reactToThreadMessage,
+  sendTargetBotIds,
   sendThreadMessage,
   stopThreadRuns,
   threadHead,
@@ -29,6 +30,29 @@ vi.mock("@botcamp/core/message-quote", async (importOriginal) => {
       return actual.deriveMessageQuote(blocks, hint, format);
     },
   };
+});
+
+describe("sendTargetBotIds", () => {
+  const members = [
+    { botId: "a", name: "Ada-Helper" },
+    { botId: "b", name: "Bea-Scout" },
+  ];
+
+  it("keeps the first bot when a private group names none", () => {
+    expect(sendTargetBotIds({ kind: "group", members }, { text: "hello" })).toEqual(["a"]);
+  });
+
+  it("starts a shared-group bot only when the message names it", () => {
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "hello @Ada" }),
+    ).toEqual([]);
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "@Ada-Helper please" }),
+    ).toEqual(["a"]);
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "@everyone" }),
+    ).toEqual(["a", "b"]);
+  });
 });
 
 describe("threadHead", () => {

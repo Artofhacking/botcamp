@@ -225,6 +225,30 @@ describe("resolveGroupTargetBotIds", () => {
       }),
     ).toEqual(["a"]);
   });
+
+  it("wakes nobody in a shared group until a member bot is named", () => {
+    expect(
+      resolveGroupTargetBotIds({
+        text: "hello @Ada",
+        members,
+        fallback: false,
+      }),
+    ).toEqual([]);
+    expect(
+      resolveGroupTargetBotIds({
+        text: "@BotB look at this",
+        members,
+        fallback: false,
+      }),
+    ).toEqual(["b"]);
+    expect(
+      resolveGroupTargetBotIds({
+        text: "@everyone",
+        members,
+        fallback: false,
+      }),
+    ).toEqual(["a", "b", "c"]);
+  });
 });
 
 describe("inferHandoffTargetName", () => {
