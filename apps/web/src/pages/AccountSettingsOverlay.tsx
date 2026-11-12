@@ -27,6 +27,7 @@ import {
 } from "@rakazo/ui-web/components/ui/table";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 
 import { AccountAccess, LinkSsoRow } from "../components/AccountAccess";
 import { AccountDataSettings } from "../components/AccountDataSettings";
@@ -69,6 +70,104 @@ export type SettingsGeneralProps = {
   onAccountImported?: () => Promise<void>;
   onImportAgent?: () => void;
 };
+
+/** The closed control shows the saved zone. The full IANA list is filled after the dialog paints. */
+function TimezoneSettings({
+  timezone,
+  onTimezoneChange,
+}: {
+  timezone: string | null;
+  onTimezoneChange: (timezone: string) => Promise<void>;
+}) {
+  const { t } = useLingui();
+  const timezoneId = useId();
+  const deviceTimezone = localTimezone();
+  const value = timezone ?? deviceTimezone;
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [listed, setListed] = useState(false);
+
+  useEffect(() => {
+    if (listed) return;
+    const fill = () => setListed(true);
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(fill);
+      return () => cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(fill, 300);
+    return () => window.clearTimeout(id);
+  }, [listed]);
+
+  function reveal() {
+    if (!listed) flushSync(() => setListed(true));
+  }
+
+  async function choose(next: string) {
+    if (pending || next === timezone) return;
+    setPending(true);
+    setError(null);
+    try {
+      await onTimezoneChange(next);
+    } catch {
+      setError(t`Couldn't update your timezone`);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const zones = listed ? timezoneOptions(value) : [value];
+  return (
+    <div data-testid="timezone-settings">
+      <SettingsRow
+        label={
+          <span id={timezoneId}>
+            <Trans>Timezone</Trans>
+          </span>
+        }
+        control={
+          <NativeSelect
+            aria-labelledby={timezoneId}
+            data-testid="timezone-select"
+            value={value}
+            disabled={pending}
+            onPointerDown={reveal}
+            onKeyDown={reveal}
+            onChange={(event) => void choose(event.target.value)}
+            className="w-56 max-w-full"
+          >
+            {zones.map((zone) => (
+              <NativeSelectOption key={zone} value={zone}>
+                {zone.replaceAll("_", " ")}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        }
+      >
+        {!timezone || !sameTimeZone(timezone, deviceTimezone) ? (
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-auto max-w-full py-1.5 text-left whitespace-normal"
+              disabled={pending}
+              data-testid="timezone-use-device"
+              onClick={() => void choose(deviceTimezone)}
+            >
+              <Trans comment="Switches the saved timezone to this device's, e.g. 'Use Pacific/Auckland'">
+                Use {deviceTimezone.replaceAll("_", " ")}
+              </Trans>
+            </Button>
+          </div>
+        ) : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-right text-[12.5px] text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </SettingsRow>
+    </div>
+  );
+}
 
 export function GeneralSettingsPanels({
   email,
@@ -131,15 +230,11 @@ export function GeneralSettingsPanels({
     () => "comfortable",
   );
   const sidebarDensityLabelId = useId();
-  const timezoneId = useId();
   const showPassword = Boolean(
     accountSecurity?.hasPassword && accountSecurity.passwordChangeEnabled !== false,
   );
   const passkeysSupported = usePasskeysSupported();
   const canLinkSso = Boolean(accountSecurity?.sso && !accountSecurity.ssoLinked);
-  const [timezonePending, setTimezonePending] = useState(false);
-  const [timezoneError, setTimezoneError] = useState<string | null>(null);
-  const deviceTimezone = localTimezone();
 
   function chooseLocale(next: UiLocale) {
     if (next === locale) return;
@@ -149,19 +244,6 @@ export function GeneralSettingsPanels({
       if (requestId !== localeRequestRef.current) return;
       setLocale(activated);
     });
-  }
-
-  async function chooseTimezone(next: string) {
-    if (!onTimezoneChange || timezonePending || next === timezone) return;
-    setTimezonePending(true);
-    setTimezoneError(null);
-    try {
-      await onTimezoneChange(next);
-    } catch {
-      setTimezoneError(t`Couldn't update your timezone`);
-    } finally {
-      setTimezonePending(false);
-    }
   }
 
   return (
@@ -297,53 +379,7 @@ export function GeneralSettingsPanels({
           control={<UiLocalePicker value={locale} onChange={chooseLocale} />}
         />
         {onTimezoneChange ? (
-          <div data-testid="timezone-settings">
-            <SettingsRow
-              label={
-                <span id={timezoneId}>
-                  <Trans>Timezone</Trans>
-                </span>
-              }
-              control={
-                <NativeSelect
-                  aria-labelledby={timezoneId}
-                  data-testid="timezone-select"
-                  value={timezone ?? deviceTimezone}
-                  disabled={timezonePending}
-                  onChange={(event) => void chooseTimezone(event.target.value)}
-                  className="w-56 max-w-full"
-                >
-                  {timezoneOptions(timezone ?? deviceTimezone).map((zone) => (
-                    <NativeSelectOption key={zone} value={zone}>
-                      {zone.replaceAll("_", " ")}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              }
-            >
-              {!timezone || !sameTimeZone(timezone, deviceTimezone) ? (
-                <div className="mt-2 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-auto max-w-full py-1.5 text-left whitespace-normal"
-                    disabled={timezonePending}
-                    data-testid="timezone-use-device"
-                    onClick={() => void chooseTimezone(deviceTimezone)}
-                  >
-                    <Trans comment="Switches the saved timezone to this device's, e.g. 'Use Pacific/Auckland'">
-                      Use {deviceTimezone.replaceAll("_", " ")}
-                    </Trans>
-                  </Button>
-                </div>
-              ) : null}
-              {timezoneError ? (
-                <p role="alert" className="mt-2 text-right text-[12.5px] text-destructive">
-                  {timezoneError}
-                </p>
-              ) : null}
-            </SettingsRow>
-          </div>
+          <TimezoneSettings timezone={timezone} onTimezoneChange={onTimezoneChange} />
         ) : null}
       </SettingsGroup>
 

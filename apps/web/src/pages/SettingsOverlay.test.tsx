@@ -26,11 +26,14 @@ vi.mock("@rakazo/ui-web", () => ({
     children,
     showCloseButton: _showCloseButton,
     initialFocus: _initialFocus,
+    instant: _instant,
     ...props
-  }: { children?: ReactNode; showCloseButton?: boolean; initialFocus?: unknown } & Omit<
-    React.ComponentProps<"div">,
-    "children"
-  >) => <div {...props}>{children}</div>,
+  }: {
+    children?: ReactNode;
+    showCloseButton?: boolean;
+    initialFocus?: unknown;
+    instant?: boolean;
+  } & Omit<React.ComponentProps<"div">, "children">) => <div {...props}>{children}</div>,
   DialogTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
 }));
 

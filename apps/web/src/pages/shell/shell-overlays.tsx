@@ -20,6 +20,11 @@ import { FALLBACK_BOT_COLOR } from "./chat-shared";
 const SettingsOverlay = lazyOverlay(() =>
   import("../SettingsOverlay").then((module) => module.SettingsOverlay),
 );
+
+/** Warm the settings chunk before the click so the first open does not wait on the network. */
+export function preloadSettingsOverlay() {
+  void import("../SettingsOverlay");
+}
 const PeerMessagesOverlay = lazyOverlay(() =>
   import("../PeerMessagesOverlay").then((module) => module.PeerMessagesOverlay),
 );

@@ -23,6 +23,7 @@ import { useSignOut } from "../../lib/sign-out";
 import { ActivityList } from "../ActivityList";
 import { SpaceSearchResults } from "../SpaceSearch";
 import type { SettingsSection } from "../shell-overlay";
+import { preloadSettingsOverlay } from "./shell-overlays";
 import { SidebarHeader } from "./sidebar-header";
 import type { SidebarSearch } from "./use-sidebar-search";
 
@@ -344,6 +345,7 @@ function ShellSidebarFooter({
         open={menuOpen}
         onOpenChange={(open) => {
           setMenuOpen(open);
+          if (open) preloadSettingsOverlay();
           if (!open) setLogOutError(null);
         }}
         onSkills={() => {

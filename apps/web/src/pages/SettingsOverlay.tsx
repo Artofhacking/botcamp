@@ -235,6 +235,7 @@ export function SettingsOverlay({
       }}
     >
       <DialogContent
+        instant
         ref={panelRef}
         data-testid="user-settings"
         data-settings-section={section}
