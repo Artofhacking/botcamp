@@ -3,7 +3,7 @@ import type { DesktopDeepLink } from "@rakazo/contracts";
 import { ssoDesktopCallback } from "@rakazo/contracts";
 import { setAuthToken } from "./auth-token";
 import { desktopBridge } from "./desktop";
-import { documentPath, routePathOfUrl, routeSearch } from "./static-host-route";
+import { documentPath, routePathOfUrl, routeSearch, toAppDocument } from "./static-host-route";
 
 type SsoResult = {
   data: { url?: string } | null;
@@ -31,27 +31,57 @@ export function completeSsoCallback(): boolean {
   if (target.origin !== window.location.origin || routePathOfUrl(target) === SSO_CALLBACK_PATH)
     return true;
   const error = params.get("error");
-  if (error) target.searchParams.set("error", error);
   const channel = new BroadcastChannel(`${SSO_CHANNEL}:${nonce}`);
   channel.postMessage({
     type: error ? "sso-error" : "sso-complete",
     nonce,
-    url: target.href,
+    url: ssoReturnHref(target.href, error),
   });
   channel.close();
   window.close();
   return true;
 }
 
+/**
+ * Where the browser should land after the provider returns. A relative path is resolved by the
+ * API host, which does not serve the app, so the address is absolute and stays on this document
+ * when routes live in the hash.
+ */
+export function ssoBrowserURL(
+  url: string,
+  loc: { origin: string } = window.location,
+  base = import.meta.env.BASE_URL,
+): string {
+  return new URL(toAppDocument(url, base), loc.origin).href;
+}
+
+/** An error stays in the hash query on a subpath deploy, and in the search on a root deploy. */
+export function ssoReturnHref(href: string, error?: string | null): string {
+  const target = new URL(href);
+  if (!error) return target.href;
+  if (target.hash.startsWith("#/")) {
+    const body = target.hash.slice(1);
+    const queryAt = body.indexOf("?");
+    const path = queryAt === -1 ? body : body.slice(0, queryAt);
+    const params = new URLSearchParams(queryAt === -1 ? "" : body.slice(queryAt + 1));
+    params.set("error", error);
+    target.hash = `#${path}?${params.toString()}`;
+    return target.href;
+  }
+  target.searchParams.set("error", error);
+  return target.href;
+}
+
 type DesktopLinks = NonNullable<NonNullable<ReturnType<typeof desktopBridge>>["links"]>;
 
 function acceptedReturn(returned: URL, callbacks: readonly URL[]): boolean {
-  return (
-    returned.origin === window.location.origin &&
-    callbacks.some(
-      (callback) => callback.origin === returned.origin && callback.pathname === returned.pathname,
-    )
-  );
+  if (returned.origin !== window.location.origin) return false;
+  const path = routePathOfUrl(returned);
+  return callbacks.some((callback) => routePathOfUrl(callback) === path);
+}
+
+function returnTargets(callbackURLs: readonly string[]): URL[] {
+  return callbackURLs.map((url) => new URL(ssoBrowserURL(url), window.location.href));
 }
 
 /** Desktop SSO finishes in the system browser and comes back on rakazo://. */
@@ -61,9 +91,8 @@ async function runSystemBrowserSso(
   links: DesktopLinks,
 ): Promise<SsoResult> {
   const nonce = crypto.randomUUID();
-  const callbacks = callbackURLs.map((url) => new URL(url, window.location.href));
-  const callbackURL = (url: string) =>
-    ssoDesktopCallback(nonce, new URL(url, window.location.href).href);
+  const callbacks = returnTargets(callbackURLs);
+  const callbackURL = (url: string) => ssoDesktopCallback(nonce, ssoBrowserURL(url));
   let unsubscribe: () => void = () => undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let cancelled = false;
@@ -92,11 +121,10 @@ async function runSystemBrowserSso(
         } catch {
           return;
         }
-        if (link.error) target.searchParams.set("error", link.error);
         if (!acceptedReturn(target, callbacks)) return;
         if (!link.token && !link.error) return;
         if (link.token && !link.error) setAuthToken(link.token);
-        window.location.assign(target.href);
+        window.location.assign(ssoReturnHref(target.href, link.error));
         resolve();
       });
     });
@@ -131,13 +159,13 @@ export async function runSsoFlow(
 ): Promise<SsoResult> {
   const links = desktopBridge()?.links;
   if (links) return runSystemBrowserSso(begin, callbackURLs, links);
-  if (!desktopBridge()) return begin(false, (url) => url);
+  if (!desktopBridge()) return begin(false, (url) => ssoBrowserURL(url));
   const nonce = crypto.randomUUID();
-  const callbacks = callbackURLs.map((url) => new URL(url, window.location.href));
+  const callbacks = returnTargets(callbackURLs);
   const callbackURL = (url: string) => {
     const callback = new URL(SSO_CALLBACK_PATH, window.location.origin);
     callback.searchParams.set("nonce", nonce);
-    callback.searchParams.set("returnTo", new URL(url, window.location.href).href);
+    callback.searchParams.set("returnTo", ssoBrowserURL(url));
     return callback.href;
   };
   // Subscribe before opening the popup, as completion can arrive immediately.

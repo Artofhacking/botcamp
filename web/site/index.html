@@ -7,7 +7,7 @@
   // route has to live in the hash, or a reload of /console/app/<id> stays here.
   // A shared page is the same kind of path: /p/<token> has no file of its own.
   // Shipped desktop builds open the site origin, which is this page.
-  (function () {
+  (() => {
     var path = location.pathname.replace(/\/+$/, "") || "/";
     if (path === "/" && navigator.userAgent.indexOf("Electron") !== -1) {
       location.replace("/console/" + location.search + location.hash);
@@ -15,6 +15,10 @@
     }
     if (path === "/mcp/oauth/callback" || path === "/console/mcp/oauth/callback") {
       location.replace("/console/#/mcp/oauth/callback" + location.search);
+      return;
+    }
+    if (path === "/messaging/slack/callback" || path === "/console/messaging/slack/callback") {
+      location.replace("/console/#/messaging/slack/callback" + location.search);
       return;
     }
     if (path.indexOf("/p/") === 0) {

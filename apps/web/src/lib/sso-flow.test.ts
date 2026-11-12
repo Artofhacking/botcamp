@@ -1,7 +1,13 @@
 import type { DesktopDeepLink } from "@rakazo/contracts";
 import { SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
 import { afterEach, expect, it, vi } from "vitest";
-import { completeSsoCallback, runSsoFlow, SSO_CALLBACK_PATH } from "./sso-flow";
+import {
+  completeSsoCallback,
+  runSsoFlow,
+  SSO_CALLBACK_PATH,
+  ssoBrowserURL,
+  ssoReturnHref,
+} from "./sso-flow";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -49,14 +55,30 @@ function desktopWindow() {
   return { popup, location, open, close, begin, channels, land, callback: () => returnTo };
 }
 
-it("uses the normal redirect and unchanged callbacks on web", async () => {
-  vi.stubGlobal("window", {});
+it("uses the normal redirect and absolute callbacks on web", async () => {
+  vi.stubGlobal("window", { location: { origin: "https://rakazo.example.test" } });
   const begin = vi.fn(async (disableRedirect, callbackURL) => {
     expect(disableRedirect).toBe(false);
-    expect(callbackURL("/app")).toBe("/app");
+    expect(callbackURL("/app")).toBe("https://rakazo.example.test/app");
+    expect(callbackURL("/onboarding")).toBe("https://rakazo.example.test/onboarding");
     return result;
   });
   await expect(runSsoFlow(begin, ["/app"])).resolves.toBe(result);
+});
+
+it("keeps a subpath callback on the console entry", () => {
+  expect(ssoBrowserURL("/onboarding", { origin: "https://botcamp.example" }, "/console/")).toBe(
+    "https://botcamp.example/console/#/onboarding",
+  );
+  expect(ssoBrowserURL("/app", { origin: "https://botcamp.example" }, "/")).toBe(
+    "https://botcamp.example/app",
+  );
+  expect(ssoReturnHref("https://botcamp.example/console/#/app", "access_denied")).toBe(
+    "https://botcamp.example/console/#/app?error=access_denied",
+  );
+  expect(ssoReturnHref("https://botcamp.example/app", "access_denied")).toBe(
+    "https://botcamp.example/app?error=access_denied",
+  );
 });
 
 it.each(["/app", "/onboarding", "/app?settings=account", "/sign-in?error=SSO_UNAVAILABLE"])(
