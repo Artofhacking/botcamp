@@ -104,6 +104,11 @@ function createDeps(
   const connection = overrides.connection === undefined ? null : overrides.connection;
   const prisma = {
     messagingIdentity: {
+      findFirst: vi.fn(async ({ where }: { where: { botId?: string } }) => {
+        if (where.botId === "bot-2") return targetIdentity;
+        if (where.botId === "bot-1") return requesterIdentity;
+        return null;
+      }),
       findUnique: vi.fn(
         async ({
           where,

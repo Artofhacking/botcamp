@@ -33,6 +33,7 @@ import type {
 import {
   createThreadMessage,
   crossSpaceCommunicationAllowed,
+  messagingIdentityForBot,
   normalizeMessagingLinkCode,
   redeemMessagingLinkCode,
 } from "@rakazo/db";
@@ -693,9 +694,7 @@ async function applyOwnerCommand(
 
   const connectedKey = `command:connected:${target.connection.id}`;
   const requesterIdentity = approved
-    ? await deps.prisma.messagingIdentity.findUnique({
-        where: { botId: target.connection.requesterBotId },
-      })
+    ? await messagingIdentityForBot(deps.prisma, target.connection.requesterBotId)
     : null;
   const key = `command:${command}:${target.connection.id}`;
   const claimed = await deps.prisma.$transaction(async (tx) => {

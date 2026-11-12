@@ -1210,7 +1210,7 @@ export const appContract = {
         .output(MessagingLinkedIdentitySchema),
       unlink: oc.input(z.object({ identityId: Id })).output(z.object({ ok: z.literal(true) })),
     },
-    /** QR link for the primary bot's personal chat app. */
+    /** QR link for the primary bot. One row per channel; provider selects which one to remove. */
     chatTools: {
       list: oc.input(z.object({ botId: Id })).output(z.array(ChatToolLinkSchema)),
       start: oc.input(z.object({ botId: Id, provider: z.string().trim().min(1).max(64) })).output(
@@ -1223,7 +1223,9 @@ export const appContract = {
       poll: oc
         .input(z.object({ loginId: z.string().min(1).max(64), pin: z.string().max(8).optional() }))
         .output(ChatToolPollSchema),
-      unlink: oc.input(z.object({ botId: Id })).output(z.object({ ok: z.literal(true) })),
+      unlink: oc
+        .input(z.object({ botId: Id, provider: z.string().trim().min(1).max(64).optional() }))
+        .output(z.object({ ok: z.literal(true) })),
     },
     channels: {
       list: oc.output(z.array(MessagingChannelMembershipSchema)),

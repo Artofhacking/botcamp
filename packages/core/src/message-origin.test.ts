@@ -45,6 +45,9 @@ describe("message origin", () => {
     expect(formatMessageOriginInstruction("chat:weixin")).toBe(
       `This message arrived from WeChat. ${PLAIN_TEXT_CHANNEL_LIMIT}`,
     );
+    expect(formatMessageOriginInstruction("chat:feishu")).toBe(
+      `This message arrived from Feishu. ${PLAIN_TEXT_CHANNEL_LIMIT}`,
+    );
     expect(formatMessageOriginInstruction("chat:telegram-work")).toBe(
       `This message arrived from Telegram (work). ${PLAIN_TEXT_CHANNEL_LIMIT}`,
     );
