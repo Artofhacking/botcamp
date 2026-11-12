@@ -17,11 +17,13 @@ export function BotCreatePicker({
   onCreateBot,
   onOpenBot,
   onCreateGroup,
+  onCreateSharedGroup,
 }: {
   bots: Bot[];
   onCreateBot: () => void;
   onOpenBot: (botId: string) => void;
   onCreateGroup: () => void;
+  onCreateSharedGroup?: () => void;
 }) {
   const { t } = useLingui();
   const [query, setQuery] = useState("");
@@ -82,6 +84,19 @@ export function BotCreatePicker({
               </span>
               <Trans>New group chat</Trans>
             </CommandItem>
+            {onCreateSharedGroup ? (
+              <CommandItem
+                value="create-shared-group"
+                data-testid="create-shared-group"
+                onSelect={() => onCreateSharedGroup()}
+                className="gap-2"
+              >
+                <span className="flex size-[22px] shrink-0 items-center justify-center">
+                  <Users size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <Trans>New shared group</Trans>
+              </CommandItem>
+            ) : null}
           </CommandGroup>
           <CommandSeparator className="shrink-0" />
           <CommandGroup className="min-h-0 max-h-60 overflow-y-auto">

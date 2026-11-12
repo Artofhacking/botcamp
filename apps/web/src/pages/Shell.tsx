@@ -806,6 +806,12 @@ function SpaceShell() {
       onSelect: () => setPanel("create-group"),
     },
     {
+      id: "new-shared-group",
+      label: t`New shared group`,
+      icon: Users,
+      onSelect: () => setPanel("create-shared-group"),
+    },
+    {
       id: "integrations",
       label: t`Connect apps`,
       icon: Plug,
@@ -1079,6 +1085,12 @@ function SpaceShell() {
               onJumpToMessage={jumpToReplyMessage}
               onOpenPeerMessages={openPeerMessages}
               memberName={resolveTranscriptMemberName}
+              personName={
+                activeGroup?.shared
+                  ? (senderUserId) =>
+                      activeGroup.people?.find((person) => person.userId === senderUserId)?.name
+                  : undefined
+              }
               peerBot={resolveTranscriptBot}
               onRefresh={refreshActiveThread}
               onBotChanged={refreshBots}
@@ -1173,6 +1185,7 @@ function SpaceShell() {
 
       <ShellSidePanel
         rpc={rpc}
+        userId={userId}
         panel={panel}
         setPanel={setPanel}
         active={active}

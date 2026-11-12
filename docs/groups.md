@@ -10,6 +10,14 @@ pick 2 to 10 bots and choose **Create group**.
 
 Each bot keeps its own memory, computer and instructions; the group only shares the conversation.
 
+## Share a group with other people
+
+**New shared group** invites other accounts by email. The creator and admins can invite people and add their own bots. A member can talk in the group, and can leave it. Only the creator deletes the group or changes who is an admin.
+
+A bot in the group is shown as the owner's name, a hyphen, then the bot's name. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
+
+A private group is unchanged: it still belongs to one person and holds 2 to 10 of that person's bots.
+
 ## Who answers
 
 - With no mention, the first bot in the group answers and can bring in the others.

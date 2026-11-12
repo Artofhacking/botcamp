@@ -4218,6 +4218,24 @@ msgstr "新增群組"
 msgid "New group chat"
 msgstr "新增群組聊天"
 
+msgid "New shared group"
+msgstr "新增共享群組"
+
+msgid "Invite with an email"
+msgstr "用電子郵件邀請"
+
+msgid "People"
+msgstr "成員"
+
+msgid "Admin"
+msgstr "管理員"
+
+msgid "Your bots"
+msgstr "你的機器人"
+
+msgid "Create shared group"
+msgstr "建立共享群組"
+
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr ""

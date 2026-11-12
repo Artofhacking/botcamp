@@ -8,6 +8,8 @@ import {
   renderBotGroupDirectory,
   renderGroupMembersContext,
   resolveBotAddress,
+  SHARED_GROUP_PRIVACY,
+  sharedGroupBotName,
 } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
 import {
@@ -252,17 +254,38 @@ export async function loadGroupContext(
       members: {
         where: { bot: { archivedAt: null } },
         include: {
-          bot: { select: { id: true, name: true, description: true } },
+          bot: { select: { id: true, name: true, description: true, userId: true } },
         },
         orderBy: { createdAt: "asc" },
       },
     },
   });
   if (!group) return undefined;
+  if (!group.shared) {
+    return renderGroupMembersContext(
+      group.name,
+      group.members.map((member) => member.bot),
+      self,
+    );
+  }
+  const userIds = [...new Set(group.members.map((member) => member.bot.userId))];
+  const users = userIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const names = new Map(users.map((user) => [user.id, user.name]));
+  const members = group.members.map((member) => ({
+    ...member.bot,
+    name: sharedGroupBotName(names.get(member.bot.userId) ?? "User", member.bot.name),
+  }));
+  const mine = members.find((member) => member.id === self.id);
   return renderGroupMembersContext(
     group.name,
-    group.members.map((member) => member.bot),
-    self,
+    members,
+    { id: self.id, name: mine?.name ?? self.name },
+    SHARED_GROUP_PRIVACY,
   );
 }
 

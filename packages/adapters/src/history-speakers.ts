@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@botcamp/contracts";
-import { botMessageContext } from "@botcamp/core";
+import { botMessageContext, sharedGroupBotName } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
 
 /** What the model reads for the one human of a group thread: never their real name. */
@@ -37,13 +37,18 @@ export interface ThreadSpeakers {
   botId: string;
   /** Current names of the other bots, archived ones included. A renamed bot has one name everywhere. */
   names: Map<string, string>;
+  /** Account names for shared-group messages that name who sent them. */
+  people?: Map<string, string>;
 }
 
 type SpeakerRow = {
   role: string;
   botId?: string | null;
   blocks?: unknown;
+  senderUserId?: string | null;
 };
+
+type SpeakerClient = Pick<PrismaClient, "bot"> & Partial<Pick<PrismaClient, "chatGroup" | "user">>;
 
 /** Names for bot ids in the space, deleted bots simply absent. No archived filter on purpose. */
 export async function loadBotNames(
@@ -60,21 +65,80 @@ export async function loadBotNames(
 }
 
 /** Null for a direct chat, which needs neither labels nor a lookup. */
+function personLabel(name: string): string {
+  const clean = name
+    .replace(/[[\]]/g, (bracket) => (bracket === "[" ? "(" : ")"))
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean || USER_SPEAKER;
+}
+
+async function loadSharedSpeakers(
+  prisma: SpeakerClient & { user: NonNullable<SpeakerClient["user"]> },
+  run: { bot: { id: string } },
+  rows: SpeakerRow[],
+  others: string[],
+): Promise<ThreadSpeakers> {
+  const bots =
+    others.length === 0
+      ? []
+      : await prisma.bot.findMany({
+          where: { id: { in: others } },
+          select: { id: true, name: true, userId: true },
+        });
+  const senderIds = rows.flatMap((row) =>
+    row.role === "user" && row.senderUserId ? [row.senderUserId] : [],
+  );
+  const userIds = [...new Set([...bots.map((bot) => bot.userId), ...senderIds])];
+  const users =
+    userIds.length === 0
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        });
+  const userNames = new Map(users.map((user) => [user.id, user.name]));
+  return {
+    botId: run.bot.id,
+    names: new Map(
+      bots.map((bot) => [
+        bot.id,
+        speakerName(sharedGroupBotName(userNames.get(bot.userId) ?? "User", bot.name)),
+      ]),
+    ),
+    people: new Map(
+      senderIds.flatMap((userId) => {
+        const name = userNames.get(userId);
+        return name ? [[userId, personLabel(name)] as const] : [];
+      }),
+    ),
+  };
+}
+
 export async function loadThreadSpeakers(
-  prisma: Pick<PrismaClient, "bot">,
+  prisma: SpeakerClient,
   thread: { groupId?: string | null },
   run: { spaceId: string; bot: { id: string } },
   rows: SpeakerRow[],
 ): Promise<ThreadSpeakers | null> {
   if (!thread.groupId) return null;
-  const others = new Set(
-    rows.flatMap((row) =>
-      row.role === "bot" && row.botId && row.botId !== run.bot.id ? [row.botId] : [],
+  const others = [
+    ...new Set(
+      rows.flatMap((row) =>
+        row.role === "bot" && row.botId && row.botId !== run.bot.id ? [row.botId] : [],
+      ),
     ),
-  );
+  ];
+  if (prisma.chatGroup && prisma.user) {
+    const group = await prisma.chatGroup.findUnique({
+      where: { id: thread.groupId },
+      select: { shared: true },
+    });
+    if (group?.shared) return loadSharedSpeakers({ ...prisma, user: prisma.user }, run, rows, others);
+  }
   return {
     botId: run.bot.id,
-    names: await loadBotNames(prisma, run.spaceId, [...others]),
+    names: await loadBotNames(prisma, run.spaceId, others),
   };
 }
 
@@ -93,7 +157,14 @@ export function historySpeaker(
   row: SpeakerRow,
 ): string | undefined {
   if (!speakers) return undefined;
-  if (row.role === "user") return isRelay(row.blocks) ? undefined : USER_SPEAKER;
+  if (row.role === "user") {
+    if (isRelay(row.blocks)) return undefined;
+    if (row.senderUserId && speakers.people) {
+      const name = speakers.people.get(row.senderUserId);
+      if (name) return name;
+    }
+    return USER_SPEAKER;
+  }
   if (row.role !== "bot" || !row.botId || row.botId === speakers.botId) return undefined;
   return speakers.names.get(row.botId) ?? UNKNOWN_BOT_SPEAKER;
 }

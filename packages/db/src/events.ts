@@ -1957,6 +1957,42 @@ async function finalizeRunOnce(
     }
     const continuationRunId = await createPendingSteeringRun(tx, input);
     await tx.bot.update({ where: { id: input.botId }, data: { updatedAt: now } });
+    const wake = await tx.sharedGroupWake.findUnique({ where: { runId: input.runId } });
+    if (wake && wake.mirroredAt === null) {
+      if (input.outcome === "completed") {
+        const textBlocks = replyBlocks.filter((block) => block.kind === "text");
+        if (textBlocks.length > 0) {
+          const groupThread = await tx.thread.findUnique({
+            where: { id: wake.groupThreadId },
+            select: { spaceId: true },
+          });
+          if (groupThread) {
+            const mirrored = await createThreadMessageInTransaction(tx, {
+              threadId: wake.groupThreadId,
+              role: "bot",
+              blocks: textBlocks,
+              botId: input.botId,
+              clientNonce: `shared-group-mirror:${input.runId}`,
+            });
+            await appendEventInTransaction(tx, {
+              spaceId: groupThread.spaceId,
+              threadId: wake.groupThreadId,
+              botId: input.botId,
+              type: "thread.message.created",
+              payload: { messageId: mirrored.id, role: "bot", blocks: textBlocks },
+            });
+            await tx.chatGroup.update({
+              where: { id: wake.groupId },
+              data: { updatedAt: now },
+            });
+          }
+        }
+      }
+      await tx.sharedGroupWake.update({
+        where: { id: wake.id },
+        data: { mirroredAt: now },
+      });
+    }
     return { threadId: lastEvent.threadId, seq: lastEvent.seq, continuationRunId, firstResponse };
   }, FINALIZE_TRANSACTION_OPTIONS);
 }

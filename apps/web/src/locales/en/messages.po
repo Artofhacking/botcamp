@@ -4217,6 +4217,24 @@ msgstr "New group"
 msgid "New group chat"
 msgstr "New group chat"
 
+msgid "New shared group"
+msgstr "New shared group"
+
+msgid "Invite with an email"
+msgstr "Invite with an email"
+
+msgid "People"
+msgstr "People"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Your bots"
+msgstr "Your bots"
+
+msgid "Create shared group"
+msgstr "Create shared group"
+
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr "New login"

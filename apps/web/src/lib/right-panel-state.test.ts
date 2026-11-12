@@ -38,6 +38,7 @@ describe("right panel preferences", () => {
     '{"panel":"unknown"}',
     '{"panel":{}}',
     '{"panel":"create-group"}',
+    '{"panel":"create-shared-group"}',
     '{"panel":"import-agent"}',
   ])("ignores malformed preference %s", (value) => {
     vi.stubGlobal("localStorage", { getItem: () => value });
@@ -65,6 +66,7 @@ describe("right panel preferences", () => {
     expect(key).toBe("rakazo:right-panel-state:user-a:space-a:bot:bot-a");
     writeRightPanelState(key, "computer");
     writeRightPanelState(key, "create-group");
+    writeRightPanelState(key, "create-shared-group");
     // An import is not reopened after a reload either.
     writeRightPanelState(key, "import-agent");
     expect(readRightPanelState(key)).toEqual({ panel: "computer" });

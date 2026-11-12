@@ -269,6 +269,7 @@ function toThreadMessage(row: {
   } | null;
   runId: string | null;
   clientNonce?: string | null;
+  senderUserId?: string | null;
   createdAt: Date;
 }): ThreadMessage {
   const parent = row.replyTo?.threadId === row.threadId ? row.replyTo : null;
@@ -295,6 +296,7 @@ function toThreadMessage(row: {
     replyPreview,
     runId: row.runId ?? undefined,
     callId: callIdFromClientNonce(row.clientNonce),
+    senderUserId: row.senderUserId ?? undefined,
     createdAt: row.createdAt.toISOString(),
   };
 }

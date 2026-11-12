@@ -4217,6 +4217,24 @@ msgstr "新建群组"
 msgid "New group chat"
 msgstr "新建群聊"
 
+msgid "New shared group"
+msgstr "新建共享群聊"
+
+msgid "Invite with an email"
+msgstr "用邮箱邀请"
+
+msgid "People"
+msgstr "成员"
+
+msgid "Admin"
+msgstr "管理员"
+
+msgid "Your bots"
+msgstr "你的机器人"
+
+msgid "Create shared group"
+msgstr "创建共享群聊"
+
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr "新建登录"

@@ -174,6 +174,11 @@ export function SidebarHeader({
                   setMobileSidebarOpen(false);
                   setPanel("create-group");
                 }}
+                onCreateSharedGroup={() => {
+                  setCreateMenuOpen(false);
+                  setMobileSidebarOpen(false);
+                  setPanel("create-shared-group");
+                }}
               />
             </PopoverContent>
           ) : null}

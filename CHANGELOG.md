@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.57] - 2026-11-12
+
+### Added
+
+- A group chat can include other people. The creator and admins invite them by email and can add bots they own. In the group, a bot's name is that person's name, a hyphen, and the bot's name. A bot from another space answers in its own chat, and only the finished text is posted back. A private group chat is still one person's bots ([groups](docs/groups.md)).
+
+### Self-host upgrade notes
+
+- Apply the database migration before restarting. It adds shared group membership. Private group chats keep working during the upgrade.
+
 ## [2.0.56] - 2026-11-12
 
 ### Changed
