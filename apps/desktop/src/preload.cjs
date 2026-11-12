@@ -9,6 +9,17 @@ function subscribe(channel) {
   };
 }
 
+const pendingLinks = [];
+const linkListeners = new Set();
+ipcRenderer.on("desktop.links.url", (_event, link) => {
+  if (linkListeners.size === 0) {
+    pendingLinks.push(link);
+    if (pendingLinks.length > 8) pendingLinks.shift();
+    return;
+  }
+  for (const listener of linkListeners) listener(link);
+});
+
 contextBridge.exposeInMainWorld("rakazoDesktop", {
   platform: process.platform,
   nativeWindowFrame: process.platform === "win32",
@@ -73,6 +84,15 @@ contextBridge.exposeInMainWorld("rakazoDesktop", {
     check: () => ipcRenderer.invoke("desktop.update.check"),
     download: () => ipcRenderer.invoke("desktop.update.download"),
     install: () => ipcRenderer.invoke("desktop.update.install"),
+  },
+  links: {
+    open: (url) => ipcRenderer.invoke("desktop.links.open", url),
+    onUrl: (listener) => {
+      linkListeners.add(listener);
+      const queued = pendingLinks.splice(0);
+      for (const link of queued) listener(link);
+      return () => linkListeners.delete(listener);
+    },
   },
   oauth: {
     open: (url) => ipcRenderer.invoke("desktop.oauth.open", url),

@@ -15,9 +15,9 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-
+import { useEffect, useRef, useState } from "react";
 import { SettingsGroup, SettingsRow } from "../components/SettingsRows";
+import { desktopBridge } from "../lib/desktop";
 import { providerLabel } from "../lib/messaging";
 import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
@@ -162,6 +162,22 @@ export function MessagingSettingsPanel() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  // The system browser returns here. Older desktops finish on the callback page instead.
+  const onSlackReturn = useRef<(state: string, code: string) => void>(() => undefined);
+  onSlackReturn.current = (state, code) => {
+    void act(async () => {
+      await rpc.messaging.installations.complete({ state, code });
+    });
+  };
+  useEffect(() => {
+    const onUrl = desktopBridge()?.links?.onUrl;
+    if (!onUrl) return;
+    return onUrl((link) => {
+      if (link.kind !== "slack-install" || !link.code) return;
+      onSlackReturn.current(link.state, link.code);
+    });
+  }, []);
+
   // A selection archived elsewhere drops out of the list; fall back to the first bot.
   const linkBotId = bots.find((bot) => bot.id === selectedBotId)?.id ?? bots[0]?.id ?? "";
   const botName = (botId: string) => bots.find((bot) => bot.id === botId)?.name;
@@ -217,11 +233,16 @@ export function MessagingSettingsPanel() {
   }
 
   function installSlack() {
-    const popup = window.open("about:blank", "rakazo-slack-install");
+    const links = desktopBridge()?.links;
+    const popup = links?.open ? null : window.open("about:blank", "rakazo-slack-install");
     if (popup) popup.opener = null;
     void act(async () => {
       try {
         const { url } = await rpc.messaging.installations.start({});
+        if (links?.open) {
+          await links.open(url);
+          return;
+        }
         if (popup) popup.location.href = url;
         else window.location.assign(url);
       } catch (error) {

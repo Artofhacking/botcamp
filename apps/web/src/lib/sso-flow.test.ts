@@ -1,3 +1,5 @@
+import type { DesktopDeepLink } from "@rakazo/contracts";
+import { SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
 import { afterEach, expect, it, vi } from "vitest";
 import { completeSsoCallback, runSsoFlow, SSO_CALLBACK_PATH } from "./sso-flow";
 
@@ -225,6 +227,134 @@ it("times out a never-resolving begin and cleans up the blank popup", async () =
   expect(popup.close).toHaveBeenCalledOnce();
   expect(channels[0]?.close).toHaveBeenCalledOnce();
   expect(channels[0]?.onmessage).toBeNull();
+  expect(location.assign).not.toHaveBeenCalled();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+function systemBrowserWindow() {
+  const listeners = new Set<(link: DesktopDeepLink) => void>();
+  const open = vi.fn(async () => undefined);
+  const location = {
+    href: "https://rakazo.example.test/sign-in",
+    origin: "https://rakazo.example.test",
+    pathname: "/sign-in",
+    search: "",
+    assign: vi.fn(),
+  };
+  const storage = { getItem: vi.fn(() => null), setItem: vi.fn(), removeItem: vi.fn() };
+  vi.stubGlobal("localStorage", storage);
+  vi.stubGlobal("window", {
+    rakazoDesktop: {
+      links: {
+        open,
+        onUrl: (listener: (link: DesktopDeepLink) => void) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+    },
+    location,
+  });
+  return {
+    open,
+    location,
+    storage,
+    emit: (link: DesktopDeepLink) => {
+      for (const listener of listeners) listener(link);
+    },
+  };
+}
+
+it("finishes desktop SSO in the system browser and stores only a matching session", async () => {
+  const { open, location, storage, emit } = systemBrowserWindow();
+  let callback = "";
+  const flow = runSsoFlow(
+    async (disableRedirect, callbackURL) => {
+      expect(disableRedirect).toBe(true);
+      callback = callbackURL("/app");
+      return result;
+    },
+    ["/app"],
+  );
+  await vi.waitFor(() => expect(open).toHaveBeenCalledWith(result.data.url));
+  const params = new URL(callback).searchParams;
+  const nonce = params.get("nonce") ?? "";
+  expect(new URL(callback).protocol).toBe("rakazo:");
+  expect(params.get("returnTo")).toBe("https://rakazo.example.test/app");
+  emit({
+    kind: "sso",
+    nonce: "11111111-1111-1111-1111-111111111111",
+    returnTo: "https://rakazo.example.test/app",
+    token: "other.token",
+  });
+  emit({
+    kind: "sso",
+    nonce,
+    returnTo: "https://other.example.test/app",
+    token: "foreign.token",
+  });
+  emit({ kind: "sso", nonce, returnTo: "https://rakazo.example.test/app" });
+  expect(storage.setItem).not.toHaveBeenCalled();
+  expect(location.assign).not.toHaveBeenCalled();
+  emit({
+    kind: "sso",
+    nonce,
+    returnTo: "https://rakazo.example.test/app",
+    token: "session.token",
+  });
+  await flow;
+  expect(storage.setItem).toHaveBeenCalledWith(SESSION_BEARER_STORAGE_KEY, "session.token");
+  expect(location.assign).toHaveBeenCalledWith("https://rakazo.example.test/app");
+});
+
+it("returns an SSO error without replacing the desktop session", async () => {
+  const { open, location, storage, emit } = systemBrowserWindow();
+  let callback = "";
+  const flow = runSsoFlow(
+    async (_disableRedirect, callbackURL) => {
+      callback = callbackURL("/app");
+      return result;
+    },
+    ["/app"],
+  );
+  await vi.waitFor(() => expect(open).toHaveBeenCalled());
+  const nonce = new URL(callback).searchParams.get("nonce") ?? "";
+  emit({
+    kind: "sso",
+    nonce,
+    returnTo: "https://rakazo.example.test/app",
+    token: "session.token",
+    error: "access_denied",
+  });
+  await flow;
+  expect(storage.setItem).not.toHaveBeenCalled();
+  expect(location.assign).toHaveBeenCalledWith(
+    "https://rakazo.example.test/app?error=access_denied",
+  );
+});
+
+it("does not open the system browser when SSO cannot start", async () => {
+  const { open } = systemBrowserWindow();
+  const failure = { data: null, error: { code: "SSO_UNAVAILABLE" } };
+  await expect(runSsoFlow(async () => failure, ["/app"])).resolves.toBe(failure);
+  await expect(
+    runSsoFlow(
+      async () => ({ data: { url: "http://identity.example.test" }, error: null }),
+      ["/app"],
+    ),
+  ).rejects.toThrow("Could not continue");
+  expect(open).not.toHaveBeenCalled();
+});
+
+it("times out a system-browser SSO that never returns", async () => {
+  vi.useFakeTimers();
+  const { open, location } = systemBrowserWindow();
+  const flow = runSsoFlow(async () => result, ["/app"]);
+  const failure = expect(flow).rejects.toThrow("Could not continue");
+  await vi.advanceTimersByTimeAsync(0);
+  expect(open).toHaveBeenCalledWith(result.data.url);
+  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  await failure;
   expect(location.assign).not.toHaveBeenCalled();
   expect(vi.getTimerCount()).toBe(0);
 });

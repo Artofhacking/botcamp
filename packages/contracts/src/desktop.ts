@@ -1,3 +1,5 @@
+import type { DesktopDeepLink } from "./desktop-link.js";
+
 /**
  * `unsupported` covers an unpackaged build and a repository with no published releases, which is
  * the normal state for a fork. It is not an error the user needs to act on. Automatic checks stay
@@ -127,6 +129,14 @@ export interface BotCampDesktop {
     stop: (session: number) => Promise<void>;
     abort: (session: number) => Promise<void>;
     onEvent: (listener: (event: BotCampDesktopSpeechEvent) => void) => () => void;
+  };
+  /**
+   * Opens http(s) links in the system browser and receives `rakazo://` returns.
+   * Absent on older desktop releases, which still open those links in the app.
+   */
+  links?: {
+    open: (url: string) => Promise<void>;
+    onUrl: (listener: (link: DesktopDeepLink) => void) => () => void;
   };
   platform: string;
   /** Absent on older frameless releases, which still need in-app controls. */

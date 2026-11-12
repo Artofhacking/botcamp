@@ -1,7 +1,6 @@
 import type { MediaAccessPermissionRequest, Session, WebContents } from "electron";
 import { describe, expect, it, vi } from "vitest";
 import { installSessionPermissions } from "./session-permissions.js";
-import { shouldOpenInAppPopup } from "./window-open.js";
 
 const appUrl = "https://app.example.test/chat";
 const providerUrl = "https://provider.example.test/authorize";
@@ -98,10 +97,9 @@ describe("desktop session permissions", () => {
     "rakazo-mcp-oauth",
     "rakazo-app-connect",
     "rakazo-plugin-connect",
-  ])("allows %s navigation without granting permissions to its popup", (name) => {
+  ])("does not grant permissions to a %s provider window", (name) => {
     const policy = policyFixture();
-    expect(shouldOpenInAppPopup(new URL(appUrl).origin, providerUrl, name)).toBe(true);
-    const popup = { ...policy.contents, getURL: () => providerUrl } as WebContents;
+    const popup = { ...policy.contents, getURL: () => `${providerUrl}#${name}` } as WebContents;
     for (const permission of ["media", "notifications", "clipboard-sanitized-write"] as const) {
       expect(policy.request(permission, { requestingUrl: providerUrl }, popup)).toBe(false);
       expect(policy.check(permission, { requestingUrl: providerUrl }, popup)).toBe(false);

@@ -40,6 +40,7 @@ import {
 import { syncLogOutFailure } from "./lib/sign-out";
 import { completeSsoCallback, SSO_CALLBACK_PATH } from "./lib/sso-flow";
 import { documentPath } from "./lib/static-host-route";
+import { DesktopReturnPage } from "./pages/DesktopReturn";
 import { IntegrationCallbackPage } from "./pages/IntegrationCallback";
 import { IntegrationSetupPage } from "./pages/IntegrationSetup";
 import { McpOAuthCallbackPage } from "./pages/McpOAuthCallback";
@@ -127,7 +128,7 @@ function SessionApp() {
     () => false,
   );
   const session = authClient.useSession();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const screen = analyticsScreen(pathname);
   const analyticsUserId = session.data?.user.id;
   const lastScreen = useRef<string | undefined>(undefined);
@@ -222,28 +223,12 @@ function SessionApp() {
               <Route path="/p/:slugToken" element={<SharedPagePage />} />
               <Route
                 path={MCP_OAUTH_CALLBACK_PATH}
-                element={
-                  user ? (
-                    <McpOAuthCallbackPage />
-                  ) : (
-                    <Navigate
-                      to={`/sign-in?next=${encodeURIComponent(pathname + search)}`}
-                      replace
-                    />
-                  )
-                }
+                element={user ? <McpOAuthCallbackPage /> : <DesktopReturnPage kind="mcp-oauth" />}
               />
               <Route
                 path={SLACK_INSTALL_CALLBACK_PATH}
                 element={
-                  user ? (
-                    <SlackInstallCallbackPage />
-                  ) : (
-                    <Navigate
-                      to={`/sign-in?next=${encodeURIComponent(pathname + search)}`}
-                      replace
-                    />
-                  )
+                  user ? <SlackInstallCallbackPage /> : <DesktopReturnPage kind="slack-install" />
                 }
               />
               <Route

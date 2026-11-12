@@ -26,6 +26,7 @@ import { BuiCard, SuccessPop } from "../../components/ai/primitives";
 import { OptionRow } from "../../components/OptionRow";
 import type { ArtifactTarget } from "../../lib/artifact-open";
 import { chartViewport } from "../../lib/chart-viewport";
+import { openDefaultBrowser } from "../../lib/desktop";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { importChunk } from "../../lib/preload-recovery";
 import { rpc } from "../../lib/rpc";
@@ -184,7 +185,7 @@ export function AppConnectCard({
         provider: block.provider,
         displayName: block.name,
       });
-      if (started.authorizationUrl) {
+      if (started.authorizationUrl && !(await openDefaultBrowser(started.authorizationUrl))) {
         window.open(started.authorizationUrl, "rakazo-app-connect", "popup,width=560,height=720");
       }
       const result = await waitForConnection(

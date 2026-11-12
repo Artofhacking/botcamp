@@ -7,11 +7,16 @@ import type { HostScreen } from "@rakazo/adapters/host-screen";
 import { startUserDeviceClient } from "@rakazo/adapters/user-device-client";
 import type {
   BotCampDesktopDevice,
+  DesktopDeepLink,
   DesktopMenuCommand,
   DesktopReachability,
   DesktopSetup,
 } from "@rakazo/contracts";
-import { parseServerHeaders, SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
+import {
+  parseDesktopDeepLink,
+  parseServerHeaders,
+  SESSION_BEARER_STORAGE_KEY,
+} from "@rakazo/contracts";
 import type { Session } from "electron";
 import {
   app,
@@ -73,8 +78,8 @@ import {
   refreshDesktopMonitoringUser,
   reportDesktopError,
 } from "./monitoring.js";
-import { oauthCallbackFrom } from "./oauth-callback.js";
 import { associatedPasskeyRpIds } from "./passkeys.js";
+import { deepLinkFromArgv, desktopProtocolRegistration } from "./protocol.js";
 import {
   bundledRendererCandidates,
   bundledRendererHeaders,
@@ -110,11 +115,7 @@ import { clearSetup, readSetup, readUiLocale, writeSetup, writeUiLocale } from "
 import { createSystemSpeech } from "./system-speech.js";
 import type { UserDeviceAccess } from "./user-device.js";
 import { createUserDeviceAccess, deviceName } from "./user-device.js";
-import {
-  oauthPopupSessionPreferences,
-  openInSystemBrowser,
-  shouldOpenInAppPopup,
-} from "./window-open.js";
+import { openInSystemBrowser, systemBrowserUrl } from "./window-open.js";
 import {
   browserWindowOptions,
   developmentIconFile,
@@ -342,19 +343,9 @@ function createWindow(url: string, partition: string | null) {
   mainWindow = win;
   appWindowTargets.set(win, url);
   const targetOrigin = safeOrigin(url);
-  // Intentional OAuth flows open the provider's authorize page via a named
-  // window; give those and same-origin popups a normal frame. Everything else
-  // opens in the system browser so a connected server cannot navigate us away.
-  // Hoisted for loopback OAuth capture so MCP/in-app localhost callbacks are skipped.
-  const appOrigin = targetOrigin ?? safeOrigin(url);
-  win.webContents.setWindowOpenHandler(({ url: childUrl, frameName }) => {
-    if (shouldOpenInAppPopup(appOrigin, childUrl, frameName)) {
-      return {
-        action: "allow",
-        overrideBrowserWindowOptions: oauthPopupWindowOptions(partition),
-      };
-    }
-    const external = safeExternalUrl(childUrl);
+  // A new window always goes to the system browser. The app does not keep one.
+  win.webContents.setWindowOpenHandler(({ url: childUrl }) => {
+    const external = systemBrowserUrl(childUrl);
     if (external !== null) {
       openInSystemBrowser((target) => void shell.openExternal(target), external);
     }
@@ -378,29 +369,7 @@ function createWindow(url: string, partition: string | null) {
   };
   win.webContents.on("will-navigate", keepOnAppOrigin);
   win.webContents.on("will-redirect", keepOnAppOrigin);
-  // The popup has no address bar, so a loopback redirect would otherwise strand
-  // the user on a blank window holding the authorization code in a URL they
-  // cannot read. Capture it here and hand it to the app instead.
-  win.webContents.on("did-create-window", (popup, { frameName }) => {
-    const capture = (details: {
-      preventDefault: () => void;
-      url: string;
-      isMainFrame?: boolean;
-    }) => {
-      // will-redirect can fire for iframes; only the top-level callback counts.
-      if (details.isMainFrame === false) return;
-      const callback = oauthCallbackFrom(details.url, {
-        frameName,
-        excludeOrigins: appOrigin !== null ? [appOrigin] : [],
-      });
-      if (!callback) return;
-      details.preventDefault();
-      if (!win.isDestroyed()) win.webContents.send("desktop.oauth.callback", callback);
-      if (!popup.isDestroyed()) popup.close();
-    };
-    popup.webContents.on("will-redirect", (details) => capture(details));
-    popup.webContents.on("will-navigate", (details) => capture(details));
-  });
+  win.webContents.on("did-finish-load", () => flushDesktopLinks(win));
   win.on("close", (event) => {
     if (
       process.platform === "darwin" &&
@@ -617,18 +586,6 @@ async function installBundledRenderer(
   });
   bundledRendererInstallations.add(installationKey);
   markOnce("rk:main:bundled-renderer-ready");
-}
-
-function oauthPopupWindowOptions(partition: string | null) {
-  return {
-    width: 560,
-    height: 720,
-    frame: true,
-    titleBarStyle: "default" as const,
-    autoHideMenuBar: true,
-    backgroundColor: "#0A0A0A",
-    webPreferences: oauthPopupSessionPreferences(partition),
-  };
 }
 
 function createSetupWindow() {
@@ -1380,11 +1337,55 @@ if (windowsAppId !== undefined) app.setAppUserModelId(windowsAppId);
 
 // A second launch on Linux/Windows would rerun host-computer setup, overwrite
 // the saved token and restart the local stack under the running instance.
+const pendingDesktopLinks: DesktopDeepLink[] = [];
+
+function publishDesktopLink(raw: string): void {
+  const link = parseDesktopDeepLink(raw);
+  if (!link) return;
+  const win = mainWindow;
+  if (!win || win.isDestroyed()) {
+    pendingDesktopLinks.push(link);
+    if (pendingDesktopLinks.length > 8) pendingDesktopLinks.shift();
+    return;
+  }
+  win.webContents.send("desktop.links.url", link);
+}
+
+function flushDesktopLinks(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const pending = pendingDesktopLinks.splice(0);
+  for (const link of pending) win.webContents.send("desktop.links.url", link);
+}
+
+function registerDesktopProtocol(): void {
+  const registration = desktopProtocolRegistration(app.isPackaged, process.execPath, process.argv);
+  if (!registration) return;
+  try {
+    if (registration.exec && registration.args) {
+      app.setAsDefaultProtocolClient(
+        registration.scheme,
+        registration.exec,
+        registration.args.map((arg) => path.resolve(arg)),
+      );
+    } else {
+      app.setAsDefaultProtocolClient(registration.scheme);
+    }
+  } catch {
+    // Without this registration the system browser cannot return to the app.
+  }
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    publishDesktopLink(url);
+  });
+  app.on("second-instance", (_event, argv: string[]) => {
+    const link = deepLinkFromArgv(argv);
+    if (link) publishDesktopLink(link);
     const win = secondInstanceWindow(setupWindow, mainWindow);
     if (win === null) return;
     revealSecondInstanceWindow(win);
@@ -1393,6 +1394,9 @@ if (!hasSingleInstanceLock) {
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
+  registerDesktopProtocol();
+  const initialLink = deepLinkFromArgv(process.argv);
+  if (initialLink) publishDesktopLink(initialLink);
   installSessionPermissions(session.defaultSession, permissionTarget);
   const userDataDir = app.getPath("userData");
   startDesktopLocale(
@@ -1545,6 +1549,14 @@ app.whenReady().then(async () => {
     browserAuthAttempts.clear();
   };
   app.on("before-quit", cancelBrowserAuth);
+  ipcMain.handle("desktop.links.open", async (event, url: unknown) => {
+    if (!fromAppFrame(permissionTarget(), event) || typeof url !== "string") {
+      throw new Error("Invalid link.");
+    }
+    const external = systemBrowserUrl(url);
+    if (external === null || external.length > 16_384) throw new Error("Invalid link.");
+    await shell.openExternal(external);
+  });
   ipcMain.handle("desktop.oauth.open", async (event, url: unknown) => {
     if (!fromAppFrame(permissionTarget(), event) || typeof url !== "string" || url.length > 16_384)
       throw new Error("Invalid sign-in request.");

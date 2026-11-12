@@ -49,6 +49,7 @@ describe("desktop preload bridge", () => {
       "badge",
       "computer",
       "device",
+      "links",
       "locale",
       "menu",
       "monitoring",
@@ -77,6 +78,7 @@ describe("desktop preload bridge", () => {
     expect(invoke).toHaveBeenCalledWith("desktop.device.setAllowed", true);
     await bridge.locale?.set("es-CL");
     expect(invoke).toHaveBeenCalledWith("desktop.locale.set", "es-CL");
+    await bridge.links?.open("https://provider.example.com/authorize");
     await bridge.oauth.open?.("https://provider.example.com/authorize");
     await bridge.oauth.cancel?.("https://provider.example.com/authorize");
     await bridge.monitoring?.enabled();
@@ -94,6 +96,7 @@ describe("desktop preload bridge", () => {
       "desktop.device.state",
       "desktop.device.setAllowed",
       "desktop.locale.set",
+      "desktop.links.open",
       "desktop.oauth.open",
       "desktop.oauth.cancel",
       "desktop.monitoring.enabled",
@@ -110,10 +113,7 @@ describe("desktop preload bridge", () => {
   });
 
   it("forwards captured codes without leaking the IPC event to the renderer", () => {
-    const listeners: Array<(event: unknown, callback: unknown) => void> = [];
-    const on = vi.fn((_channel: string, handler: (event: unknown, callback: unknown) => void) => {
-      listeners.push(handler);
-    });
+    const on = vi.fn();
     const off = vi.fn();
     const { exposeInMainWorld } = runPreload("preload.cjs", { on, off });
 
@@ -122,18 +122,34 @@ describe("desktop preload bridge", () => {
     const unsubscribe = bridge.oauth.onCallback((callback) => received.push(callback));
 
     expect(on).toHaveBeenCalledWith("desktop.oauth.callback", expect.any(Function));
-    listeners[0]?.({ sender: "ipc-event" }, { code: "ac_123", state: "verifier_456" });
+    const handler = on.mock.calls.find((call) => call[0] === "desktop.oauth.callback")?.[1] as
+      | ((event: unknown, callback: unknown) => void)
+      | undefined;
+    handler?.({ sender: "ipc-event" }, { code: "ac_123", state: "verifier_456" });
     expect(received).toEqual([{ code: "ac_123", state: "verifier_456" }]);
 
     unsubscribe();
     expect(off).toHaveBeenCalledWith("desktop.oauth.callback", expect.any(Function));
   });
 
-  it("opens settings from the menu signal without leaking the IPC event", () => {
-    const listeners: Array<() => void> = [];
-    const on = vi.fn((_channel: string, handler: () => void) => {
+  it("holds a system-browser return until the page is listening", () => {
+    const listeners: Array<(event: unknown, link: unknown) => void> = [];
+    const on = vi.fn((_channel: string, handler: (event: unknown, link: unknown) => void) => {
       listeners.push(handler);
     });
+    const { exposeInMainWorld } = runPreload("preload.cjs", { on, off: vi.fn() });
+    const [, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampDesktop];
+    expect(on).toHaveBeenCalledWith("desktop.links.url", listeners[0]);
+    const link = { kind: "mcp-oauth", state: "session", code: "ac" };
+    listeners[0]?.({ sender: "ipc-event" }, link);
+    const received: unknown[] = [];
+    const unsubscribe = bridge.links?.onUrl((next) => received.push(next));
+    expect(received).toEqual([link]);
+    unsubscribe?.();
+  });
+
+  it("opens settings from the menu signal without leaking the IPC event", () => {
+    const on = vi.fn();
     const off = vi.fn();
     const { exposeInMainWorld } = runPreload("preload.cjs", { on, off });
     const [, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampDesktop];
@@ -142,7 +158,10 @@ describe("desktop preload bridge", () => {
     const unsubscribe = bridge.settings!.onOpen(() => opened.push("settings"));
 
     expect(on).toHaveBeenCalledWith("desktop.settings.open", expect.any(Function));
-    listeners[0]?.();
+    const handler = on.mock.calls.find((call) => call[0] === "desktop.settings.open")?.[1] as
+      | (() => void)
+      | undefined;
+    handler?.();
     expect(opened).toEqual(["settings"]);
 
     unsubscribe();
@@ -150,10 +169,7 @@ describe("desktop preload bridge", () => {
   });
 
   it("forwards menu commands without leaking the IPC event", () => {
-    const listeners: Array<(event: unknown, command: unknown) => void> = [];
-    const on = vi.fn((_channel: string, handler: (event: unknown, command: unknown) => void) => {
-      listeners.push(handler);
-    });
+    const on = vi.fn();
     const off = vi.fn();
     const { exposeInMainWorld } = runPreload("preload.cjs", { on, off });
     const [, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampDesktop];
@@ -162,7 +178,10 @@ describe("desktop preload bridge", () => {
     const unsubscribe = bridge.menu!.onCommand((command) => received.push(command));
 
     expect(on).toHaveBeenCalledWith("desktop.menu.command", expect.any(Function));
-    listeners[0]?.({ sender: "ipc" }, "search");
+    const handler = on.mock.calls.find((call) => call[0] === "desktop.menu.command")?.[1] as
+      | ((event: unknown, command: unknown) => void)
+      | undefined;
+    handler?.({ sender: "ipc" }, "search");
     expect(received).toEqual(["search"]);
 
     unsubscribe();
@@ -176,10 +195,7 @@ describe("desktop preload bridge", () => {
   });
 
   it("bridges macOS system speech without leaking the IPC event", async () => {
-    const listeners: Array<(event: unknown, payload: unknown) => void> = [];
-    const on = vi.fn((_channel: string, handler: (event: unknown, payload: unknown) => void) => {
-      listeners.push(handler);
-    });
+    const on = vi.fn();
     const off = vi.fn();
     const { invoke, exposeInMainWorld } = runPreload("preload.cjs", { on, off }, "darwin");
     const [, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampDesktop];
@@ -197,7 +213,10 @@ describe("desktop preload bridge", () => {
     const received: unknown[] = [];
     const unsubscribe = speech.onEvent((event) => received.push(event));
     expect(on).toHaveBeenCalledWith("desktop.speech.event", expect.any(Function));
-    listeners[0]?.({ sender: "ipc-event" }, { session: 3, type: "end" });
+    const handler = on.mock.calls.find((call) => call[0] === "desktop.speech.event")?.[1] as
+      | ((event: unknown, payload: unknown) => void)
+      | undefined;
+    handler?.({ sender: "ipc-event" }, { session: 3, type: "end" });
     expect(received).toEqual([{ session: 3, type: "end" }]);
     unsubscribe();
     expect(off).toHaveBeenCalledWith("desktop.speech.event", expect.any(Function));

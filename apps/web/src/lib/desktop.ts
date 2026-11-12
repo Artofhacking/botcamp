@@ -15,6 +15,14 @@ export function desktopBridge(): BotCampDesktop | undefined {
   return typeof window === "undefined" ? undefined : window.rakazoDesktop;
 }
 
+/** Opens a page in the OS browser. False on the web and on older desktop releases. */
+export async function openDefaultBrowser(url: string): Promise<boolean> {
+  const open = desktopBridge()?.links?.open;
+  if (!open) return false;
+  await open(url);
+  return true;
+}
+
 /** The app this page is running in. A browser is the web app. */
 export function currentAppOrigin() {
   const shell = typeof window === "undefined" ? undefined : window.__BOTCAMP_APP__?.platform;

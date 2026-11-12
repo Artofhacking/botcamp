@@ -1,4 +1,7 @@
 import { t } from "@lingui/core/macro";
+import type { DesktopDeepLink } from "@rakazo/contracts";
+import { ssoDesktopCallback } from "@rakazo/contracts";
+import { setAuthToken } from "./auth-token";
 import { desktopBridge } from "./desktop";
 import { documentPath, routePathOfUrl, routeSearch } from "./static-host-route";
 
@@ -40,11 +43,94 @@ export function completeSsoCallback(): boolean {
   return true;
 }
 
-/** Named Electron popups share the app session; normal browsers use Better Auth's redirect. */
+type DesktopLinks = NonNullable<NonNullable<ReturnType<typeof desktopBridge>>["links"]>;
+
+function acceptedReturn(returned: URL, callbacks: readonly URL[]): boolean {
+  return (
+    returned.origin === window.location.origin &&
+    callbacks.some(
+      (callback) => callback.origin === returned.origin && callback.pathname === returned.pathname,
+    )
+  );
+}
+
+/** Desktop SSO finishes in the system browser and comes back on rakazo://. */
+async function runSystemBrowserSso(
+  begin: (disableRedirect: boolean, callbackURL: (url: string) => string) => Promise<SsoResult>,
+  callbackURLs: readonly string[],
+  links: DesktopLinks,
+): Promise<SsoResult> {
+  const nonce = crypto.randomUUID();
+  const callbacks = callbackURLs.map((url) => new URL(url, window.location.href));
+  const callbackURL = (url: string) =>
+    ssoDesktopCallback(nonce, new URL(url, window.location.href).href);
+  let unsubscribe: () => void = () => undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancelled = false;
+  let rejectCancellation: (error: Error) => void = () => undefined;
+  const cancellation = new Promise<never>((_resolve, reject) => {
+    rejectCancellation = reject;
+  });
+  const cancel = () => {
+    cancelled = true;
+    clearTimeout(timer);
+    unsubscribe();
+    rejectCancellation(new Error("SSO attempt replaced"));
+  };
+  cancelActiveAttempt?.();
+  cancelActiveAttempt = cancel;
+  try {
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(t`Could not continue`)), SSO_TIMEOUT_MS);
+    });
+    const returned = new Promise<void>((resolve) => {
+      unsubscribe = links.onUrl((link: DesktopDeepLink) => {
+        if (link.kind !== "sso" || link.nonce !== nonce) return;
+        let target: URL;
+        try {
+          target = new URL(link.returnTo);
+        } catch {
+          return;
+        }
+        if (link.error) target.searchParams.set("error", link.error);
+        if (!acceptedReturn(target, callbacks)) return;
+        if (!link.token && !link.error) return;
+        if (link.token && !link.error) setAuthToken(link.token);
+        window.location.assign(target.href);
+        resolve();
+      });
+    });
+    const result = await Promise.race([begin(true, callbackURL), cancellation, timeout]);
+    if (result.error) return result;
+    let target: URL;
+    try {
+      target = new URL(result.data?.url ?? "");
+    } catch {
+      throw new Error(t`Could not continue`);
+    }
+    if (target.protocol !== "https:" && target.origin !== window.location.origin) {
+      throw new Error(t`Could not continue`);
+    }
+    await links.open(target.href);
+    await Promise.race([returned, cancellation, timeout]);
+    return result;
+  } catch (error) {
+    if (cancelled) return { data: null, error: null };
+    throw error;
+  } finally {
+    if (cancelActiveAttempt === cancel) cancelActiveAttempt = undefined;
+    clearTimeout(timer);
+    unsubscribe();
+  }
+}
+
+/** The system browser signs in; older desktops still use a same-session popup. */
 export async function runSsoFlow(
   begin: (disableRedirect: boolean, callbackURL: (url: string) => string) => Promise<SsoResult>,
   callbackURLs: readonly string[],
 ): Promise<SsoResult> {
+  const links = desktopBridge()?.links;
+  if (links) return runSystemBrowserSso(begin, callbackURLs, links);
   if (!desktopBridge()) return begin(false, (url) => url);
   const nonce = crypto.randomUUID();
   const callbacks = callbackURLs.map((url) => new URL(url, window.location.href));
@@ -111,14 +197,7 @@ export async function runSsoFlow(
           } catch {
             return;
           }
-          if (
-            returned.origin !== window.location.origin ||
-            !callbacks.some(
-              (callback) =>
-                callback.origin === returned.origin && callback.pathname === returned.pathname,
-            )
-          )
-            return;
+          if (!acceptedReturn(returned, callbacks)) return;
           window.location.assign(returned.href);
           resolve();
         };

@@ -11,6 +11,7 @@ const messaging = vi.hoisted(() => ({
   installations: {
     list: vi.fn(async () => ({ available: false, installations: [] })),
     start: vi.fn(),
+    complete: vi.fn(async () => ({ ok: true as const })),
     remove: vi.fn(),
   },
   channels: { list: vi.fn(async () => []), respond: vi.fn(), leave: vi.fn() },
@@ -294,6 +295,50 @@ it("connects Slack to the default bot through workspace authorization", async ()
     expect(popup.location.href).toBe("https://slack.example.test/authorize");
   } finally {
     open.mockRestore();
+  }
+});
+
+it("opens Slack in the system browser and finishes when the app returns", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValue({ available: true, installations: [] });
+  messaging.installations.start.mockResolvedValue({ url: "https://slack.example.test/authorize" });
+  const listeners = new Set<(link: { kind: string; state: string; code?: string }) => void>();
+  const open = vi.fn(async () => undefined);
+  const browser = vi.spyOn(window, "open");
+  window.rakazoDesktop = {
+    links: {
+      open,
+      onUrl: (listener: (link: { kind: string; state: string; code?: string }) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+  } as unknown as NonNullable<Window["rakazoDesktop"]>;
+  try {
+    await renderOverlay();
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Connect")!
+        .click(),
+    );
+    expect(messaging.installations.start).toHaveBeenCalledWith({});
+    expect(open).toHaveBeenCalledWith("https://slack.example.test/authorize");
+    expect(browser).not.toHaveBeenCalled();
+    const calls = messaging.installations.list.mock.calls.length;
+    await act(async () => {
+      for (const listener of listeners) listener({ kind: "slack-install", state: "st" });
+    });
+    expect(messaging.installations.complete).not.toHaveBeenCalled();
+    await act(async () => {
+      for (const listener of listeners) {
+        listener({ kind: "slack-install", state: "st", code: "cd" });
+      }
+    });
+    expect(messaging.installations.complete).toHaveBeenCalledWith({ state: "st", code: "cd" });
+    expect(messaging.installations.list.mock.calls.length).toBeGreaterThan(calls);
+  } finally {
+    browser.mockRestore();
+    delete window.rakazoDesktop;
   }
 });
 

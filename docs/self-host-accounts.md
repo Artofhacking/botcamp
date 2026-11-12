@@ -156,8 +156,9 @@ Register this redirect URI at the provider (using your public `BETTER_AUTH_URL` 
 https://app.example.com/api/auth/callback/oidc
 ```
 
-Web, Electron and mobile use the same provider redirect URI. Electron completes SSO in a
-sandboxed in-app popup sharing the app's session, then returns to the main window. Mobile completes the callback
+Web, Electron and mobile use the same provider redirect URI. Electron opens SSO in the
+system browser. The browser returns through a `rakazo://` link, and the app stores the
+session from that link. Mobile completes the callback
 on the API, then returns to `rakazo://sign-in` (or `rakazo://account` for linking and reauthentication) through Better Auth's Expo authorization proxy
 and a native auth browser session. The `rakazo` app scheme is trusted by the auth server;
 never register a client secret in the mobile app. Mobile stores the resulting session with
