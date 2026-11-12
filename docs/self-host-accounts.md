@@ -1,7 +1,7 @@
 # Sign-in and accounts
 
 Choose who can create an account and how people sign in: allowlists, email verification, SSO,
-passkeys and password rules.
+directory login, and password rules.
 
 ## Who can sign up
 
@@ -289,35 +289,5 @@ emailed deletion codes remain available. Callbacks are single-use.
 
 ## Passkeys
 
-Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
-relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
-stays on the same domain. They are off when password sign-in is disabled. On web, a browser offers
-them where it has a platform authenticator. The macOS
-desktop app uses the system passkey sheet, which only serves the domain the release is
-associated with (`botcamp.demox.site`), so it hides passkeys for other servers.
-
-Native apps can use a domain's passkeys only when the domain vouches for them and the app was
-built for that domain. A macOS desktop build takes it from `BOTCAMP_PASSKEY_RP_ID` (default
-`botcamp.demox.site`): set it to the same domain for `pnpm build` and for
-`apps/desktop/scripts/passkey-entitlements.ts`, then package with electron-builder's
-`-c.mac.entitlements` set to that script's output and `-c.mac.provisioningProfile` set to a
-profile for your App ID with the Associated Domains capability. Without both, macOS ignores the
-association and the app hides passkeys. When Apple's CDN cannot reach the server (a private
-network or a VPN such as Tailscale), also set `BOTCAMP_PASSKEY_DEVELOPER_MODE=1`: a
-development-signed app then fetches the association file itself, once associated-domains
-developer mode is on (`sudo swcutil developer-mode -e true` on macOS, where the app must also
-live in
-`/Applications`). To let a build use this server's passkeys, set:
-
-```bash
-# iOS and the macOS desktop app (dev.botcamp.desktop): <Apple Team ID>.<bundle id>, comma-separated.
-# Served as /.well-known/apple-app-site-association.
-PASSKEY_APPLE_APP_IDS=ABCDE12345.com.example.botcamp,ABCDE12345.dev.botcamp.desktop
-# Android: SHA-256 fingerprints of the app signing certificates, comma-separated.
-# Served as /.well-known/assetlinks.json and accepted as passkey origins.
-PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
-```
-
-Until a platform's setting is set, the native app on that platform hides passkeys for this
-server. Both files are served through the web origin, so a reverse proxy in front of the web container
-must pass `/.well-known/` through to it.
+Passkeys are not offered. Settings does not add one, and sign-in does not accept one. `WEB_ORIGIN`
+does not turn them on. Deleting an account still removes any passkey rows stored earlier.

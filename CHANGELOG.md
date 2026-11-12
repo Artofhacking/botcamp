@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.54] - 2026-11-12
+
+### Removed
+
+- Passkeys are not a way to sign in, and settings does not add one. Clients hide both when the server reports no relying party ([accounts](docs/self-host-accounts.md#passkeys)).
+
 ## [2.0.53] - 2026-11-11
 
 ### Added

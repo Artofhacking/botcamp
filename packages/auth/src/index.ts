@@ -1,5 +1,4 @@
 import { expo } from "@better-auth/expo";
-import { passkey } from "@better-auth/passkey";
 import type { ProductAnalytics, TransactionalEmailProvider } from "@botcamp/adapter-kit";
 import {
   displayName,
@@ -12,7 +11,7 @@ import {
 } from "@botcamp/core";
 import type { PrismaClient, SecurityEventType } from "@botcamp/db";
 import { bootstrapUserSpace, personalOrganizationIds, recordSecurityEvent } from "@botcamp/db";
-import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
+import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
@@ -46,7 +45,6 @@ import { emailLocale, passwordResetEmail, signInCodeEmail, verificationEmail } f
 import { hasRecentIdentityConfirmation, identityConfirmation } from "./identity-confirmation.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
-import { passkeyRelyingParty } from "./passkey.js";
 import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
@@ -89,7 +87,10 @@ export interface AuthEnv {
   /** Admits a new account only while there is none, for a deployment that serves one person. */
   singleAccount?: boolean;
   extraOrigins?: string[];
-  /** SHA-256 signing certificate fingerprints of Android apps allowed to use this server's passkeys. */
+  /**
+   * SHA-256 signing certificate fingerprints of Android apps. Passkeys are not
+   * offered, so this list does not enable them.
+   */
   androidAppCertFingerprints?: string[];
   email?: TransactionalEmailProvider;
   logger?: BetterAuthOptions["logger"];
@@ -221,11 +222,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     });
   // SSO-only deployments keep every email credential closed, codes included.
   const emailCodeSignIn = Boolean(env.email) && env.passwordAuth !== false;
-  // SSO-only deployments keep the identity provider as the only way in.
-  const relyingParty =
-    env.passwordAuth === false
-      ? null
-      : passkeyRelyingParty(env.webOrigin, env.androidAppCertFingerprints);
+  // Passkeys are not registered and are not a sign-in method. Clients read
+  // passkeyRpId and hide both adding one and signing in with one.
   // Better Auth's own token key, so every stored token shares one cipher and key.
   let authContext: Promise<{ secretConfig: TokenKey }> | undefined;
   const tokenKey = async () => (await authContext!).secretConfig;
@@ -467,17 +465,6 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           ]
         : []),
       ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
-      // Registration keeps the plugin default: a fresh session of the signed-in user.
-      // Sign-in creates its session through the session hooks below like every other method.
-      ...(relyingParty
-        ? [
-            passkey({
-              rpID: relyingParty.rpID,
-              rpName: "BotCamp",
-              origin: relyingParty.origins,
-            }) as BetterAuthPlugin,
-          ]
-        : []),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
@@ -855,7 +842,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     /** Encrypts OAuth tokens stored before encryption was enabled. Safe to rerun. */
     encryptStoredOAuthTokens: async () => encryptStoredOAuthTokens(prisma, await tokenKey()),
     ssoAvailability: () => discovery?.availability(),
-    passkeyRpId: relyingParty?.rpID ?? null,
+    passkeyRpId: null,
     hasRecentIdentityConfirmation: async (session: { sessionId: string; userId: string }) =>
       hasRecentIdentityConfirmation((await auth.$context).internalAdapter, session),
     issueAccountExportToken: async (userId: string) =>

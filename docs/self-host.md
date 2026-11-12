@@ -8,7 +8,7 @@ These pages describe how a running API, worker, and bot computers are configured
   database and outbound proxies.
 - [Secrets](./self-host-secrets.md): the required keys and how to keep them.
 - [Sign-in and accounts](./self-host-accounts.md): who can sign up, email, SSO, directory login,
-  passkeys and passwords.
+  and passwords.
 - [Models](./self-host-models.md): model providers, local models, approvals, media generation and
   voice.
 - [Tools and integrations](./self-host-integrations.md): web search, memory, MCP servers,
