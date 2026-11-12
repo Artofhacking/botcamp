@@ -225,6 +225,7 @@ const OWN_STATE_RESULT_TOOLS = new Set([
   "list_fleet",
   "list_secrets",
   "message_user",
+  "sync_channels",
   "read_history",
   "recall_memory",
   "remember",

@@ -100,6 +100,8 @@ function createFakeSurface(sendError?: Error) {
 function createDeps(overrides: {
   run?: unknown;
   identity?: Record<string, unknown> | null;
+  identities?: Array<Record<string, unknown>>;
+  syncEffects?: Array<{ result: unknown }>;
   messages?: unknown[];
   outboundRows?: unknown[];
   existingOutbox?: unknown;
@@ -113,6 +115,7 @@ function createDeps(overrides: {
   // Stateful identity row so a cached dmThreadId is visible to later reads.
   const identityRow =
     overrides.identity === null ? null : { ...identity, ...(overrides.identity ?? {}) };
+  const identityList = overrides.identities ?? (identityRow ? [identityRow] : []);
   const prisma = {
     run: {
       findUnique: vi.fn(async () => overrides.run ?? messagingRun),
@@ -127,14 +130,24 @@ function createDeps(overrides: {
       ),
     },
     messagingIdentity: {
-      findUnique: vi.fn(async () => identityRow),
-      findFirst: vi.fn(async () => identityRow),
-      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-        if (identityRow && typeof data.dmThreadId === "string") {
-          identityRow.dmThreadId = data.dmThreadId;
-        }
-        return identityRow;
+      findUnique: vi.fn(async ({ where }: { where?: { id?: string } } = {}) => {
+        if (where?.id) return identityList.find((row) => row.id === where.id) ?? null;
+        return identityList[0] ?? null;
       }),
+      findFirst: vi.fn(async (args?: { where?: { provider?: string } }) => {
+        const provider = args?.where?.provider;
+        return identityList.find((row) => !provider || row.provider === provider) ?? null;
+      }),
+      update: vi.fn(
+        async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+          const row = identityList.find((item) => item.id === where.id);
+          if (row && typeof data.dmThreadId === "string") row.dmThreadId = data.dmThreadId;
+          return row ?? null;
+        },
+      ),
+    },
+    externalEffect: {
+      findMany: vi.fn(async () => overrides.syncEffects ?? []),
     },
     artifact: {
       findFirst: vi.fn(
@@ -400,6 +413,98 @@ describe("deliverMessagingOutbound", () => {
       { threadId: "sendblue:dm-1", body: "Hello from your bot" },
       context,
     );
+  });
+
+  const weixin = {
+    id: "mi-wx",
+    provider: "weixin",
+    address: "wx-user",
+    dmThreadId: "weixin:dm",
+    userId: "user-1",
+    spaceId: "ws-1",
+    botId: "bot-1",
+    outboundSinceInbound: 0,
+  };
+  const feishu = {
+    id: "mi-fs",
+    provider: "feishu",
+    address: "fs-user",
+    dmThreadId: "feishu:dm",
+    userId: "user-1",
+    spaceId: "ws-1",
+    botId: "bot-1",
+    outboundSinceInbound: 0,
+  };
+
+  it("sends a chat reply only to the channel it arrived on", async () => {
+    const deps = createDeps({
+      run: {
+        ...messagingRun,
+        sourceMessage: { origin: "chat:weixin", blocks: [{ kind: "text", text: "hi" }] },
+      },
+      identities: [weixin, feishu],
+    });
+    await deliverMessagingOutbound(deps, { runId: "run-1" }, context);
+
+    expect(deps.sendToThread).toHaveBeenCalledTimes(1);
+    expect(deps.sendToThread).toHaveBeenCalledWith(
+      { threadId: "weixin:dm", body: "Hello from your bot" },
+      context,
+    );
+    expect(deps.rows).toEqual([
+      expect.objectContaining({ idempotencyKey: "msg:m-1", identityId: "mi-wx" }),
+    ]);
+  });
+
+  it("also sends the reply to the channels sync_channels named", async () => {
+    const deps = createDeps({
+      run: {
+        ...messagingRun,
+        sourceMessage: { origin: "chat:weixin", blocks: [{ kind: "text", text: "hi" }] },
+      },
+      identities: [weixin, feishu],
+      syncEffects: [{ result: { ok: true, channels: ["feishu", "weixin"] } }],
+    });
+    await deliverMessagingOutbound(deps, { runId: "run-1" }, context);
+
+    const threads = (deps.sendToThread.mock.calls as unknown as [{ threadId: string }][])
+      .map((call) => call[0].threadId)
+      .sort();
+    expect(threads).toEqual(["feishu:dm", "weixin:dm"]);
+    expect(deps.rows.map((row) => row.idempotencyKey)).toEqual(["msg:m-1", "msg:m-1:via:feishu"]);
+  });
+
+  it("syncs an in-app reply only to the requested channels", async () => {
+    const deps = createDeps({
+      run: {
+        ...messagingRun,
+        trigger: "user",
+        sourceMessage: { origin: "web", blocks: [] },
+      },
+      identities: [weixin, feishu],
+      syncEffects: [{ result: { ok: true, channels: ["feishu"] } }],
+    });
+    await deliverMessagingOutbound(deps, { runId: "run-1" }, context);
+
+    expect(deps.sendToThread).toHaveBeenCalledTimes(1);
+    expect(deps.sendToThread).toHaveBeenCalledWith(
+      { threadId: "feishu:dm", body: "Hello from your bot" },
+      context,
+    );
+  });
+
+  it("ignores a sync_channels call that did not succeed", async () => {
+    const deps = createDeps({
+      run: {
+        ...messagingRun,
+        trigger: "user",
+        sourceMessage: { origin: "web", blocks: [] },
+      },
+      identities: [weixin, feishu],
+      syncEffects: [{ result: { error: "None of those channels are linked." } }],
+    });
+    await deliverMessagingOutbound(deps, { runId: "run-1" }, context);
+    expect(deps.sendToThread).not.toHaveBeenCalled();
   });
 
   it("holds sendblue DM sends at the consecutive-outbound cap", async () => {
@@ -782,6 +887,9 @@ function createChannelDeps(
     },
   };
   const prisma = {
+    externalEffect: {
+      findMany: vi.fn(async () => []),
+    },
     run: {
       findUnique: vi.fn(async () => channelRun),
       updateMany: vi.fn(async () => ({ count: 1 })),

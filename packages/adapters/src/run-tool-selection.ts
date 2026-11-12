@@ -122,6 +122,8 @@ export function selectBuiltinToolsForRun(options: {
   userComputerScreen?: boolean;
   /** A mailbox saved for this run's user. Sending is offered only when the connection includes it. */
   mailbox?: "read" | "send";
+  /** The bot has a linked chat channel and has not turned sync_channels off. */
+  chatSync?: boolean;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   const ownerStartedRun = isOwnerStartedRun(options.trigger, Boolean(options.followUpFromUser));
@@ -178,6 +180,7 @@ export function selectBuiltinToolsForRun(options: {
         tool.name !== "call_user") &&
       (options.historyRetrievalEnabled ||
         !["search_history", "read_history"].includes(tool.name)) &&
+      (options.chatSync === true || tool.name !== "sync_channels") &&
       mailboxToolAllowed(tool.name, mailboxMode, options.messagingChannelRun) &&
       (!options.messagingChannelRun ||
         (!SCHEDULE_TOOL_NAMES.has(tool.name) &&

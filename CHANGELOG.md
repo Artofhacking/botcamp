@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.56] - 2026-11-12
+
+### Changed
+
+- A chat reply goes back only on the channel the message arrived from. The bot can also deliver that reply on other linked channels when asked ([integrations](docs/self-host-integrations.md)).
+
 ## [2.0.55] - 2026-11-12
 
 ### Changed

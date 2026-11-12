@@ -1,4 +1,3 @@
-import { normalizeContext } from "@earendil-works/pi-ai";
 import { WorkspaceTooLargeError } from "@botcamp/adapter-kit";
 import type { MessageBlock } from "@botcamp/contracts";
 import {
@@ -11,6 +10,7 @@ import { isOwnerStartedRun, ONCE_ROUTINE_CRON } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
 import { RunHistoryWriteError } from "@botcamp/db";
 import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
+import { normalizeContext } from "@earendil-works/pi-ai";
 import { describe, expect, it, vi } from "vitest";
 import { builtinAgentTools } from "./builtin-tools.js";
 import { createRunExecutor as createExecutor } from "./executor.js";
@@ -654,6 +654,12 @@ describe("run tool selection", () => {
     expect(app).toEqual(
       expect.arrayContaining(["ask_user", "request_takeover", "connect_app", "call_user"]),
     );
+    expect(plain).not.toContain("sync_channels");
+    expect(
+      selectBuiltinToolsForRun({ ...options, plainTextChannel: true, chatSync: true }).map(
+        (tool) => tool.name,
+      ),
+    ).toContain("sync_channels");
   });
 
   it("offers end_call on a hang-up run so it can title the call", () => {

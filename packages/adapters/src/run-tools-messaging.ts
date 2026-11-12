@@ -1,4 +1,4 @@
-import { isBackgroundRunTrigger, redactSecrets } from "@botcamp/core";
+import { isBackgroundRunTrigger, redactSecrets, resolveSyncChannels } from "@botcamp/core";
 import {
   connectAgent,
   messageConnectedAgent,
@@ -108,6 +108,23 @@ export const messagingTools: ToolHandlers = {
           }
         : { ok: true },
     );
+  },
+  async sync_channels(ctx, call) {
+    const linked = await ctx.deps.prisma.messagingIdentity.findMany({
+      where: { botId: ctx.bot.id },
+      select: { provider: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const resolved = resolveSyncChannels(
+      call.args.channels,
+      linked.map((row) => row.provider),
+    );
+    if (!resolved.ok) return call.finish({ error: resolved.error });
+    return call.finish({
+      ok: true,
+      channels: resolved.channels,
+      note: "This reply will also be delivered on those channels. The channel the message arrived from still receives it. Other linked channels do not.",
+    });
   },
   async message_bot(ctx, call) {
     const { deps, run, bot } = ctx;

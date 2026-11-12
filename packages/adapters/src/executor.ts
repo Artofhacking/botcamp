@@ -17,6 +17,7 @@ import {
   assertTransition,
   botMessageAllowsSilence,
   expandSkillReferencesInPrompt,
+  formatLinkedChatChannels,
   formatMessageOriginInstruction,
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
@@ -1306,9 +1307,19 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
               name: bot.name,
             })
           : undefined;
-        const hasMessagingIdentity = deps.messaging
-          ? await deps.messaging.hasIdentity(bot.id)
-          : false;
+        const linkedChatProviders = deps.messaging
+          ? (
+              await deps.prisma.messagingIdentity.findMany({
+                where: { botId: bot.id },
+                select: { provider: true },
+                orderBy: { createdAt: "asc" },
+              })
+            ).map((row) => row.provider)
+          : [];
+        const hasMessagingIdentity = linkedChatProviders.length > 0;
+        const chatSyncOffered =
+          hasMessagingIdentity &&
+          !disabledBuiltinToolSet(bot.disabledBuiltinTools).has("sync_channels");
         const paymentWallet = deps.paymentWallet;
         const paymentWalletEnabled = paymentWallet
           ? await paymentWalletConnected(
@@ -1318,7 +1329,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           : false;
         const messagingContext =
           [
-            hasMessagingIdentity ? messagingDmSurfaceNote() : null,
+            hasMessagingIdentity ? messagingDmSurfaceNote(chatSyncOffered) : null,
             messagingChannelRun
               ? messagingChannelPrivacyBlock()
               : nonOwnerChatRun
@@ -1425,6 +1436,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             userComputer: userComputer === "connected",
             userComputerScreen,
             mailbox: mailboxMode,
+            chatSync: chatSyncOffered,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
@@ -1737,6 +1749,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt. The next message can arrive from somewhere else,
           // and the clock changes every call; either one would break the cacheable prefix.
+          chatSyncOffered ? formatLinkedChatChannels(linkedChatProviders) : undefined,
           formatMessageOriginInstruction(sourceMessage?.origin ?? messagingSource?.origin),
           formatCurrentTimeInstruction(new Date(), userTimeZone),
           lateRoutineNote,

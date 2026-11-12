@@ -68,9 +68,10 @@ type IdentityRow = {
 };
 
 /**
- * Automatic mirror, not a send tool, so delivery does not depend on prompt
- * compliance. Agent-to-agent fan-out stays internal and never transits the
- * messaging provider. Also drains outbox rows the channels slice enqueued.
+ * Automatic mirror for the channel a message arrived on, plus any channels the
+ * sync_channels tool named. Other linked channels stay quiet. Agent-to-agent
+ * fan-out stays internal and never transits the messaging provider. Also drains
+ * outbox rows the channels slice enqueued.
  */
 export async function deliverMessagingOutbound(
   deps: MessagingDeliveryDeps,
@@ -94,6 +95,29 @@ export async function mirrorMessagingOutbound(
   });
 }
 
+const CHAT_CHANNEL_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+/** Providers a successful sync_channels call asked to include, in call order. */
+async function syncChannelProviders(deps: MessagingDeliveryDeps, runId: string): Promise<string[]> {
+  const effects = await deps.prisma.externalEffect.findMany({
+    where: { runId, kind: "sync_channels" },
+    orderBy: { createdAt: "asc" },
+    select: { result: true },
+  });
+  const providers: string[] = [];
+  for (const effect of effects) {
+    const result = effect.result;
+    if (!result || typeof result !== "object" || Array.isArray(result)) continue;
+    const record = result as { ok?: unknown; channels?: unknown };
+    if (record.ok !== true || !Array.isArray(record.channels)) continue;
+    for (const channel of record.channels) {
+      if (typeof channel !== "string" || !CHAT_CHANNEL_ID.test(channel)) continue;
+      if (!providers.includes(channel)) providers.push(channel);
+    }
+  }
+  return providers;
+}
+
 async function mirrorRun(deps: MessagingDeliveryDeps, runId: string): Promise<void> {
   const run = await deps.prisma.run.findUnique({
     where: { id: runId },
@@ -101,68 +125,89 @@ async function mirrorRun(deps: MessagingDeliveryDeps, runId: string): Promise<vo
   });
   if (!run) return;
 
-  if (run.trigger === "messaging") {
-    const sourceBlocks = (run.sourceMessage?.blocks ?? []) as MessageBlock[];
-    const channelBlock = sourceBlocks.find(
-      (block): block is Extract<MessageBlock, { kind: "channel_message" }> =>
-        block.kind === "channel_message",
-    );
-    if (channelBlock) {
-      await mirrorChannelRun(deps, run, channelBlock);
-      return;
-    }
-  } else if (run.trigger !== "bot_message") {
-    // Mirror inbound messaging runs and delegated bot_message replies only.
-    // Do not push in-app user/routine runs out to the linked chat.
-    return;
-  }
+  const sourceBlocks = (run.sourceMessage?.blocks ?? []) as MessageBlock[];
+  const channelBlock =
+    run.trigger === "messaging"
+      ? sourceBlocks.find(
+          (block): block is Extract<MessageBlock, { kind: "channel_message" }> =>
+            block.kind === "channel_message",
+        )
+      : undefined;
+  if (channelBlock) await mirrorChannelRun(deps, run, channelBlock);
 
-  // A reply goes back on the channel it arrived from. A reply with no channel
-  // uses the oldest identity, which is the only one when the bot has a single chat.
-  const identity = await messagingIdentityForBot(
-    deps.prisma,
-    run.botId,
-    providerFromChatOrigin(run.sourceMessage?.origin),
-  );
-  if (!identity) return;
+  // The arrival channel always gets the reply. sync_channels adds only the
+  // channels it named. A personal chat with no recorded origin, and a delegated
+  // bot_message with no request, still use the oldest identity.
+  const requested = await syncChannelProviders(deps, run.id);
+  const sourceProvider = channelBlock
+    ? undefined
+    : providerFromChatOrigin(run.sourceMessage?.origin);
+  const providers: string[] = [];
+  if (sourceProvider) providers.push(sourceProvider);
+  for (const provider of requested) {
+    if (!providers.includes(provider)) providers.push(provider);
+  }
+  if (
+    providers.length === 0 &&
+    !channelBlock &&
+    (run.trigger === "messaging" || run.trigger === "bot_message")
+  ) {
+    const oldest = await messagingIdentityForBot(deps.prisma, run.botId);
+    if (oldest) providers.push(oldest.provider);
+  }
+  if (providers.length === 0) return;
 
   // bot_message runs can carry the bot's user-facing reply after a delegate wake.
   // extractText keeps only text and page titles, so inter-bot chatter blocks never leak out.
-
   const messages = await deps.prisma.message.findMany({
     where: { runId: run.id, role: "bot" },
     orderBy: { seq: "asc" },
   });
-  const sendsFiles = deps.messaging
-    .platforms()
-    .some((platform) => platform.provider === identity.provider && platform.capabilities.files);
-  // One row per platform-sized part, then one per image or file, so a retry
-  // re-sends only the parts that failed and never repeats delivered text.
-  // Explicit createdAt keeps the parts in order for the drain.
-  const createdAt = Date.now();
   const linkedPages = linkedPageIds(messages);
-  const rows = messages
-    .flatMap((message) => {
+  const createdAt = Date.now();
+  const rows: Array<{
+    idempotencyKey: string;
+    kind: string;
+    identityId: string;
+    body: string;
+    sourceMessageId: string;
+    createdAt: Date;
+  }> = [];
+  for (const [providerIndex, provider] of providers.entries()) {
+    const identity = await messagingIdentityForBot(deps.prisma, run.botId, provider);
+    if (!identity) continue;
+    const sendsFiles = deps.messaging
+      .platforms()
+      .some((platform) => platform.provider === identity.provider && platform.capabilities.files);
+    // The first destination keeps the original keys so a retry does not send it twice.
+    const via = providerIndex === 0 ? "" : `:via:${provider}`;
+    for (const message of messages) {
       const body = extractText(message.blocks, linkedPages);
       const parts = body ? splitOutboundBody(identity.provider, body) : [];
-      return [
-        ...parts.map((part, index) => ({
-          idempotencyKey: index === 0 ? `msg:${message.id}` : `msg:${message.id}:${index + 1}`,
+      for (const [index, part] of parts.entries()) {
+        rows.push({
+          idempotencyKey:
+            index === 0 ? `msg:${message.id}${via}` : `msg:${message.id}${via}:${index + 1}`,
           kind: "dm",
           identityId: identity.id,
           body: part,
           sourceMessageId: message.id,
-        })),
-        ...(sendsFiles ? extractArtifactIds(message.blocks) : []).map((artifactId) => ({
-          idempotencyKey: `msg:${message.id}:file:${artifactId}`,
+          createdAt: new Date(createdAt + rows.length),
+        });
+      }
+      if (!sendsFiles) continue;
+      for (const artifactId of extractArtifactIds(message.blocks)) {
+        rows.push({
+          idempotencyKey: `msg:${message.id}${via}:file:${artifactId}`,
           kind: "dm",
           identityId: identity.id,
           body: "",
           sourceMessageId: message.id,
-        })),
-      ];
-    })
-    .map((row, index) => ({ ...row, createdAt: new Date(createdAt + index) }));
+          createdAt: new Date(createdAt + rows.length),
+        });
+      }
+    }
+  }
   if (rows.length === 0) return;
   // Atomic dedupe: a concurrent messaging.deliver for the same run loses on
   // the idempotencyKey unique key instead of throwing P2002.
@@ -734,7 +779,9 @@ export async function applyMessagingOutboundStatus(
 
 /** The artifact a reply's file row sends, from its `msg:<message>:file:<artifact>` key. */
 function fileArtifactId(idempotencyKey: string): string | null {
-  return /^msg:[^:]+:file:([^:]+)$/.exec(idempotencyKey)?.[1] ?? null;
+  return (
+    /^msg:[^:]+(?::via:[a-z0-9][a-z0-9_-]{0,63})?:file:([^:]+)$/.exec(idempotencyKey)?.[1] ?? null
+  );
 }
 
 /** Artifacts of the message's image and file blocks, in block order. */

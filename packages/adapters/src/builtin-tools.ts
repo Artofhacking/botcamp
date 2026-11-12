@@ -681,6 +681,24 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
   {
+    name: "sync_channels",
+    description:
+      "Deliver this reply on specific linked chat channels as well as the channel the message arrived from. A reply is never copied onto every linked channel. Pass only the extra channel ids the person asked for.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channels: {
+          type: "array",
+          items: { type: "string", minLength: 1, maxLength: 64 },
+          minItems: 1,
+          maxItems: 8,
+          description: "Linked chat channel ids that should also receive this reply.",
+        },
+      },
+      required: ["channels"],
+    },
+  },
+  {
     name: "request_secret",
     get description() {
       return secretAskToolSurface().description;
