@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { Bot, Connection, ConnectionCatalogItem, Group, Routine } from "@botcamp/contracts";
 import {
   buildComposerMentionOptions,
+  composerMentionSources,
   createRoutineMentionBatcher,
   mentionConnectorsFrom,
 } from "@botcamp/core";
@@ -31,6 +32,7 @@ export function useComposerMentions({
   groups,
   inGroup,
   groupId,
+  userId,
   integrationsOpen,
   initialBotsLoaded,
 }: {
@@ -40,6 +42,7 @@ export function useComposerMentions({
   groups: Group[];
   inGroup: boolean;
   groupId: string | undefined;
+  userId?: string;
   integrationsOpen: boolean;
   initialBotsLoaded: boolean;
 }) {
@@ -108,30 +111,36 @@ export function useComposerMentions({
     const { catalog, connections } = composerConnections.data ?? {};
     return bots.length === 0 ? [] : mentionConnectorsFrom(connections ?? [], catalog ?? []);
   }, [bots.length, composerConnections.data]);
-  const composerMentionTargets = useMemo(
-    () =>
-      buildComposerMentionOptions({
-        query: "",
-        includeEveryone: inGroup,
-        currentGroupId: groupId,
-        bots: bots.map((bot) => ({
-          id: bot.id,
-          name: bot.name,
-          color: bot.color,
-          avatarSet: bot.avatarSet,
-        })),
-        groups: groups.map((group) => ({ id: group.id, name: group.name })),
-        routines: mentionRoutines.map((routine) => ({
-          id: routine.id,
-          name: routine.name,
-          crons: routine.crons,
-          botId: routine.botId,
-          botName: routine.botName,
-        })),
-        connectors: mentionConnectors,
-        cronLabels: cronLabels(i18n.locale),
-      }),
-    [bots, groupId, groups, i18n.locale, inGroup, mentionConnectors, mentionRoutines],
-  );
+  const composerMentionTargets = useMemo(() => {
+    const openGroup = inGroup && groupId ? groups.find((group) => group.id === groupId) : undefined;
+    const sources = composerMentionSources({
+      bots: bots.map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        color: bot.color,
+        avatarSet: bot.avatarSet,
+      })),
+      routines: mentionRoutines.map((routine) => ({
+        id: routine.id,
+        name: routine.name,
+        crons: routine.crons,
+        botId: routine.botId,
+        botName: routine.botName,
+      })),
+      group: openGroup,
+      userId,
+    });
+    return buildComposerMentionOptions({
+      query: "",
+      includeEveryone: inGroup,
+      currentGroupId: groupId,
+      bots: sources.bots,
+      people: sources.people,
+      groups: groups.map((group) => ({ id: group.id, name: group.name })),
+      routines: sources.routines,
+      connectors: mentionConnectors,
+      cronLabels: cronLabels(i18n.locale),
+    });
+  }, [bots, groupId, groups, i18n.locale, inGroup, mentionConnectors, mentionRoutines, userId]);
   return { composerMentionTargets, footerLogos, setFooterLogos };
 }

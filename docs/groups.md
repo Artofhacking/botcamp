@@ -16,6 +16,8 @@ Each bot keeps its own memory, computer and instructions; the group only shares 
 
 A bot in the group is shown as the owner's name, a hyphen, then the bot's name. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
 
+@ in a shared group lists the people and the bots who are in it. Naming a person leaves their name in the message. A bot answers when you name it, or when you use @everyone. With no bot named, the first bot still answers.
+
 A private group is unchanged: it still belongs to one person and holds 2 to 10 of that person's bots.
 
 ## Who answers

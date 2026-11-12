@@ -3,7 +3,14 @@ import type { CronLabels } from "./cron.js";
 import { ENGLISH_CRON_LABELS, formatCron } from "./cron.js";
 import { displayName } from "./display-name.js";
 
-export const COMPOSER_MENTION_KINDS = ["bot", "group", "routine", "connector", "everyone"] as const;
+export const COMPOSER_MENTION_KINDS = [
+  "bot",
+  "person",
+  "group",
+  "routine",
+  "connector",
+  "everyone",
+] as const;
 
 export type ComposerMentionKind = (typeof COMPOSER_MENTION_KINDS)[number];
 
@@ -32,6 +39,7 @@ export type MentionPickerBot = {
   color?: string;
   avatarSet?: BotAvatarSet;
 };
+export type MentionPickerPerson = { id: string; name: string };
 export type MentionPickerGroup = { id: string; name: string };
 export type MentionPickerRoutine = {
   id: string;
@@ -300,7 +308,7 @@ export function toThreadMentionPayload(
   const payload: Array<string | { kind: "bot" | "group" | "routine" | "connector"; id: string }> =
     [];
   for (const mention of mentions) {
-    if (mention.kind === "everyone") continue;
+    if (mention.kind === "everyone" || mention.kind === "person") continue;
     if (mention.kind === "bot") {
       payload.push({ kind: "bot", id: mention.id });
       continue;
@@ -354,12 +362,62 @@ export function routineScheduleSubtitle(
   return schedule;
 }
 
+/**
+ * Mention sources for the open chat. A private group keeps the caller's bots.
+ * A shared group offers only its member bots, under their in-group names, and
+ * the other people in it.
+ */
+export function composerMentionSources(input: {
+  bots: readonly MentionPickerBot[];
+  routines: readonly MentionPickerRoutine[];
+  group?: {
+    shared?: boolean;
+    members: readonly {
+      botId: string;
+      name: string;
+      color?: string;
+      avatarSet?: BotAvatarSet;
+    }[];
+    people?: readonly { userId: string; name: string }[];
+  } | null;
+  userId?: string | null;
+}): {
+  bots: readonly MentionPickerBot[];
+  routines: readonly MentionPickerRoutine[];
+  people: readonly MentionPickerPerson[];
+} {
+  const group = input.group;
+  if (!group?.shared) return { bots: input.bots, routines: input.routines, people: [] };
+  const bots = group.members.map((member) => ({
+    id: member.botId,
+    name: member.name,
+    color: member.color,
+    avatarSet: member.avatarSet,
+  }));
+  const names = new Map(bots.map((bot) => [bot.id, bot.name]));
+  return {
+    bots,
+    routines: input.routines
+      .filter((routine) => names.has(routine.botId))
+      .map((routine) => ({
+        ...routine,
+        botName: names.get(routine.botId) ?? routine.botName,
+      })),
+    people: (group.people ?? []).flatMap((person) => {
+      const name = person.name.trim();
+      if (!name || person.userId === input.userId) return [];
+      return [{ id: person.userId, name }];
+    }),
+  };
+}
+
 export function buildComposerMentionOptions(input: {
   query: string;
   bots: readonly MentionPickerBot[];
   groups: readonly MentionPickerGroup[];
   routines: readonly MentionPickerRoutine[];
   connectors: readonly MentionPickerConnector[];
+  people?: readonly MentionPickerPerson[];
   currentGroupId?: string | null;
   includeEveryone?: boolean;
   /** Localized schedule words for routine subtitles; English when omitted. */
@@ -380,6 +438,12 @@ export function buildComposerMentionOptions(input: {
       subtitle: "Everyone in this group",
       color: "#85858A",
     });
+  }
+
+  for (const person of input.people ?? []) {
+    const name = displayName(person.name, "");
+    if (!name || !matches(name)) continue;
+    options.push({ kind: "person", id: person.id, name });
   }
 
   for (const bot of input.bots) {
