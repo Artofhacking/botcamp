@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -22,6 +21,7 @@ import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import type { GroupAvatarMember } from "@botcamp/ui-web";
 import { Button } from "@botcamp/ui-web";
 import { useIsMobile } from "@botcamp/ui-web/hooks/use-mobile";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {
@@ -86,7 +86,7 @@ import { ComputerPanel } from "./shell/computer-panel";
 import type { CreateBotDialogInput } from "./shell/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/import-setup-card";
 import { ShellDialogs, useShellDialogs } from "./shell/shell-dialogs";
-import { AppOverlays, SettingsOverlays } from "./shell/shell-overlays";
+import { AppOverlays, preloadSettingsOverlay, SettingsOverlays } from "./shell/shell-overlays";
 import { cycleBotId, useShellShortcuts } from "./shell/shell-shortcuts";
 import { focusSidebarSearch, ShellSidebar } from "./shell/shell-sidebar";
 import { ShellSidePanel } from "./shell/side-panel";
@@ -116,6 +116,23 @@ import type { SettingsSection } from "./shell-overlay";
 
 const NO_AGENT_SKILLS: AgentSkillCatalogEntry[] = [];
 const NO_PROVIDERS: string[] = [];
+
+function sameWorkingBots(left: readonly GroupAvatarMember[], right: readonly GroupAvatarMember[]) {
+  return (
+    left.length === right.length &&
+    left.every((member, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        member.botId === other.botId &&
+        member.name === other.name &&
+        member.color === other.color &&
+        member.status === other.status &&
+        member.avatarSet === other.avatarSet
+      );
+    })
+  );
+}
 
 export function ShellPage() {
   // A new key per space switch, so nothing from the previous space survives it.
@@ -267,6 +284,15 @@ function SpaceShell() {
   const openSettingsRef = useRef(openSettings);
   openSettingsRef.current = openSettings;
   useEffect(() => desktopBridge()?.settings?.onOpen(() => openSettingsRef.current("general")), []);
+  useEffect(() => {
+    const start = () => preloadSettingsOverlay();
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(start);
+      return () => cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(start, 1);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const inGroup = Boolean(groupId);
   const chatPanelOpen = inGroup
@@ -282,6 +308,14 @@ function SpaceShell() {
     inGroup || routeChat?.groupId
       ? undefined
       : (bots.find((b) => b.id === (botId ?? routeChat?.botId)) ?? bots[0]);
+  const callBotRef = useRef(callBot);
+  callBotRef.current = callBot;
+  const callTargetRef = useRef<Bot | undefined>(active);
+  callTargetRef.current = active;
+  const onTranscriptCallBack = useCallback(() => {
+    const bot = callTargetRef.current;
+    if (bot) callBotRef.current(bot);
+  }, []);
   const selectBot = useCallback(
     (id: string) => {
       setMobileSidebarOpen(false);
@@ -541,7 +575,7 @@ function SpaceShell() {
     },
     [bots, transcriptMembers],
   );
-  const workingBots: GroupAvatarMember[] = workingRuns.map((run) => {
+  const nextWorkingBots: GroupAvatarMember[] = workingRuns.map((run) => {
     const bot = resolveTranscriptBot(run.botId);
     return {
       botId: run.botId,
@@ -551,6 +585,11 @@ function SpaceShell() {
       status: run.status,
     };
   });
+  const workingBotsRef = useRef(nextWorkingBots);
+  if (!sameWorkingBots(workingBotsRef.current, nextWorkingBots)) {
+    workingBotsRef.current = nextWorkingBots;
+  }
+  const workingBots = workingBotsRef.current;
   const resolveTranscriptMemberName = useCallback(
     (botId: string | undefined) => memberName(transcriptMembers, botId),
     [transcriptMembers],
@@ -1066,7 +1105,7 @@ function SpaceShell() {
               userBubble={userBubble}
               onCallBack={
                 bootstrapMe?.phoneCallsEnabled && !inGroup && active
-                  ? () => callBot(active)
+                  ? onTranscriptCallBack
                   : undefined
               }
               onLoadOlder={loadOlder}

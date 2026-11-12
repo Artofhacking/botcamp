@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, Group, NavLink } from "@botcamp/contracts";
 import { accountDisplay } from "@botcamp/core";
 import {
@@ -9,6 +8,7 @@ import {
   InputGroupInput,
   Sidebar,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Search, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -23,6 +23,7 @@ import { useSignOut } from "../../lib/sign-out";
 import { ActivityList } from "../ActivityList";
 import { SpaceSearchResults } from "../SpaceSearch";
 import type { SettingsSection } from "../shell-overlay";
+import { preloadSettingsOverlay } from "./shell-overlays";
 import { SidebarHeader } from "./sidebar-header";
 import type { SidebarSearch } from "./use-sidebar-search";
 
@@ -355,6 +356,7 @@ function ShellSidebarFooter({
         open={menuOpen}
         onOpenChange={(open) => {
           setMenuOpen(open);
+          if (open) preloadSettingsOverlay();
           if (!open) setLogOutError(null);
         }}
         onIntegrations={() => {

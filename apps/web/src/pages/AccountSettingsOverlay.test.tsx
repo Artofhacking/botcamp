@@ -81,6 +81,12 @@ vi.mock("@botcamp/ui-web", async (importOriginal) => ({
   OptionSelect: ({ "data-testid": testId }: { "data-testid"?: string }) => (
     <div data-testid={testId} />
   ),
+  NativeSelect: ({ children, ...props }: React.ComponentProps<"select">) => (
+    <select {...props}>{children}</select>
+  ),
+  NativeSelectOption: ({ children, ...props }: React.ComponentProps<"option">) => (
+    <option {...props}>{children}</option>
+  ),
   cn: (...values: unknown[]) => values.filter(Boolean).join(" "),
 }));
 
@@ -149,6 +155,35 @@ it("does not offer bot style or chat preferences", async () => {
     expect(text).not.toContain("Show tool activity");
     expect(text).not.toContain("Load web images automatically");
     expect(container.querySelector('[data-testid="bot-style-select"]')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("keeps the timezone list out of the first settings paint", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(
+        <GeneralSettingsPanels
+          name="Jamie"
+          timezone="Pacific/Auckland"
+          onTimezoneChange={async () => undefined}
+        />,
+      );
+    });
+    const select = container.querySelector("select");
+    expect(select?.querySelectorAll("option")).toHaveLength(1);
+    expect(select?.querySelector("option")?.textContent).toBe("Pacific/Auckland");
+    await act(async () => {
+      select?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    expect((select?.querySelectorAll("option").length ?? 0) > 1).toBe(true);
   } finally {
     await act(async () => root.unmount());
     container.remove();

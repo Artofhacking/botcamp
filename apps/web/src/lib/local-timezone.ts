@@ -6,14 +6,24 @@ export function localTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
 
-/** Timezones to offer in pickers: the runtime's IANA list, always including `current`. */
-export function timezoneOptions(current?: string | null): string[] {
+let knownTimezones: readonly string[] | null = null;
+
+/** The runtime's IANA zones plus UTC, sorted once per page. */
+function ianaTimezones(): readonly string[] {
+  if (knownTimezones) return knownTimezones;
   const zones = new Set<string>(
     typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [],
   );
   zones.add("UTC");
-  if (current) zones.add(current);
-  return [...zones].sort((a, b) => a.localeCompare(b));
+  knownTimezones = [...zones].sort((a, b) => a.localeCompare(b));
+  return knownTimezones;
+}
+
+/** Timezones to offer in pickers: the runtime's IANA list, always including `current`. */
+export function timezoneOptions(current?: string | null): string[] {
+  const zones = ianaTimezones();
+  if (!current || zones.includes(current)) return [...zones];
+  return [...zones, current].sort((a, b) => a.localeCompare(b));
 }
 
 /** The runtime's own spelling of a zone, so aliases such as Asia/Kolkata and Asia/Calcutta match. */
