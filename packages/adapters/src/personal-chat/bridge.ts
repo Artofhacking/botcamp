@@ -87,10 +87,11 @@ export class PersonalChatBridge {
   }
 
   async list(actor: PersonalChatActor, botId: string): Promise<PersonalChatLink[]> {
-    const link = await this.prisma.chatToolLink.findFirst({
+    const links = await this.prisma.chatToolLink.findMany({
       where: { botId, userId: actor.userId, spaceId: actor.spaceId },
+      orderBy: { createdAt: "asc" },
     });
-    return link ? [publicLink(link)] : [];
+    return links.map(publicLink);
   }
 
   async start(
@@ -107,7 +108,9 @@ export class PersonalChatBridge {
       select: { id: true, isPrimary: true },
     });
     if (!bot?.isPrimary) throw new PersonalChatError("not_primary");
-    if (await this.alreadyLinked(actor, botId)) throw new PersonalChatError("already_linked");
+    if (await this.alreadyLinked(actor, botId, provider)) {
+      throw new PersonalChatError("already_linked");
+    }
     if (!linkableChatApps().includes(provider)) throw new PersonalChatError("unavailable");
     await this.clearLogins(actor, botId);
     if (provider === FEISHU_CHAT_PROVIDER) return this.startFeishu(actor, botId);
@@ -181,9 +184,15 @@ export class PersonalChatBridge {
     return { status: "wait" };
   }
 
-  async unlink(actor: PersonalChatActor, botId: string): Promise<void> {
+  async unlink(actor: PersonalChatActor, botId: string, provider?: string): Promise<void> {
     const link = await this.prisma.chatToolLink.findFirst({
-      where: { botId, userId: actor.userId, spaceId: actor.spaceId },
+      where: {
+        botId,
+        userId: actor.userId,
+        spaceId: actor.spaceId,
+        ...(provider ? { provider } : {}),
+      },
+      orderBy: { createdAt: "asc" },
     });
     if (!link) throw new PersonalChatError("not_found");
     try {
@@ -427,7 +436,7 @@ export class PersonalChatBridge {
     });
     try {
       await this.prisma.$transaction(async (tx) => {
-        if (await this.alreadyLinked(actor, login.botId, tx)) {
+        if (await this.alreadyLinked(actor, login.botId, PERSONAL_CHAT_PROVIDER, tx)) {
           throw new PersonalChatError("already_linked");
         }
         await tx.chatToolLink.create({
@@ -540,7 +549,7 @@ export class PersonalChatBridge {
     });
     try {
       await this.prisma.$transaction(async (tx) => {
-        if (await this.alreadyLinked(actor, login.botId, tx)) {
+        if (await this.alreadyLinked(actor, login.botId, FEISHU_CHAT_PROVIDER, tx)) {
           throw new PersonalChatError("already_linked");
         }
         await tx.chatToolLink.create({
@@ -738,19 +747,20 @@ export class PersonalChatBridge {
     });
   }
 
-  /** One linked chat app for this user's bot. Any chat identity already occupies that slot. */
+  /** True when this provider already has a link or identity on the bot. */
   private async alreadyLinked(
     actor: PersonalChatActor,
     botId: string,
+    provider: string,
     db: Pick<PrismaClient, "chatToolLink" | "messagingIdentity"> = this.prisma,
   ) {
     const [link, identity] = await Promise.all([
       db.chatToolLink.findFirst({
-        where: { botId, userId: actor.userId },
+        where: { botId, userId: actor.userId, provider },
         select: { id: true },
       }),
       db.messagingIdentity.findFirst({
-        where: { botId, userId: actor.userId },
+        where: { botId, userId: actor.userId, provider },
         select: { id: true },
       }),
     ]);

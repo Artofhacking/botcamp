@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import { messagingDeliverJob } from "@botcamp/adapter-kit";
 import { PersonalChatError } from "@botcamp/adapters";
 import { displayName } from "@botcamp/core";
@@ -7,9 +6,11 @@ import {
   crossSpaceCommunicationAllowed,
   formatMessagingLinkCode,
   issueMessagingLinkCode,
+  messagingIdentityForBot,
   runAsSystem,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import type { RouterContext } from "./context.js";
 import { isUniqueViolation } from "./shared.js";
 
@@ -78,14 +79,11 @@ export function messagingRoutes(ctx: RouterContext) {
             }),
           );
           if (!bot) throw new ORPCError("NOT_FOUND");
-          // One chat identity per bot: delivery mirrors a bot's replies to
-          // exactly one conversation.
+          // A code link is one conversation. Any identity already on the bot,
+          // including a personal chat channel, occupies that slot.
           // The bot may live in another space, so look across them.
           const linked = await acrossChatIdentities(() =>
-            deps.prisma.messagingIdentity.findUnique({
-              where: { botId: bot.id },
-              select: { id: true },
-            }),
+            messagingIdentityForBot(deps.prisma, bot.id),
           );
           if (linked) {
             throw new ORPCError("BAD_REQUEST", {
@@ -139,7 +137,7 @@ export function messagingRoutes(ctx: RouterContext) {
             );
             return messagingIdentityDto(deps.prisma, updated);
           } catch (error) {
-            // botId is unique: the target bot is already linked elsewhere.
+            // (botId, provider) is unique: the target bot already has this channel.
             if (isUniqueViolation(error)) {
               throw new ORPCError("BAD_REQUEST", {
                 message: "That bot is already linked to a chat app.",
@@ -175,7 +173,9 @@ export function messagingRoutes(ctx: RouterContext) {
         }),
         unlink: authed.messaging.chatTools.unlink.handler(async ({ context, input }) => {
           if (!deps.chatTools) throw new ORPCError("BAD_REQUEST");
-          await chatToolCall(() => deps.chatTools!.unlink(context.actor, input.botId));
+          await chatToolCall(() =>
+            deps.chatTools!.unlink(context.actor, input.botId, input.provider),
+          );
           return { ok: true as const };
         }),
       },
@@ -296,9 +296,10 @@ export function messagingRoutes(ctx: RouterContext) {
               });
               if (!input.accept) return { updated: row, notifyRequester: false };
               // Parity with the text-command path: the requester hears about it.
-              const requesterIdentity = await tx.messagingIdentity.findUnique({
-                where: { botId: connection.requesterBotId },
-              });
+              const requesterIdentity = await messagingIdentityForBot(
+                tx,
+                connection.requesterBotId,
+              );
               if (!requesterIdentity) return { updated: row, notifyRequester: false };
               const key = `command:connected:${connection.id}`;
               // A re-approved pair starts a fresh cycle; clear the stale row or
@@ -495,10 +496,7 @@ async function messagingConnectionDto(
   const [peerBot, peerIdentity] = await acrossChatIdentities(() =>
     Promise.all([
       prisma.bot.findUnique({ where: { id: peerBotId }, select: { name: true } }),
-      prisma.messagingIdentity.findUnique({
-        where: { botId: peerBotId },
-        select: { userId: true },
-      }),
+      messagingIdentityForBot(prisma, peerBotId),
     ]),
   );
   const peerOwner = peerIdentity

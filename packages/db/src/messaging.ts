@@ -27,6 +27,22 @@ export interface ProvisionedMessagingIdentity {
   created: boolean;
 }
 
+/**
+ * One identity per channel. A caller that names a provider gets that channel.
+ * A caller that does not takes the oldest, which is the only row when a bot
+ * has a single chat.
+ */
+export function messagingIdentityForBot(
+  db: PrismaClient | Prisma.TransactionClient,
+  botId: string,
+  provider?: string,
+) {
+  return db.messagingIdentity.findFirst({
+    where: { botId, ...(provider ? { provider } : {}) },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 /** Addresses come from verified platform webhooks; this guards the DB shape. */
 const ADDRESS_PATTERN = /^[^\s]{1,128}$/;
 
@@ -294,8 +310,8 @@ export async function redeemMessagingLinkCode(
       return redeemed;
     });
   } catch (error) {
-    // botId is unique (one chat app per bot) and (provider, address) can race
-    // a concurrent inbound; either way the code is spent and the sender can
+    // (botId, provider) is unique, and (provider, address) can race a
+    // concurrent inbound. Either way the code is spent and the sender can
     // request a fresh one.
     if (isUniqueViolationError(error)) return null;
     throw error;

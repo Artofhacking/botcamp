@@ -75,7 +75,17 @@ function messagingDeps(
   const connectionState = connection ? { ...connection } : null;
   const prisma = {
     messagingIdentity: {
-      findFirst: vi.fn(async () => resolvedIdentity),
+      findFirst: vi.fn(async (args?: { where?: { botId?: string } }) =>
+        args?.where?.botId === "bot-9"
+          ? {
+              id: "mi-9",
+              provider: "sendblue",
+              address: "+15559999999",
+              userId: "user-9",
+              botId: "bot-9",
+            }
+          : resolvedIdentity,
+      ),
       findMany: vi.fn(
         async () => overrides.identities ?? (resolvedIdentity ? [resolvedIdentity] : []),
       ),
@@ -402,7 +412,7 @@ describe("messaging.link", () => {
 
   it("refuses to issue a code for an already-linked bot", async () => {
     const { handler, actor } = messagingDeps();
-    // messagingIdentity.findUnique resolves an identity for bot-1 by default.
+    // messagingIdentity.findFirst resolves an identity for bot-1 by default.
     const response = await call(handler, actor, "messaging/link/start", { botId: "bot-1" });
     expect(response.status).toBe(400);
   });

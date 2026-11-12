@@ -13,6 +13,7 @@ import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   crossSpaceCommunicationAllowed,
+  messagingIdentityForBot,
   runAsSystem,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
@@ -61,9 +62,9 @@ async function requestConnection(
 ): Promise<Result> {
   const address = input.address?.trim();
   if (!address) return { ok: false, error: "address is required" };
-  const requesterIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: sender.id },
-  });
+  // Several channels can share a bot. An invite stays on the oldest identity
+  // so a later channel does not retarget it.
+  const requesterIdentity = await messagingIdentityForBot(deps.prisma, sender.id);
   // Connection invites are a messaging-surface feature; a bot whose owner
   // never messaged the deployment cannot open them.
   if (!requesterIdentity) {
@@ -213,10 +214,7 @@ export function prepareAgentConnectionResponse(
     if (!pending) return null;
     const [requester, identity] = await Promise.all([
       prisma.bot.findUnique({ where: { id: pending.requesterBotId }, select: { name: true } }),
-      prisma.messagingIdentity.findUnique({
-        where: { botId: pending.requesterBotId },
-        select: { address: true, provider: true },
-      }),
+      messagingIdentityForBot(prisma, pending.requesterBotId),
     ]);
     if (!requester || !identity) return null;
     return {
@@ -297,9 +295,7 @@ async function deliverToConnectedAgent(
   const address = input.address?.trim();
   if (!address) return { ok: false, error: "address is required" };
 
-  const senderIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: sender.id },
-  });
+  const senderIdentity = await messagingIdentityForBot(deps.prisma, sender.id);
   if (!senderIdentity) {
     return { ok: false, error: "only chat-linked agents can use agent connections" };
   }

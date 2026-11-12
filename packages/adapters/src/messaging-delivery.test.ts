@@ -128,6 +128,7 @@ function createDeps(overrides: {
     },
     messagingIdentity: {
       findUnique: vi.fn(async () => identityRow),
+      findFirst: vi.fn(async () => identityRow),
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         if (identityRow && typeof data.dmThreadId === "string") {
           identityRow.dmThreadId = data.dmThreadId;
@@ -793,6 +794,11 @@ function createChannelDeps(
     },
     messagingIdentity: {
       findUnique: vi.fn(async ({ where }: { where: { botId?: string; id?: string } }) => {
+        if (where.botId === "bot-1" || where.id === "mi-1") return posterIdentity;
+        if (where.botId === "bot-2" || where.id === "mi-2") return peerIdentity;
+        return null;
+      }),
+      findFirst: vi.fn(async ({ where }: { where: { botId?: string; id?: string } }) => {
         if (where.botId === "bot-1" || where.id === "mi-1") return posterIdentity;
         if (where.botId === "bot-2" || where.id === "mi-2") return peerIdentity;
         return null;

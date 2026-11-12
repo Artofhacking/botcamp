@@ -21,21 +21,28 @@ function stores() {
     bot: { findFirst: vi.fn(async () => ({ id: "bot-1", isPrimary: true })) },
     chatToolLink: {
       findFirst: vi.fn(
-        async (): Promise<{
+        async (_args?: {
+          where?: { provider?: string };
+        }): Promise<{
           id: string;
           ciphertext?: string;
           provider?: string;
           accountId?: string;
         } | null> => null,
       ),
+      findMany: vi.fn(
+        async (): Promise<Array<{ provider: string; address: string; botId: string }>> => [],
+      ),
       create: vi.fn(async (args: { data: unknown }) => {
         created.push(args.data);
         return args.data;
       }),
+      delete: vi.fn(async () => ({})),
     },
     messagingIdentity: {
       findFirst: vi.fn(async (): Promise<{ id: string } | null> => null),
       create: vi.fn(async () => ({ id: "identity-1" })),
+      deleteMany: vi.fn(async () => ({ count: 1 })),
     },
     chatToolLogin: {
       findMany: vi.fn(async () => []),
@@ -191,14 +198,53 @@ describe("one bot, one Feishu", () => {
     });
   });
 
-  it("does not start Feishu when that bot already has a chat app", async () => {
+  it("does not start Feishu when that bot already has Feishu", async () => {
     const { prisma, secrets } = stores();
-    prisma.chatToolLink.findFirst.mockResolvedValue({ id: "link-1" });
+    prisma.chatToolLink.findFirst.mockImplementation(async (args) =>
+      args?.where?.provider === "feishu" ? { id: "link-1" } : null,
+    );
     const begin = vi.fn();
     await expect(
       bridge(prisma, secrets, {}, { begin }).start(actor, "bot-1", "feishu"),
     ).rejects.toMatchObject({ code: "already_linked" });
     expect(begin).not.toHaveBeenCalled();
+  });
+
+  it("starts Feishu when that bot already has WeChat", async () => {
+    const { prisma, secrets } = stores();
+    prisma.chatToolLink.findFirst.mockImplementation(async (args) =>
+      args?.where?.provider === "weixin" ? { id: "link-weixin" } : null,
+    );
+    prisma.chatToolLink.findMany.mockResolvedValue([
+      { provider: "weixin", address: "wx-user", botId: "bot-1" },
+    ]);
+    const begin = vi.fn(async () => ({
+      login: feishuLogin,
+      image: "https://open.feishu.cn/page/cli?user_code=abc",
+      expiresInMs: 60_000,
+    }));
+    const linked = bridge(prisma, secrets, {}, { begin });
+    await expect(linked.list(actor, "bot-1")).resolves.toEqual([
+      { provider: "weixin", address: "wx-user", botId: "bot-1" },
+    ]);
+    await expect(linked.start(actor, "bot-1", "feishu")).resolves.toMatchObject({
+      image: "https://open.feishu.cn/page/cli?user_code=abc",
+    });
+    expect(begin).toHaveBeenCalled();
+  });
+
+  it("removes only the channel that was unlinked", async () => {
+    const { prisma, secrets } = stores();
+    prisma.chatToolLink.findFirst.mockImplementation(async (args) =>
+      args?.where?.provider === "feishu"
+        ? { id: "link-feishu", provider: "feishu", ciphertext: "secret" }
+        : null,
+    );
+    await bridge(prisma, secrets, {}).unlink(actor, "bot-1", "feishu");
+    expect(prisma.chatToolLink.delete).toHaveBeenCalledWith({ where: { id: "link-feishu" } });
+    expect(prisma.messagingIdentity.deleteMany).toHaveBeenCalledWith({
+      where: { botId: "bot-1", provider: "feishu", userId: "user-1" },
+    });
   });
 
   it("links the confirmed person and their app", async () => {

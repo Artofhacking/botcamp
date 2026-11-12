@@ -117,6 +117,7 @@ function createDeps(
           return identity;
         },
       ),
+      findFirst: vi.fn(async () => identity),
       update: vi.fn(async () => identity),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         const created = { id: "mi-linked", ...data };
@@ -1377,35 +1378,37 @@ describe("createMessagingInboundHandler owner commands", () => {
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
     });
-    Object.assign(deps.prisma.messagingIdentity, {
-      findUnique: vi.fn(
-        async ({
-          where,
-        }: {
-          where: { provider_address?: { provider: string; address: string }; botId?: string };
-        }) => {
-          if (where.botId === "bot-9") {
-            return {
-              id: "mi-9",
-              provider: "sendblue",
-              address: "+15559999999",
-              userId: "user-9",
-              spaceId: "ws-9",
-              botId: "bot-9",
-              outboundSinceInbound: 0,
-            };
-          }
+    const findIdentity = vi.fn(
+      async ({
+        where,
+      }: {
+        where: { provider_address?: { provider: string; address: string }; botId?: string };
+      }) => {
+        if (where.botId === "bot-9") {
           return {
-            id: "mi-1",
+            id: "mi-9",
             provider: "sendblue",
-            address: "+15551111111",
-            userId: "user-1",
-            spaceId: "ws-1",
-            botId: "bot-1",
+            address: "+15559999999",
+            userId: "user-9",
+            spaceId: "ws-9",
+            botId: "bot-9",
             outboundSinceInbound: 0,
           };
-        },
-      ),
+        }
+        return {
+          id: "mi-1",
+          provider: "sendblue",
+          address: "+15551111111",
+          userId: "user-1",
+          spaceId: "ws-1",
+          botId: "bot-1",
+          outboundSinceInbound: 0,
+        };
+      },
+    );
+    Object.assign(deps.prisma.messagingIdentity, {
+      findUnique: findIdentity,
+      findFirst: findIdentity,
     });
     sentPrompt(deps, "connect:bot-9:bot-1");
     const handle = createMessagingInboundHandler(deps);

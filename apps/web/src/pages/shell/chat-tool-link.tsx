@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { linkableChatApps, messagingProviderName } from "@botcamp/core";
 import {
   Button,
@@ -9,6 +8,7 @@ import {
   DialogTitle,
   Input,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronLeft } from "lucide-react";
 import QRCode from "qrcode";
 import type { FormEvent } from "react";
@@ -17,6 +17,11 @@ import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";
 
 type ChatToolRow = { provider: string; address: string; botId: string };
+
+function mergeLink(current: ChatToolRow[] | null, link: ChatToolRow): ChatToolRow[] {
+  const rest = (current ?? []).filter((row) => row.provider !== link.provider);
+  return [...rest, link];
+}
 type ChatToolPoll =
   | { status: "wait" | "scanned" | "need_pin" | "expired" | "already_linked" }
   | { status: "linked"; link: ChatToolRow };
@@ -119,7 +124,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
         return true;
       }
       if (result.status === "linked") {
-        setRows([result.link]);
+        setRows((current) => mergeLink(current, result.link));
         setLoginId(null);
         setImage(null);
         setNeedPin(false);
@@ -158,6 +163,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   if (!isPrimary) return null;
 
   const linked = rows ?? [];
+  const remaining = linkableChatApps().filter((id) => !linked.some((row) => row.provider === id));
 
   async function choose(id: string) {
     setBusy(true);
@@ -196,7 +202,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
       const result = await rpc.messaging.chatTools.poll({ loginId, pin });
       if (result.status === "need_pin") return;
       if (result.status === "linked") {
-        setRows([result.link]);
+        setRows((current) => mergeLink(current, result.link));
         setLoginId(null);
         setImage(null);
         setNeedPin(false);
@@ -220,12 +226,12 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     }
   }
 
-  async function unlink() {
+  async function unlink(provider: string) {
     setBusy(true);
     setError(null);
     try {
-      await rpc.messaging.chatTools.unlink({ botId });
-      setRows([]);
+      await rpc.messaging.chatTools.unlink({ botId, provider });
+      setRows((current) => (current ?? []).filter((row) => row.provider !== provider));
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -241,17 +247,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
         <span>
           <Trans>Link your chat app</Trans>
         </span>
-        {linked.length > 0 ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => void unlink()}
-          >
-            <Trans>Unlink</Trans>
-          </Button>
-        ) : (
+        {remaining.length > 0 ? (
           <Button
             type="button"
             size="sm"
@@ -265,8 +261,26 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
           >
             <Trans>Link</Trans>
           </Button>
-        )}
+        ) : null}
       </div>
+      {linked.map((row) => (
+        <div
+          key={row.provider}
+          data-testid={`chat-tool-linked-${row.provider}`}
+          className="flex min-h-12 items-center justify-between gap-3 border-t border-border text-sm"
+        >
+          <span>{messagingProviderName(row.provider)}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void unlink(row.provider)}
+          >
+            <Trans>Unlink</Trans>
+          </Button>
+        </div>
+      ))}
       {error && !open ? (
         <p className="border-t border-border py-3 text-sm text-destructive">{error}</p>
       ) : null}
@@ -293,7 +307,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
           </DialogHeader>
           {step === "choose" ? (
             <div className="grid gap-2">
-              {linkableChatApps().map((id) => (
+              {remaining.map((id) => (
                 <button
                   key={id}
                   type="button"

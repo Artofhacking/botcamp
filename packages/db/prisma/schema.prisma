@@ -1914,13 +1914,15 @@ model MessagingIdentity {
   userId               String
   spaceId              String
   space                Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  botId                String    @unique
+  /// One row per channel. A code-linked app and each personal chat provider can share a bot.
+  botId                String
   verifiedAt           DateTime?
   lastInboundAt        DateTime?
   outboundSinceInbound Int       @default(0)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
+  @@unique([botId, provider])
   @@unique([provider, address])
   @@index([userId])
   @@index([installationId])
@@ -2424,7 +2426,7 @@ model MessagingInstallSession {
   @@map("messaging_install_sessions")
 }
 
-/// A primary bot's linked personal chat app. The ciphertext holds the login.
+/// A primary bot's linked personal chat channel. One row per provider. The ciphertext holds the login.
 model ChatToolLink {
   id          String    @id
   provider    String
@@ -2434,7 +2436,7 @@ model ChatToolLink {
   space       Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  botId       String    @unique
+  botId       String
   bot         Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
   ciphertext  String
   syncCursor  String    @default("")
@@ -2445,6 +2447,7 @@ model ChatToolLink {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@unique([botId, provider])
   @@unique([provider, accountId])
   @@index([userId])
   @@map("chat_tool_links")

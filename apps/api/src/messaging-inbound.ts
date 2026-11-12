@@ -7,7 +7,11 @@ import type {
 import { messagingDeliverJob, runContinueJob } from "@botcamp/adapter-kit";
 import type { MessageBlock } from "@botcamp/contracts";
 import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@botcamp/contracts";
-import type { ChatApprovalChoice, ChatApprovalClassifyInput, MessagingCommand } from "@botcamp/core";
+import type {
+  ChatApprovalChoice,
+  ChatApprovalClassifyInput,
+  MessagingCommand,
+} from "@botcamp/core";
 import {
   CHAT_APPROVAL_APP_ONLY_NOTE,
   CHAT_APPROVAL_REPLY_REMINDER,
@@ -33,6 +37,7 @@ import type {
 import {
   createThreadMessage,
   crossSpaceCommunicationAllowed,
+  messagingIdentityForBot,
   normalizeMessagingLinkCode,
   redeemMessagingLinkCode,
 } from "@botcamp/db";
@@ -693,9 +698,7 @@ async function applyOwnerCommand(
 
   const connectedKey = `command:connected:${target.connection.id}`;
   const requesterIdentity = approved
-    ? await deps.prisma.messagingIdentity.findUnique({
-        where: { botId: target.connection.requesterBotId },
-      })
+    ? await messagingIdentityForBot(deps.prisma, target.connection.requesterBotId)
     : null;
   const key = `command:${command}:${target.connection.id}`;
   const claimed = await deps.prisma.$transaction(async (tx) => {

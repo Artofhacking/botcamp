@@ -20,6 +20,7 @@ import {
   CrossSpaceCommunicationBlockedError,
   createThreadMessageInTransaction,
   crossSpaceCommunicationAllowed,
+  messagingIdentityForBot,
   runAsSystem,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
@@ -116,9 +117,13 @@ async function mirrorRun(deps: MessagingDeliveryDeps, runId: string): Promise<vo
     return;
   }
 
-  const identity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: run.botId },
-  });
+  // A reply goes back on the channel it arrived from. A reply with no channel
+  // uses the oldest identity, which is the only one when the bot has a single chat.
+  const identity = await messagingIdentityForBot(
+    deps.prisma,
+    run.botId,
+    providerFromChatOrigin(run.sourceMessage?.origin),
+  );
   if (!identity) return;
 
   // bot_message runs can carry the bot's user-facing reply after a delegate wake.
@@ -174,9 +179,7 @@ async function mirrorChannelRun(
   run: { id: string; botId: string },
   channelBlock: Extract<MessageBlock, { kind: "channel_message" }>,
 ): Promise<void> {
-  const identity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: run.botId },
-  });
+  const identity = await messagingIdentityForBot(deps.prisma, run.botId, channelBlock.provider);
   if (!identity) return;
   const channel = await deps.prisma.messagingChannel.findUnique({
     where: { id: channelBlock.channelId },
@@ -700,6 +703,12 @@ async function resolveDirectThread(
     data: { dmThreadId: threadId },
   });
   return threadId;
+}
+
+function providerFromChatOrigin(origin: string | null | undefined): string | undefined {
+  if (!origin?.startsWith("chat:")) return undefined;
+  const provider = origin.slice("chat:".length);
+  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(provider) ? provider : undefined;
 }
 
 function messagingOutboundRetryDelayMs(attempts: number): number {

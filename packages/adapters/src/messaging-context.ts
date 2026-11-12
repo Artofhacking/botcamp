@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@botcamp/db";
+import { messagingIdentityForBot } from "@botcamp/db";
 
 /**
  * Executor dep answering "does this bot belong to a messaging identity?" —
@@ -7,8 +8,6 @@ import type { PrismaClient } from "@botcamp/db";
 export function createMessagingContextLoader(prisma: PrismaClient) {
   return {
     hasIdentity: async (botId: string): Promise<boolean> =>
-      Boolean(
-        await prisma.messagingIdentity.findUnique({ where: { botId }, select: { id: true } }),
-      ),
+      Boolean(await messagingIdentityForBot(prisma, botId)),
   };
 }

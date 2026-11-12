@@ -293,6 +293,37 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   expect(code?.getAttribute("src")).not.toBe("https://liteapp.weixin.qq.com/q/abc");
 });
 
+it("lists a linked WeChat channel and still offers another", async () => {
+  const list = rpc.messaging.chatTools.list as ReturnType<typeof vi.fn>;
+  list.mockResolvedValueOnce([{ provider: "weixin", address: "wx-user", botId: "bot-1" }]);
+  await renderSettings(
+    vi.fn(async () => undefined),
+    { ...bot, isPrimary: true },
+  );
+  await flush();
+  const section = container.querySelector("[data-testid=chat-tool-link]");
+  const linked = container.querySelector("[data-testid=chat-tool-linked-weixin]");
+  expect(linked?.textContent).toContain("WeChat");
+  const unlink = [...(linked?.querySelectorAll("button") ?? [])].find(
+    (button) => button.textContent === "Unlink",
+  );
+  const link = [...(section?.querySelectorAll("button") ?? [])].find(
+    (button) => button.textContent === "Link",
+  );
+  expect(unlink).toBeDefined();
+  expect(link).toBeDefined();
+  await act(async () => link?.click());
+  await flush();
+  const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
+  expect(names).toContain("Feishu");
+  expect(names).not.toContain("WeChat");
+  const unlinkRpc = rpc.messaging.chatTools.unlink as ReturnType<typeof vi.fn>;
+  await act(async () => unlink?.click());
+  await flush();
+  expect(unlinkRpc).toHaveBeenCalledWith({ botId: "bot-1", provider: "weixin" });
+  expect(container.querySelector("[data-testid=chat-tool-linked-weixin]")).toBeNull();
+});
+
 it("defaults daily check-ins on and saves the opt-out", async () => {
   const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
   await renderSettings(onSave);
