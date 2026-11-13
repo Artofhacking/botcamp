@@ -201,6 +201,7 @@ import {
   selectBuiltinToolsForRun,
 } from "./run-tool-selection.js";
 import { applyTool } from "./run-tools.js";
+import { directoryToolDescription } from "./run-tools-directory.js";
 import { historyMyChatsAllowed } from "./run-tools-memory.js";
 import type { UserComputerState } from "./run-tools-user-computer.js";
 import { USER_COMPUTER_SHELL_TOOL, userComputerOwner } from "./run-tools-user-computer.js";
@@ -273,22 +274,6 @@ async function subscriptionChoice(
     getLogger().warn("subscription quota check failed", { runId, error });
     return undefined;
   }
-}
-
-/**
- * What the instructions say about the person's directory. A connected account is named only
- * when the tools are offered; a configured but unlinked one still gets a "connect it" line.
- * A shared chat never learns whether the owner's account is connected.
- */
-function directoryInstructionState(input: {
-  name: string | undefined;
-  linked: boolean;
-  offered: boolean;
-  shared: boolean;
-}): { name: string; connected: boolean } | undefined {
-  if (!input.name || input.shared) return undefined;
-  if (!input.linked) return { name: input.name, connected: false };
-  return input.offered ? { name: input.name, connected: true } : undefined;
 }
 
 export function createRunExecutor(executorDeps: ExecutorDeps) {
@@ -1475,7 +1460,14 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
-        const strategicBuiltins = filterStrategicInitiativeTools(builtins, {
+        const describedBuiltins = builtins.map((tool) =>
+          directoryLinked &&
+          deps.directory &&
+          (tool.name === "directory_read" || tool.name === "directory_write")
+            ? { ...tool, description: directoryToolDescription(tool.name, deps.directory.name) }
+            : tool,
+        );
+        const strategicBuiltins = filterStrategicInitiativeTools(describedBuiltins, {
           trigger: run.trigger,
           clientNonce: run.clientNonce,
         });
@@ -1960,12 +1952,6 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 agentEnvironmentInstruction,
                 botDirectory,
                 pluginLine,
-                directory: directoryInstructionState({
-                  name: deps.directory?.name,
-                  linked: directoryLinked,
-                  offered: strategicBuiltins.some((tool) => tool.name === "directory_read"),
-                  shared: nonOwnerChatRun,
-                }),
                 agentSkillsLine,
                 taughtSkillsLine,
                 replyGuidance: runReplyGuidance(run.trigger),

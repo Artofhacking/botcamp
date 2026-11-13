@@ -3,6 +3,21 @@ import { prepareDirectoryCliArgs, runDirectoryCli } from "./lark/directory-cli.j
 import type { RunContext } from "./run-context.js";
 import type { ToolHandlers } from "./run-tool-gate.js";
 
+/**
+ * The tool description names the account the person connected, the way a connector's tools
+ * name their app. That is what lets the model answer a request about messages or documents
+ * with this tool instead of a separate instruction that special-cases the app.
+ */
+export function directoryToolDescription(
+  name: "directory_read" | "directory_write",
+  account: string,
+): string {
+  if (name === "directory_write") {
+    return `Change the connected ${account} account. The person approves each call. argv is the command, for example ["im","+messages-send"] to send a message or ["calendar","+create"] to create an event. The call always runs as that person. A command the account still marks as needing its own confirmation is not confirmed for you.`;
+  }
+  return `Read the connected ${account} account: its messages and chats, documents, drive, calendar, mail, tasks, approvals, bases, sheets, slides, wiki, minutes, and contacts. argv is the command, for example ["im","+chat-list"] to list chats, ["im","+chat-messages-list"] with a chat id to read its messages, ["docs","+search"] to find documents, and ["calendar","+agenda"] for the calendar. A read uses a +command that gets, lists, searches, or reads, or api with GET. Anything that changes data is rejected.`;
+}
+
 const UNAVAILABLE = "The directory connector is not available for this run.";
 const NOT_READ = "This command can change data. Use directory_write.";
 const CONFIRMATION =
