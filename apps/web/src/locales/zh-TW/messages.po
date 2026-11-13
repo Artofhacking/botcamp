@@ -4468,17 +4468,9 @@ msgstr "手機上的數字"
 msgid "OAuth authorization was cancelled."
 msgstr "OAuth 授權已取消。"
 
-#: src/components/integrations/deployment-apps.tsx
-msgid "OAuth client ID"
-msgstr "OAuth 客戶端 ID"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "OAuth client ID (optional)"
 msgstr "OAuth 客戶端 ID（選填）"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "OAuth client secret"
-msgstr "OAuth 客戶端金鑰"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "OAuth client secret (optional)"
