@@ -46,6 +46,8 @@ export interface BotCampDesktopDevice {
   deviceId: string | null;
   name: string;
   allowed: boolean;
+  /** The bots' traffic leaves from this computer's network. Only while `allowed`. */
+  relay: boolean;
 }
 
 /**
@@ -94,6 +96,8 @@ export interface BotCampDesktop {
     state: () => Promise<BotCampDesktopDevice | null>;
     /** Turning it on asks with a native prompt the page cannot answer. */
     setAllowed: (allowed: boolean) => Promise<BotCampDesktopDevice | null>;
+    /** Routes bots' traffic through this computer; it needs `allowed` on. */
+    setRelay: (relay: boolean) => Promise<BotCampDesktopDevice | null>;
   };
   /** Absent on older desktop releases, whose menus carry no app commands. */
   menu?: {

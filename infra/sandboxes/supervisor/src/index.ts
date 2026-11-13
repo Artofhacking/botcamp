@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   boundedSandboxCommandTimeoutMs,
+  computerRelayKey,
   readBoundedJsonResponse,
   resolveSupervisorToken,
   uploadSizeFromEnv,
@@ -131,6 +132,82 @@ const dataDir = path.resolve(repositoryRoot, process.env.DATA_DIR ?? "./data");
 let supervisorInfo: Docker.ContainerInspectInfo | undefined;
 let dockerApiVersion: string | undefined;
 const supervisorToken = resolveSupervisorToken(process.env);
+
+/**
+ * The bots' traffic relay runs on the web service, which the supervisor joins to every
+ * computer's network. Unset keeps every computer on its own egress.
+ */
+const computerRelayPort = Number(process.env.COMPUTER_RELAY_PORT ?? 0);
+const computerRelayApi = process.env.COMPUTER_RELAY_API_URL?.replace(/\/$/, "") ?? "";
+const webProxyAddresses = new Map<string, { address: string; at: number }>();
+const relayStates = new Map<string, { relay: boolean; at: number }>();
+
+/** Whether the computer's owner has the switch on, asked briefly so a command changes at once. */
+async function relayEnabled(computerKey: string): Promise<boolean> {
+  const cached = relayStates.get(computerKey);
+  if (cached && Date.now() - cached.at < 15_000) return cached.relay;
+  const response = await fetch(
+    `${computerRelayApi}/internal/computer-relay/state?key=${encodeURIComponent(computerKey)}`,
+    { headers: { authorization: `Bearer ${supervisorToken}` }, signal: AbortSignal.timeout(5_000) },
+  );
+  const body = response.ok ? await response.json() : null;
+  const relay = (body as { relay?: unknown } | null)?.relay === true;
+  relayStates.set(computerKey, { relay, at: Date.now() });
+  return relay;
+}
+
+/** The web service's address on this computer's network, where the SOCKS endpoint listens. */
+async function webProxyAddress(
+  info: Docker.ContainerInspectInfo,
+  networkName: string,
+): Promise<string | null> {
+  const cached = webProxyAddresses.get(networkName);
+  if (cached && Date.now() - cached.at < 60_000) return cached.address;
+  const project = info.Config.Labels?.["com.docker.compose.project"];
+  if (!project) return null;
+  const web = await docker.listContainers({
+    all: true,
+    filters: {
+      label: [`com.docker.compose.project=${project}`, "com.docker.compose.service=web"],
+    },
+  });
+  const network = await docker.getNetwork(networkName).inspect();
+  for (const container of web) {
+    const address = network.Containers?.[container.Id]?.IPv4Address?.split("/")[0];
+    if (!address) continue;
+    webProxyAddresses.set(networkName, { address, at: Date.now() });
+    return address;
+  }
+  return null;
+}
+
+/** The proxy variables one command gets, or none when the relay is off or the bot set its own. */
+async function relayEnvironment(
+  info: Docker.ContainerInspectInfo,
+  requested: Record<string, string> | undefined,
+): Promise<string[]> {
+  if (!(computerRelayPort > 0) || !computerRelayApi) return [];
+  if (requested && Object.keys(requested).some((name) => /^(?:all|http|https)_proxy$/i.test(name)))
+    return [];
+  const computerKey = info.Config.Labels?.["botcamp.botId"];
+  const networkName = Object.keys(info.NetworkSettings.Networks ?? {})[0];
+  if (!computerKey || !networkName) return [];
+  if (!(await relayEnabled(computerKey).catch(() => false))) return [];
+  const address = await webProxyAddress(info, networkName);
+  if (!address) return [];
+  const url = `socks5h://${encodeURIComponent(computerKey)}:${computerRelayKey(supervisorToken, computerKey)}@${address}:${computerRelayPort}`;
+  const bypass = "localhost,127.0.0.1,::1";
+  return [
+    `ALL_PROXY=${url}`,
+    `HTTP_PROXY=${url}`,
+    `HTTPS_PROXY=${url}`,
+    `all_proxy=${url}`,
+    `http_proxy=${url}`,
+    `https_proxy=${url}`,
+    `NO_PROXY=${bypass}`,
+    `no_proxy=${bypass}`,
+  ];
+}
 const screenNetworkMode = resolveScreenNetworkMode(process.env.SANDBOX_SCREEN_NETWORK);
 const computerEgressSetting = resolveComputerEgressMode();
 // `auto` starts open and becomes restricted once the probe shows the host rules are in place.
@@ -472,6 +549,7 @@ app.post("/computers/:id/exec", async (c) => {
   const timeoutMs = boundedSandboxCommandTimeoutMs(body.timeoutMs);
   let container: Docker.Container;
   let layout: ReturnType<typeof screenPorts>;
+  let relayEnv: string[] = [];
   try {
     const managed = await managedContainer(
       id,
@@ -485,6 +563,7 @@ app.post("/computers/:id/exec", async (c) => {
       computerRequestHeader(c, "screen-id") || computerRequestHeader(c, "bot-id") || id;
     const screenIndex = computerScreens.get(id)?.get(screenId)?.index ?? 0;
     layout = screenPorts(screenIndex);
+    relayEnv = await relayEnvironment(managed.info, body.env).catch(() => []);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return c.json({ stdout: "", stderr: message, code: 1 }, 200);
@@ -514,6 +593,7 @@ app.post("/computers/:id/exec", async (c) => {
             workingDir: body.cwd ?? "/home/botcamp",
             env: [
               ...computerCommandEnv(layout),
+              ...relayEnv,
               ...Object.entries(body.env ?? {}).map(([k, v]) => `${k}=${v}`),
             ],
             timeoutMs,

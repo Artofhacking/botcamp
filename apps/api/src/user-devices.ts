@@ -1,10 +1,16 @@
-import type { UserDeviceHub, UserDeviceRevokeReason, UserDevices } from "@botcamp/adapters";
+import type {
+  UserDeviceHub,
+  UserDeviceRelay,
+  UserDeviceRevokeReason,
+  UserDevices,
+} from "@botcamp/adapters";
 import {
   createUserDeviceToken,
   hashUserDeviceToken,
   USER_DEVICE_DISCONNECT_PATH,
   USER_DEVICE_FORWARD_PATH,
   USER_DEVICE_LIMIT,
+  USER_DEVICE_RELAY_FORWARD_PATH,
   userDeviceDisconnectBody,
   userDeviceForwardBody,
   validUserDeviceForwardSecret,
@@ -214,6 +220,20 @@ export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
     return deps.hub.stream(route, request, c.req.raw.signal);
   });
 
+  app.post(USER_DEVICE_RELAY_FORWARD_PATH, async (c) => {
+    if (!validUserDeviceForwardSecret(deps.forwardSecret, c.req.header("authorization")))
+      return c.json({ error: "Unauthorized" }, 401);
+    const host = c.req.query("host") ?? "";
+    const port = Number(c.req.query("port"));
+    const route = {
+      deviceId: c.req.header("x-user-device-id") ?? "",
+      userId: c.req.header("x-user-device-user") ?? "",
+      connectionId: c.req.header("x-user-device-connection") ?? "",
+    };
+    if (!deps.hub.holds(route)) return c.json({ error: "Gone" }, 409);
+    return relayResponse(deps.hub.relay(route, host, port, c.req.raw.signal), c.req.raw);
+  });
+
   app.post(USER_DEVICE_DISCONNECT_PATH, async (c) => {
     if (!validUserDeviceForwardSecret(deps.forwardSecret, c.req.header("authorization")))
       return c.json({ error: "Unauthorized" }, 401);
@@ -222,6 +242,46 @@ export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
     if (!input.success) return c.json({ error: "Invalid request" }, 400);
     deps.hub.disconnect(input.data.deviceId, input.data.reason);
     return c.body(null, 204);
+  });
+}
+
+/** One relayed stream as an HTTP body, with the request body written into it. */
+function relayResponse(relay: UserDeviceRelay, request: Request): Response {
+  const iterator = relay.data[Symbol.asyncIterator]();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const next = await iterator.next();
+        if (next.done) controller.close();
+        else controller.enqueue(next.value);
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel() {
+      relay.end();
+      await iterator.return?.();
+    },
+  });
+  void (async () => {
+    const reader = request.body?.getReader();
+    if (!reader) {
+      relay.end();
+      return;
+    }
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) relay.write(Buffer.from(value));
+      }
+    } catch {
+      /* The caller went away; the response stream fails on its own. */
+    }
+    relay.end();
+  })();
+  return new Response(body, {
+    headers: { "content-type": "application/octet-stream", "cache-control": "no-store" },
   });
 }
 

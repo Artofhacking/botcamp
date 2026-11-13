@@ -34,6 +34,7 @@ import { resolveScreenProxySecret } from "../../packages/core/src/secrets-guard.
 import { createServiceLogger } from "../../packages/logging/src/env.ts";
 import { apiProxy } from "./src/api-proxy.js";
 import { ASSET_ARCHIVE_DIR, archiveAssets } from "./src/asset-archive.js";
+import { startComputerRelayServer } from "./src/computer-relay.js";
 import { missingAssetMiddleware } from "./src/missing-asset.js";
 import {
   collectNovncHtml,
@@ -494,6 +495,21 @@ export default defineConfig(({ command, mode }) => {
       .map((entry) => entry.trim())
       .filter(Boolean),
   ];
+  // The SOCKS endpoint computers use for traffic relay; unset keeps it off, so a laptop that
+  // happens to run the dev server exposes nothing.
+  const computerRelayPort = Number(
+    firstNonEmpty(process.env.COMPUTER_RELAY_PORT, rootEnv.COMPUTER_RELAY_PORT) ?? "",
+  );
+  let computerRelay: { close(): Promise<void> } | undefined;
+  const attachComputerRelay = (server: {
+    httpServer?: { once(event: "close", listener: () => void): unknown } | null;
+  }) => {
+    if (!(computerRelayPort > 0) || computerRelay) return;
+    void startComputerRelayServer({ apiBase: api, port: computerRelayPort }).then((started) => {
+      computerRelay = started;
+      server.httpServer?.once("close", () => void started.close());
+    });
+  };
   // Set by the server built from this config; reusing one config object for two servers would
   // leave the last one's list.
   let proxyHosts: readonly string[] | true = [];
@@ -678,6 +694,11 @@ export default defineConfig(({ command, mode }) => {
         configurePreviewServer: (server) => {
           proxyHosts = server.config.preview.allowedHosts;
         },
+      },
+      {
+        name: "botcamp-computer-relay",
+        configureServer: (server) => attachComputerRelay(server),
+        configurePreviewServer: (server) => attachComputerRelay(server),
       },
       {
         name: "rakazo-novnc-proxy",

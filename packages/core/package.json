@@ -73,6 +73,11 @@
       "types": "./src/query.ts",
       "development": "./src/query.ts",
       "default": "./src/query.ts"
+    },
+    "./computer-relay": {
+      "types": "./src/computer-relay.ts",
+      "development": "./src/computer-relay.ts",
+      "default": "./src/computer-relay.ts"
     }
   },
   "scripts": {

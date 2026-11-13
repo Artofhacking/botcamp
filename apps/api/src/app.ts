@@ -175,6 +175,7 @@ import {
   requestClientIp,
   withClientIp,
 } from "./client-ip.js";
+import { mountComputerRelayRoutes } from "./computer-relay.js";
 import { cspReportRoutes } from "./csp-report.js";
 import { createDirectoryGrant } from "./directory-grant.js";
 import { configuredEmailProvider } from "./email.js";
@@ -1141,6 +1142,12 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       },
       trustedOrigin: (origin) => isTrustedOrigin(origin, env),
     });
+    if (env.sandboxSupervisorToken)
+      mountComputerRelayRoutes(app, {
+        prisma,
+        devices: userDevices,
+        secret: env.sandboxSupervisorToken,
+      });
   }
   if (messagingInstallations) {
     // Slack's registered redirect; the signed-in app finishes it so only the installer can.

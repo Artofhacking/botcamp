@@ -1699,6 +1699,12 @@ app.whenReady().then(async () => {
     await userDevices?.setAllowed(origin, allowed);
     return deviceState(pairedDeviceOrigin());
   });
+  ipcMain.handle("desktop.device.setRelay", async (event, relay: unknown) => {
+    const origin = pairedDeviceOrigin();
+    if (!fromRemotePage(event) || origin === null || typeof relay !== "boolean") return null;
+    await userDevices?.setRelay(origin, relay);
+    return deviceState(pairedDeviceOrigin());
+  });
   ipcMain.handle(
     "desktop.locale.set",
     createLocaleHandler(

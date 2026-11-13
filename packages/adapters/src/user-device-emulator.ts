@@ -1,7 +1,12 @@
 import type { ProcessEvent } from "@botcamp/adapter-kit";
 import type { HostComputerEnvironment, HostComputerRequest } from "./host-computer-protocol.js";
 import type { HostScreenObservation } from "./host-screen.js";
-import type { UserDevice, UserDeviceGateway } from "./user-device-protocol.js";
+import type {
+  UserDevice,
+  UserDeviceGateway,
+  UserDeviceRelay,
+  UserDeviceRelayTarget,
+} from "./user-device-protocol.js";
 
 export const USER_DEVICE_EMULATOR_OUTPUT = "fixture-mac\n";
 
@@ -19,6 +24,25 @@ export class UserDeviceEmulator implements UserDeviceGateway {
 
   async pairedSince(_userId: string): Promise<Date> {
     return new Date(0);
+  }
+
+  /** The fixture computer can relay, so tests cover the path that uses it. */
+  async relaying(_userId: string): Promise<boolean> {
+    return true;
+  }
+
+  async relay(
+    _userId: string,
+    _target: UserDeviceRelayTarget,
+    _signal: AbortSignal,
+  ): Promise<UserDeviceRelay> {
+    return {
+      data: (async function* () {
+        yield Buffer.from("fixture-relay\n");
+      })(),
+      write() {},
+      end() {},
+    };
   }
 
   async *request<T>(

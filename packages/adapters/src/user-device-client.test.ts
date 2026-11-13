@@ -3,6 +3,7 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { USER_DEVICE_CONNECT_PATH } from "@botcamp/contracts";
@@ -103,6 +104,45 @@ describe("user device client", () => {
     serverUrl = remote.href;
     expect(() => start()).toThrow("Local computer access requires HTTPS or loopback");
     expect(upgrades).toHaveLength(0);
+  });
+
+  it("relays a TCP stream from the server through this computer", async () => {
+    const echo = createTcpServer((loop) => loop.pipe(loop));
+    await new Promise<void>((resolve) => echo.listen(0, "127.0.0.1", resolve));
+    const port = (echo.address() as AddressInfo).port;
+    client = startUserDeviceClient({
+      serverUrl,
+      token,
+      root,
+      onRevoked: revoked,
+      authorize: async () => true,
+      relay: () => true,
+      retryMs: { min: 20, max: 40 },
+    });
+    const ws = await connection();
+    const received = frames(ws);
+    ws.send(JSON.stringify({ type: "relay-open", id: "r1", host: "127.0.0.1", port }));
+    ws.send(
+      JSON.stringify({
+        type: "relay-data",
+        id: "r1",
+        data: Buffer.from("ping").toString("base64"),
+      }),
+    );
+    await until(() =>
+      received.some(
+        (message) =>
+          message.type === "relay-data" &&
+          message.id === "r1" &&
+          Buffer.from(
+            String((message as unknown as { data: string }).data),
+            "base64",
+          ).toString() === "ping",
+      ),
+    );
+    ws.send(JSON.stringify({ type: "relay-close", id: "r1" }));
+    expect(received.every((message) => message.type !== "relay-close" || message.id === "r1"));
+    echo.close();
   });
 
   it("authenticates outbound and streams request frames back by id", async () => {

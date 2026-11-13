@@ -15,6 +15,7 @@ export function ComputerDeviceSettings() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const switchId = useId();
+  const relayId = useId();
 
   const load = useCallback(async () => {
     const [listed, local] = await Promise.all([
@@ -47,24 +48,46 @@ export function ComputerDeviceSettings() {
   return (
     <SettingsGroup title={<Trans>Computers</Trans>} data-testid="computer-devices">
       {thisComputer ? (
-        <SettingsRow
-          label={
-            <Label htmlFor={switchId} className="text-[14px] font-normal text-foreground">
-              <Trans>Let bots use this computer</Trans>
-            </Label>
-          }
-          control={
-            <Switch
-              id={switchId}
-              data-testid="this-computer-toggle"
-              checked={thisComputer.allowed}
-              disabled={pending}
-              onCheckedChange={(allowed) =>
-                void run(() => desktop!.setAllowed(allowed), t`Could not change`)
+        <>
+          <SettingsRow
+            label={
+              <Label htmlFor={switchId} className="text-[14px] font-normal text-foreground">
+                <Trans>Let bots use this computer</Trans>
+              </Label>
+            }
+            control={
+              <Switch
+                id={switchId}
+                data-testid="this-computer-toggle"
+                checked={thisComputer.allowed}
+                disabled={pending}
+                onCheckedChange={(allowed) =>
+                  void run(() => desktop!.setAllowed(allowed), t`Could not change`)
+                }
+              />
+            }
+          />
+          {desktop?.setRelay ? (
+            <SettingsRow
+              label={
+                <Label htmlFor={relayId} className="text-[14px] font-normal text-foreground">
+                  <Trans>Route traffic through this computer</Trans>
+                </Label>
+              }
+              control={
+                <Switch
+                  id={relayId}
+                  data-testid="this-computer-relay"
+                  checked={thisComputer.relay === true}
+                  disabled={pending || !thisComputer.allowed}
+                  onCheckedChange={(relay) =>
+                    void run(() => desktop.setRelay(relay), t`Could not change`)
+                  }
+                />
               }
             />
-          }
-        />
+          ) : null}
+        </>
       ) : null}
       {devices.map((device) => (
         <SettingsRow

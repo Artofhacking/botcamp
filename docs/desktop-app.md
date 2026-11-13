@@ -27,6 +27,17 @@ The app asks **Allow bots to use this computer?** before access is granted. See
 > With **Use this Mac**, bots can run commands without asking. Don't choose it for a server other
 > people use.
 
+### Route traffic through this computer
+
+Right under **Let bots use this computer**, **Route traffic through this computer** sends bots'
+TCP traffic out through your Mac's network, so sites that only your network reaches, or your usual
+address, work for them. It needs the switch above and turns off with it. It applies to your own
+private computers, never a Team computer other people share. It needs the web, API, supervisor and
+desktop app on the same release; the computer reaches a relay on the web service inside its own
+Docker network, which forwards to this app.
+
+The computer's page browser keeps its own connection in this release.
+
 ## Updates
 
 The app checks for updates and downloads them in the background. When one is ready, an
