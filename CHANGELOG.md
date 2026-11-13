@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-13
+
+### Added
+
+- **Route traffic through this computer**, under **Let bots use this computer** in the desktop app's computer settings, sends your private bots' TCP through this Mac's network, so sites only your network reaches work for them and requests come from your usual address. It needs the switch above, applies only to your own private computers, and never to a Team computer other people share. The computer's page browser keeps its own connection ([desktop app](docs/desktop-app.md#route-traffic-through-this-computer)).
+
+### Self-host upgrade notes
+
+- Compose installs serve the relay from the web service on `COMPUTER_RELAY_PORT` (default 1080, `0` turns it off). Nothing is published to the host. The desktop app, API, web and supervisor must run this release for traffic to take that path; update them together.
+
 ## [2.0.78] - 2026-11-13
 
 ### Fixed
