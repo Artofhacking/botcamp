@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { BillingStatus, Bot } from "@botcamp/contracts";
+import type { BillingStatus, Bot, Group, ThreadSnapshot } from "@botcamp/contracts";
 import { BOT_COLORS } from "@botcamp/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
@@ -23,9 +23,11 @@ vi.mock("@lingui/react/macro", () => ({
 vi.mock("@botcamp/ui-web", () => {
   const Plain = ({ children }: { children?: ReactNode }) => <>{children}</>;
   return {
-    BotAvatar: () => null,
+    BotAvatar: ({ identity }: { identity?: string }) => <i data-bot-avatar={identity} />,
     Input: (props: Record<string, unknown>) => <input {...props} />,
-    GroupAvatar: () => null,
+    GroupAvatar: ({ members }: { members?: { botId?: string }[] }) => (
+      <i data-group-avatars={members?.map((member) => member.botId).join(" ")} />
+    ),
     Button: ({
       variant: _v,
       size: _s,
@@ -89,6 +91,26 @@ function renderHeader({ inGroup = false } = {}) {
 
 const gift = () => container.querySelector<HTMLButtonElement>('[aria-label="Invite a friend"]');
 
+function renderGroupHeader(group: Group, snapshot: ThreadSnapshot | null = null) {
+  act(() =>
+    root.render(
+      <ChatHeader
+        inGroup
+        active={undefined}
+        activeGroup={group}
+        activeSnapshot={snapshot}
+        phoneCallsEnabled={false}
+        voiceReady={false}
+        inCall={false}
+        panelOpen={false}
+        onOpenNavigation={() => undefined}
+        onTogglePanel={() => undefined}
+        onCall={() => undefined}
+      />,
+    ),
+  );
+}
+
 it("shows no gift when the account cannot invite", () => {
   billing.status = { referral: null };
   renderHeader();
@@ -122,4 +144,55 @@ it("opens the invite with both rewards and copies the link", async () => {
   await act(async () => copy.click());
   expect(writeText).toHaveBeenCalledWith("https://example.test/sign-up?ref=abc");
   expect(dialog.textContent).toContain("Copied");
+});
+
+it("lists every shared-group bot by its in-group name", () => {
+  renderGroupHeader(
+    {
+      id: "group-1",
+      name: "Standup",
+      shared: true,
+      members: [
+        { botId: "mine", name: "Ada-Helper", color: BOT_COLORS[0] },
+        { botId: "theirs", name: "Bea-Scout", color: BOT_COLORS[1] },
+      ],
+    } as Group,
+    {
+      threadId: "thread-1",
+      cursor: 1,
+      messages: [],
+      olderCursor: null,
+      groupId: "group-1",
+      members: [{ botId: "mine", name: "Mine-short", color: BOT_COLORS[0] }],
+      run: null,
+    } as ThreadSnapshot,
+  );
+  expect(container.textContent).toContain("Standup");
+  expect(container.textContent).toContain("Shared");
+  expect(container.querySelector("[data-shared-mark]")?.textContent).toBe("Shared");
+  expect(container.textContent).toContain("Ada-Helper");
+  expect(container.textContent).toContain("Bea-Scout");
+  expect(container.textContent).not.toContain("Mine-short");
+  expect(container.querySelector("[data-group-avatars]")?.getAttribute("data-group-avatars")).toBe(
+    "mine theirs",
+  );
+  expect(
+    [...container.querySelectorAll("[data-bot-avatar]")].map((node) =>
+      node.getAttribute("data-bot-avatar"),
+    ),
+  ).toEqual(["mine", "theirs"]);
+});
+
+it("keeps a private group header to the group name", () => {
+  renderGroupHeader({
+    id: "group-1",
+    name: "Notes",
+    members: [
+      { botId: "a", name: "Ada-Helper", color: BOT_COLORS[0] },
+      { botId: "b", name: "Bea-Scout", color: BOT_COLORS[1] },
+    ],
+  } as Group);
+  expect(container.textContent).toContain("Notes");
+  expect(container.textContent).not.toContain("Ada-Helper");
+  expect(container.querySelector("[data-shared-mark]")).toBeNull();
 });

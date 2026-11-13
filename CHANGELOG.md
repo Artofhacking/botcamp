@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.68] - 2026-11-13
+
+### Changed
+
+- Opening a shared group shows each member's avatar and name in the title, and messages use those names.
+
 ## [2.0.67] - 2026-11-13
 
 ### Changed

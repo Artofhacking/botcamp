@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -17,11 +16,13 @@ import {
   isActive,
   isRunWorking,
   memberName,
+  sharedGroupFaces,
 } from "@botcamp/core";
 import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import type { GroupAvatarMember } from "@botcamp/ui-web";
 import { Button } from "@botcamp/ui-web";
 import { useIsMobile } from "@botcamp/ui-web/hooks/use-mobile";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {
@@ -532,14 +533,19 @@ function SpaceShell() {
     () => (inGroup ? { groupId: groupId ?? "" } : { botId: active?.id ?? "" }),
     [active?.id, groupId, inGroup],
   );
-  const transcriptMembers = activeSnapshot?.members ?? activeGroup?.members;
+  const transcriptMembers = useMemo(
+    () => sharedGroupFaces(activeGroup?.shared, activeGroup?.members, activeSnapshot?.members),
+    [activeGroup?.members, activeGroup?.shared, activeSnapshot?.members],
+  );
   const resolveTranscriptBot = useCallback(
     (botId: string) => {
+      const member = transcriptMembers.find((candidate) => candidate.botId === botId);
+      if (activeGroup?.shared && member) return member;
       const bot = bots.find((candidate) => candidate.id === botId);
       if (bot) return bot;
-      return transcriptMembers?.find((member) => member.botId === botId);
+      return member;
     },
-    [bots, transcriptMembers],
+    [activeGroup?.shared, bots, transcriptMembers],
   );
   const workingBots: GroupAvatarMember[] = workingRuns.map((run) => {
     const bot = resolveTranscriptBot(run.botId);
