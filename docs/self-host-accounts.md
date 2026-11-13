@@ -242,20 +242,20 @@ https://app.example.com/api/auth/callback/directory
 
 Web, Electron and mobile use that same redirect. Sign-in and linking request the directory
 command line's user scopes (catalog 1.0.99), plus the contact email
-(`contact:user.email:readonly`) and employment (`contact:user.employee:readonly`). They do not
-request `offline_access`, `attendance:task:readonly`, the OKR content, comment, period, progress,
-and settings scopes, or `vc:meeting.realtime:read`. Enable every requested scope as a user
-permission on the app and publish a version before this login asks for them. Requesting a scope
-the app has not enabled makes the authorization page fail. `LARK_LOGIN_SCOPES` adds more scopes.
-It does not replace that set. `im:message.send_as_user` is not requested: a bulk consent that
-includes it waits on a review and blocks the rest. Authorization uses PKCE. The token exchange
-is the v2 endpoint, which is the one that accepts that PKCE verifier. This login does not receive
-a refresh token. The access token is stored encrypted and used until it expires; signing in or
-linking again replaces it. The app secret stays on the API and is not given to the command. A
+(`contact:user.email:readonly`), employment (`contact:user.employee:readonly`), and
+`offline_access` so the token can be refreshed. They do not request `attendance:task:readonly`,
+the OKR content, comment, period, progress, and settings scopes, or `vc:meeting.realtime:read`.
+Enable every requested scope as a user permission on the app and publish a version before this
+login asks for them. Requesting a scope the app has not enabled makes the authorization page fail.
+`LARK_LOGIN_SCOPES` adds more scopes. It does not replace that set. `im:message.send_as_user` is
+not requested: a bulk consent that includes it waits on a review and blocks the rest. Authorization
+uses PKCE. The token exchange is the v2 endpoint, which is the one that accepts that PKCE verifier.
+The refresh token is stored encrypted. The provider rotates it, and the next refresh uses the new
+value. Signing in or linking again replaces the grant. A person who linked before `offline_access`
+was requested has no refresh token until they sign in or link again. Until then, directory commands
+ask them to sign in again. The app secret stays on the API and is not given to the command. A
 worker that has the same login settings can open the grant. Compose does not pass the secret to
-the worker, so those commands stay off there. A person who linked before this set was published
-signs in or links again so the new consent is stored. Until then, directory commands ask them to
-sign in again.
+the worker, so those commands stay off there.
 
 When the profile includes an enterprise mailbox, that address is used. Otherwise the contact
 email is used. Feishu says both are imported by an administrator and are not proof that the

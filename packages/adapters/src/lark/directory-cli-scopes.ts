@@ -8,8 +8,8 @@
  *
  * Also omitted, because requesting a scope this app has not enabled makes Feishu
  * reject the whole consent: `attendance:task:readonly`, the OKR content, comment,
- * period, progress, and settings scopes, `vc:meeting.realtime:read`, and
- * `offline_access`. Without `offline_access` the access token is not refreshed.
+ * period, progress, and settings scopes, and `vc:meeting.realtime:read`.
+ * `offline_access` is requested so the access token can be refreshed.
  */
 export const DIRECTORY_CLI_SCOPE_CATALOG_VERSION = "1.0.99";
 
@@ -255,6 +255,7 @@ export const DIRECTORY_CLI_USER_SCOPES = [
 export const DIRECTORY_LOGIN_IDENTITY_SCOPES = [
   "contact:user.email:readonly",
   "contact:user.employee:readonly",
+  "offline_access",
 ] as const;
 
 /** The scopes a directory sign-in or link requests. Extra names are added, never a replacement. */

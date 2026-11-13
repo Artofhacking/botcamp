@@ -414,17 +414,18 @@ describe("OIDC environment", () => {
         "contact:user.email:readonly",
         "contact:user.employee:readonly",
         "calendar:calendar:read",
+        "offline_access",
       ]),
     );
-    expect(env.directory?.scopes).not.toContain("offline_access");
     expect(env.directory?.scopes).not.toContain("im:message.send_as_user");
+    expect(env.directory?.scopes).not.toContain("attendance:task:readonly");
     expect(
       loadEnv({
         ...base,
         ...login,
         LARK_LOGIN_SCOPES: "contact:user.email:readonly extra:scope",
       }).directory?.scopes,
-    ).toEqual(expect.arrayContaining(["extra:scope", "calendar:calendar:read"]));
+    ).toEqual(expect.arrayContaining(["extra:scope", "calendar:calendar:read", "offline_access"]));
     expect(loadEnv({ ...base, ...login, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
     expect(
       loadEnv({ ...base, ...login, LARK_LOGIN_ALLOW_SIGNUP_BYPASS: "true" }).directory

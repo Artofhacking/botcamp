@@ -123,7 +123,7 @@ describe("directory login scopes", () => {
     expect(scopes).toContain("contact:user.employee:readonly");
     expect(scopes).toContain("calendar:calendar:read");
     expect(scopes).toContain("extra:scope");
-    expect(scopes).not.toContain("offline_access");
+    expect(scopes).toContain("offline_access");
     expect(scopes).not.toContain("attendance:task:readonly");
     expect(scopes).not.toContain("okr:okr.content:readonly");
     expect(scopes).not.toContain("vc:meeting.realtime:read");
