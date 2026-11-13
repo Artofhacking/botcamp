@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.7] - 2026-11-14
+
+### Fixed
+
+- A bot that answers a background command's late result no longer repeats its earlier answer in the same message: the newer answer replaces the reply, and the tool steps stay beside it.
+
 ## [2.1.6] - 2026-11-13
 
 ### Fixed
