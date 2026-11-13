@@ -949,6 +949,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       desktopHostChoiceEnabled: Boolean(env.desktopStackToken),
       mcpStdioEnabled: env.mcpStdioEnabled,
       mcpStdioAllowedCommands: env.mcpStdioAllowedCommands,
+      mcpOAuthClients: env.mcpOAuthClients,
     },
   });
   const rpc = new RPCHandler(router, {

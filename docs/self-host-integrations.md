@@ -58,10 +58,10 @@ client's allowed redirect URIs.
 
 A deployment can register one client for an app everyone connects, so people never see those
 fields. Set `MCP_OAUTH_CLIENTS` on the API and worker to a JSON object keyed by MCP endpoint,
-for example `{"https://api.githubcopilot.com/mcp": {"clientId": "...", "clientSecret": "..."}}`,
-and list that endpoint in the web build's `config.js` as
-`window.__BOTCAMP_UI__ = { oauthClients: ["https://api.githubcopilot.com/mcp"] }`. The client is
-stored with the connection on first use, so a later deployment change does not drop the grant. The client is stored encrypted with the server's other
+for example `{"https://api.githubcopilot.com/mcp": {"clientId": "...", "clientSecret": "..."}}`.
+**Connect** tries that client first and opens the client form only when the deployment has none.
+The client is stored with the connection on first use, so a later deployment change does not
+drop the grant. The client is stored encrypted with the server's other
 credentials and survives **Disconnect**; switching to a different client drops the current grant.
 On first use the client is bound to the authorization server the MCP server pointed to, and BotCamp
 refuses to send it anywhere else afterwards. Replacing the client clears the binding.

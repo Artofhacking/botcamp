@@ -432,37 +432,6 @@ it("starts GitHub sign-in directly once a client is saved", async () => {
   expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
-it("starts GitHub sign-in directly when the deployment registered the client", async () => {
-  const github: DeploymentApp = {
-    name: "GitHub",
-    endpoint: "https://api.githubcopilot.com/mcp",
-    scopes: [],
-    oauthClientRequired: true,
-  };
-  window.__BOTCAMP_UI__ = { oauthClients: [github.endpoint] };
-  try {
-    const onConnect = vi.fn();
-    const container = await render(
-      <DeploymentApps
-        apps={[github]}
-        servers={[]}
-        pending={null}
-        error={null}
-        onConnect={onConnect}
-        onDisconnect={vi.fn()}
-      />,
-    );
-    const connect = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Connect",
-    );
-    await act(async () => connect?.click());
-    expect(onConnect).toHaveBeenCalledWith(github);
-    expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
-  } finally {
-    delete window.__BOTCAMP_UI__;
-  }
-});
-
 it("shows a saved mailbox as connected", async () => {
   const container = await render(
     <DeploymentApps
