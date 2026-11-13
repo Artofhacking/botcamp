@@ -1137,6 +1137,7 @@ function SpaceShell() {
                       activeGroup.people?.find((person) => person.userId === senderUserId)?.name
                   : undefined
               }
+              selfUserId={userId}
               peerBot={resolveTranscriptBot}
               onRefresh={refreshActiveThread}
               onBotChanged={refreshBots}

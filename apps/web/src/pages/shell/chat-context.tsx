@@ -153,15 +153,19 @@ export function ReplyLine({
   fallbackText,
   target,
   author,
+  own,
   onJump,
 }: {
   message: ThreadMessage;
   fallbackText?: string;
   target?: ArtifactTarget;
   author: string;
+  /** The viewer wrote the replying message, so its quote sits on the viewer's side. */
+  own?: boolean;
   onJump?: (id: string) => void;
 }) {
   const { t } = useLingui();
+  const onViewerSide = own ?? message.role === "user";
   // Peer receipts use internal reply links for routing; their bodies belong in the peer view.
   if (isPeerReceiptBlocks(message.blocks) || isPageOriginReply(message)) return null;
   if (!message.replyToMessageId && message.replyQuote == null) return null;
@@ -170,10 +174,7 @@ export function ReplyLine({
     return (
       <div
         data-testid="reply-parent-preview"
-        className={cn(
-          "mb-1 truncate text-xs text-muted-foreground",
-          message.role === "user" && "text-end",
-        )}
+        className={cn("mb-1 truncate text-xs text-muted-foreground", onViewerSide && "text-end")}
       >{t`Original message unavailable`}</div>
     );
   const attachment = message.replyPreview?.attachment;
@@ -186,7 +187,7 @@ export function ReplyLine({
   const excerpt = text.replace(/\s+/gu, " ").slice(0, 120);
   // The wrapper aligns in the frame's direction; the quote keeps its own text direction.
   return (
-    <div className={cn("flex", message.role === "user" && "justify-end")}>
+    <div className={cn("flex", onViewerSide && "justify-end")}>
       <button
         type="button"
         data-testid="reply-parent-preview"

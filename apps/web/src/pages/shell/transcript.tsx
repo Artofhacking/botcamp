@@ -43,6 +43,7 @@ import { messageHasVisibleBlocks } from "../../lib/tool-activity-view";
 import { TRANSCRIPT_CONTENT_PADDING } from "../../lib/transcript-layout";
 import { transcriptIsNearEnd, transcriptMovedDown } from "../../lib/transcript-scroll";
 import { TimeSeparator, UnreadDivider } from "./chat-context";
+import { isOwnUserMessage } from "./chat-shared";
 import type { ImportSetupTarget } from "./import-setup-card";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
@@ -83,6 +84,7 @@ export const Transcript = memo(function Transcript({
   onOpenPeerMessages,
   memberName,
   personName,
+  selfUserId,
   peerBot,
   onRefresh,
   onBotChanged,
@@ -132,6 +134,8 @@ export const Transcript = memo(function Transcript({
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   memberName?: (botId: string | undefined) => string | undefined;
   personName?: (senderUserId: string | undefined) => string | undefined;
+  /** The signed-in person's id; another person's message is inbound. */
+  selfUserId?: string;
   peerBot: (
     botId: string,
   ) => { name?: string; color: string; status?: string; avatarSet?: BotAvatarSet } | undefined;
@@ -541,6 +545,7 @@ export const Transcript = memo(function Transcript({
           const message = item.message;
           if (!messageHasVisibleBlocks(message.blocks, showToolActivity)) return null;
           const peerReceipt = isPeerReceiptBlocks(message.blocks);
+          const ownMessage = isOwnUserMessage(message, selfUserId);
           const messageReactions = reactionView.reactions.get(message.id);
           return (
             <Fragment key={message.id}>
@@ -558,7 +563,7 @@ export const Transcript = memo(function Transcript({
                   className={
                     peerReceipt
                       ? undefined
-                      : `relative flex ${message.role === "user" ? "justify-end" : "justify-start"}`
+                      : `relative flex ${ownMessage ? "justify-end" : "justify-start"}`
                   }
                 >
                   <div
@@ -576,6 +581,7 @@ export const Transcript = memo(function Transcript({
                     <MessageView
                       artifactTarget={artifactTarget}
                       message={message}
+                      ownMessage={ownMessage}
                       markedUnread={message.id === markedUnreadMessageId}
                       mentions={mentionView.mentions.get(message.id)}
                       pages={pageView.pages.get(message.id)}
@@ -622,10 +628,7 @@ export const Transcript = memo(function Transcript({
                 {!peerReceipt && messageReactions ? (
                   <div
                     data-testid="message-reactions"
-                    className={cn(
-                      "mt-1 flex flex-wrap gap-1",
-                      message.role === "user" && "justify-end",
-                    )}
+                    className={cn("mt-1 flex flex-wrap gap-1", ownMessage && "justify-end")}
                   >
                     {[...messageReactions].map(([emoji, count]) => (
                       <span

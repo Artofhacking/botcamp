@@ -60,7 +60,19 @@ function message(id: string, text: string): ThreadMessage {
   };
 }
 
-function Host({ messages, running = false }: { messages: ThreadMessage[]; running?: boolean }) {
+function personMessage(id: string, text: string, senderUserId?: string): ThreadMessage {
+  return { ...message(id, text), role: "user", senderUserId };
+}
+
+function Host({
+  messages,
+  running = false,
+  selfUserId,
+}: {
+  messages: ThreadMessage[];
+  running?: boolean;
+  selfUserId?: string;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const artifactTarget = useMemo(() => ({ botId: "bot" }), []);
   const none = useMemo(() => new Set<string>(), []);
@@ -102,6 +114,7 @@ function Host({ messages, running = false }: { messages: ThreadMessage[]; runnin
       onJumpToMessage={reply}
       onOpenPeerMessages={peer}
       peerBot={peer}
+      selfUserId={selfUserId}
       onRefresh={refresh}
       onBotChanged={refresh}
       onAddRoutine={quote}
@@ -112,6 +125,29 @@ function Host({ messages, running = false }: { messages: ThreadMessage[]; runnin
     />
   );
 }
+
+it("keeps your own messages on the right and another person's on the left", () => {
+  act(() =>
+    root.render(
+      <Host
+        selfUserId="person-a"
+        messages={[
+          personMessage("mine", "Mine.", "person-a"),
+          personMessage("theirs", "Theirs.", "person-b"),
+          personMessage("private", "Private."),
+          message("bot", "Reply."),
+        ]}
+      />,
+    ),
+  );
+  const alignment = (id: string) =>
+    container.querySelector(`[data-message-id="${id}"]`)?.firstElementChild?.className;
+  expect(alignment("mine")).toContain("justify-end");
+  expect(alignment("theirs")).toContain("justify-start");
+  // A chat with one person has no sender stamp: every user message is yours.
+  expect(alignment("private")).toContain("justify-end");
+  expect(alignment("bot")).toContain("justify-start");
+});
 
 it.each([false, true])(
   "leaves an unchanged message unrendered when a later one updates (mentions: %s)",

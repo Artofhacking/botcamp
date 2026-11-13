@@ -55,6 +55,7 @@ export const MessageView = memo(function MessageView({
   canAnswer,
   canDismiss,
   message,
+  ownMessage,
   mentions,
   pages,
   isPageSuperseded,
@@ -86,6 +87,8 @@ export const MessageView = memo(function MessageView({
   canAnswer: boolean;
   canDismiss: boolean;
   message: ThreadMessage;
+  /** The viewer sent this message; another person's message is inbound. */
+  ownMessage: boolean;
   /** Bots this reply announces, named inline in its text. */
   mentions?: readonly ChildBotBlock[];
   /** Pages saved just before this reply, drawn under its text. */
@@ -201,6 +204,7 @@ export const MessageView = memo(function MessageView({
       <ReplyLine
         target={artifactTarget}
         message={message}
+        own={ownMessage}
         fallbackText={replyParent ? previewMessageText(replyParent) : undefined}
         author={
           (message.replyPreview?.role ?? replyParent?.role) === "user"
@@ -224,7 +228,7 @@ export const MessageView = memo(function MessageView({
   const hoverActions = peerReceipt ? null : (
     <MessageHoverActions
       message={message}
-      side={message.role === "user" ? "start" : "end"}
+      side={ownMessage ? "start" : "end"}
       onReply={onReply}
       onMarkUnread={onMarkUnread}
       markedUnread={markedUnread}
@@ -312,10 +316,7 @@ export const MessageView = memo(function MessageView({
     <>
       {messageContext}
       <div
-        className={cn(
-          "relative flex flex-col gap-2",
-          message.role === "user" && !peerReceipt && "items-end",
-        )}
+        className={cn("relative flex flex-col gap-2", ownMessage && !peerReceipt && "items-end")}
       >
         {blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
@@ -496,10 +497,7 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "image") {
             return (
-              <div
-                key={i}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={i} className={`flex ${ownMessage ? "justify-end" : "justify-start"}`}>
                 <ArtifactImage
                   target={artifactTarget}
                   artifactId={block.artifactId}
@@ -510,10 +508,7 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "file") {
             return (
-              <div
-                key={i}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={i} className={`flex ${ownMessage ? "justify-end" : "justify-start"}`}>
                 <ArtifactFileCard
                   target={artifactTarget}
                   artifactId={block.artifactId}
@@ -527,16 +522,23 @@ export const MessageView = memo(function MessageView({
           if (block.kind === "text" && message.role === "user") {
             // User bubbles stay literal text on web and mobile. Only explicit URLs,
             // email addresses and page links are links, so a sent address is tappable
-            // without formatting bold or headings.
+            // without formatting bold or headings. Your own bubble wears the chat
+            // color on your side; another person's message is inbound and sits left.
             return (
               <div
                 key={i}
-                className="relative flex w-fit max-w-full justify-end [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap"
+                className={`relative flex w-fit max-w-full ${
+                  ownMessage ? "justify-end" : "justify-start"
+                } [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap`}
               >
                 <div
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
-                  className="max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] bg-chat-user px-[18px] py-3 text-body1 text-chat-user-foreground"
+                  className={`max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] px-[18px] py-3 text-body1 ${
+                    ownMessage
+                      ? "bg-chat-user text-chat-user-foreground"
+                      : "bg-muted text-foreground"
+                  }`}
                   dir="auto"
                 >
                   <LinkifiedText onOpenPage={openPage}>{block.text}</LinkifiedText>
