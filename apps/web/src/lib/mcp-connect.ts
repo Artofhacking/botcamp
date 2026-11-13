@@ -1,4 +1,3 @@
-import type { DesktopDeepLink } from "@botcamp/contracts";
 import { newClientId } from "@botcamp/core";
 import { desktopBridge } from "./desktop";
 import { MCP_OAUTH_CHANNEL } from "./mcp-oauth-channel";
@@ -62,49 +61,6 @@ function loopbackRedirect(authorizationUrl: string): boolean {
  * mounted under `/console/` is opened by the site page at this path. */
 export function mcpOAuthRedirectUri(origin = window.location.origin): string {
   return new URL("/mcp/oauth/callback", origin).toString();
-}
-
-async function connectMcpOauthInSystemBrowser(
-  serverId: string,
-  sessionId: string,
-  authorizationUrl: string,
-  links: NonNullable<NonNullable<ReturnType<typeof desktopBridge>>["links"]>,
-): Promise<McpOauthResult> {
-  const before = await rpc.mcp.servers.list().catch(() => []);
-  const initial = before.find((server) => server.id === serverId)?.oauthStatus;
-  await links.open(authorizationUrl);
-  return await new Promise<McpOauthResult>((resolve) => {
-    let settled = false;
-    let statusTimer = 0;
-    let timeoutTimer = 0;
-    let unsubscribe: () => void = () => undefined;
-    const finish = (result: McpOauthResult) => {
-      if (settled) return;
-      settled = true;
-      window.clearInterval(statusTimer);
-      window.clearTimeout(timeoutTimer);
-      unsubscribe();
-      resolve(result);
-    };
-    unsubscribe = links.onUrl((link: DesktopDeepLink) => {
-      if (link.kind !== "mcp-oauth" || link.state !== sessionId || !link.code) return;
-      void rpc.mcp.oauth
-        .complete({ sessionId, code: link.code, state: link.state })
-        .then(() => finish("connected"))
-        .catch(() => undefined);
-    });
-    // The website may finish the grant itself when that browser is already signed in.
-    statusTimer = window.setInterval(() => {
-      void rpc.mcp.servers
-        .list()
-        .then((servers) => {
-          const status = servers.find((server) => server.id === serverId)?.oauthStatus;
-          if (status === "connected" && initial !== "connected") finish("connected");
-        })
-        .catch(() => undefined);
-    }, 2_000);
-    timeoutTimer = window.setTimeout(() => finish("cancelled"), MCP_OAUTH_TIMEOUT_MS);
-  });
 }
 
 /**
@@ -186,15 +142,6 @@ export async function connectMcpOauth(
   if (started.status !== "authorization_required") return started.status;
   if (loopbackRedirect(started.authorizationUrl)) {
     return finishLoopbackOauth(started.sessionId, started.authorizationUrl, paste, signal);
-  }
-  const links = desktopBridge()?.links;
-  if (links) {
-    return connectMcpOauthInSystemBrowser(
-      serverId,
-      started.sessionId,
-      started.authorizationUrl,
-      links,
-    );
   }
   const popup = window.open(
     started.authorizationUrl,

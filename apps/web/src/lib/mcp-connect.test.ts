@@ -1,4 +1,3 @@
-import type { DesktopDeepLink } from "@botcamp/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { connectMcpOauth, mcpOAuthRedirectUri, mcpOauthCodeFromPaste } from "./mcp-connect";
 
@@ -24,33 +23,6 @@ afterEach(() => {
   mcp.list.mockReset();
 });
 
-function desktopLinks() {
-  const listeners = new Set<(link: DesktopDeepLink) => void>();
-  const open = vi.fn(async () => undefined);
-  vi.stubGlobal("window", {
-    location: { origin: "https://rakazo.example.test", href: "https://rakazo.example.test/app" },
-    setInterval: (...args: Parameters<typeof setInterval>) => setInterval(...args),
-    clearInterval: (...args: Parameters<typeof clearInterval>) => clearInterval(...args),
-    setTimeout: (...args: Parameters<typeof setTimeout>) => setTimeout(...args),
-    clearTimeout: (...args: Parameters<typeof clearTimeout>) => clearTimeout(...args),
-    rakazoDesktop: {
-      links: {
-        open,
-        onUrl: (listener: (link: DesktopDeepLink) => void) => {
-          listeners.add(listener);
-          return () => listeners.delete(listener);
-        },
-      },
-    },
-  });
-  return {
-    open,
-    emit: (link: DesktopDeepLink) => {
-      for (const listener of listeners) listener(link);
-    },
-  };
-}
-
 const started = {
   status: "authorization_required" as const,
   sessionId: "session-1",
@@ -63,39 +35,6 @@ describe("mcpOAuthRedirectUri", () => {
       "https://botcamp.example/mcp/oauth/callback",
     );
   });
-});
-
-it("completes MCP OAuth from the system-browser return", async () => {
-  mcp.begin.mockResolvedValue(started);
-  mcp.complete.mockResolvedValue({ ok: true });
-  mcp.list.mockResolvedValue([{ id: "srv", oauthStatus: "none" }]);
-  const { open, emit } = desktopLinks();
-  const flow = connectMcpOauth("srv");
-  await vi.waitFor(() => expect(open).toHaveBeenCalledWith(started.authorizationUrl));
-  emit({ kind: "mcp-oauth", state: "other", code: "nope" });
-  expect(mcp.complete).not.toHaveBeenCalled();
-  emit({ kind: "mcp-oauth", state: started.sessionId, code: "auth-code" });
-  await expect(flow).resolves.toBe("connected");
-  expect(mcp.complete).toHaveBeenCalledWith({
-    sessionId: started.sessionId,
-    code: "auth-code",
-    state: started.sessionId,
-  });
-});
-
-it("treats a status change to connected as a finished MCP grant", async () => {
-  vi.useFakeTimers();
-  mcp.begin.mockResolvedValue(started);
-  mcp.list
-    .mockResolvedValueOnce([{ id: "srv", oauthStatus: "reconnect" }])
-    .mockResolvedValue([{ id: "srv", oauthStatus: "connected" }]);
-  const { open } = desktopLinks();
-  const flow = connectMcpOauth("srv");
-  await vi.advanceTimersByTimeAsync(0);
-  expect(open).toHaveBeenCalledWith(started.authorizationUrl);
-  await vi.advanceTimersByTimeAsync(2_000);
-  await expect(flow).resolves.toBe("connected");
-  expect(mcp.complete).not.toHaveBeenCalled();
 });
 
 it("reads a loopback callback address only when its state matches", () => {
@@ -171,17 +110,4 @@ it("finishes a loopback grant from the desktop listener", async () => {
     state: "session-1",
   });
   expect(cancel).toHaveBeenCalledWith(authorizationUrl);
-});
-
-it("does not treat an already connected MCP server as a new grant", async () => {
-  vi.useFakeTimers();
-  mcp.begin.mockResolvedValue(started);
-  mcp.complete.mockResolvedValue({ ok: true });
-  mcp.list.mockResolvedValue([{ id: "srv", oauthStatus: "connected" }]);
-  const { emit } = desktopLinks();
-  const flow = connectMcpOauth("srv");
-  await vi.advanceTimersByTimeAsync(4_000);
-  expect(mcp.complete).not.toHaveBeenCalled();
-  emit({ kind: "mcp-oauth", state: started.sessionId, code: "auth-code" });
-  await expect(flow).resolves.toBe("connected");
 });

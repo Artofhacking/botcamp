@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.64] - 2026-11-13
+
+### Fixed
+
+- QQ邮箱 sign-in from 2.0.63 builds with this release. The desktop app finishes that sign-in. A browser pastes the callback address.
+
 ## [2.0.63] - 2026-11-13
 
 ### Changed
