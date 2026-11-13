@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-13
+
+### Fixed
+
+- Feishu/Lark sign-in asks only for the permissions the directory app has enabled, so an app that has not enabled every command can still connect. The bot's `directory_read` and `directory_write` tools name the connected account, so asking for Feishu messages or documents reaches them ([integrations](docs/integrations.md)).
+
 ## [2.1.0] - 2026-11-13
 
 ### Added
