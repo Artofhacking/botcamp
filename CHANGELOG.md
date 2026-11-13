@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.65] - 2026-11-13
+
+### Changed
+
+- Browser settings use the current product name as their storage prefix. A saved setting under the previous prefix is copied once and then removed.
+- Popup windows opened for sign-in and connector setup use the current product name.
+- The desktop shell exposes its page bridge under the current product name. A shell built earlier is still recognized.
+- The private database schema is renamed to `botcamp_private`. The database name and the owner login stay as the data directory was created.
+
 ## [2.0.64] - 2026-11-13
 
 ### Fixed

@@ -1,5 +1,6 @@
-export const SKIP_WAITING = "rakazo:skip-waiting";
-export const CACHE_PREFIX = "rakazo-shell-";
+export const SKIP_WAITING = "botcamp:skip-waiting";
+export const CACHE_PREFIX = "botcamp-shell-";
+const LEGACY_CACHE_PREFIX = "rakazo-shell-";
 
 // Live data, auth callbacks and the screen proxy always go straight to the server.
 const BYPASS_PREFIXES = ["/api", "/rpc", "/novnc", "/.well-known", "/health"];
@@ -75,6 +76,7 @@ export function installServiceWorker(
     event.waitUntil(
       (async () => {
         const names = await scope.caches.keys();
+        const legacy = names.filter((name) => name.startsWith(LEGACY_CACHE_PREFIX));
         // Keep the newest previous shell for tabs still running its bundle. Names end in the build
         // id, which sorts oldest first; older workers named caches by a content hash instead, so
         // one of those is kept only when no build-named cache exists.
@@ -86,12 +88,14 @@ export function installServiceWorker(
           .sort();
         const keep = byBuild.at(-1) ?? previous.at(-1);
         await Promise.all(
-          previous.filter((name) => name !== keep).map((name) => scope.caches.delete(name)),
+          [...legacy, ...previous.filter((name) => name !== keep)].map((name) =>
+            scope.caches.delete(name),
+          ),
         );
         await scope.clients.claim?.();
         // A first install has nothing to replace. An update does: open windows are still
         // drawing the previous shell until something reloads them.
-        if (previous.length === 0) return;
+        if (previous.length === 0 && legacy.length === 0) return;
         const windows = await scope.clients.matchAll({ type: "window" });
         await Promise.all(
           windows.map((client) =>

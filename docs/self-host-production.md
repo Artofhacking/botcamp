@@ -162,8 +162,9 @@ previous release keeps running after migrations run, so a migration must keep wo
 add first, and drop or rename only in a later deploy. Migration `20261210000000_rename_runtime_role`
 creates `botcamp_app` beside `rakazo_app` and grants the old role to the new one, so the previous
 release keeps its `rakazo_app` sessions until its containers stop. New containers connect as
-`botcamp_app`. The owner login stays `POSTGRES_USER` (default `rakazo`). The database name and
-schema `rakazo_private` stay. Pull, build and
+`botcamp_app`. The owner login stays `POSTGRES_USER` (default `rakazo`). The database name
+stays. Migration `20261214000000_rename_private_schema` renames schema `rakazo_private` to
+`botcamp_private`. Pull, build and
 start are time-limited so a stuck step fails the deploy instead of holding its lock; a deploy that
 finds the lock held exits non-zero. A deploy refuses to start with less than
 `BOTCAMP_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it keeps the current and

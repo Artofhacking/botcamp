@@ -57,7 +57,7 @@ export async function provisionRuntimeRole(
     if (!connected) return { warning: RUNTIME_LOGIN_FAILED_WARNING };
     if (!rlsBypassKey(runtimeUrl)) {
       // With no digest stored, the policies accept the keyless bypass this login sends.
-      await owner.query("DELETE FROM rakazo_private.rls_bypass_keys");
+      await owner.query("DELETE FROM botcamp_private.rls_bypass_keys");
       return { warning: NO_BYPASS_KEY_WARNING };
     }
     await storeBypassKey(owner, runtimeUrl);
@@ -168,10 +168,10 @@ async function storeBypassKey(owner: Client, runtimeUrl: string): Promise<void> 
   // One statement, so the table is never empty, which would accept the bypass alone.
   await owner.query(
     `WITH stored AS (
-       INSERT INTO rakazo_private.rls_bypass_keys (digest) VALUES (sha256(convert_to($1, 'UTF8')))
+       INSERT INTO botcamp_private.rls_bypass_keys (digest) VALUES (sha256(convert_to($1, 'UTF8')))
        ON CONFLICT (digest) DO NOTHING
      )
-     DELETE FROM rakazo_private.rls_bypass_keys WHERE digest <> sha256(convert_to($1, 'UTF8'))`,
+     DELETE FROM botcamp_private.rls_bypass_keys WHERE digest <> sha256(convert_to($1, 'UTF8'))`,
     [rlsBypassKey(runtimeUrl)],
   );
 }

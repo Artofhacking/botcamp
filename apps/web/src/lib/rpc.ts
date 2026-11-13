@@ -13,7 +13,7 @@ import { reportClientError } from "./monitoring";
 import { apiOrigin } from "./api-origin.js";
 import { getAuthToken } from "./auth-token.js";
 
-const SPACE_STORAGE_KEY = "rakazo:space-id";
+const SPACE_STORAGE_KEY = "botcamp:space-id";
 
 type RpcClientContext = { spaceId?: string | null };
 
@@ -27,7 +27,7 @@ export function selectedSpaceId(): string | null {
 }
 
 /** Fired after the selected Space changes, so per-organization state (billing) can reload. */
-export const SPACE_SELECTED_EVENT = "rakazo:space-selected";
+export const SPACE_SELECTED_EVENT = "botcamp:space-selected";
 
 export function selectSpace(id: string): boolean {
   let selected: boolean;

@@ -1,3 +1,4 @@
+import "./lib/migrate-browser-storage";
 import "./zod-config";
 import "./monitoring-bootstrap";
 import { BotAvatarActivityProvider, Toaster, TooltipProvider } from "@botcamp/ui-web";

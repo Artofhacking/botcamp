@@ -135,7 +135,7 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await compactSidebar.click();
   await expect(compactSidebar).toHaveAttribute("aria-pressed", "true");
   await expect
-    .poll(() => page.evaluate(() => window.localStorage.getItem("rakazo.botsSidebarDensity")))
+    .poll(() => page.evaluate(() => window.localStorage.getItem("botcamp.botsSidebarDensity")))
     .toBe("compact");
   const deleteAccount = settings.getByTestId("delete-account");
   await deleteAccount.scrollIntoViewIfNeeded();

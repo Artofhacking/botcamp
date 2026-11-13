@@ -65,8 +65,9 @@ at rest: run `content-encryption decrypt` before rolling back past them
 Migration `20261210000000_rename_runtime_role` creates Postgres role `botcamp_app` beside
 `rakazo_app` and grants `rakazo_app` to `botcamp_app`. It runs while the previous API and
 worker are still connected as `rakazo_app`. New containers connect as `botcamp_app` after
-they start. The owner login (`POSTGRES_USER`, default `rakazo`), the database name, and
-schema `rakazo_private` stay. The [computer identity replacement](./self-host-docker-computers.md)
+they start. The owner login (`POSTGRES_USER`, default `rakazo`) and the database name stay.
+Migration `20261214000000_rename_private_schema` renames schema `rakazo_private` to
+`botcamp_private`. The [computer identity replacement](./self-host-docker-computers.md)
 is a separate stop for computers, bridges, and egress. Other migrations also run while the
 previous release is serving.
 

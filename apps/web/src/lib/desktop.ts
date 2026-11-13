@@ -5,6 +5,8 @@ export type { BotCampDesktop, BotCampDesktopOAuthCallback } from "@botcamp/contr
 
 declare global {
   interface Window {
+    botcampDesktop?: BotCampDesktop;
+    /** Shells built before the window was renamed. */
     rakazoDesktop?: BotCampDesktop;
     /** Injected by a native shell (the Android app) so the page knows what wraps it. */
     __BOTCAMP_APP__?: { platform?: string; version?: string };
@@ -12,7 +14,8 @@ declare global {
 }
 
 export function desktopBridge(): BotCampDesktop | undefined {
-  return typeof window === "undefined" ? undefined : window.rakazoDesktop;
+  if (typeof window === "undefined") return undefined;
+  return window.botcampDesktop ?? window.rakazoDesktop;
 }
 
 /** The app this page is running in. A browser is the web app. */

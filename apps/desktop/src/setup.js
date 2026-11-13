@@ -1,5 +1,5 @@
 (() => {
-  const bridge = window.rakazoSetup;
+  const bridge = window.botcampSetup ?? window.rakazoSetup;
   document.documentElement.dataset.platform = bridge?.platform ?? "browser";
   const messages = bridge?.locale?.messages ?? {};
 

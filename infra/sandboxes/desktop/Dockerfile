@@ -4,8 +4,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -s /bin/bash botcamp
 WORKDIR /home/botcamp
-# Saved files can still name the previous home. The link stays on the image root.
-RUN ln -sfn /home/botcamp /home/rakazo
 USER botcamp
 ENV DISPLAY=:1
 CMD ["bash", "-lc", "Xvfb :1 -screen 0 1280x720x24 & sleep 0.5 && fluxbox & x11vnc -display :1 -forever -shared -nopw -listen 0.0.0.0 -rfbport 5900 & sleep infinity"]

@@ -56,7 +56,7 @@ test("a bot's page shows in its reply, opens full screen, is shared by link and 
   page,
   browser,
 }, testInfo) => {
-  await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
+  await page.addInitScript(() => localStorage.setItem("botcamp.uiAppearance", "dark"));
   await page.setViewportSize({ width: 1280, height: 860 });
   await signup(page, `pages-${Date.now()}@rakazo.test`, "password12", "Page Owner");
   await completeOnboarding(page);
@@ -408,7 +408,7 @@ test("a page's failures, a deleted page's card, and the Library's Share, search 
 }, testInfo) => {
   // Nine saves through the bot: more than the default budget on a busy machine.
   test.setTimeout(240_000);
-  await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
+  await page.addInitScript(() => localStorage.setItem("botcamp.uiAppearance", "dark"));
   await page.setViewportSize({ width: 1280, height: 860 });
   await signup(page, `pages-states-${Date.now()}@rakazo.test`, "password12", "Page States");
   await completeOnboarding(page);
@@ -681,7 +681,7 @@ test("a page's failures, a deleted page's card, and the Library's Share, search 
 test("a group's pages show in its settings, and the palette finds and opens a page", async ({
   page,
 }, testInfo) => {
-  await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
+  await page.addInitScript(() => localStorage.setItem("botcamp.uiAppearance", "dark"));
   await page.setViewportSize({ width: 1280, height: 860 });
   await signup(page, `pages-group-${Date.now()}@rakazo.test`, "password12", "Group Pages");
   await completeOnboarding(page);

@@ -43,7 +43,7 @@ describe("desktop preload bridge", () => {
 
     expect(exposeInMainWorld).toHaveBeenCalledTimes(1);
     const [globalName, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampDesktop];
-    expect(globalName).toBe("rakazoDesktop");
+    expect(globalName).toBe("botcampDesktop");
     expect(bridge.platform).toBe("linux");
     expect(Object.keys(bridge).sort()).toEqual([
       "badge",
@@ -210,7 +210,7 @@ describe("setup preload bridge", () => {
 
     expect(exposeInMainWorld).toHaveBeenCalledTimes(1);
     const [globalName, bridge] = exposeInMainWorld.mock.calls[0] as [string, BotCampSetup];
-    expect(globalName).toBe("rakazoSetup");
+    expect(globalName).toBe("botcampSetup");
     expect(bridge.platform).toBe("linux");
     expect(Object.keys(bridge).sort()).toEqual([
       "locale",

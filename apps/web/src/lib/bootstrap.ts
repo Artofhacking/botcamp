@@ -33,7 +33,10 @@ let primedBootstrap: {
 
 // Before anything reads the address: a path route becomes a hash route with no request.
 adoptHashRoute();
-const initialTarget = initialBootstrapTarget(documentPath(), Boolean(window.rakazoDesktop));
+const initialTarget = initialBootstrapTarget(
+  documentPath(),
+  Boolean(window.botcampDesktop ?? window.rakazoDesktop),
+);
 if (initialTarget) {
   const { botId } = initialTarget;
   const promise = requestBootstrap(botId);

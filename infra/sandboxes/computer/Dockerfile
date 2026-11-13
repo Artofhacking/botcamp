@@ -182,9 +182,6 @@ EXPOSE 7070 6080 6081 6082 6083 6084 6085 6086 6087 6088 6089 6090 6091 6092 609
 ENV LD_PRELOAD=/usr/local/lib/libnss_wrapper.so \
     NSS_WRAPPER_PASSWD=/tmp/botcamp-nss/passwd \
     NSS_WRAPPER_GROUP=/tmp/botcamp-nss/group
-# Saved browser profiles can still name the previous home. The link is on the image
-# root, so a volume mounted at /home/botcamp stays visible through it.
-RUN ln -sfn /home/botcamp /home/rakazo
 USER 1000:1000
 # Start Bash without the wrapper; user-env enables it once both files exist.
 CMD ["/usr/bin/env", "-u", "LD_PRELOAD", "/usr/local/bin/botcamp-computer"]

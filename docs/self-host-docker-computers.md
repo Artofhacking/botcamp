@@ -65,8 +65,8 @@ It takes two parts:
       The supervisor does not pull a tag it can already see.
    2. Stop the API and the worker. The app-login migration does not belong in this stop:
       it adds `botcamp_app` beside `rakazo_app` while the previous release is still connected.
-      The owner login (`POSTGRES_USER`, default `rakazo`), the database name, and schema
-      `rakazo_private` stay.
+      The owner login (`POSTGRES_USER`, default `rakazo`) and the database name stay. Migration
+      `20261214000000_rename_private_schema` renames schema `rakazo_private` to `botcamp_private`.
    3. Start the new supervisor and wait until it is listening. It removes computers from
       the previous identity, and any managed computer whose image is not the one it would
       start, before it listens. Home volumes stay. Idle networks from those computers go
@@ -75,9 +75,9 @@ It takes two parts:
       the `rakazo-c*` rules. Do this before the API starts, or the first new computer can
       come up before the new bridges are covered.
    5. Start the API and the worker. They connect as `botcamp_app`. A mounted cluster pod from the previous identity is
-      deleted on startup; the next use creates it from the new image. `/home/rakazo` on
-      that image points at `/home/botcamp`, so a saved browser profile that still uses the
-      old path keeps resolving. An unmounted live pod is left until a later stop saves it.
+      deleted on startup; the next use creates it from the new image. The computer home is
+      `/home/botcamp`. A mount still aimed at `/home/rakazo` is the previous identity and is
+      replaced. An unmounted live pod is left until a later stop saves it.
 
 Before the first restricted computer starts, the supervisor checks that the host drops
 connections from a `botcamp*` bridge. Without the ruleset, computers fail to start with an
