@@ -299,7 +299,7 @@ function toolUsageLine(parts: {
     webLookupClause(disabled),
     ...secretGuidance(disabled),
     builtinOffered(disabled, "connect_app")
-      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱 and Notion, then wait for them. When mailbox_list is available, use it to read the connected mailbox. When QQ邮箱 tools are available, use those."
+      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱, Notion, and GitHub, then wait for them. When mailbox_list is available, use it to read the connected mailbox. When QQ邮箱 tools are available, use those."
       : undefined,
     builtinOffered(disabled, "remember") ? "Use remember for durable facts." : undefined,
     scratchpadClause(disabled),

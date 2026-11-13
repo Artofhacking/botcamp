@@ -1,6 +1,6 @@
 # Connect apps
 
-Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱**, **Notion**, and the directory sign-in when that sign-in is configured.
+Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱**, **Notion**, **GitHub**, and the directory sign-in when that sign-in is configured.
 
 ## Connect QQ邮箱
 
@@ -23,6 +23,11 @@ Choose **Connect** on **Notion** and sign in to the workspace. After that sign-i
 
 > [!NOTE]
 > The permission you pick is stored with the connection. Saving it does not open a catalog of other apps.
+
+
+## Connect GitHub
+
+Choose **Connect** on **GitHub** and sign in. After that sign-in, the bot can work with the repositories, issues, and pull requests you can open. Ask the bot to connect **GitHub** in chat when you want the same sign-in on a card.
 
 ## APIs without an integration
 

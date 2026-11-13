@@ -575,7 +575,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "connect_app",
     description:
-      "Show an inline card to connect an app, including QQ邮箱, when one is needed or the user asks. Then wait for the user.",
+      "Show an inline card to connect an app, including QQ邮箱, Notion, and GitHub, when one is needed or the user asks. Then wait for the user.",
     inputSchema: {
       type: "object",
       properties: { app: { type: "string", minLength: 1, maxLength: 100 } },
