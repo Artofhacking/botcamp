@@ -23,7 +23,7 @@ pnpm db:generate
 pnpm dev
 ```
 
-`docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set. Self-hosting is [docs/self-host.md](./docs/self-host.md).
+`docs/handbook.md` is the map for the next change: layout, tests, deployment configuration, and which directories are legacy. `docs/ci.md` is how a change ships. `AGENTS.md` is the rule set. A release tag may point only at a commit already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The console is published from that same commit. Self-hosting is [docs/self-host.md](./docs/self-host.md).
 
 ## Desktop
 

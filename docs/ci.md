@@ -29,6 +29,8 @@ A push to `main` runs the same server checks. Two extra jobs exist:
 1. **Publish server images** runs only after **Checks** and **Postgres journeys** succeed. It pushes `ghcr.io/<owner>/<repo>/{app,updater,computer}` tagged `sha-<commit>` and `edge`. `edge` is the default computer image, so a red main does not move it. Release tags publish semver tags from `publish-server-image.yml` directly.
 2. **Deploy** runs only when all of these are true: the push is to `main`, **Checks**, **Postgres journeys**, and **Publish server images** succeeded, and the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`. Otherwise the job is skipped. Merging does not by itself update a host.
 
+A release tag is `vX.Y.Z`, and it may point only at a commit already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The release skill refuses to tag any other commit. `deploy-main` refuses a commit that is not on `main` before it changes the host. The console is published from that same commit.
+
 The deploy job uses the GitHub environment `production`. It joins a tailnet with OIDC, then SSH runs `deploy-main <sha>`. The host setup, the forced command, and the rollback are [Deploying from CI](./self-host-production.md#deploying-from-ci).
 
 Secret and variable names the workflow reads. Values are set in GitHub, not in git.

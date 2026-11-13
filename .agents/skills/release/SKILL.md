@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag it once merged. Use when asked to cut, prepare, or ship a release or a new version.
+description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag its merge commit on main. Production runs that one commit. Use when asked to cut, prepare, or ship a release or a new version.
 ---
 
 # Release
@@ -32,11 +32,16 @@ Bump `apps/desktop/package.json` to the new version in the same branch and open 
 
 ## 4. Tag
 
-After the PR merges, tag its merge commit and push the tag:
+After the PR merges, tag its merge commit and push the tag. Refuse unless that commit is already on `main`:
 
 ```sh
 sha="$(gh pr view <release PR> --json mergeCommit -q .mergeCommit.oid)"
-git fetch origin main && git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
+git fetch origin main
+git merge-base --is-ancestor "$sha" origin/main || {
+  echo "Refusing the tag. A release tag must point at a commit on main." >&2
+  exit 1
+}
+git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
 ```
 
-The tag records the release. Build the desktop installers separately with the `desktop-unsigned` workflow.
+The tag records that one commit. Pushing it does not update a host. Production runs that commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. `deploy-main` refuses such a commit before it changes the host. The console is published from that same commit. Build the desktop installers separately with the `desktop-unsigned` workflow.
