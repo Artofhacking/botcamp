@@ -112,6 +112,7 @@ import {
   sessionPartitionForServerUrl,
 } from "./setup-config.js";
 import { clearSetup, readSetup, readUiLocale, writeSetup, writeUiLocale } from "./setup-store.js";
+import { openSystemBrowser } from "./system-browser.js";
 import { createSystemSpeech } from "./system-speech.js";
 import type { UserDeviceAccess } from "./user-device.js";
 import { createUserDeviceAccess, deviceName } from "./user-device.js";
@@ -323,6 +324,10 @@ async function defaultSessionHasOriginData(origin: string): Promise<boolean> {
   }
 }
 
+function openExternalUrl(url: string): Promise<void> {
+  return openSystemBrowser(url, (target) => shell.openExternal(target));
+}
+
 function createWindow(url: string, partition: string | null) {
   markOnce("rk:main:window-create-start");
   const icon = developmentIcon();
@@ -347,7 +352,7 @@ function createWindow(url: string, partition: string | null) {
   win.webContents.setWindowOpenHandler(({ url: childUrl }) => {
     const external = systemBrowserUrl(childUrl);
     if (external !== null) {
-      openInSystemBrowser((target) => void shell.openExternal(target), external);
+      openInSystemBrowser((target) => void openExternalUrl(target), external);
     }
     return { action: "deny" };
   });
@@ -364,7 +369,7 @@ function createWindow(url: string, partition: string | null) {
     event.preventDefault();
     const external = safeExternalUrl(event.url);
     if (external !== null) {
-      openInSystemBrowser((target) => void shell.openExternal(target), external);
+      openInSystemBrowser((target) => void openExternalUrl(target), external);
     }
   };
   win.webContents.on("will-navigate", keepOnAppOrigin);
@@ -1557,7 +1562,7 @@ app.whenReady().then(async () => {
     }
     const external = systemBrowserUrl(url);
     if (external === null || external.length > 16_384) throw new Error("Invalid link.");
-    await shell.openExternal(external);
+    await openExternalUrl(external);
   });
   ipcMain.handle("desktop.oauth.open", async (event, url: unknown) => {
     if (!fromAppFrame(permissionTarget(), event) || typeof url !== "string" || url.length > 16_384)
@@ -1586,7 +1591,7 @@ app.whenReady().then(async () => {
       await openBrowserAuth(url, {
         signal: controller.signal,
         onClose: stop,
-        openExternal: (target) => shell.openExternal(target),
+        openExternal: (target) => openExternalUrl(target),
         onCallback: (callback) => {
           if (!event.sender.isDestroyed()) event.sender.send("desktop.oauth.callback", callback);
         },
@@ -1875,7 +1880,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("desktop.setup.openLink", async (event, link: unknown) => {
     if (!fromSetupWindow(event) || !isDesktopSetupLink(link)) return;
-    await shell.openExternal(DOCKER_INSTALL_LINKS[link]);
+    await openExternalUrl(DOCKER_INSTALL_LINKS[link]);
   });
   ipcMain.handle("desktop.setup.stack.state", (event) =>
     fromSetupWindow(event) ? localStack.state() : null,
