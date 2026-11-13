@@ -99,6 +99,29 @@ describe("daily check-in routine execution", () => {
     expect(append).not.toHaveBeenCalled();
   });
 
+  it("replaces the reply when a background result starts a new message", async () => {
+    const { ctx, finalizeRun } = await context();
+    ctx.run.trigger = "message";
+    ctx.allowSilentEmptyRun = false;
+    await consumeRunEvents(
+      ctx,
+      events(
+        { type: "text", text: "The tunnel does not cover it." },
+        { type: "turn", supersede: true },
+        { type: "text", text: "Confirmed: unreachable." },
+        { type: "done", text: "The tunnel does not cover it.Confirmed: unreachable." },
+      ),
+    );
+    await completeRun(ctx);
+    const call = finalizeRun.mock.calls.at(-1) as unknown as
+      | [{ blocks: Array<{ kind: string; text?: string }> }]
+      | undefined;
+    const blocks = call?.[0].blocks ?? [];
+    expect(blocks.filter((block) => block.kind === "text").map((block) => block.text)).toEqual([
+      "Confirmed: unreachable.",
+    ]);
+  });
+
   it("does not apply scripted files or memory on completion", async () => {
     const { ctx } = await context();
     ctx.script = [

@@ -9,6 +9,7 @@ import {
   SandboxRateLimitError,
   TransientModelError,
 } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
 import {
   containsSecret,
   displayName,
@@ -168,7 +169,16 @@ export async function consumeRunEvents(
       if (event.type === "text") {
         await streamText(ctx, event);
       } else if (event.type === "turn") {
-        reply.assistantTurnBreakPending = true;
+        if (event.supersede) {
+          // The next message answers a background result delivered after this reply, so it
+          // replaces the reply instead of being joined onto text the person already read.
+          flushPendingTools(reply);
+          reply.supersedeAt = reply.assembled.length;
+          reply.supersedeTextChars = countTextChars(reply.messageSegments);
+          reply.assistantTurnBreakPending = false;
+        } else {
+          reply.assistantTurnBreakPending = true;
+        }
       } else if (event.type === "steered") {
         await onSteered(ctx, event);
       } else if (event.type === "progress") {
@@ -771,6 +781,18 @@ export async function completeRun(ctx: RunContext) {
     reply.currentTextSegment = reply.assembled;
   }
   flushPendingTools(reply);
+  if (reply.supersedeAt !== undefined) {
+    // Keep the answer that followed the last background result; the earlier text was
+    // already on screen and repeating it in one bubble is the duplicate reply.
+    const superseded = reply.assembled.slice(reply.supersedeAt).trim();
+    if (superseded) {
+      reply.assembled = superseded;
+      reply.messageSegments = withoutTextPrefix(
+        reply.messageSegments,
+        reply.supersedeTextChars ?? 0,
+      );
+    }
+  }
   // Silent-allowed runs can choose an explicit NO_RESPONSE or finish empty.
   // Other runs still drop a stray sentinel at the edges of a real reply.
   const silentReply = ctx.allowSilentEmptyRun
@@ -1028,4 +1050,28 @@ export async function failRun(
       threadId: thread.id,
     });
   }
+}
+
+/** Characters of assistant text flushed so far, so a later turn can drop what it replaced. */
+function countTextChars(blocks: readonly MessageBlock[]): number {
+  return blocks.reduce((sum, block) => sum + (block.kind === "text" ? block.text.length : 0), 0);
+}
+
+/** The same blocks with the first `chars` characters of text removed; tool steps stay. */
+function withoutTextPrefix(blocks: MessageBlock[], chars: number): MessageBlock[] {
+  let remaining = chars;
+  const kept: MessageBlock[] = [];
+  for (const block of blocks) {
+    if (block.kind !== "text" || remaining <= 0) {
+      kept.push(block);
+      continue;
+    }
+    if (remaining >= block.text.length) {
+      remaining -= block.text.length;
+      continue;
+    }
+    kept.push({ ...block, text: block.text.slice(remaining) });
+    remaining = 0;
+  }
+  return kept;
 }
