@@ -1,7 +1,7 @@
 import feishuMark from "../../assets/app-marks/feishu.png?url";
 import githubMark from "../../assets/app-marks/github.svg?url";
 import notionMark from "../../assets/app-marks/notion.svg?url";
-import qqMailMark from "../../assets/app-marks/qq-mail.png?url";
+import qqMailMark from "../../assets/app-marks/qq-mail.svg?url";
 
 /**
  * Artwork ships with the app: Connect apps shows an app's mark on the first paint,

@@ -7,7 +7,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import feishuMark from "../../assets/app-marks/feishu.png?url";
 import githubMark from "../../assets/app-marks/github.svg?url";
 import notionMark from "../../assets/app-marks/notion.svg?url";
-import qqMailMark from "../../assets/app-marks/qq-mail.png?url";
+import qqMailMark from "../../assets/app-marks/qq-mail.svg?url";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp } from "../../lib/ui-flags";
 import { BUILTIN_APPS } from "../../lib/ui-flags";
