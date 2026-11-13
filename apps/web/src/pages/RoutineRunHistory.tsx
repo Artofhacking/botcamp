@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { RoutineRun, RoutineRunCursor } from "@botcamp/contracts";
 import {
   formatRoutineRunAt,
@@ -10,6 +9,7 @@ import {
   routineRunLateness,
 } from "@botcamp/core";
 import { Button, SectionHeading, Spinner } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";

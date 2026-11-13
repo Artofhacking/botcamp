@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import { MEMORY_REVISION_CONFLICT_ERROR } from "@botcamp/adapter-kit";
 import {
   buildAgentMemoryPrompt,
@@ -9,6 +8,7 @@ import {
 } from "@botcamp/adapters";
 import { isDeletableMemoryDocument } from "@botcamp/contracts";
 import { findSpaceMemoryConfig, IsolationError } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,

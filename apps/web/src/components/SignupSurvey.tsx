@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { SignupSurvey as SignupSurveyAnswers } from "@botcamp/contracts";
 import {
   SIGNUP_SURVEY_TEAM_SIZES,
@@ -13,6 +12,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import { rpc } from "../lib/rpc";
 

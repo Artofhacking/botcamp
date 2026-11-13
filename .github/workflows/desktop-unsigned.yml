@@ -80,7 +80,7 @@ jobs:
           DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
 
       - name: Build renderer and Electron main process
-        run: pnpm --filter @rakazo/web build && pnpm --filter @rakazo/desktop build
+        run: pnpm --filter @botcamp/web build && pnpm --filter @botcamp/desktop build
         env:
           RAKAZO_API_ORIGIN: https://botcamp.aigc.sx.cn
 
@@ -96,7 +96,7 @@ jobs:
           if [ -n "${{ inputs.version }}" ]; then
             args+=(-c.extraMetadata.version="${{ inputs.version }}")
           fi
-          pnpm --filter @rakazo/desktop exec electron-builder "${args[@]}"
+          pnpm --filter @botcamp/desktop exec electron-builder "${args[@]}"
 
       - name: Verify the macOS app is Apple silicon only
         if: matrix.artifact == 'botcamp-macos'

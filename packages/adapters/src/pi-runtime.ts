@@ -1,14 +1,3 @@
-import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import { Agent } from "@earendil-works/pi-agent-core";
-import type {
-  Api,
-  AssistantMessage,
-  Context,
-  JsonValue,
-  Message,
-  Model,
-} from "@earendil-works/pi-ai";
-import { validateToolArguments } from "@earendil-works/pi-ai";
 import type {
   AdapterContext,
   AgentRunRequest,
@@ -26,6 +15,17 @@ import {
   modelFallbackFailure,
 } from "@botcamp/core";
 import { getLogger } from "@botcamp/logging";
+import type { AgentToolResult } from "@earendil-works/pi-agent-core";
+import { Agent } from "@earendil-works/pi-agent-core";
+import type {
+  Api,
+  AssistantMessage,
+  Context,
+  JsonValue,
+  Message,
+  Model,
+} from "@earendil-works/pi-ai";
+import { validateToolArguments } from "@earendil-works/pi-ai";
 import {
   isTerminatingReplyResult,
   terminatingReplyText,

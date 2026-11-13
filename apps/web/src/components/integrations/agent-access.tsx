@@ -1,4 +1,3 @@
-import { Trans } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@botcamp/contracts";
 import {
   BotAvatar,
@@ -9,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@botcamp/ui-web";
+import { Trans } from "@lingui/react/macro";
 import { ChevronDown } from "lucide-react";
 
 export type AgentAccess = { allBots: boolean; botIds: string[] };

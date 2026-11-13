@@ -1,10 +1,10 @@
-import { t } from "@lingui/core/macro";
 import {
   CLIENT_UPDATE_REQUIRED_STATUS,
   compareBuilds,
   SERVER_BUILD_HEADER,
 } from "@botcamp/contracts";
 import { toast } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
 import { getSnapshot as activeCall } from "./call-session";
 import { CLIENT_BUILD } from "./client-build";
 import {

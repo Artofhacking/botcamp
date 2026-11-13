@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { i18n } from "@lingui/core";
 import type * as UiWeb from "@botcamp/ui-web";
+import { i18n } from "@lingui/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";

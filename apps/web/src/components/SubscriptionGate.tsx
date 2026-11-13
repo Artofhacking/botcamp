@@ -1,6 +1,6 @@
-import { useLingui } from "@lingui/react/macro";
 import type { BillingStatus, Me } from "@botcamp/contracts";
 import { Dialog, DialogContent } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 import { createContext, Suspense, useContext, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";

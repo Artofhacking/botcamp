@@ -285,7 +285,7 @@ describe("page kit", () => {
         rows={[{ name: "Acme", mrr: 12 }, ["Globex", 4]]}
       />,
     );
-    expect(markup).toContain("<th scope=\"col\">Name</th>");
+    expect(markup).toContain('<th scope="col">Name</th>');
     expect(markup).toContain('<th scope="col" class="rk-align-end">MRR</th>');
     expect(markup).toContain("<td>Acme</td>");
     expect(markup).toContain('<td class="rk-align-end">12</td>');

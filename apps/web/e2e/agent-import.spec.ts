@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { Bot, MemoryDocument } from "@botcamp/contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import type { Bot, MemoryDocument } from "@botcamp/contracts";
 import {
   activeBotId,
   captureScreenshot,

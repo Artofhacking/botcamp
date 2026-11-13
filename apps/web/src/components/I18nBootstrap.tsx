@@ -1,7 +1,7 @@
+import { InputRevealLabelsProvider } from "@botcamp/ui-web";
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
 import { useLingui } from "@lingui/react/macro";
-import { InputRevealLabelsProvider } from "@botcamp/ui-web";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { bootstrapI18n, getActiveUiLocale } from "../lib/i18n";

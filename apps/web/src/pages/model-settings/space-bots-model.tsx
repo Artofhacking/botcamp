@@ -1,4 +1,3 @@
-import { Plural, Trans } from "@lingui/react/macro";
 import type { Bot } from "@botcamp/contracts";
 import { botsWithOwnModel } from "@botcamp/core";
 import {
@@ -12,6 +11,7 @@ import {
   AlertDialogTitle,
   Button,
 } from "@botcamp/ui-web";
+import { Plural, Trans } from "@lingui/react/macro";
 import { useCallback, useEffect, useState } from "react";
 import { useSpaceRpc } from "../../lib/space-rpc";
 

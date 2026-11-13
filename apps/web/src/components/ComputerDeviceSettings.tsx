@@ -1,6 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { BotCampDesktopDevice, UserDeviceSummary } from "@botcamp/contracts";
 import { Button, Label, Switch } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { desktopBridge } from "../lib/desktop";

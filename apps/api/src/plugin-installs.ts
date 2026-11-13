@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { ORPCError } from "@orpc/server";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import type { PluginMcpServerEntry, PluginRepoFetcher } from "@botcamp/adapters";
 import {
@@ -17,6 +16,7 @@ import {
   runAsSystemInTransaction,
   spaceAvailability,
 } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { assertNameFreeWhereAvailable, lockOwner } from "./availability.js";
 
 export type PluginInstallDeps = {

@@ -132,7 +132,7 @@ describe("DaytonaSandboxProvider", () => {
     expect(computer).not.toHaveProperty("started");
     expect(fixture.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: expect.stringMatching(/^rakazo-/),
+        name: expect.stringMatching(/^botcamp-/),
         labels: { botId: "bot-a", rakazo: "computer" },
         envVars: { VNC_RESOLUTION: "1280x800" },
       }),
@@ -612,7 +612,7 @@ describe("DaytonaSandboxProvider", () => {
       timeout,
     );
     const name = fixture.create.mock.calls[0]?.[0].name;
-    expect(name).toMatch(/^rakazo-/);
+    expect(name).toMatch(/^botcamp-/);
     expect(fixture.get).toHaveBeenCalledWith(name);
     expect(fixture.deleteSandbox).toHaveBeenCalledOnce();
     expect(fixture.remote.missing).toBe(true);

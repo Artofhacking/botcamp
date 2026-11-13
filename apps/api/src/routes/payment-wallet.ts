@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import { PaymentWalletRequestRejected } from "@botcamp/adapter-kit";
 import type { PaymentWalletDeps } from "@botcamp/adapters";
 import {
@@ -7,6 +6,7 @@ import {
   paymentWalletStatus,
 } from "@botcamp/adapters";
 import { recordSecurityEvent } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { paymentWalletConnectedEvent } from "../security-audit.js";
 import type { RouterContext } from "./context.js";
 

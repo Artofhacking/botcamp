@@ -143,7 +143,7 @@ export function pageBrowserProbeCommand(): string {
     "set -eu",
     'export HOME="${HOME:-/home/botcamp}"',
     'prefix="${HOME:?}/.local/bin"',
-    'if [ -x /usr/local/bin/botcamp-page-browser ] && [ -x /usr/local/bin/agent-browser ]; then echo image_ok; exit 0; fi',
+    "if [ -x /usr/local/bin/botcamp-page-browser ] && [ -x /usr/local/bin/agent-browser ]; then echo image_ok; exit 0; fi",
     "echo image_missing",
     "uname -m",
     'if [ -x "$prefix/agent-browser" ]; then sha256sum "$prefix/agent-browser"; else echo missing; fi',
@@ -160,7 +160,9 @@ export function planPageBrowserInstall(probe: string, version: string) {
   const arch = agentBrowserArch(lines[1] ?? "");
   const have = lines[2] ?? "";
   const files = (lines[3] ?? "") === version;
-  const binary = have.startsWith(`${AGENT_BROWSER_SHA256[arch]} `) || have.startsWith(`${AGENT_BROWSER_SHA256[arch]}\t`);
+  const binary =
+    have.startsWith(`${AGENT_BROWSER_SHA256[arch]} `) ||
+    have.startsWith(`${AGENT_BROWSER_SHA256[arch]}\t`);
   if (binary && files) return { action: "ready" as const };
   return { action: "install" as const, arch, binary: !binary, files: !files };
 }

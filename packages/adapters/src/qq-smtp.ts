@@ -87,7 +87,8 @@ async function smtpReply(io: SmtpLines, code: string): Promise<void> {
   do {
     line = await io.readLine();
   } while (line.startsWith(`${code[0]}`) && line[3] === "-");
-  if (!line.startsWith(code)) throw new MailboxLoginError(code === "235" ? "rejected" : "unreachable");
+  if (!line.startsWith(code))
+    throw new MailboxLoginError(code === "235" ? "rejected" : "unreachable");
 }
 
 function headerValue(value: string): string {

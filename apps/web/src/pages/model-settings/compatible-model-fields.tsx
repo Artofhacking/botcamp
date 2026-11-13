@@ -1,4 +1,3 @@
-import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { ThinkingLevel } from "@botcamp/contracts";
 import { isOllamaCloudBaseUrl } from "@botcamp/contracts";
 import { compatibleThinkingLevels, toggleEnabledModelId } from "@botcamp/core";
@@ -13,6 +12,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@botcamp/ui-web";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { ModelPreflightFeedback } from "../../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../../components/ModelHeadersEditor";
 import { useListSearch } from "../../lib/use-list-search";

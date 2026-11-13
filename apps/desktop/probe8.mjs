@@ -1,10 +1,16 @@
 import { chromium } from "playwright";
+
 const token = process.env.TOK;
 const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage();
 await page.addInitScript((t) => localStorage.setItem("bc_auth_token", t), token);
-page.on("response", (r) => { if (r.url().includes("/admin/api")) console.log("API", r.status(), r.url()); });
-await page.goto("https://botcamp.demox.site/admin/", { waitUntil: "domcontentloaded", timeout: 60000 });
+page.on("response", (r) => {
+  if (r.url().includes("/admin/api")) console.log("API", r.status(), r.url());
+});
+await page.goto("https://botcamp.demox.site/admin/", {
+  waitUntil: "domcontentloaded",
+  timeout: 60000,
+});
 await page.waitForTimeout(6000);
 console.log("BODY:", (await page.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 320));
 await browser.close();

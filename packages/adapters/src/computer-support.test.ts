@@ -70,7 +70,7 @@ describe("Team Computer bot folders", () => {
       String.raw`\notes\x.md`,
     );
     expect(resolveBotWorkspacePath("team", "bot-1", "/home/botcamptest/file.txt")).toBe(
-      "home/rakazotest/file.txt",
+      "home/botcamptest/file.txt",
     );
     expect(() => resolveBotWorkspacePath("team", "bot-1", "/home/botcamp/../x")).toThrow(
       "Path escapes the computer workspace",

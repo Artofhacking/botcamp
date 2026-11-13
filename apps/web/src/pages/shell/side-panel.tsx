@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -7,6 +6,7 @@ import type {
   ThreadSnapshot,
 } from "@botcamp/contracts";
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import type { ComponentProps, Dispatch, ReactNode, SetStateAction } from "react";
 import { ComputerMaintenanceActions } from "../../components/ComputerMaintenanceActions";
@@ -15,9 +15,9 @@ import type { Panel } from "../../lib/right-panel-state";
 import type { createSpaceRpc } from "../../lib/rpc";
 import { computerPanelNeedsMaintenance } from "../../lib/thread-events";
 import { CreateGroupForm, GroupSettings } from "../GroupPanel";
-import { CreateSharedGroupForm, SharedGroupSettings } from "../SharedGroupPanel";
 import { ResizableSidePanel } from "../ResizableSidePanel";
 import { RoutineEditor } from "../RoutineEditor";
+import { CreateSharedGroupForm, SharedGroupSettings } from "../SharedGroupPanel";
 import type { SettingsSection } from "../shell-overlay";
 import { AgentImportForm } from "./agent-import";
 import type { BotPanelTab } from "./bot-panel";

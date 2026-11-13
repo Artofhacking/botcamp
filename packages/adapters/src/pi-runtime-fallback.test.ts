@@ -1,3 +1,10 @@
+import type { AgentRunRequest, AgentRuntimeEvent, ModelCallObserver } from "@botcamp/adapter-kit";
+import type * as Core from "@botcamp/core";
+import {
+  MODEL_CONTEXT_TOO_SMALL_ERROR,
+  MODEL_REQUEST_LIMIT_ERROR,
+  normalizeRunError,
+} from "@botcamp/core";
 import type * as AgentCore from "@earendil-works/pi-agent-core";
 import type { AgentMessage, AgentOptions } from "@earendil-works/pi-agent-core";
 import type {
@@ -10,13 +17,6 @@ import type {
 } from "@earendil-works/pi-ai";
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
-import type { AgentRunRequest, AgentRuntimeEvent, ModelCallObserver } from "@botcamp/adapter-kit";
-import type * as Core from "@botcamp/core";
-import {
-  MODEL_CONTEXT_TOO_SMALL_ERROR,
-  MODEL_REQUEST_LIMIT_ERROR,
-  normalizeRunError,
-} from "@botcamp/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const providerState = vi.hoisted(() => ({

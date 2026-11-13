@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, Group, RunActivityRow, RunStatus } from "@botcamp/contracts";
 import { activitySections, isRetryableError } from "@botcamp/core";
 import {
@@ -16,6 +14,8 @@ import {
   SectionHeading,
   Spinner,
 } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";

@@ -1,6 +1,6 @@
+import type { Bot, Routine } from "@botcamp/contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import type { Bot, Routine } from "@botcamp/contracts";
 import {
   activeBotId,
   captureScreenshot,

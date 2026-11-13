@@ -27,6 +27,21 @@ function translationIds(source: string): string[] {
   );
 }
 
+/** The setup page is written in English and translates its text and attributes before painting. */
+function pageTranslationIds(html: string): string[] {
+  const ids = new Set<string>();
+  // Example addresses stay as written; translating them would not help anyone.
+  const keep = (text: string | undefined) => text && !text.includes("://") && ids.add(text);
+  keep(/<title>([^<]+)<\/title>/.exec(html)?.[1]?.trim());
+  for (const match of html.matchAll(/>([^<>]+)</g)) {
+    keep(match[1]?.trim().replace(/\s+/g, " "));
+  }
+  for (const match of html.matchAll(/\s(?:title|aria-label|placeholder)="([^"]*)"/g)) {
+    keep(match[1]?.trim());
+  }
+  return [...ids];
+}
+
 function placeholders(message: string): string[] {
   return [...message.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1] ?? "").sort();
 }
@@ -223,7 +238,9 @@ describe.each(Object.entries(CATALOGS))(
     });
 
     it("translates every desktop t() id, and nothing else", () => {
-      const ids = new Set<string>();
+      const ids = new Set(
+        pageTranslationIds(readFileSync(path.join(srcDir, "setup.html"), "utf8")),
+      );
       for (const file of readdirSync(srcDir)) {
         if (!/\.(ts|js|cjs)$/.test(file) || file.endsWith(".test.ts")) continue;
         for (const id of translationIds(readFileSync(path.join(srcDir, file), "utf8"))) ids.add(id);

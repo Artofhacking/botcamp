@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type { VoiceChatGroup } from "@botcamp/core";
 import {
   callRequestBlock,
@@ -7,6 +6,7 @@ import {
   voiceChatSummary,
 } from "@botcamp/core";
 import { Button, buttonVariants, Collapsible, CollapsibleContent, cn } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { ChevronDown, Phone, PhoneIncoming, PhoneMissed } from "lucide-react";
 import { useState } from "react";
 import { BuiCard } from "../ai/primitives";

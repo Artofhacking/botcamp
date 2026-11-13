@@ -1,7 +1,7 @@
-import { Type } from "@earendil-works/pi-ai";
 import type { ConnectorTool } from "@botcamp/adapter-kit";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, ThinkingLevelSchema } from "@botcamp/contracts";
 import { getLogger } from "@botcamp/logging";
+import { Type } from "@earendil-works/pi-ai";
 import {
   normalizeOpenAiToolParameters,
   openAiToolParametersNeedNormalization,

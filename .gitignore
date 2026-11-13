@@ -48,3 +48,7 @@ apps/web/public/computer-screen/sdk/
 
 # 本地旧站数据备份，不进仓库
 backups-legacy-botcamp.db
+
+# Next.js build output
+mobile/.next/
+mobile/out/

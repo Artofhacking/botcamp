@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
-import * as Plot from "@observablehq/plot";
+
 import { MAX_CHART_DATA_ROWS } from "@botcamp/contracts";
+import * as Plot from "@observablehq/plot";
 import { autoType, csvParseRows, tsvParseRows } from "d3-dsv";
 
 /**

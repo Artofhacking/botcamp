@@ -134,7 +134,8 @@ export async function loadThreadSpeakers(
       where: { id: thread.groupId },
       select: { shared: true },
     });
-    if (group?.shared) return loadSharedSpeakers({ ...prisma, user: prisma.user }, run, rows, others);
+    if (group?.shared)
+      return loadSharedSpeakers({ ...prisma, user: prisma.user }, run, rows, others);
   }
   return {
     botId: run.bot.id,

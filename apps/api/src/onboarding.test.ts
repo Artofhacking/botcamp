@@ -181,7 +181,14 @@ it("updates an accessible group thread and emits its normal update event", async
   await markAppConnected(deps, actor, "bot", "slack", "pipedream", "group-thread");
   expect(deps.prisma.chatGroup.findFirst).toHaveBeenCalledWith(
     expect.objectContaining({
-      where: { id: "group", spaceId: actor.spaceId, userId: actor.userId, archivedAt: null },
+      where: {
+        id: "group",
+        archivedAt: null,
+        OR: [
+          { spaceId: actor.spaceId, userId: actor.userId },
+          { shared: true, participants: { some: { userId: actor.userId } } },
+        ],
+      },
     }),
   );
   expect(tx.message.findMany).toHaveBeenCalledWith(

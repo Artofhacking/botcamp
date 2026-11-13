@@ -108,9 +108,7 @@ export async function wakeSharedGroupBots(
       take: TRANSCRIPT_MESSAGES,
       select: { role: true, blocks: true, botId: true, senderUserId: true },
     });
-    const botIds = [
-      ...new Set(prior.flatMap((message) => (message.botId ? [message.botId] : []))),
-    ];
+    const botIds = [...new Set(prior.flatMap((message) => (message.botId ? [message.botId] : [])))];
     const senderIds = [
       ...new Set([
         input.senderUserId,

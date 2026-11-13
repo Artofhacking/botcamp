@@ -1,8 +1,8 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { LinkFavicons } from "@botcamp/chat-ui/web";
 import { LinkFaviconsContext, RemoteImagesContext } from "@botcamp/chat-ui/web";
 import { analyticsScreen } from "@botcamp/core";
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Suspense,
   useEffect,

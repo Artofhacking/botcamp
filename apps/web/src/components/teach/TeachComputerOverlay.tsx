@@ -1,6 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { ComputerStatus } from "@botcamp/contracts";
 import { Button, Label, Popover, PopoverContent, PopoverTrigger, Textarea } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";

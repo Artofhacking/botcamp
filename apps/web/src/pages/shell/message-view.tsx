@@ -1,5 +1,3 @@
-import { plural } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText, withBlockMentions } from "@botcamp/chat-ui/web";
 import type {
   BotAvatarSet,
@@ -10,6 +8,8 @@ import type {
 import type { ChildBotBlock, PeerExchange } from "@botcamp/core";
 import { isPeerReceiptBlocks, isToolActivityBlock } from "@botcamp/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@botcamp/ui-web";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { UserRound } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";

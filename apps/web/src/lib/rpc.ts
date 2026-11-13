@@ -1,17 +1,17 @@
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import type { ContractRouterClient } from "@orpc/contract";
 import type { AppContract, ProductEvent } from "@botcamp/contracts";
 import { CLIENT_BUILD_HEADER, formatClientBuild } from "@botcamp/contracts";
 import { displayIdentityEvent, displayIdentityResult } from "@botcamp/core";
 import { clientCorrelationHeaders, responseCorrelation } from "@botcamp/logging/monitoring";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { ContractRouterClient } from "@orpc/contract";
+import { apiOrigin } from "./api-origin.js";
 import { authClient } from "./auth";
+import { getAuthToken } from "./auth-token.js";
 import { CLIENT_BUILD } from "./client-build";
 import { i18n } from "./i18n";
 import { identityLabels } from "./identity-display";
 import { reportClientError } from "./monitoring";
-import { apiOrigin } from "./api-origin.js";
-import { getAuthToken } from "./auth-token.js";
 
 const SPACE_STORAGE_KEY = "botcamp:space-id";
 

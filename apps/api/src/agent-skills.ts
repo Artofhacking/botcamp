@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import { BUILTIN_AGENT_SKILLS } from "@botcamp/adapters";
 import type { Actor, AgentSkill, AgentSkillSource } from "@botcamp/contracts";
 import type { SkillSource } from "@botcamp/core";
@@ -16,6 +15,7 @@ import {
   IsolationError,
   spaceAvailability,
 } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { assertNameFreeWhereAvailable, userAddedAvailability } from "./availability.js";
 
 type AgentSkillRow = {

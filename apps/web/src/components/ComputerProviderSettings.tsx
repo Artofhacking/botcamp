@@ -1,11 +1,18 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { ComputerProviderSettings as Settings } from "@botcamp/contracts";
-import { Button, Field, FieldLabel, Input, NativeSelect, NativeSelectOption } from "@botcamp/ui-web";
+import {
+  Button,
+  Field,
+  FieldLabel,
+  Input,
+  NativeSelect,
+  NativeSelectOption,
+} from "@botcamp/ui-web";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@botcamp/ui-web/components/ui/collapsible";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useId, useState } from "react";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";

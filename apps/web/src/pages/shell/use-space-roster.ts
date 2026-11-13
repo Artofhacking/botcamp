@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type {
   AppBootstrap,
   Bot,
@@ -10,6 +9,7 @@ import type {
   ThreadSnapshot,
 } from "@botcamp/contracts";
 import { isRetryableError, reorderBotTo } from "@botcamp/core";
+import { useLingui } from "@lingui/react/macro";
 import { replaceEqualDeep } from "@tanstack/react-query";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";

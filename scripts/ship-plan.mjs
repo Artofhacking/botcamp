@@ -60,7 +60,7 @@ const PLACES = [
       "pnpm --filter @botcamp/api build && pnpm --filter @botcamp/worker build",
       "pnpm --filter @botcamp/api db:migrate",
       "infra/compose/release-tag.sh seal <checkout>",
-      "Restart the API and the worker. They start only when release-tag.sh require passes. GET /health returns {\"ok\":true}.",
+      'Restart the API and the worker. They start only when release-tag.sh require passes. GET /health returns {"ok":true}.',
     ],
   },
   {
@@ -97,7 +97,8 @@ const PLACES = [
   {
     id: "registry",
     title: "Image registry   ghcr.io/<owner>/<repo>/computer",
-    match: (file) => file.startsWith("infra/sandboxes/computer/") || file.startsWith("infra/sandboxes/desktop/"),
+    match: (file) =>
+      file.startsWith("infra/sandboxes/computer/") || file.startsWith("infra/sandboxes/desktop/"),
     steps: [
       "Push to main. After Checks and Postgres journeys, sha-<commit> and edge move.",
       "computer:edge is what a new computer pulls. One that is already running is left as it started.",
@@ -138,7 +139,9 @@ export function formatPlan(places) {
   for (const place of places) {
     blocks.push("", place.title);
     const shown = place.files.slice(0, 8);
-    blocks.push(`  files: ${shown.join(", ")}${place.files.length > shown.length ? `, +${place.files.length - shown.length}` : ""}`);
+    blocks.push(
+      `  files: ${shown.join(", ")}${place.files.length > shown.length ? `, +${place.files.length - shown.length}` : ""}`,
+    );
     for (const step of place.steps) blocks.push(`  ${step}`);
   }
   blocks.push("");
@@ -158,7 +161,9 @@ function changedFiles() {
   const committed = execFileSync("git", args, { encoding: "utf8" });
   const work = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" });
   const staged = execFileSync("git", ["diff", "--name-only", "--cached"], { encoding: "utf8" });
-  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { encoding: "utf8" });
+  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
+    encoding: "utf8",
+  });
   return [...new Set(`${committed}\n${work}\n${staged}\n${untracked}`.split("\n").filter(Boolean))];
 }
 

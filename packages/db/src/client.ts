@@ -1,7 +1,7 @@
-import { PrismaPg } from "@prisma/adapter-pg";
 import type { KeyProvider } from "@botcamp/adapter-kit";
 import { resolveContentEncryption } from "@botcamp/core";
 import { getLogger } from "@botcamp/logging";
+import { PrismaPg } from "@prisma/adapter-pg";
 import type { PoolClient } from "pg";
 import { Pool } from "pg";
 import { withContentEncryption } from "./content-encryption.js";

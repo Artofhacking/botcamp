@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type {
   Me,
   ModelApiProtocol,
@@ -37,6 +36,7 @@ import {
   savedCompatibleModelIds,
 } from "@botcamp/core";
 import { fetchFresh } from "@botcamp/core/query";
+import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCopyText } from "../../lib/copy-text";

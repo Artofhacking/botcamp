@@ -57,7 +57,8 @@ export function readRightPanelState(key: string): RightPanelState {
 
 export function writeRightPanelState(key: string, panel: Panel, routineId?: string) {
   // Keep the last durable preference while create-group or an import is open.
-  if (panel === "create-group" || panel === "create-shared-group" || panel === "import-agent") return;
+  if (panel === "create-group" || panel === "create-shared-group" || panel === "import-agent")
+    return;
   try {
     localStorage.setItem(
       key,

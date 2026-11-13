@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type { SpaceSetting } from "@botcamp/contracts";
 import { writeSaved } from "@botcamp/core/query";
 import {
@@ -12,6 +11,7 @@ import {
   AlertDialogTitle,
   Button,
 } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import type { QueryKey } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";

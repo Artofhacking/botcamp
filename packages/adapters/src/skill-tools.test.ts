@@ -269,7 +269,7 @@ describe("skill tools", () => {
     expect(botcamp?.content.toLowerCase()).not.toContain("rakazo");
     expect(botcamp?.content).toContain("# Getting started");
     expect(botcamp?.content).toContain("QQ邮箱");
-    expect(botcamp?.content).toContain("**Test and save**");
+    expect(botcamp?.content).toContain("**Test**");
     expect(botcamp?.content).not.toContain("**Browse**");
     expect(botcamp?.content).not.toContain("Settings → Models");
     expect(botcamp?.content).not.toContain("## Billing on BotCamp");

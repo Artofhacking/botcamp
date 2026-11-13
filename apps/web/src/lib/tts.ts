@@ -1,4 +1,3 @@
-import { t } from "@lingui/core/macro";
 import type { SettingsScope } from "@botcamp/contracts";
 import {
   readVoiceAudio,
@@ -7,10 +6,11 @@ import {
   VOICE_RESPONSE_TIMEOUT_MS,
   withAbort,
 } from "@botcamp/core";
-import { rpc, selectedSpaceId, withSpaceHeaders } from "./rpc.js";
-import { errorText, voiceAccountErrorText } from "./user-error.js";
+import { t } from "@lingui/core/macro";
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";
+import { rpc, selectedSpaceId, withSpaceHeaders } from "./rpc.js";
+import { errorText, voiceAccountErrorText } from "./user-error.js";
 
 export type SpeechStatus = "idle" | "preparing" | "speaking";
 
@@ -181,10 +181,7 @@ export class Speaker {
       const res = await withAbort(
         fetch(apiUrl("/api/voice/speak"), {
           method: "POST",
-          headers: withSpaceHeaders(
-            authHeaders({ "content-type": "application/json" }),
-            spaceId,
-          ),
+          headers: withSpaceHeaders(authHeaders({ "content-type": "application/json" }), spaceId),
           credentials: "include",
           body: JSON.stringify({
             text,

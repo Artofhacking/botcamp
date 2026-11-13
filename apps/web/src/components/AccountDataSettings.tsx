@@ -1,14 +1,14 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { isIdentityConfirmationRequired } from "@botcamp/contracts";
 import { Button, Spinner } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRef, useState } from "react";
+import { apiUrl } from "../lib/api-origin.js";
+import { authHeaders } from "../lib/auth-token.js";
 import { recheckSessionOnUnauthorized, rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 import { SuccessPop } from "./ai/primitives";
 import { useIdentityConfirmation } from "./ConfirmIdentityDialog";
 import { SettingsRow } from "./SettingsRows";
-import { apiUrl } from "../lib/api-origin.js";
-import { authHeaders } from "../lib/auth-token.js";
 
 export function AccountDataSettings({
   onImported,

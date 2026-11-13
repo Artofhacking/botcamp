@@ -12,10 +12,10 @@ import {
 } from "@botcamp/logging/monitoring";
 import type * as SentryReact from "@sentry/react";
 import type { ErrorInfo } from "react";
-import { desktopBridge } from "./desktop";
-import { importChunk, recoveringByReload } from "./preload-recovery";
 import { apiUrl } from "./api-origin.js";
 import { authHeaders } from "./auth-token.js";
+import { desktopBridge } from "./desktop";
+import { importChunk, recoveringByReload } from "./preload-recovery";
 
 // Load the SDK only when the connected API enables reporting.
 

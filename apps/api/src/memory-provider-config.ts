@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import {
   classifyMemoryProviderSettings,
@@ -10,6 +9,7 @@ import {
 import type { Actor } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
 import { findSpaceMemoryConfig, Prisma } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { withSerializableRetry } from "./serializable-retry.js";
 
 export interface MemoryProviderConfigDeps {

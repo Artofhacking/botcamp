@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, Group } from "@botcamp/contracts";
 import { GROUP_MEMBER_MAX, GROUP_NAME_MAX_LENGTH } from "@botcamp/contracts";
 import {
@@ -9,11 +8,12 @@ import {
   ListSearchInput,
   SectionHeading,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import { errorText } from "../lib/user-error";
 import type { createSpaceRpc } from "../lib/rpc";
+import { errorText } from "../lib/user-error";
 import { DeleteItemDialog } from "./shell/dialogs";
 
 const EMAIL_LIMIT = 20;
@@ -163,6 +163,7 @@ export function CreateSharedGroupForm({
           {choices.map((bot) => {
             const checked = selected.includes(bot.id);
             return (
+              // biome-ignore lint/a11y/noLabelWithoutControl: the Checkbox below is the control this row labels.
               <label key={bot.id} className="flex items-center gap-3 rounded-xl px-2.5 py-2">
                 <BotAvatar
                   avatarSet={bot.avatarSet}
@@ -182,7 +183,11 @@ export function CreateSharedGroupForm({
           })}
         </div>
       </div>
-      <Button className="mt-5 w-full" disabled={submitting || !name.trim()} onClick={() => void create()}>
+      <Button
+        className="mt-5 w-full"
+        disabled={submitting || !name.trim()}
+        onClick={() => void create()}
+      >
         {submitting ? <Trans>Creating…</Trans> : <Trans>Create shared group</Trans>}
       </Button>
     </div>

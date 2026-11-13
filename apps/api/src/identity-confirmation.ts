@@ -1,7 +1,7 @@
-import { ORPCError } from "@orpc/server";
 import type { Auth } from "@botcamp/auth";
 import type { Actor } from "@botcamp/contracts";
 import { IDENTITY_CONFIRMATION_REQUIRED } from "@botcamp/contracts";
+import { ORPCError } from "@orpc/server";
 
 /**
  * Guards a procedure that reveals sensitive data: the calling session must have confirmed its

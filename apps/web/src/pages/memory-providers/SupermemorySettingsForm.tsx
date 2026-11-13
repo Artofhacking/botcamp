@@ -1,5 +1,5 @@
-import { Trans } from "@lingui/react/macro";
 import { Button, Field, FieldLabel, Input } from "@botcamp/ui-web";
+import { Trans } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import type { ConnectionMode } from "./ConnectionModeFields";
 import { ConnectionModeFields } from "./ConnectionModeFields";

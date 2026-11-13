@@ -1,4 +1,3 @@
-import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { BillingStatus } from "@botcamp/contracts";
 import { BOT_COLORS, DEFAULT_NEW_BOT_AVATAR_SET, INVITED_TRIAL_WEEKS } from "@botcamp/contracts";
 import {
@@ -10,6 +9,7 @@ import {
   DialogTitle,
   Input,
 } from "@botcamp/ui-web";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { CalendarPlus, Check, Copy, Gift } from "lucide-react";
 import { useCopyText } from "../lib/copy-text";
 

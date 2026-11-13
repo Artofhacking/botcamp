@@ -33,7 +33,10 @@ async function loadAuthCapabilities(): Promise<AuthCapabilities> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(apiUrl("/api/auth/capabilities"), { signal: controller.signal, headers: authHeaders() });
+    const response = await fetch(apiUrl("/api/auth/capabilities"), {
+      signal: controller.signal,
+      headers: authHeaders(),
+    });
     if (!response.ok) throw new Error("Could not load authentication capabilities");
     const length = Number(response.headers.get("content-length") ?? Number.NaN);
     let body: unknown;

@@ -1,6 +1,6 @@
-import { useLingui } from "@lingui/react/macro";
 import type { Bot, Routine, ThinkingLevel, ThreadSnapshot } from "@botcamp/contracts";
 import { cronFromPreset } from "@botcamp/core";
+import { useLingui } from "@lingui/react/macro";
 import type { ComponentProps, Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useRef, useState } from "react";
 import { localTimezone } from "../../lib/local-timezone";

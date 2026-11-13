@@ -1,4 +1,3 @@
-import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, BotSection } from "@botcamp/contracts";
 import {
   AlertDialog,
@@ -20,6 +19,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@botcamp/ui-web";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import { errorText } from "../../lib/user-error";
 

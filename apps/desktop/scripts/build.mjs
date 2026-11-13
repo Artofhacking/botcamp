@@ -15,7 +15,10 @@ const defaultServerUrl = firstNonEmpty(
   process.env.BOTCAMP_DEFAULT_SERVER_URL,
   process.env.RAKAZO_DEFAULT_SERVER_URL,
 );
-const passkeyRpId = firstNonEmpty(process.env.BOTCAMP_PASSKEY_RP_ID, process.env.RAKAZO_PASSKEY_RP_ID);
+const passkeyRpId = firstNonEmpty(
+  process.env.BOTCAMP_PASSKEY_RP_ID,
+  process.env.RAKAZO_PASSKEY_RP_ID,
+);
 
 await build({
   entryPoints: ["src/main.ts"],

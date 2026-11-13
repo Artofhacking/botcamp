@@ -42,19 +42,18 @@ describe("the production computer provider", () => {
 const interpolated = (name: string, fallback = "") => `\${${name}:-${fallback}}`;
 
 describe("worker error reporting configuration", () => {
-  it.each([
-    "docker-compose.yml",
-    "docker-compose.prod.yml",
-    "docker-compose.prod.docker.yml",
-  ])("passes optional settings through %s", (file) => {
-    const { services } = parse(
-      readFileSync(path.resolve(import.meta.dirname, "../../compose", file), "utf8"),
-      { merge: true },
-    ) as { services: Record<string, ComposeService> };
-    for (const key of ["SENTRY_DSN", "SENTRY_ENVIRONMENT", "SENTRY_RELEASE"]) {
-      expect(services.worker?.environment?.[key]).toBe(interpolated(key));
-    }
-  });
+  it.each(["docker-compose.yml", "docker-compose.prod.yml", "docker-compose.prod.docker.yml"])(
+    "passes optional settings through %s",
+    (file) => {
+      const { services } = parse(
+        readFileSync(path.resolve(import.meta.dirname, "../../compose", file), "utf8"),
+        { merge: true },
+      ) as { services: Record<string, ComposeService> };
+      for (const key of ["SENTRY_DSN", "SENTRY_ENVIRONMENT", "SENTRY_RELEASE"]) {
+        expect(services.worker?.environment?.[key]).toBe(interpolated(key));
+      }
+    },
+  );
 });
 
 describe("the updater compose service", () => {

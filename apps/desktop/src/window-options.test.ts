@@ -6,8 +6,8 @@ import {
   DEFAULT_WARM_WINDOW_TTL_MS,
   developmentIconFile,
   setupWindowOptions,
-  warmWindowTtlMs,
   WINDOWS_APP_USER_MODEL_ID,
+  warmWindowTtlMs,
   windowsAppUserModelId,
 } from "./window-options.js";
 
@@ -123,10 +123,7 @@ describe("windows shell identity", () => {
   });
 
   it("points Start menu and taskbar shortcuts at a per-version icon", () => {
-    const script = readFileSync(
-      path.join(import.meta.dirname, "../assets/installer.nsh"),
-      "utf8",
-    );
+    const script = readFileSync(path.join(import.meta.dirname, "../assets/installer.nsh"), "utf8");
     expect(script).toContain("!macro customInstall");
     expect(script).toContain("BotCamp-${VERSION}.ico");
     expect(script).toContain("${BUILD_RESOURCES_DIR}\\icon.ico");

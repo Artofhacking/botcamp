@@ -1,7 +1,7 @@
-import { i18n } from "@lingui/core";
-import { useLingui } from "@lingui/react/macro";
 import { isModelRequiredSendError, normalizeRunError } from "@botcamp/core";
 import { Button } from "@botcamp/ui-web";
+import { i18n } from "@lingui/core";
+import { useLingui } from "@lingui/react/macro";
 import { FileIcon, X } from "lucide-react";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef } from "react";

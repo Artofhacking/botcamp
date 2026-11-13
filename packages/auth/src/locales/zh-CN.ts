@@ -42,7 +42,8 @@ export const ZH_CN_MESSAGES: Record<string, string> = {
   "If you're enjoying BotCamp,": "如果你喜欢 BotCamp，",
   "give us a star on GitHub": "欢迎在 GitHub 上给我们点个星标",
   "We received your BotCamp plugin": "我们已收到你的 BotCamp 插件",
-  "Thanks for submitting a plugin to the BotCamp marketplace.": "感谢你向 BotCamp 插件市场提交插件。",
+  "Thanks for submitting a plugin to the BotCamp marketplace.":
+    "感谢你向 BotCamp 插件市场提交插件。",
   "We review every submission and will email you when it's done.":
     "我们会审核每一份提交，完成后会给你发邮件。",
   "If you did not submit a plugin, ignore this email.": "如果你没有提交插件，请忽略此邮件。",

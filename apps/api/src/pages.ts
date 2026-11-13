@@ -1,7 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import { forgetPageShareSecrets } from "@botcamp/adapters";
-import type { Actor, PageDetail, PageSummary, PageVisibility, SharedPage } from "@botcamp/contracts";
+import type {
+  Actor,
+  PageDetail,
+  PageSummary,
+  PageVisibility,
+  SharedPage,
+} from "@botcamp/contracts";
 import { pageShareTokenFromSlug, pageShareUrl } from "@botcamp/contracts";
 import type { PageShareSecret, PrismaClient } from "@botcamp/db";
 import { IsolationError, Prisma, runAsSystem } from "@botcamp/db";

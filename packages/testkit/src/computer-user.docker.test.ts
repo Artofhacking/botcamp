@@ -32,7 +32,9 @@ describe.skipIf(process.env.RUN_COMPUTER_REPLAY_DOCKER !== "1")(
               "/tmp:mode=1777,exec",
               "--tmpfs",
               `/home/botcamp:uid=${uid},gid=${gid},mode=700`,
-              (process.env.BOTCAMP_COMPUTER_IMAGE ?? process.env.RAKAZO_COMPUTER_IMAGE) ?? "botcamp/computer:local",
+              process.env.BOTCAMP_COMPUTER_IMAGE ??
+                process.env.RAKAZO_COMPUTER_IMAGE ??
+                "botcamp/computer:local",
             ],
             { stdio: "pipe", timeout: 30_000 },
           );

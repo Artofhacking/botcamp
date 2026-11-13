@@ -1,7 +1,12 @@
 import { BillingEmulator } from "@botcamp/adapters";
 import type { Actor } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
-import { asSystem, billingAccountForOrganization, createDb, spaceHasModelAccess } from "@botcamp/db";
+import {
+  asSystem,
+  billingAccountForOrganization,
+  createDb,
+  spaceHasModelAccess,
+} from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createBillingService, TRIAL_DAYS } from "./billing.js";
 

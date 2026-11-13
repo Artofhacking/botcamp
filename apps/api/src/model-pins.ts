@@ -1,9 +1,9 @@
-import { ORPCError } from "@orpc/server";
 import type { CodexLiveCatalog, parseModelSecret } from "@botcamp/adapters";
 import { findConnectedModelCredential, validateConnectedModelChoice } from "@botcamp/adapters";
 import type { Actor } from "@botcamp/contracts";
 import { OPENAI_COMPATIBLE_PROVIDER_ID, usableModelId } from "@botcamp/contracts";
 import { modelRoleTarget, runAsSystem } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import type { RouterDeps } from "./router.js";
 
 /**

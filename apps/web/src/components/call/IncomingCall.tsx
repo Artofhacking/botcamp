@@ -1,7 +1,7 @@
-import { useLingui } from "@lingui/react/macro";
 import type { Bot } from "@botcamp/contracts";
 import { nextIncomingCall, respondToIncomingCall } from "@botcamp/core";
 import { BotAvatar, Button, defaultBotAvatarValue } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { Phone, PhoneOff } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isLeavingSession, startCall, useCallSession } from "../../lib/call-session";

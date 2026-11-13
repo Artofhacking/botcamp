@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { BillingStatus, ByokInterval } from "@botcamp/contracts";
 import {
   ByokIntervalSchema,
@@ -36,6 +35,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {

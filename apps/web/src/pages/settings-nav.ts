@@ -14,8 +14,8 @@ import {
   Wallet,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import type { SettingsSection } from "./shell-overlay";
 import { sectionHidden } from "../lib/ui-flags.js";
+import type { SettingsSection } from "./shell-overlay";
 
 export type SettingsNavItem = {
   id: SettingsSection;

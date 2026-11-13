@@ -41,7 +41,18 @@ test("an explicit local opt-out is recorded from the prompt", () => {
 });
 
 test("a shutdown fire and a pre-existing dirty tree do not block", () => {
-  assert.equal(decide({ reason: "shutdown", hasSnapshot: true, optedOut: false, touched: ["a"], unpushed: [], needsPullRequest: false, loopCount: 0 }), null);
+  assert.equal(
+    decide({
+      reason: "shutdown",
+      hasSnapshot: true,
+      optedOut: false,
+      touched: ["a"],
+      unpushed: [],
+      needsPullRequest: false,
+      loopCount: 0,
+    }),
+    null,
+  );
   assert.deepEqual(touchedPaths({ "a.js": "same" }, { "a.js": "same" }), []);
 });
 

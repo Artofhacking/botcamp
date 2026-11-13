@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@botcamp/contracts";
 import { SHIPPED_BOT_AVATAR_SHAPE_KEYS } from "@botcamp/core";
 import {
@@ -22,6 +20,8 @@ import {
   TabsTrigger,
 } from "@botcamp/ui-web";
 import { Button } from "@botcamp/ui-web/components/ui/button";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Check, Pencil, Upload, X } from "lucide-react";
 import type { ClipboardEvent, DragEvent } from "react";
 import { useRef, useState } from "react";

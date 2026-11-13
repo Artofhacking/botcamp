@@ -38,9 +38,9 @@ function executorFixture(
   };
   const prisma = {
     user: {
-      findUnique: vi.fn<
-        (args?: { select?: object }) => Promise<Record<string, unknown> | null>
-      >(async () => null),
+      findUnique: vi.fn<(args?: { select?: object }) => Promise<Record<string, unknown> | null>>(
+        async () => null,
+      ),
     },
     run: {
       findUnique: async () => run,

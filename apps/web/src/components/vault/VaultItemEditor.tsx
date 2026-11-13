@@ -1,5 +1,9 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { CardSecretValue, ContactFields, LoginFieldInput, VaultKind } from "@botcamp/contracts";
+import type {
+  CardSecretValue,
+  ContactFields,
+  LoginFieldInput,
+  VaultKind,
+} from "@botcamp/contracts";
 import {
   BotSecretName,
   CardSecretValue as CardSecretValueSchema,
@@ -25,6 +29,7 @@ import {
   NativeSelectOption,
   Switch,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ComponentProps, ReactNode } from "react";
 import { useId, useRef, useState } from "react";
 import type { VaultAuth } from "./kinds";

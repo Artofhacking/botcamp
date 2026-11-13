@@ -1,8 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type { Machine } from "@boxd-sh/sdk";
-import { Boxd, ConflictError, FilesystemError, NotFoundError, RateLimitError } from "@boxd-sh/sdk";
 import type {
   AdapterContext,
   CommandRequest,
@@ -25,6 +23,8 @@ import {
 } from "@botcamp/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
 import { getLogger } from "@botcamp/logging";
+import type { Machine } from "@boxd-sh/sdk";
+import { Boxd, ConflictError, FilesystemError, NotFoundError, RateLimitError } from "@boxd-sh/sdk";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import { PORTABLE_TRANSFER_BATCH_BYTES } from "./computer-workspace.js";
 import {

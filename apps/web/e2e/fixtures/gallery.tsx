@@ -1,8 +1,8 @@
-import { I18nProvider } from "@lingui/react";
 import type { MessageBlock, ThreadMessage } from "@botcamp/contracts";
 import { BOT_COLOR_LIST, instructionUpdateDiff } from "@botcamp/core";
 import type { GroupAvatarMember } from "@botcamp/ui-web";
 import { Button } from "@botcamp/ui-web";
+import { I18nProvider } from "@lingui/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";

@@ -1,6 +1,6 @@
-import type { ToolkitConnectionState } from "@composio/core";
 import type { AdapterContext, ConnectorEvent, ConnectorTool } from "@botcamp/adapter-kit";
 import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
+import type { ToolkitConnectionState } from "@composio/core";
 import { describe, expect, it, vi } from "vitest";
 import { composioToolkitDirectory } from "./composio-catalog-cache.js";
 import {

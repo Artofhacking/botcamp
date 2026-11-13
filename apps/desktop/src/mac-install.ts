@@ -54,7 +54,10 @@ fi
 
 /** The `.app` that contains this executable, or null when the path is not one. */
 export function macAppBundle(execPath: string): string | null {
-  const parts = execPath.replaceAll("\\", "/").split("/").filter((part) => part !== "");
+  const parts = execPath
+    .replaceAll("\\", "/")
+    .split("/")
+    .filter((part) => part !== "");
   const contents = parts.lastIndexOf("Contents");
   if (contents < 1 || parts[contents + 1] !== "MacOS") return null;
   const bundle = `/${parts.slice(0, contents).join("/")}`;

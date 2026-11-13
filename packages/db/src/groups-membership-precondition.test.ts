@@ -24,7 +24,11 @@ function fixture(activeIds: string[]) {
     thread: { id: "thread-1", unread: false, messages: [] },
     members: owned.map((bot) => ({ bot: { ...bot, runs: [] } })),
   };
-  const lock = vi.fn().mockResolvedValue([{ id: "group-1" }]);
+  const lock = vi
+    .fn()
+    .mockResolvedValue([
+      { id: "group-1", spaceId: actor.spaceId, userId: actor.userId, shared: false },
+    ]);
   const write = vi.fn().mockResolvedValue({});
   const remove = vi.fn().mockResolvedValue({ count: 2 });
   const create = vi.fn().mockResolvedValue({ count: 3 });
@@ -44,9 +48,11 @@ function fixture(activeIds: string[]) {
     },
     chatGroupMember: { deleteMany: remove, createMany: create },
     message: { findMany: vi.fn(async () => []) },
+    run: { findMany: vi.fn(async () => []) },
   };
   const prisma = {
     bot: { findMany: vi.fn().mockResolvedValue(owned) },
+    chatGroup: { findFirst: vi.fn().mockResolvedValue({ shared: false }) },
     $transaction: async (run: (client: typeof tx) => unknown) => run(tx),
   };
   return { repos: createGroupRepos(prisma as unknown as PrismaClient), write, remove, create };

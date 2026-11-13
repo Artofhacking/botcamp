@@ -1,4 +1,3 @@
-import { Plural, Trans } from "@lingui/react/macro";
 import { ChatMarkdown } from "@botcamp/chat-ui/web";
 import type { ThreadMessage } from "@botcamp/contracts";
 import { formatCompactDuration } from "@botcamp/core";
@@ -7,6 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@botcamp/ui-web/components/ui/collapsible";
+import { Plural, Trans } from "@lingui/react/macro";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { Fragment } from "react";

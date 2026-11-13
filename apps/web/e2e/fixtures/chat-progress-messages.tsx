@@ -1,5 +1,5 @@
-import { I18nProvider } from "@lingui/react";
 import type { ProductEvent } from "@botcamp/contracts";
+import { I18nProvider } from "@lingui/react";
 import { createRoot } from "react-dom/client";
 import { bootstrapI18n, i18n } from "../../src/lib/i18n";
 import "../../src/styles.css";

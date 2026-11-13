@@ -49,7 +49,10 @@ async function provideComputerImage(docker: Docker, image: string, context: stri
   // Every BotCamp build path tags the stock image botcamp/computer. The previous release used
   // rakazo/computer. Any other name may be a custom build, such as a Brave image, which a stock
   // build must not replace. dockerode's tar packer crashes the process on a context file it cannot read.
-  if (!/^(?:botcamp|rakazo)\/computer(:[\w][\w.-]*)?$/.test(image) || !(await contextReadable(context))) {
+  if (
+    !/^(?:botcamp|rakazo)\/computer(:[\w][\w.-]*)?$/.test(image) ||
+    !(await contextReadable(context))
+  ) {
     throw new Error(
       `Missing ${image}. Build it with: docker build -t ${image} infra/sandboxes/computer`,
     );

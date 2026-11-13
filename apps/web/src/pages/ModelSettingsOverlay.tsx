@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { SettingsScope } from "@botcamp/contracts";
 import {
   compatibleConnectionName,
@@ -27,6 +26,7 @@ import {
   ModelThinkingOptions,
   Spinner,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ModelCredential } from "../lib/model-auth";

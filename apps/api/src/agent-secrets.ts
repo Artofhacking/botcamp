@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import {
   forgetBotSecret,
@@ -15,6 +14,7 @@ import {
   commandVariableProblem,
 } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { mapBotSecretInputError } from "./routes/bots.js";
 
 type AgentSecretDeps = {

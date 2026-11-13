@@ -1,7 +1,7 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { SkillPlaybook } from "@botcamp/contracts";
 import { formatSkillRunPrompt } from "@botcamp/core";
 import { Button, Input, Label, Textarea } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useId, useRef, useState } from "react";
 import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";

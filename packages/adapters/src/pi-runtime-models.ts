@@ -1,3 +1,5 @@
+import type { AgentRunRequest } from "@botcamp/adapter-kit";
+import { canonicalPiProviderId, usableModelId } from "@botcamp/contracts";
 import type {
   Api,
   Model,
@@ -7,8 +9,6 @@ import type {
 } from "@earendil-works/pi-ai";
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import type { AgentRunRequest } from "@botcamp/adapter-kit";
-import { canonicalPiProviderId, usableModelId } from "@botcamp/contracts";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { PiRuntimeCredentialStore, toOAuthCredential } from "./pi-credentials.js";
 import { liveModelSibling, withLiveImageInput } from "./pi-live-model.js";

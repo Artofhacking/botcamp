@@ -1,7 +1,7 @@
-import { Trans } from "@lingui/react/macro";
 import type { McpServerHealth } from "@botcamp/contracts";
 import { MCP_OAUTH_CLIENT_REQUIRED } from "@botcamp/contracts";
 import { Disclosure } from "@botcamp/ui-web";
+import { Trans } from "@lingui/react/macro";
 import { CircleDashed, LoaderCircle, TriangleAlert } from "lucide-react";
 
 /**

@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@botcamp/chat-ui/web";
 import type { LoginFieldInput, ThreadMessage } from "@botcamp/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@botcamp/contracts";
@@ -10,6 +8,8 @@ import {
   selectedAskActionLabel,
 } from "@botcamp/core";
 import { Button, Input, Textarea } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import type { RpcClient } from "../lib/rpc";

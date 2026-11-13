@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { i18n } from "@lingui/core";
 import type { AgentImportPlan, Bot } from "@botcamp/contracts";
 import type * as Core from "@botcamp/core";
+import { i18n } from "@lingui/core";
 import type { ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";

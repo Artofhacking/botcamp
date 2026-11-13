@@ -114,7 +114,7 @@
       .stat .value { margin-top: 8px; font-size: 22px; font-weight: 620; letter-spacing: -0.03em; }
 
       .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
-      .toolbar label { font-weight: 640; letter-spacing: -0.02em; }
+      .toolbar label, .toolbar .toolbar-title { font-weight: 640; letter-spacing: -0.02em; }
       .toolbar input {
         flex: 1;
         min-width: 0;
@@ -221,7 +221,7 @@
         </section>
         <section class="models" aria-label="模型">
           <div class="toolbar">
-            <label>模型</label>
+            <span class="toolbar-title">模型</span>
             <span class="spacer"></span>
             <button class="save" id="save-models" type="button">保存顺序</button>
           </div>
@@ -281,28 +281,28 @@
       ];
       const TIERS = { small: "小容器", big: "大容器", desktop: "桌面" };
       const fmt = (n) => new Intl.NumberFormat("zh-CN").format(Math.round(Number(n) || 0));
-      const yuan = (n) => "¥" + (Number(n) || 0).toFixed(2);
-      const usd = (n) => "$" + (Number(n) || 0).toFixed(2);
+      const yuan = (n) => `¥${(Number(n) || 0).toFixed(2)}`;
+      const usd = (n) => `$${(Number(n) || 0).toFixed(2)}`;
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
         { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
       ));
       const duration = (seconds) => {
         const whole = Math.max(0, Math.round(Number(seconds) || 0));
-        if (whole < 60) return whole + " 秒";
-        if (whole < 3600) return Math.round(whole / 60) + " 分钟";
+        if (whole < 60) return `${whole} 秒`;
+        if (whole < 3600) return `${Math.round(whole / 60)} 分钟`;
         const hours = whole / 3600;
-        return (hours >= 10 ? Math.round(hours) : hours.toFixed(1)) + " 小时";
+        return `${hours >= 10 ? Math.round(hours) : hours.toFixed(1)} 小时`;
       };
       const coreLabel = (hours, seconds) => {
         const value = Number(hours);
-        if (value >= 1) return (value >= 10 ? Math.round(value) : value.toFixed(1)) + " 核时";
+        if (value >= 1) return `${value >= 10 ? Math.round(value) : value.toFixed(1)} 核时`;
         return duration(seconds);
       };
       const allowanceHours = (hours) => {
         const value = Number(hours);
         if (!Number.isFinite(value)) return "0 核时";
         const rounded = Math.round(value * 10) / 10;
-        return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + " 核时";
+        return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)} 核时`;
       };
 
       const API_BASE = (window.__RAKAZO_ADMIN_API__ || window.__RAKAZO_API_ORIGIN__ || "").replace(/\/+$/, "");
@@ -318,12 +318,12 @@
       let liveTimer = 0;
 
       async function api(path, init) {
-        const headers = new Headers(init && init.headers ? init.headers : undefined);
-        if (token) headers.set("authorization", "Bearer " + token);
+        const headers = new Headers(init?.headers ? init.headers : undefined);
+        if (token) headers.set("authorization", `Bearer ${token}`);
         const response = await fetch(API_BASE + path, { ...init, headers, credentials: "omit" });
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(response.status + " " + text.slice(0, 180));
+          throw new Error(`${response.status} ${text.slice(0, 180)}`);
         }
         return response.json();
       }
@@ -473,7 +473,7 @@
         try {
           const [overview, list] = await Promise.all([
             api("/admin/api/overview"),
-            api("/admin/api/users" + (query ? "?q=" + encodeURIComponent(query) : "")),
+            api(`/admin/api/users${query ? `?q=${encodeURIComponent(query)}` : ""}`),
           ]);
           showWork();
           renderCards(overview);
@@ -489,7 +489,7 @@
           renderModels();
           const day = (value) => new Date(value).toLocaleDateString("zh-CN");
           document.getElementById("who").textContent =
-            "本周 " + day(overview.weekStart) + " 至 " + day(overview.weekEnd);
+            `本周 ${day(overview.weekStart)} 至 ${day(overview.weekEnd)}`;
           await loadLive();
           if (!liveTimer) liveTimer = setInterval(loadLive, 10000);
         } catch (error) {
@@ -514,13 +514,13 @@
         }
         button.disabled = true;
         try {
-          await api("/admin/api/users/" + encodeURIComponent(id) + "/plan", {
+          await api(`/admin/api/users/${encodeURIComponent(id)}/plan`, {
             method: "PATCH",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ plan }),
           });
           const label = (PLANS.find(([value]) => value === plan) || [plan, plan])[1];
-          toast("已切换到 " + label);
+          toast(`已切换到 ${label}`);
           await load();
         } catch (error) {
           toast(String(error.message || error), true);

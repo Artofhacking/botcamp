@@ -371,14 +371,14 @@
     ["desk", "feed", "around"],
   ];
 
-  function fit() {
+  function fitBoard() {
     scaler.style.transform = "none";
     const w = board.offsetWidth;
     const h = board.offsetHeight;
     const scale = Math.min((innerWidth - 16) / w, (innerHeight - 16) / h);
-    scaler.style.width = w * scale + "px";
-    scaler.style.height = h * scale + "px";
-    scaler.style.transform = "scale(" + scale + ")";
+    scaler.style.width = `${w * scale}px`;
+    scaler.style.height = `${h * scale}px`;
+    scaler.style.transform = `scale(${scale})`;
   }
 
   function box(el) {
@@ -405,11 +405,11 @@
   }
 
   function draw() {
-    wires.setAttribute("viewBox", "0 0 " + innerWidth + " " + innerHeight);
+    wires.setAttribute("viewBox", `0 0 ${innerWidth} ${innerHeight}`);
     wires.replaceChildren();
-    links.forEach(function (pair, index) {
-      const from = document.querySelector('[data-pin="' + pair[0] + '"]');
-      const to = document.querySelector('[data-pin="' + pair[1] + '"]');
+    links.forEach((pair, index) => {
+      const from = document.querySelector(`[data-pin="${pair[0]}"]`);
+      const to = document.querySelector(`[data-pin="${pair[1]}"]`);
       if (!from || !to) return;
       const same = shell(from) === shell(to);
       const fromRect = box(same ? from : shell(from));
@@ -434,26 +434,19 @@
       let d;
       if (lane === "north") {
         const y = Math.min(a.y, b.y) - 22;
-        d = "M " + a.x + " " + a.y + " L " + a.x + " " + y + " L " + b.x + " " + y + " L " + b.x + " " + b.y;
+        d = `M ${a.x} ${a.y} L ${a.x} ${y} L ${b.x} ${y} L ${b.x} ${b.y}`;
       } else if (lane === "west") {
         const x = Math.min(a.x, b.x) - 20;
-        d = "M " + a.x + " " + a.y + " L " + x + " " + a.y + " L " + x + " " + b.y + " L " + b.x + " " + b.y;
+        d = `M ${a.x} ${a.y} L ${x} ${a.y} L ${x} ${b.y} L ${b.x} ${b.y}`;
       } else if (lane === "around") {
         const demox = box(document.getElementById("demox"));
         const cloud = box(document.getElementById("qcloud"));
         const y = (demox.bottom + cloud.top) / 2;
         const x = Math.min(demox.left, cloud.left, fromRect.left) - 36;
-        d = "M " + center(modA).x + " " + fromRect.bottom
-          + " L " + center(modA).x + " " + y
-          + " L " + x + " " + y
-          + " L " + x + " " + center(modB).y
-          + " L " + toRect.left + " " + center(modB).y;
+        d = `M ${center(modA).x} ${fromRect.bottom} L ${center(modA).x} ${y} L ${x} ${y} L ${x} ${center(modB).y} L ${toRect.left} ${center(modB).y}`;
       } else {
         const lead = same ? 26 : 20;
-        d = "M " + a.x + " " + a.y
-          + " C " + (a.x + a.nx * lead) + " " + (a.y + a.ny * lead)
-          + ", " + (b.x + b.nx * lead) + " " + (b.y + b.ny * lead)
-          + ", " + b.x + " " + b.y;
+        d = `M ${a.x} ${a.y} C ${a.x + a.nx * lead} ${a.y + a.ny * lead}, ${b.x + b.nx * lead} ${b.y + b.ny * lead}, ${b.x} ${b.y}`;
       }
       const base = document.createElementNS("http://www.w3.org/2000/svg", "path");
       base.setAttribute("class", "wire");
@@ -461,15 +454,15 @@
       const bead = document.createElementNS("http://www.w3.org/2000/svg", "path");
       bead.setAttribute("class", "bead");
       bead.setAttribute("d", d);
-      bead.style.animationDelay = (-index * 0.55) + "s";
-      bead.style.animationDuration = (7.2 + (index % 4) * 0.6) + "s";
+      bead.style.animationDelay = `${-index * 0.55}s`;
+      bead.style.animationDuration = `${7.2 + (index % 4) * 0.6}s`;
       wires.append(base, bead);
     });
   }
 
-  addEventListener("resize", function () { fit(); draw(); });
-  function boot() { fit(); draw(); }
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot);
+  addEventListener("resize", () => { fitBoard(); draw(); });
+  function boot() { fitBoard(); draw(); }
+  if (document.fonts?.ready) document.fonts.ready.then(boot);
   else boot();
 </script>
 </body>

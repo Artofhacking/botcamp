@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { ORPCError } from "@orpc/server";
 import type { AdapterContext, SecretStore } from "@botcamp/adapter-kit";
 import { MailboxLoginError, probeMailboxLogin } from "@botcamp/adapters";
 import type { Actor, MailboxSaveInput, MailboxStatus } from "@botcamp/contracts";
 import { MAILBOX_DISCONNECTED, MAILBOX_UNREACHABLE } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 
 const KIND = "mailbox";
 

@@ -28,7 +28,10 @@ import {
   unattendedTriggerToolRequiresApproval,
 } from "@botcamp/core";
 import { normalizedHttpUrl, urlSite } from "@botcamp/core/egress";
-import { approvalEffectKey, toolEffectIdempotencyKey } from "@botcamp/core/node/approval-effect-key";
+import {
+  approvalEffectKey,
+  toolEffectIdempotencyKey,
+} from "@botcamp/core/node/approval-effect-key";
 import type { AuditEventInput } from "@botcamp/db";
 import { recordAuditEvent, runSecretKind } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";

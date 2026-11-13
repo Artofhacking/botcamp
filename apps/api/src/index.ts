@@ -6,9 +6,9 @@ import { stopOnShutdownSignals } from "@botcamp/core/node/shutdown-signals";
 loadRootEnv();
 await unwrapEnvFromKeyManager();
 
-import { serve } from "@hono/node-server";
 import { SERVICE_NAMES } from "@botcamp/logging";
 import { createRootLogger } from "@botcamp/logging/axiom";
+import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { loadEnv } from "./env.js";
 

@@ -1,5 +1,5 @@
-import { Trans } from "@lingui/react/macro";
 import { Button } from "@botcamp/ui-web";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageLoading } from "../components/PageLoading";

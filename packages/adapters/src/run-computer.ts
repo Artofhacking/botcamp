@@ -62,8 +62,7 @@ export function lazyRunComputer(start: () => Promise<ComputerRef>, onFailure?: (
         },
         (error: unknown) => {
           startAttempts += 1;
-          yielded =
-            modelRetriesComputerStart(error) && startAttempts <= MODEL_COMPUTER_START_TRIES;
+          yielded = modelRetriesComputerStart(error) && startAttempts <= MODEL_COMPUTER_START_TRIES;
           if (yielded) {
             started = undefined;
             throw error;

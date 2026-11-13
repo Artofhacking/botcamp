@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { MessagingInboundMessage, MessagingOutboundStatus } from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import { createSlackAdapter } from "@chat-adapter/slack";
 import type { TelegramAdapter } from "@chat-adapter/telegram";
 import {
@@ -13,8 +15,6 @@ import {
   WhatsAppApiError,
 } from "@chat-adapter/whatsapp";
 import type { HttpInstance } from "@larksuiteoapi/node-sdk";
-import type { MessagingInboundMessage, MessagingOutboundStatus } from "@botcamp/adapter-kit";
-import { getLogger } from "@botcamp/logging";
 import type { Adapter } from "chat";
 import { ConsoleLogger, convertEmojiPlaceholders, markdownToPlainText } from "chat";
 import { createSendblueAdapter } from "chat-adapter-sendblue";

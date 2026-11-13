@@ -7,28 +7,28 @@
   // route has to live in the hash, or a reload of /console/app/<id> stays here.
   // A shared page is the same kind of path: /p/<token> has no file of its own.
   // Shipped desktop builds open the site origin, which is this page.
-  (function () {
+  (() => {
     var path = location.pathname.replace(/\/+$/, "") || "/";
     if (path === "/" && navigator.userAgent.indexOf("Electron") !== -1) {
-      location.replace("/console/" + location.search + location.hash);
+      location.replace(`/console/${location.search}${location.hash}`);
       return;
     }
     if (path === "/mcp/oauth/callback" || path === "/console/mcp/oauth/callback") {
-      location.replace("/console/#/mcp/oauth/callback" + location.search);
+      location.replace(`/console/#/mcp/oauth/callback${location.search}`);
       return;
     }
     if (path === "/messaging/slack/callback" || path === "/console/messaging/slack/callback") {
-      location.replace("/console/#/messaging/slack/callback" + location.search);
+      location.replace(`/console/#/messaging/slack/callback${location.search}`);
       return;
     }
     if (path.indexOf("/p/") === 0) {
-      location.replace("/console/#" + path + location.search);
+      location.replace(`/console/#${path}${location.search}`);
       return;
     }
     if (path.indexOf("/console/") !== 0) return;
     var leaf = path.slice(path.lastIndexOf("/") + 1);
     if (/\.(?:css|gif|html|ico|js|json|map|png|svg|txt|webmanifest|woff2?)$/i.test(leaf)) return;
-    location.replace("/console/#" + path.slice("/console".length) + location.search);
+    location.replace(`/console/#${path.slice("/console".length)}${location.search}`);
   })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -429,6 +429,7 @@
             <span class="tag"><span class="lamp" id="machine-lamp" data-on="true"></span><span id="machine-tag">常驻</span></span>
           </div>
           <p class="machine-copy" id="machine-copy" aria-live="polite">每个用户一台。查文件、跑短命令，打开就能用。</p>
+          <!-- biome-ignore lint/a11y/useSemanticElements: a segmented control, not a fieldset -->
           <div class="modes" role="group" aria-label="切换这台电脑的档位">
             <button type="button" data-mode="small" aria-pressed="true">小容器</button>
             <button type="button" data-mode="large" aria-pressed="false">大容器</button>
@@ -530,7 +531,7 @@
   const ctaMainNode = document.getElementById("cta-main");
   const versionNode = document.getElementById("version");
   document.getElementById("year").textContent = String(new Date().getFullYear());
-  versionNode.textContent = "Android " + ANDROID_VERSION + " 已发布";
+  versionNode.textContent = `Android ${ANDROID_VERSION} 已发布`;
 
   // The buttons start on the last published files. The catalog replaces both
   // the label and the file together, and only when both are a real release.
@@ -544,7 +545,7 @@
       if (url.protocol !== "https:" || url.host !== "botcamp.aigc.sx.cn") return "";
       if (!url.pathname.startsWith("/downloads/")) return "";
       return url.href;
-    } catch (e) {
+    } catch (_e) {
       return "";
     }
   };
@@ -553,20 +554,20 @@
     const href = downloadUrl(url);
     if (!shown || !href) return "";
     const link = document.getElementById(id);
-    const label = document.getElementById(id + "-version");
+    const label = document.getElementById(`${id}-version`);
     if (!link || !label) return "";
     label.textContent = shown;
     link.href = href;
     return shown;
   };
-  fetch(API + "/downloads/latest.json", { cache: "no-store" })
+  fetch(`${API}/downloads/latest.json`, { cache: "no-store" })
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => {
       if (!data || typeof data !== "object") return;
       const android = paintRelease("android", data.androidVersion || data.version, data.android);
       paintRelease("mac", data.macVersion || data.desktopVersion || data.version, data.mac);
       paintRelease("windows", data.windowsVersion || data.desktopVersion || data.version, data.windows);
-      if (android) versionNode.textContent = "Android " + android + " 已发布";
+      if (android) versionNode.textContent = `Android ${android} 已发布`;
     })
     .catch(() => {});
 
@@ -619,11 +620,11 @@
         localStorage.removeItem("bc_admin");
         localStorage.removeItem("bc_admin_token");
         localStorage.removeItem("bc_email");
-      } catch (e) {}
+      } catch (_e) {}
       if (token) {
-        fetch(API + "/api/auth/sign-out", {
+        fetch(`${API}/api/auth/sign-out`, {
           method: "POST",
-          headers: { authorization: "Bearer " + token },
+          headers: { authorization: `Bearer ${token}` },
         }).catch(() => {});
       }
       location.reload();
@@ -648,24 +649,24 @@
   };
 
   const token = (() => {
-    try { return localStorage.getItem("bc_auth_token"); } catch (e) { return null; }
+    try { return localStorage.getItem("bc_auth_token"); } catch (_e) { return null; }
   })();
   if (!token) {
     showGuest();
   } else {
     showGuest();
-    fetch(API + "/api/auth/get-session", { headers: { authorization: "Bearer " + token } })
+    fetch(`${API}/api/auth/get-session`, { headers: { authorization: `Bearer ${token}` } })
       .then((response) => (response.ok ? response.json() : null))
       .then((session) => {
-        const email = session && session.user && session.user.email;
+        const email = session?.user?.email;
         if (!email) return null;
         showUser(email);
-        return fetch(API + "/admin/api/overview", {
-          headers: { authorization: "Bearer " + token },
+        return fetch(`${API}/admin/api/overview`, {
+          headers: { authorization: `Bearer ${token}` },
         });
       })
       .then((response) => {
-        if (response && response.ok) paintAdmin(true);
+        if (response?.ok) paintAdmin(true);
       })
       .catch(() => {});
   }

@@ -1,4 +1,3 @@
-import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { AccessGrant } from "@botcamp/contracts";
 import {
   Badge,
@@ -10,6 +9,7 @@ import {
   Spinner,
   toast,
 } from "@botcamp/ui-web";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import type { FormEvent } from "react";

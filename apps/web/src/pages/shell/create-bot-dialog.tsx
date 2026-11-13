@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@botcamp/contracts";
 import { BOT_NAME_MAX_LENGTH } from "@botcamp/contracts";
 import {
@@ -20,6 +19,7 @@ import {
   Input,
   parseBotAvatar,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRef, useState } from "react";
 import { errorText } from "../../lib/user-error";
 import { BotLookPicker } from "./avatar-studio-popover";

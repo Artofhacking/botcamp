@@ -1,7 +1,7 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { LoginFieldInput } from "@botcamp/contracts";
 import { LOGIN_FIELD_LIMIT } from "@botcamp/contracts";
 import { Button, Input, Label, Toggle } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Lock, LockOpen, Plus, X } from "lucide-react";
 import { useId } from "react";
 

@@ -1,10 +1,10 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import { ORPCError } from "@orpc/client";
 import type { AgentSkill, AgentSkillCatalogEntry, MemoryDocument } from "@botcamp/contracts";
 import { isDeletableMemoryDocument, isEmptyBotMemory } from "@botcamp/contracts";
 import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import { Badge, Button, SectionHeading, Skeleton, Textarea } from "@botcamp/ui-web";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@botcamp/ui-web/components/ui/tooltip";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { ORPCError } from "@orpc/client";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

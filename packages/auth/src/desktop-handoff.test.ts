@@ -36,13 +36,16 @@ function setup() {
   prisma.$transaction = vi.fn(async (operations: (tx: unknown) => Promise<unknown>) =>
     operations(prisma),
   );
-  auth = createAuth(prisma as never, {
-    secret,
-    baseURL: origin,
-    webOrigin: origin,
-    signupsEnabled: "true",
-    signupAllowlist: undefined,
-  } satisfies Partial<AuthEnv> as AuthEnv);
+  auth = createAuth(
+    prisma as never,
+    {
+      secret,
+      baseURL: origin,
+      webOrigin: origin,
+      signupsEnabled: "true",
+      signupAllowlist: undefined,
+    } satisfies Partial<AuthEnv> as AuthEnv,
+  );
 }
 
 async function request(path: string, body?: unknown, init?: { origin?: string | null }) {
@@ -161,7 +164,12 @@ it("rejects a handoff for another site or another secret", async () => {
       })
     ).status,
   ).toBe(409);
-  expect((await request("/desktop-handoff/poll", { nonce, pollSecret: "00000000-0000-4000-8000-000000000003" })).status).toBe(
-    404,
-  );
+  expect(
+    (
+      await request("/desktop-handoff/poll", {
+        nonce,
+        pollSecret: "00000000-0000-4000-8000-000000000003",
+      })
+    ).status,
+  ).toBe(404);
 });
