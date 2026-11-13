@@ -1,5 +1,4 @@
 import type { McpServer } from "@botcamp/contracts";
-import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE, mailboxAuthCode } from "@botcamp/contracts";
 import {
   Button,
   Dialog,
@@ -14,7 +13,9 @@ import {
 } from "@botcamp/ui-web";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { FormEvent } from "react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import type { McpOauthPaste } from "../../lib/mcp-connect";
+import { mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
 import { errorText } from "../../lib/user-error";
 
@@ -26,23 +27,14 @@ function AppIcon({ name }: { name: string }) {
   );
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export type MailboxConnectInput = {
-  address: string;
-  authCode: string;
-  scope: string;
-};
-
-/** A scope list is the mailbox authorization-code form. Other apps use their own sign-in. */
+/** A scope list is the mailbox permission choice. Other apps use their own sign-in. */
 function signsInWithMailbox(app: DeploymentApp): boolean {
   return app.scopes.length > 0;
 }
 
 /**
- * The apps a deployment offers, one row each. A mailbox asks for the authorization
- * code and the permission, then tests that sign-in before saving it. Any other app
- * starts its own sign-in.
+ * The apps a deployment offers, one row each. A mailbox asks which permission to
+ * grant, then signs in through that app's own page. Any other app starts its own sign-in.
  */
 export function DeploymentApps({
   apps,
@@ -50,7 +42,6 @@ export function DeploymentApps({
   pending,
   error,
   linked = false,
-  onSave,
   onConnect,
   onDisconnect,
   directory = null,
@@ -61,10 +52,14 @@ export function DeploymentApps({
   /** Endpoint of the app with a connect or disconnect in flight. */
   pending: string | null;
   error: string | null;
-  /** The saved mailbox sign-in. It connects only an app that asks for that code. */
+  /** An older mailbox sign-in. It still shows that app as connected. */
   linked?: boolean;
-  onSave: (app: DeploymentApp, input: MailboxConnectInput) => Promise<void>;
-  onConnect?: (app: DeploymentApp) => void;
+  onConnect?: (
+    app: DeploymentApp,
+    scope?: string,
+    paste?: McpOauthPaste,
+    signal?: AbortSignal,
+  ) => void | Promise<void>;
   onDisconnect: (app: DeploymentApp) => void;
   /**
    * Directory sign-in, when this deployment offers it. A linked account is
@@ -78,53 +73,84 @@ export function DeploymentApps({
   } | null;
 }) {
   const { t } = useLingui();
-  const emailId = useId();
-  const codeId = useId();
+  const callbackId = useId();
   const permissionId = useId();
   const [draft, setDraft] = useState<DeploymentApp | null>(null);
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [scope, setScope] = useState("");
+  const [callback, setCallback] = useState("");
+  const [pasteSession, setPasteSession] = useState<{
+    sessionId: string;
+    authorizationUrl: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const pasteDone = useRef<((value: string | undefined) => void) | null>(null);
+  const attempt = useRef<AbortController | null>(null);
 
-  function open(app: DeploymentApp) {
-    setDraft(app);
-    setEmail("");
-    setCode("");
-    setScope(app.scopes[0]?.scope ?? "");
+  function close() {
+    attempt.current?.abort();
+    attempt.current = null;
+    pasteDone.current?.(undefined);
+    pasteDone.current = null;
+    setDraft(null);
+    setPasteSession(null);
+    setCallback("");
     setFormError(null);
   }
 
-  function signInError(err: unknown): string {
-    const message = errorText(err, t`Could not sign in`);
-    if (message === MAILBOX_AUTH_REJECTED) return t`Authorization code was rejected`;
-    if (message === MAILBOX_UNREACHABLE) return t`Could not reach the mailbox`;
-    return message;
+  function open(app: DeploymentApp) {
+    attempt.current?.abort();
+    attempt.current = null;
+    pasteDone.current?.(undefined);
+    pasteDone.current = null;
+    setDraft(app);
+    setScope(app.scopes[0]?.scope ?? "");
+    setCallback("");
+    setPasteSession(null);
+    setFormError(null);
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft || saving) return;
-    const address = email.trim().toLowerCase();
-    const authCode = mailboxAuthCode(code);
-    if (!EMAIL.test(address) || address.length > 254) {
-      setFormError(t`Enter a valid email`);
-      return;
-    }
-    if (!authCode) {
-      setFormError(t`Enter the 16-character authorization code`);
+    if (pasteSession) {
+      if (!mcpOauthCodeFromPaste(callback, pasteSession.sessionId)) {
+        setFormError(t`That address has no authorization code`);
+        return;
+      }
+      pasteDone.current?.(callback.trim());
+      pasteDone.current = null;
+      setSaving(true);
       return;
     }
     if (!scope) return;
+    const controller = new AbortController();
+    attempt.current = controller;
     setSaving(true);
     setFormError(null);
     try {
-      await onSave(draft, { address, authCode, scope });
-      setDraft(null);
+      await onConnect?.(
+        draft,
+        scope,
+        async (session) => {
+          if (controller.signal.aborted) return undefined;
+          setPasteSession(session);
+          setCallback("");
+          setSaving(false);
+          return await new Promise((resolve) => {
+            pasteDone.current = resolve;
+          });
+        },
+        controller.signal,
+      );
+      if (!controller.signal.aborted) {
+        setDraft(null);
+        setPasteSession(null);
+      }
     } catch (err) {
-      setFormError(signInError(err));
+      if (!controller.signal.aborted) setFormError(errorText(err, t`Could not sign in`));
     } finally {
+      if (attempt.current === controller) attempt.current = null;
       setSaving(false);
     }
   }
@@ -211,8 +237,8 @@ export function DeploymentApps({
       </div>
       <Dialog
         open={draft !== null}
-        onOpenChange={(open) => {
-          if (!open && !saving) setDraft(null);
+        onOpenChange={(next) => {
+          if (!next) close();
         }}
       >
         <DialogContent>
@@ -220,36 +246,36 @@ export function DeploymentApps({
             <DialogHeader>
               <DialogTitle>{draft?.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-2">
-              <Label htmlFor={emailId}>
-                <Trans>Mailbox</Trans>
-              </Label>
-              <Input
-                id={emailId}
-                type="email"
-                autoComplete="email"
-                autoFocus
-                required
-                disabled={saving}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={codeId}>
-                <Trans>Authorization code</Trans>
-              </Label>
-              <Input
-                id={codeId}
-                type="password"
-                autoComplete="off"
-                required
-                disabled={saving}
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-            </div>
-            {draft && draft.scopes.length > 0 ? (
+            {pasteSession ? (
+              <div className="grid gap-2">
+                <p className="text-sm text-muted-foreground">
+                  <Trans>
+                    Sign in at{" "}
+                    <a
+                      href={pasteSession.authorizationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-foreground underline"
+                    >
+                      {new URL(pasteSession.authorizationUrl).hostname}
+                    </a>
+                    , then paste the callback address.
+                  </Trans>
+                </p>
+                <Label htmlFor={callbackId}>
+                  <Trans>Callback address</Trans>
+                </Label>
+                <Input
+                  id={callbackId}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoFocus
+                  disabled={saving}
+                  value={callback}
+                  onChange={(event) => setCallback(event.target.value)}
+                />
+              </div>
+            ) : draft && draft.scopes.length > 0 ? (
               <div className="grid gap-2">
                 <p id={permissionId} className="text-sm font-medium text-muted-foreground">
                   <Trans>Permission</Trans>
@@ -272,8 +298,14 @@ export function DeploymentApps({
               </p>
             ) : null}
             <DialogFooter>
-              <Button type="submit" disabled={saving || !email.trim() || !code.trim() || !scope}>
-                {saving ? <Trans>Testing…</Trans> : <Trans>Test and save</Trans>}
+              <Button type="submit" disabled={saving || (pasteSession ? !callback.trim() : !scope)}>
+                {saving ? (
+                  <Trans>Waiting…</Trans>
+                ) : pasteSession ? (
+                  <Trans>Submit</Trans>
+                ) : (
+                  <Trans>Connect</Trans>
+                )}
               </Button>
             </DialogFooter>
           </form>

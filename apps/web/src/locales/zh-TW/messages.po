@@ -1178,6 +1178,11 @@ msgstr "回撥"
 msgid "Call with {0}"
 msgstr "與 {0} 通話"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Callback address"
+msgstr ""
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
 msgstr "正在打給你…"
@@ -5804,6 +5809,12 @@ msgstr "登入"
 msgid "Sign in again"
 msgstr "重新登入"
 
+#. placeholder {0}: new URL(pasteSession.authorizationUrl).hostname
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Sign in at <0>{0}</0>, then paste the callback address."
+msgstr ""
+
 #. placeholder {0}: new URL(oauth.verificationUri).hostname
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -6186,6 +6197,11 @@ msgstr ""
 #: src/pages/shell/message-cards.tsx
 msgid "Testing…"
 msgstr "正在測試…"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "That address has no authorization code"
+msgstr ""
 
 #: src/pages/shell/composer-error.tsx
 msgid "The bot can use the file but won't see the picture."

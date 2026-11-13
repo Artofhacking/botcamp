@@ -1,12 +1,5 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { useLinkPrompt } from "@botcamp/chat-ui/web";
 import type { MessageBlock } from "@botcamp/contracts";
-import {
-  MAILBOX_AUTH_REJECTED,
-  MAILBOX_UNREACHABLE,
-  MailboxSaveInput,
-  mailboxAuthCode,
-} from "@botcamp/contracts";
 import { appConnectedInput, waitForConnection } from "@botcamp/core";
 import {
   Button,
@@ -19,6 +12,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
@@ -26,10 +20,11 @@ import { BuiCard, SuccessPop } from "../../components/ai/primitives";
 import { OptionRow } from "../../components/OptionRow";
 import type { ArtifactTarget } from "../../lib/artifact-open";
 import { chartViewport } from "../../lib/chart-viewport";
-import { connectMcpOauth } from "../../lib/mcp-connect";
+import { openDefaultBrowser } from "../../lib/desktop";
+import { connectBuiltinApp, connectMcpOauth, mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
 import { importChunk } from "../../lib/preload-recovery";
 import { rpc } from "../../lib/rpc";
-import { BUILTIN_APPS } from "../../lib/ui-flags";
+import { BUILTIN_APPS, offeredApps } from "../../lib/ui-flags";
 import { useArtifactImage } from "../../lib/use-artifact-image";
 import { errorText } from "../../lib/user-error";
 
@@ -185,7 +180,7 @@ export function AppConnectCard({
         provider: block.provider,
         displayName: block.name,
       });
-      if (started.authorizationUrl) {
+      if (started.authorizationUrl && !(await openDefaultBrowser(started.authorizationUrl))) {
         window.open(started.authorizationUrl, "rakazo-app-connect", "popup,width=560,height=720");
       }
       const result = await waitForConnection(
@@ -247,6 +242,8 @@ export function AppConnectCard({
       </div>
       {mailbox && status !== "connected" ? (
         <MailboxSignIn
+          botId={botId}
+          threadId={threadId}
           onSaved={async () => {
             setLocalStatus("connected");
             await rpc.onboarding
@@ -260,84 +257,126 @@ export function AppConnectCard({
   );
 }
 
-const MAILBOX_SCOPES = BUILTIN_APPS.find((app) => app.name === "QQ邮箱")?.scopes ?? [];
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function qqMailApp() {
+  return (
+    offeredApps().find((app) => app.name === "QQ邮箱") ??
+    BUILTIN_APPS.find((app) => app.name === "QQ邮箱")
+  );
+}
 
-/** Authorization-code sign-in for a mailbox card. Other apps keep the OAuth button. */
-function MailboxSignIn({ onSaved }: { onSaved: () => Promise<void> }) {
+/** Permission, then the mailbox's own sign-in. A browser pastes the callback address. */
+function MailboxSignIn({
+  botId,
+  threadId,
+  onSaved,
+}: {
+  botId: string;
+  threadId: string;
+  onSaved: () => Promise<void>;
+}) {
   const { t } = useLingui();
-  const emailId = useId();
-  const codeId = useId();
+  const callbackId = useId();
   const permissionId = useId();
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [scope, setScope] = useState(MAILBOX_SCOPES[0]?.scope ?? "");
+  const scopes = qqMailApp()?.scopes ?? [];
+  const [scope, setScope] = useState(scopes[0]?.scope ?? "");
+  const [callback, setCallback] = useState("");
+  const [pasteSession, setPasteSession] = useState<{
+    sessionId: string;
+    authorizationUrl: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function signInError(err: unknown): string {
-    const message = errorText(err, t`Could not sign in`);
-    if (message === MAILBOX_AUTH_REJECTED) return t`Authorization code was rejected`;
-    if (message === MAILBOX_UNREACHABLE) return t`Could not reach the mailbox`;
-    return message;
-  }
+  const pasteDone = useRef<((value: string | undefined) => void) | null>(null);
+  const attempt = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      attempt.current?.abort();
+      pasteDone.current?.(undefined);
+      pasteDone.current = null;
+    },
+    [],
+  );
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (saving) return;
-    const address = email.trim().toLowerCase();
-    const authCode = mailboxAuthCode(code);
-    if (!EMAIL.test(address) || address.length > 254) {
-      setError(t`Enter a valid email`);
-      return;
-    }
-    if (!authCode) {
-      setError(t`Enter the 16-character authorization code`);
+    const app = qqMailApp();
+    if (!app) return;
+    if (pasteSession) {
+      if (!mcpOauthCodeFromPaste(callback, pasteSession.sessionId)) {
+        setError(t`That address has no authorization code`);
+        return;
+      }
+      pasteDone.current?.(callback.trim());
+      pasteDone.current = null;
+      setSaving(true);
       return;
     }
     if (!scope) return;
+    const controller = new AbortController();
+    attempt.current = controller;
     setSaving(true);
     setError(null);
     try {
-      await rpc.mailbox.save(MailboxSaveInput.parse({ address, authCode, scope }));
-      await onSaved();
+      const result = await connectBuiltinApp(app, {
+        scope,
+        botId,
+        threadId,
+        signal: controller.signal,
+        paste: async (session) => {
+          if (controller.signal.aborted) return undefined;
+          setPasteSession(session);
+          setCallback("");
+          setSaving(false);
+          return await new Promise((resolve) => {
+            pasteDone.current = resolve;
+          });
+        },
+      });
+      if (controller.signal.aborted) return;
+      if (result === "connected" || result === "already_connected") await onSaved();
+      else setSaving(false);
     } catch (err) {
-      setError(signInError(err));
-      setSaving(false);
+      if (!controller.signal.aborted) {
+        setError(errorText(err, t`Could not sign in`));
+        setSaving(false);
+      }
+    } finally {
+      if (attempt.current === controller) attempt.current = null;
     }
   }
 
   return (
     <form onSubmit={(event) => void submit(event)} className="mt-3 grid gap-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor={emailId}>
-          <Trans>Mailbox</Trans>
-        </Label>
-        <Input
-          id={emailId}
-          type="email"
-          autoComplete="email"
-          required
-          disabled={saving}
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor={codeId}>
-          <Trans>Authorization code</Trans>
-        </Label>
-        <Input
-          id={codeId}
-          type="password"
-          autoComplete="off"
-          required
-          disabled={saving}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-        />
-      </div>
-      {MAILBOX_SCOPES.length > 0 ? (
+      {pasteSession ? (
+        <div className="grid gap-1.5">
+          <p className="text-[13px] text-muted-foreground">
+            <Trans>
+              Sign in at{" "}
+              <a
+                href={pasteSession.authorizationUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-foreground underline"
+              >
+                {new URL(pasteSession.authorizationUrl).hostname}
+              </a>
+              , then paste the callback address.
+            </Trans>
+          </p>
+          <Label htmlFor={callbackId}>
+            <Trans>Callback address</Trans>
+          </Label>
+          <Input
+            id={callbackId}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={saving}
+            value={callback}
+            onChange={(event) => setCallback(event.target.value)}
+          />
+        </div>
+      ) : scopes.length > 0 ? (
         <div className="grid gap-1.5">
           <p id={permissionId} className="text-sm font-medium text-muted-foreground">
             <Trans>Permission</Trans>
@@ -348,7 +387,7 @@ function MailboxSignIn({ onSaved }: { onSaved: () => Promise<void> }) {
             disabled={saving}
             onValueChange={(value) => setScope(value)}
           >
-            {MAILBOX_SCOPES.map((option) => (
+            {scopes.map((option) => (
               // The radio is the control inside the label.
               // biome-ignore lint/a11y/noLabelWithoutControl: the wrapped RadioGroupItem is the control.
               <label
@@ -367,8 +406,14 @@ function MailboxSignIn({ onSaved }: { onSaved: () => Promise<void> }) {
           {error}
         </p>
       ) : null}
-      <Button type="submit" disabled={saving || !email.trim() || !code.trim() || !scope}>
-        {saving ? <Trans>Testing…</Trans> : <Trans>Test and save</Trans>}
+      <Button type="submit" disabled={saving || (pasteSession ? !callback.trim() : !scope)}>
+        {saving ? (
+          <Trans>Waiting…</Trans>
+        ) : pasteSession ? (
+          <Trans>Submit</Trans>
+        ) : (
+          <Trans>Connect</Trans>
+        )}
       </Button>
     </form>
   );

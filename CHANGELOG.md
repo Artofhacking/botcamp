@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.63] - 2026-11-13
+
+### Changed
+
+- QQ邮箱 connects by signing in on the QQ Mail page. Choose 只读 or 可发信 first. The desktop app finishes that sign-in. A browser pastes the callback address. A mailbox saved earlier stays connected until you disconnect it ([integrations](docs/integrations.md)).
+
 ## [2.0.62] - 2026-11-13
 
 ### Changed

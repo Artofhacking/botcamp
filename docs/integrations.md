@@ -5,14 +5,13 @@ Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. T
 ## Connect QQ邮箱
 
 1. Choose **Connect** on **QQ邮箱**.
-2. Under **Mailbox**, enter the mailbox address.
-3. Under **Authorization code**, enter the 16-character authorization code from QQ Mail. This is that code, not the password you use to sign in on the web.
-4. Under **Permission**, choose **只读** or **可发信**. **只读** is read-only. **可发信** includes sending.
-5. Choose **Test and save**. BotCamp signs in to the mailbox and keeps the connection only when that sign-in works. The code is stored encrypted and is not shown again.
+2. Under **Permission**, choose **只读** or **可发信**. **只读** is read-only. **可发信** includes sending.
+3. Choose **Connect** again and sign in on the QQ Mail page.
+4. On the desktop app, that sign-in finishes when you approve it. In a browser, copy the address the page lands on and paste it under **Callback address**, then choose **Submit**.
 
-A saved mailbox shows **Connected**. Choose **Disconnect** to remove it. To replace the code, disconnect, then connect again with the new one. You can also revoke the code in QQ Mail's authorization-code settings.
+A saved mailbox shows **Connected**. Choose **Disconnect** to remove it. To change the permission, disconnect, then connect again and choose the other one.
 
-Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a card. After that card is saved, the bot can list, open, and search the mailbox. It can send only when **可发信** was the permission you saved. Those tools show up on the bot's next turn.
+Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a card. After that sign-in, the bot can use the mailbox tools from the next turn. It can send only when **可发信** was the permission you saved.
 
 ## Directory
 

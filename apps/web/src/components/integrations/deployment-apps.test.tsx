@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import type { McpOauthPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp } from "../../lib/ui-flags";
 import { DeploymentApps } from "./deployment-apps";
 
@@ -136,15 +137,6 @@ function typeInto(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-async function fill(container: HTMLElement, email: string, code: string) {
-  const emailInput = container.querySelector('input[type="email"]') as HTMLInputElement;
-  const codeInput = container.querySelector('input[type="password"]') as HTMLInputElement;
-  await act(async () => {
-    typeInto(emailInput, email);
-    typeInto(codeInput, code);
-  });
-}
-
 it("shows a linked directory account as connected without a second disconnect", async () => {
   const onConnect = vi.fn();
   const container = await render(
@@ -153,7 +145,6 @@ it("shows a linked directory account as connected without a second disconnect", 
       servers={[]}
       pending={null}
       error={null}
-      onSave={vi.fn()}
       onDisconnect={vi.fn()}
       directory={{ name: "飞书", linked: true, onConnect }}
     />,
@@ -172,7 +163,6 @@ it("links a directory account from the connect button", async () => {
       servers={[]}
       pending={null}
       error={null}
-      onSave={vi.fn()}
       onDisconnect={vi.fn()}
       directory={{ name: "飞书", linked: false, onConnect }}
     />,
@@ -184,14 +174,7 @@ it("links a directory account from the connect button", async () => {
 
 it("lists only the apps the deployment offers", async () => {
   const container = await render(
-    <DeploymentApps
-      apps={[APP]}
-      servers={[]}
-      pending={null}
-      error={null}
-      onSave={vi.fn()}
-      onDisconnect={vi.fn()}
-    />,
+    <DeploymentApps apps={[APP]} servers={[]} pending={null} error={null} onDisconnect={vi.fn()} />,
   );
   const rows = appRows(container);
   expect(rows).toHaveLength(1);
@@ -202,15 +185,23 @@ it("lists only the apps the deployment offers", async () => {
   expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
-it("asks for the authorization code and saves the chosen permission", async () => {
-  const onSave = vi.fn(async () => undefined);
+it("starts sign-in with the chosen permission and accepts the callback address", async () => {
+  let pasted = "";
+  const onConnect = vi.fn(async (_app: DeploymentApp, scope?: string, paste?: McpOauthPaste) => {
+    expect(scope).toBe("mail.read mail.send");
+    pasted =
+      (await paste?.({
+        sessionId: "session-1",
+        authorizationUrl: "https://wx.mail.qq.com/oauth/authorize?state=session-1",
+      })) ?? "";
+  });
   const container = await render(
     <DeploymentApps
       apps={[APP]}
       servers={[]}
       pending={null}
       error={null}
-      onSave={onSave}
+      onConnect={onConnect}
       onDisconnect={vi.fn()}
     />,
   );
@@ -218,43 +209,33 @@ it("asks for the authorization code and saves the chosen permission", async () =
     (button) => button.textContent === "Connect",
   );
   await act(async () => connect?.click());
+  expect(container.querySelector('input[type="email"]')).toBeNull();
   expect(container.querySelector('[data-testid="mailbox-dialog"]')?.textContent).toContain(
     "Read and send",
   );
   const send = container.querySelector('[data-value="mail.read mail.send"]');
   await act(async () => (send as HTMLButtonElement).click());
-  await fill(container, "Person@Example.com", "abcd efgh ijkl mnop");
-  await act(async () => container.querySelector("form")?.requestSubmit());
-  expect(onSave).toHaveBeenCalledWith(APP, {
-    address: "person@example.com",
-    authCode: "abcdefghijklmnop",
-    scope: "mail.read mail.send",
+  await act(async () => {
+    container.querySelector("form")?.requestSubmit();
+    await Promise.resolve();
   });
-  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
-});
-
-it("keeps the dialog open when the code is not 16 characters", async () => {
-  const onSave = vi.fn();
-  const container = await render(
-    <DeploymentApps
-      apps={[APP]}
-      servers={[]}
-      pending={null}
-      error={null}
-      onSave={onSave}
-      onDisconnect={vi.fn()}
-    />,
-  );
-  const connect = [...container.querySelectorAll("button")].find(
-    (button) => button.textContent === "Connect",
-  );
-  await act(async () => connect?.click());
-  await fill(container, "person@example.com", "short");
+  const pending = onConnect.mock.results[0]?.value as Promise<void> | undefined;
+  expect(container.textContent).toContain("Callback address");
+  const input = container.querySelector("input") as HTMLInputElement;
+  await act(async () => typeInto(input, "not-a-callback"));
   await act(async () => container.querySelector("form")?.requestSubmit());
-  expect(onSave).not.toHaveBeenCalled();
   expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-    "Enter the 16-character authorization code",
+    "That address has no authorization code",
   );
+  await act(async () =>
+    typeInto(input, "http://127.0.0.1:47631/callback?code=auth-code&state=session-1"),
+  );
+  await act(async () => {
+    container.querySelector("form")?.requestSubmit();
+    await pending;
+  });
+  expect(pasted).toContain("auth-code");
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
 it("shows a connected app with its disconnect, and disconnects it", async () => {
@@ -265,7 +246,6 @@ it("shows a connected app with its disconnect, and disconnects it", async () => 
       servers={[server()]}
       pending={null}
       error={null}
-      onSave={vi.fn()}
       onDisconnect={onDisconnect}
     />,
   );
@@ -291,7 +271,6 @@ it("starts Notion sign-in without the mailbox form, and a saved mailbox does not
       pending={null}
       error={null}
       linked
-      onSave={vi.fn()}
       onConnect={onConnect}
       onDisconnect={vi.fn()}
     />,
@@ -315,7 +294,6 @@ it("shows a saved mailbox as connected", async () => {
       pending={null}
       error={null}
       linked
-      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );
@@ -332,7 +310,6 @@ it("asks for a reconnect when the grant lapsed", async () => {
       servers={[server({ oauthStatus: "reconnect" })]}
       pending={null}
       error={null}
-      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );
@@ -347,7 +324,6 @@ it("says why connecting failed", async () => {
       servers={[]}
       pending={null}
       error="Could not connect"
-      onSave={vi.fn()}
       onDisconnect={vi.fn()}
     />,
   );

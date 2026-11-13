@@ -1,4 +1,3 @@
-import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type {
   CapabilityInstall,
   Connection,
@@ -7,11 +6,7 @@ import type {
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
 } from "@botcamp/contracts";
-import {
-  CONNECTION_LABEL_MAX_LENGTH,
-  MailboxSaveInput,
-  PluginPreviewSchema,
-} from "@botcamp/contracts";
+import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@botcamp/contracts";
 import type { PluginCategory } from "@botcamp/core";
 import {
   buildFeaturedConnectorTiles,
@@ -55,11 +50,11 @@ import {
   SectionHeading,
   Spinner,
 } from "@botcamp/ui-web";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MailboxConnectInput } from "../components/integrations/deployment-apps";
 import { beginDirectoryLink } from "../components/AccountAccess";
 import { DeploymentApps } from "../components/integrations/deployment-apps";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
@@ -83,6 +78,7 @@ import {
 } from "../components/integrations/space-availability";
 import { fetchAccountSecurity } from "../lib/account-security";
 import { connectedAppMarks } from "../lib/connected-apps";
+import type { McpOauthPaste } from "../lib/mcp-connect";
 import { connectMcpOauth } from "../lib/mcp-connect";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
@@ -313,13 +309,12 @@ export function PluginsOverlay({
     return mcpServers.find((server) => !server.installId && server.endpoint === app.endpoint);
   }
 
-  async function saveDeploymentApp(_app: DeploymentApp, input: MailboxConnectInput) {
-    setAppError(null);
-    const saved = await rpc.mailbox.save(MailboxSaveInput.parse(input));
-    queryClient.setQueryData(queries.mailbox.get.queryKey(), saved);
-  }
-
-  async function connectDeploymentApp(app: DeploymentApp) {
+  async function connectDeploymentApp(
+    app: DeploymentApp,
+    scope?: string,
+    paste?: McpOauthPaste,
+    signal?: AbortSignal,
+  ) {
     setAppError(null);
     setAppPending(app.endpoint);
     try {
@@ -332,8 +327,8 @@ export function PluginsOverlay({
           transport: "streamable_http",
           endpoint: app.endpoint,
         }));
-      const result = await connectMcpOauth(server.id);
-      if (result !== "connected" && result !== "already_connected") return;
+      const result = await connectMcpOauth(server.id, scope, paste, signal);
+      if (signal?.aborted || (result !== "connected" && result !== "already_connected")) return;
       if (activeBotId) {
         await rpc.mcp.assignments.approve({ botId: activeBotId, serverId: server.id });
       }
@@ -1161,8 +1156,7 @@ export function PluginsOverlay({
           (mailboxQuery.error ? errorText(mailboxQuery.error, t`Could not load the mailbox`) : null)
         }
         linked={mailbox?.connected === true}
-        onSave={saveDeploymentApp}
-        onConnect={(app) => void connectDeploymentApp(app)}
+        onConnect={(app, scope, paste, signal) => connectDeploymentApp(app, scope, paste, signal)}
         onDisconnect={(app) => void disconnectDeploymentApp(app)}
         directory={
           showDirectory && directory

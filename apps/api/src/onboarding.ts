@@ -29,6 +29,8 @@ type OnboardingDeps = {
   connectors: ConnectorRegistry;
   /** Mailbox cards are not in a connector catalog, so completion checks this secret. */
   secretStore?: SecretStore;
+  /** The official QQ Mail grant, which connects the same card without that secret. */
+  qqMailMcpConnected?: (actor: Actor) => Promise<boolean>;
 };
 
 type FocusOption = {
@@ -315,12 +317,14 @@ async function connectedAppSlug(
   connectorId: string,
 ): Promise<string | null> {
   if (connectorId === MAILBOX_CONNECTOR_ID) {
-    if (!deps.secretStore) return null;
-    const saved = await loadSavedMailbox(deps.prisma, deps.secretStore, {
-      userId: actor.userId,
-      spaceId: actor.spaceId,
-    });
-    return saved ? provider : null;
+    if (deps.secretStore) {
+      const saved = await loadSavedMailbox(deps.prisma, deps.secretStore, {
+        userId: actor.userId,
+        spaceId: actor.spaceId,
+      });
+      if (saved) return provider;
+    }
+    return (await deps.qqMailMcpConnected?.(actor)) ? provider : null;
   }
   const providerAdapter = deps.connectors.managed(connectorId);
   if (!providerAdapter) return null;

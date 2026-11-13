@@ -4,6 +4,7 @@ import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
 import { isMailboxAppName } from "./mailbox-app.js";
 import { loadSavedMailbox } from "./mailbox-connection.js";
+import { qqMailGrantConnected } from "./mcp-oauth.js";
 import { addMcpServerFromTool } from "./mcp-server-tool.js";
 import { isNotionAppName, NOTION_APP_NAME, NOTION_MCP_ENDPOINT } from "./notion-app.js";
 import type { RunContext } from "./run-context.js";
@@ -130,7 +131,11 @@ export const integrationTools: ToolHandlers = {
               userId: run.userId,
               spaceId: run.spaceId,
             }).catch(() => null),
-          )
+          ) ||
+          (await qqMailGrantConnected(deps.prisma, deps.secretStore, {
+            userId: run.userId,
+            spaceId: run.spaceId,
+          }).catch(() => false))
         : false;
     return call.finish(
       await connectApp(

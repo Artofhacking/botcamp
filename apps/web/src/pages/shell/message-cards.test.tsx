@@ -15,16 +15,28 @@ const calls = vi.hoisted(() => ({
   })),
   oauthBegin: vi.fn(async () => ({
     status: "authorization_required" as const,
+    sessionId: "session-1",
     authorizationUrl: "https://identity.example.test/authorize",
   })),
+  oauthComplete: vi.fn(async () => ({ ok: true })),
   approve: vi.fn(async () => ({ ok: true })),
+  servers: vi.fn(async () => []),
+  createServer: vi.fn(async () => ({
+    id: "qq-server",
+    installId: null,
+    endpoint: "https://api.mail.qq.com/mcp",
+  })),
 }));
 vi.mock("../../lib/rpc", () => ({
   rpc: {
     connections: { begin: calls.begin, complete: calls.complete },
     onboarding: { appConnected: calls.mark },
     mailbox: { save: calls.save },
-    mcp: { oauth: { begin: calls.oauthBegin }, assignments: { approve: calls.approve } },
+    mcp: {
+      oauth: { begin: calls.oauthBegin, complete: calls.oauthComplete },
+      assignments: { approve: calls.approve },
+      servers: { list: calls.servers, create: calls.createServer },
+    },
   },
 }));
 vi.mock("@lingui/react/macro", () => ({
@@ -155,8 +167,14 @@ function typeInto(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-it("saves a mailbox card with its authorization code instead of starting OAuth", async () => {
-  const beginCalls = calls.begin.mock.calls.length;
+it("connects a mailbox card through its sign-in page instead of an authorization code", async () => {
+  calls.oauthBegin.mockResolvedValueOnce({
+    status: "authorization_required" as const,
+    sessionId: "session-1",
+    authorizationUrl:
+      "https://wx.mail.qq.com/oauth/authorize?redirect_uri=http%3A%2F%2F127.0.0.1%3A47631%2Fcallback&state=session-1",
+  });
+  vi.spyOn(window, "open").mockReturnValue({ close: vi.fn() } as unknown as Window);
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -179,26 +197,36 @@ it("saves a mailbox card with its authorization code instead of starting OAuth",
         />,
       ),
     );
-    expect(host.textContent).toContain("Test and save");
-    const email = host.querySelector('input[type="email"]') as HTMLInputElement;
-    const code = host.querySelector('input[type="password"]') as HTMLInputElement;
+    expect(host.querySelector('input[type="email"]')).toBeNull();
+    const connect = [...host.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Connect"),
+    );
     await act(async () => {
-      typeInto(email, "Person@Example.com");
-      typeInto(code, "short");
+      connect?.click();
+      await Promise.resolve();
     });
-    const submit = () =>
-      [...host.querySelectorAll("button")].find((button) =>
-        button.textContent?.includes("Test and save"),
-      );
-    await act(async () => submit()?.click());
     expect(calls.save).not.toHaveBeenCalled();
-    expect(host.textContent).toContain("Enter the 16-character authorization code");
-    await act(async () => typeInto(code, "abcd efgh ijkl mnop"));
-    await act(async () => submit()?.click());
-    expect(calls.save).toHaveBeenCalledWith({
-      address: "person@example.com",
-      authCode: "abcdefghijklmnop",
-      scope: "alias:read mail:read",
+    expect(host.textContent).toContain("Callback address");
+    const input = host.querySelector("input") as HTMLInputElement;
+    await act(async () =>
+      typeInto(input, "http://127.0.0.1:47631/callback?code=auth-code&state=session-1"),
+    );
+    const submit = [...host.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Submit"),
+    );
+    await act(async () => {
+      submit?.click();
+      await Promise.resolve();
+    });
+    expect(calls.oauthComplete).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      code: "auth-code",
+      state: "session-1",
+    });
+    expect(calls.approve).toHaveBeenCalledWith({
+      botId: "bot",
+      serverId: "qq-server",
+      threadId: "normal-chat",
     });
     expect(calls.mark).toHaveBeenCalledWith({
       botId: "bot",
@@ -207,7 +235,6 @@ it("saves a mailbox card with its authorization code instead of starting OAuth",
       connectorId: "mailbox",
       provider: "mailbox",
     });
-    expect(calls.begin.mock.calls.length).toBe(beginCalls);
     expect(host.textContent).toContain("Connected");
     expect(host.querySelector("form")).toBeNull();
   } finally {

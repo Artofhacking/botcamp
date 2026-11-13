@@ -122,8 +122,6 @@ export {
   readAgentMemory,
 } from "./memory-context.js";
 export * from "./memory-provider-factory.js";
-export * from "./personal-chat/bridge.js";
-export * from "./personal-chat/surface.js";
 export * from "./messaging-composition.js";
 export * from "./messaging-context.js";
 export * from "./messaging-delivery.js";
@@ -149,6 +147,8 @@ export * from "./page-share-secrets.js";
 export * from "./parallel-web.js";
 export * from "./payment-wallet-factory.js";
 export * from "./payment-wallets.js";
+export * from "./personal-chat/bridge.js";
+export * from "./personal-chat/surface.js";
 export * from "./pi-catalog-availability.js";
 export * from "./pi-codex-catalog.js";
 export * from "./pi-credentials.js";
@@ -170,6 +170,7 @@ export * from "./purchase-poll.js";
 export * from "./purchase-service.js";
 export * from "./push-token-store.js";
 export * from "./qq-imap.js";
+export * from "./qq-mail-oauth.js";
 export * from "./railway-sandbox.js";
 export * from "./realtime.js";
 export * from "./release-watch.js";
