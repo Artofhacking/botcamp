@@ -217,13 +217,13 @@ export async function enabledDirectoryUserScopes(input: {
   if (!endpoints) return null;
   const openBase = new URL(endpoints.tokenUrl).origin;
   const http = input.fetchImpl ?? fetch;
-  const signal = input.signal ?? AbortSignal.timeout(5_000);
+  const signal = () => input.signal ?? AbortSignal.timeout(5_000);
   try {
     const tokenResponse = await http(`${openBase}/open-apis/auth/v3/tenant_access_token/internal`, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({ app_id: input.appId, app_secret: input.appSecret }),
-      signal,
+      signal: signal(),
     });
     if (!tokenResponse.ok) return null;
     const token = await readJson(tokenResponse);
@@ -236,7 +236,7 @@ export async function enabledDirectoryUserScopes(input: {
           accept: "application/json",
           authorization: `Bearer ${token.tenant_access_token}`,
         },
-        signal,
+        signal: signal(),
       },
     );
     if (!infoResponse.ok) return null;
