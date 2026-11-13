@@ -163,22 +163,28 @@ async function webProxyAddress(
 ): Promise<string | null> {
   const cached = webProxyAddresses.get(networkName);
   if (cached && Date.now() - cached.at < 60_000) return cached.address;
-  const project = info.Config.Labels?.["com.docker.compose.project"];
-  if (!project) return null;
-  const web = await docker.listContainers({
-    all: true,
-    filters: {
-      label: [`com.docker.compose.project=${project}`, "com.docker.compose.service=web"],
-    },
-  });
   const network = await docker.getNetwork(networkName).inspect();
-  for (const container of web) {
-    const address = network.Containers?.[container.Id]?.IPv4Address?.split("/")[0];
-    if (!address) continue;
-    webProxyAddresses.set(networkName, { address, at: Date.now() });
-    return address;
+  const project = info.Config.Labels?.["com.docker.compose.project"];
+  if (project) {
+    const web = await docker.listContainers({
+      all: true,
+      filters: {
+        label: [`com.docker.compose.project=${project}`, "com.docker.compose.service=web"],
+      },
+    });
+    for (const container of web) {
+      const address = network.Containers?.[container.Id]?.IPv4Address?.split("/")[0];
+      if (!address) continue;
+      webProxyAddresses.set(networkName, { address, at: Date.now() });
+      return address;
+    }
   }
-  return null;
+  // A source checkout runs the web on the host, so the computer reaches it at the
+  // network's gateway. The relay still needs the computer's own credentials.
+  const gateway = network.IPAM?.Config?.[0]?.Gateway;
+  if (!gateway) return null;
+  webProxyAddresses.set(networkName, { address: gateway, at: Date.now() });
+  return gateway;
 }
 
 /** The proxy variables one command gets, or none when the relay is off or the bot set its own. */
