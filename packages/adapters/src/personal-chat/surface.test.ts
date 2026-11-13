@@ -1,4 +1,4 @@
-import type { MessagingSurface } from "@rakazo/adapter-kit";
+import type { MessagingSurface } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { parsePersonalChatThreadId, personalChatThreadId } from "./bridge.js";
 import { PersonalChatSurface } from "./surface.js";

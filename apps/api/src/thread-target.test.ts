@@ -1,13 +1,14 @@
-import type { SandboxProvider } from "@rakazo/adapter-kit";
-import type { Actor, MessageBlock } from "@rakazo/contracts";
-import { callClientNonce } from "@rakazo/core";
-import type * as MessageQuoteModule from "@rakazo/core/message-quote";
-import type { PrismaClient } from "@rakazo/db";
+import type { SandboxProvider } from "@botcamp/adapter-kit";
+import type { Actor, MessageBlock } from "@botcamp/contracts";
+import { callClientNonce } from "@botcamp/core";
+import type * as MessageQuoteModule from "@botcamp/core/message-quote";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadTarget } from "./thread-target.js";
 import {
   cancelSupersededQueuedRuns,
   reactToThreadMessage,
+  sendTargetBotIds,
   sendThreadMessage,
   stopThreadRuns,
   threadHead,
@@ -16,7 +17,7 @@ import {
 
 // Passthrough mock: every hint derives for real except the sentinel that
 // exercises the "derivation must never cost the send" path.
-vi.mock("@rakazo/core/message-quote", async (importOriginal) => {
+vi.mock("@botcamp/core/message-quote", async (importOriginal) => {
   const actual = await importOriginal<typeof MessageQuoteModule>();
   return {
     ...actual,
@@ -29,6 +30,29 @@ vi.mock("@rakazo/core/message-quote", async (importOriginal) => {
       return actual.deriveMessageQuote(blocks, hint, format);
     },
   };
+});
+
+describe("sendTargetBotIds", () => {
+  const members = [
+    { botId: "a", name: "Ada-Helper" },
+    { botId: "b", name: "Bea-Scout" },
+  ];
+
+  it("keeps the first bot when a private group names none", () => {
+    expect(sendTargetBotIds({ kind: "group", members }, { text: "hello" })).toEqual(["a"]);
+  });
+
+  it("starts a shared-group bot only when the message names it", () => {
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "hello @Ada" }),
+    ).toEqual([]);
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "@Ada-Helper please" }),
+    ).toEqual(["a"]);
+    expect(
+      sendTargetBotIds({ kind: "group", members, shared: true }, { text: "@everyone" }),
+    ).toEqual(["a", "b"]);
+  });
 });
 
 describe("threadHead", () => {

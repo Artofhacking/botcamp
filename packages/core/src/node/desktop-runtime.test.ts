@@ -18,6 +18,7 @@ import {
   BROWSER_STILL_RUNNING_EXIT,
   browserCloseProgram,
   browserProfilePathForScreen,
+  continueWithoutScreenViewerCommand,
   DEFAULT_DESKTOP_ENV,
   desktopControlCommand,
   desktopTerminalCommand,
@@ -102,8 +103,8 @@ function fixture() {
           "flock() { :; }",
           `bash() { return ${failLifecycle ? 1 : 0}; }`,
           script
-            .replaceAll("/tmp/rakazo/desktop-assignments", root)
-            .replaceAll("/tmp/rakazo", root),
+            .replaceAll("/tmp/botcamp/desktop-assignments", root)
+            .replaceAll("/tmp/botcamp", root),
         ].join("\n"),
       ],
       { encoding: "utf8", timeout: 5000 },
@@ -128,11 +129,11 @@ describe("shared Linux desktop lifecycle", () => {
       const environment = { ...env, bindHost };
       const host = bindHost ?? "127.0.0.1";
       const command = terminalCommand("control", "terminal", "/work", environment);
-      expect(command).toContain(`--token-source=/tmp/rakazo/desktop-targets ${host}:6100 8>&-`);
+      expect(command).toContain(`--token-source=/tmp/botcamp/desktop-targets ${host}:6100 8>&-`);
       const pattern = command.match(/if ! pgrep -f '([^']+)'/)?.[1];
       expect(pattern).toBeDefined();
       const process = (address: string, source = "desktop-targets") =>
-        `/usr/bin/python3 /usr/bin/websockify --token-source=/tmp/rakazo/${source} ${address}:6100`;
+        `/usr/bin/python3 /usr/bin/websockify --token-source=/tmp/botcamp/${source} ${address}:6100`;
       expect(process(host)).toMatch(new RegExp(pattern!));
       expect(process("192x0x2x10")).not.toMatch(new RegExp(pattern!));
       expect(process(host, "view-target-1")).not.toMatch(new RegExp(pattern!));
@@ -152,7 +153,7 @@ describe("shared Linux desktop lifecycle", () => {
 
   it("binds IPv6 computer gateways and probes IPv6 loopback", () => {
     const command = terminalCommand("control", "terminal", "/work", { ...env, bindHost: "::" });
-    expect(command).toContain("--token-source=/tmp/rakazo/desktop-targets :::6100 8>&-");
+    expect(command).toContain("--token-source=/tmp/botcamp/desktop-targets :::6100 8>&-");
     expect(command).toContain("/dev/tcp/::1/6100");
   });
 
@@ -183,7 +184,7 @@ describe("shared Linux desktop lifecycle", () => {
     f.ensure("beto");
     const run = (bot: string, argv: string[]) => {
       const [program, ...args] = screenDisplayArgv(argv, bot, env.displayStart).map((word) =>
-        word.replaceAll("/tmp/rakazo/desktop-assignments", f.root),
+        word.replaceAll("/tmp/botcamp/desktop-assignments", f.root),
       );
       return spawnSync(program ?? "", args, {
         encoding: "utf8",
@@ -225,8 +226,8 @@ describe("shared Linux desktop lifecycle", () => {
     expect(f.ensure("a").status).toBe(0);
     expect(readdirSync(f.root).some((name) => name.endsWith(".slot"))).toBe(true);
     const script = releaseDesktopCommand("a", "run:1", env)
-      .replaceAll("/tmp/rakazo/desktop-assignments", f.root)
-      .replaceAll("/tmp/rakazo", f.root);
+      .replaceAll("/tmp/botcamp/desktop-assignments", f.root)
+      .replaceAll("/tmp/botcamp", f.root);
     const result = spawnSync(
       "bash",
       [
@@ -255,8 +256,8 @@ describe("shared Linux desktop lifecycle", () => {
     const f = fixture();
     expect(f.ensure("a").status).toBe(0);
     const script = releaseDesktopCommand("a", "run:1", env)
-      .replaceAll("/tmp/rakazo/desktop-assignments", f.root)
-      .replaceAll("/tmp/rakazo", f.root);
+      .replaceAll("/tmp/botcamp/desktop-assignments", f.root)
+      .replaceAll("/tmp/botcamp", f.root);
     const result = spawnSync(
       "bash",
       [
@@ -320,22 +321,73 @@ describe("shared Linux desktop lifecycle", () => {
     expect(() => terminalCommand("c", "bad token", ".")).toThrow("invalid terminal token");
   });
 
+  it("opens the browser when the screen viewer is missing", () => {
+    const command = ensureScreenCommand(0, "bot", "token");
+    const cdp = command.indexOf("computer browser CDP not ready");
+    const marker = command.indexOf("RAKAZO_SCREEN_VIEWER=missing");
+    const gateway = command.indexOf("screen gateway did not start");
+    expect(cdp).toBeGreaterThan(0);
+    expect(marker).toBeGreaterThan(cdp);
+    expect(gateway).toBeGreaterThan(marker);
+    expect(command.slice(0, cdp)).not.toContain("This computer's screen did not start.");
+    expect(command.slice(marker - 160, marker + 40)).toContain("exit 0");
+    const terminal = terminalCommand("control", "terminal", "/work");
+    expect(terminal).not.toContain("RAKAZO_SCREEN_VIEWER=missing");
+    expect(terminal).toContain("exit 1");
+
+    const probe = continueWithoutScreenViewerCommand()
+      .replaceAll("/usr/share/novnc", "/no/such/novnc")
+      .replaceAll("/opt/noVNC", "/no/such/opt-novnc");
+    const missing = spawnSync("bash", ["-eu", "-c", `command() { return 1; }\n${probe}`], {
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(missing.status, missing.stderr).toBe(0);
+    expect(missing.stdout.trim()).toBe("RAKAZO_SCREEN_VIEWER=missing");
+    expect(missing.stderr.trim()).toBe("This computer's screen did not start.");
+
+    const root = mkdtempSync(path.join(tmpdir(), "desktop-viewer-"));
+    roots.push(root);
+    const bin = path.join(root, "bin");
+    const web = path.join(root, "novnc");
+    mkdirSync(bin);
+    mkdirSync(web);
+    writeFileSync(path.join(bin, "websockify"), "#!/bin/sh\n");
+    chmodSync(path.join(bin, "websockify"), 0o755);
+    const present = spawnSync(
+      "bash",
+      [
+        "-eu",
+        "-c",
+        `${probe.replaceAll("/no/such/novnc", web).replaceAll("/opt/noVNC/utils/websockify/run", path.join(bin, "missing"))}\necho viewer-present`,
+      ],
+      {
+        encoding: "utf8",
+        timeout: 5000,
+        env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}` },
+      },
+    );
+    expect(present.status, present.stderr).toBe(0);
+    expect(present.stdout.trim()).toBe("viewer-present");
+    expect(present.stderr).toBe("");
+  });
+
   it("drops libnss_wrapper before the screen browser exec", () => {
     const command = ensureScreenCommand(0, "bot", "token");
     expect(command).toContain("*libnss_wrapper.so");
     // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
     expect(command).toContain("${_rest%%[: ]*}");
     expect(command).toContain("unset LD_PRELOAD");
-    expect(command).toContain('[ "$(cat /tmp/rakazo/desktop-targets/view-1)" != "$desired" ]');
+    expect(command).toContain('[ "$(cat /tmp/botcamp/desktop-targets/view-1)" != "$desired" ]');
     expect(command).toContain(
-      "browser=$(command -v rakazo-browser || command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)",
+      "browser=$(command -v botcamp-browser || command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)",
     );
     const lines = command.split("\n");
     const unsetAt = lines.findIndex((line) => line.includes("unset LD_PRELOAD"));
     const execAt = lines.findIndex((line) => line.startsWith("exec "));
     expect(unsetAt).toBeGreaterThan(-1);
     expect(execAt).toBeGreaterThan(unsetAt);
-    // A relaunch keeps the bot's tabs and session cookies, matching rakazo-browser.
+    // A relaunch keeps the bot's tabs and session cookies, matching botcamp-browser.
     expect(lines[execAt]).toContain("--restore-last-session");
   });
 
@@ -363,7 +415,7 @@ describe("shared Linux desktop lifecycle", () => {
           ...screenPorts(0),
           controlPort: String(address.port),
         })
-          .replaceAll("/tmp/rakazo", root)
+          .replaceAll("/tmp/botcamp", root)
           .replaceAll("/usr/share/novnc", root);
         const result = spawnSync(
           "bash",
@@ -396,7 +448,7 @@ describe("shared Linux desktop lifecycle", () => {
   it("fails without publishing a token when the input server cannot start", () => {
     const root = mkdtempSync("/tmp/rk-control-");
     roots.push(root);
-    const script = interactiveScreenCommand(true, "human").replaceAll("/tmp/rakazo", root);
+    const script = interactiveScreenCommand(true, "human").replaceAll("/tmp/botcamp", root);
     const result = spawnSync(
       "bash",
       [
@@ -468,7 +520,7 @@ describe("shared Linux desktop lifecycle", () => {
         [
           "pkill() { :; }; sleep() { :; }",
           `bash() { printf '%s\\n' "$5" >>${shellQuote(record)}; }`,
-          resetDesktopRuntimeCommand(env).replaceAll("/tmp/rakazo", f.root),
+          resetDesktopRuntimeCommand(env).replaceAll("/tmp/botcamp", f.root),
         ].join("\n"),
       ],
       { encoding: "utf8", timeout: 5000 },
@@ -491,7 +543,7 @@ describe("shared Linux desktop lifecycle", () => {
     expect(
       patterns.some((pattern) =>
         pattern.test(
-          "/usr/bin/x11vnc -display :21 -rfbport 0 -unixsock /tmp/rakazo/sockets/view-21-token -forever",
+          "/usr/bin/x11vnc -display :21 -rfbport 0 -unixsock /tmp/botcamp/sockets/view-21-token -forever",
         ),
       ),
     ).toBe(true);
@@ -606,7 +658,7 @@ describe("shared Linux desktop lifecycle", () => {
           homeDir: home,
           workspaceDir: home,
           browserProfilesDir: profiles,
-        }).replaceAll("/tmp/rakazo", path.join(root, "runtime"));
+        }).replaceAll("/tmp/botcamp", path.join(root, "runtime"));
         waitForReady(joinedReady);
         const result = spawnSync("bash", ["-eu", "-c", command], {
           encoding: "utf8",
@@ -733,7 +785,7 @@ describe("shared Linux desktop lifecycle", () => {
       };
       const { debugPort } = screenPorts(0, screenEnv);
       writeFileSync(
-        path.join(bin, "rakazo-browser"),
+        path.join(bin, "botcamp-browser"),
         [
           "#!/usr/bin/env python3",
           "import os, socket, sys, time",
@@ -746,9 +798,9 @@ describe("shared Linux desktop lifecycle", () => {
           "",
         ].join("\n"),
       );
-      chmodSync(path.join(bin, "rakazo-browser"), 0o755);
+      chmodSync(path.join(bin, "botcamp-browser"), 0o755);
       const command = ensureScreenCommand(0, "bot", "token", screenEnv)
-        .replaceAll("/tmp/rakazo", path.join(root, "runtime"))
+        .replaceAll("/tmp/botcamp", path.join(root, "runtime"))
         .replaceAll("/usr/share/novnc", root);
       const cdpChecked = command.indexOf("\nfi\n", command.indexOf("CDP not ready")) + 4;
       const profile = browserProfilePathForScreen("bot", screenEnv);

@@ -1,12 +1,12 @@
-import type { Actor, MessageBlock } from "@rakazo/contracts";
-import { QUEUE_HOLDING_RUN_STATUSES } from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { Actor, MessageBlock } from "@botcamp/contracts";
+import { QUEUE_HOLDING_RUN_STATUSES } from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   appendEventInTransaction,
   availableInSpace,
   IsolationError,
   withTransactionRetry,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import { requireBotThread } from "./bot-thread.js";
 
 export type McpApprovalDeps = {

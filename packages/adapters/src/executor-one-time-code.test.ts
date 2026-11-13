@@ -1,5 +1,5 @@
-import type { ComputerRef } from "@rakazo/adapter-kit";
-import { runCodeKind } from "@rakazo/db";
+import type { ComputerRef } from "@botcamp/adapter-kit";
+import { runCodeKind } from "@botcamp/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { encodeRunCode } from "./bot-secrets.js";
 import { builtinAgentTools } from "./builtin-tools.js";

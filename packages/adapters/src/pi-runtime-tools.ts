@@ -9,9 +9,9 @@ import type {
   AgentToolExecutionResult,
   ConnectorTool,
   ModelCallObserver,
-} from "@rakazo/adapter-kit";
-import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
-import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import { DEFAULT_CONTEXT_STRATEGY } from "@botcamp/adapter-kit";
+import { FLEET_TOOL_NAMES } from "@botcamp/contracts";
 import {
   isInternalTermination,
   isTerminatingReplyResult,

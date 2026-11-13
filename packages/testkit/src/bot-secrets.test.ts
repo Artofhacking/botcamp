@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
-import { EncryptedSecretStore, ScriptedAgentRuntime } from "@rakazo/adapters";
-import type { createApp } from "@rakazo/api/app";
-import { resolveEncryptionKey } from "@rakazo/core";
-import { answerRunInput, runAsSystem, runAsTenant } from "@rakazo/db";
+import type { AgentRuntimeEvent } from "@botcamp/adapter-kit";
+import { EncryptedSecretStore, ScriptedAgentRuntime } from "@botcamp/adapters";
+import type { createApp } from "@botcamp/api/app";
+import { resolveEncryptionKey } from "@botcamp/core";
+import { answerRunInput, runAsSystem, runAsTenant } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { discardBotIntroFromCreate } from "./discard-bot-intro.js";
 import { asSystem } from "./system-db.js";
@@ -33,7 +33,7 @@ describeIntegration("reusable credential lifecycle", () => {
   });
 
   beforeAll(async () => {
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,
       dataDir,

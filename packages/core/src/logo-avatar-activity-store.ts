@@ -1,4 +1,4 @@
-import type { Run } from "@rakazo/contracts";
+import type { Run } from "@botcamp/contracts";
 import type {
   LogoAvatarActivity,
   LogoAvatarEvent,

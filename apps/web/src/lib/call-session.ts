@@ -1,6 +1,5 @@
-import { t } from "@lingui/core/macro";
-import type { BotAvatarSet, ProductEvent, ThreadMessage, ThreadSnapshot } from "@rakazo/contracts";
-import type { CallExchange } from "@rakazo/core";
+import type { BotAvatarSet, ProductEvent, ThreadMessage, ThreadSnapshot } from "@botcamp/contracts";
+import type { CallExchange } from "@botcamp/core";
 import {
   CALL_FAREWELL_TIMEOUT_MS,
   callClientNonce,
@@ -18,7 +17,8 @@ import {
   speechFromBlocks,
   spokenDecision,
   spokenMemory,
-} from "@rakazo/core";
+} from "@botcamp/core";
+import { t } from "@lingui/core/macro";
 import { getGlobalBroadcastChannel } from "better-auth/client";
 import { useSyncExternalStore } from "react";
 import { pickUp } from "./call-pickup.js";
@@ -68,7 +68,7 @@ export const SIGN_OUT_HANG_UP_MS = 3_000;
  * The last signed-in user a tab confirmed. Signing in elsewhere sends no Better Auth message,
  * so other tabs learn of a new account from this key's storage event.
  */
-export const SIGNED_IN_USER_KEY = "rakazo.signedInUser";
+export const SIGNED_IN_USER_KEY = "botcamp.signedInUser";
 let state: CallState | null = null;
 /** The signed-in user this page belongs to; undefined until the session first resolves. */
 let identity: string | null | undefined;
@@ -657,7 +657,7 @@ async function handleTranscript(text: string) {
     releasePendingSend = callSends.track(turnCallId, sendRequest);
     const receipt = await sendRequest;
     if (!state || state.botId !== botId || callId !== turnCallId) return;
-    if ("runId" in receipt) awaitedRunId = receipt.runId;
+    if ("runId" in receipt && receipt.runId) awaitedRunId = receipt.runId;
   } catch (error) {
     if (!state || state.botId !== botId || callId !== turnCallId) return;
     awaitingReply = false;

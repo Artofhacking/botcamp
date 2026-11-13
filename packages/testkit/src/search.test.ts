@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { SearchHit, ThreadSnapshot } from "@rakazo/contracts";
+import type { SearchHit, ThreadSnapshot } from "@botcamp/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { BotIntroHarness } from "./discard-bot-intro.js";
 import { discardBotIntroFromCreate } from "./discard-bot-intro.js";
@@ -24,7 +24,7 @@ describeSearch("workspace search", () => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-search-"));
 
   beforeAll(async () => {
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     const handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,
       dataDir,

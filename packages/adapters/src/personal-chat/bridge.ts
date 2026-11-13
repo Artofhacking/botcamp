@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import type { AdapterContext, MessagingInboundMessage, SecretStore } from "@rakazo/adapter-kit";
-import { linkableChatApps } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import type { AdapterContext, MessagingInboundMessage, SecretStore } from "@botcamp/adapter-kit";
+import { linkableChatApps } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
+import { runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { FeishuClient, FeishuInbound, FeishuLogin, FeishuSession } from "./feishu.js";
 import { createFeishuClient, FEISHU_CHAT_PROVIDER, FeishuProtocolError } from "./feishu.js";
 import type { IlinkClient, IlinkSession } from "./ilink.js";

@@ -1,6 +1,6 @@
 import path from "node:path";
-import type { AgentToolExecutionResult, ProcessEvent } from "@rakazo/adapter-kit";
-import { redactSecrets, sandboxCommandTimeoutMs } from "@rakazo/core";
+import type { AgentToolExecutionResult, ProcessEvent } from "@botcamp/adapter-kit";
+import { redactSecrets, sandboxCommandTimeoutMs } from "@botcamp/core";
 import { z } from "zod";
 import type { HostComputerEnvironment } from "./host-computer-protocol.js";
 import type {

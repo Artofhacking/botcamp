@@ -1,5 +1,5 @@
-import type { AdapterContext, JobPublisher } from "@rakazo/adapter-kit";
-import type { Actor, Group, MessageBlock } from "@rakazo/contracts";
+import type { AdapterContext, JobPublisher } from "@botcamp/adapter-kit";
+import type { Actor, Group, MessageBlock } from "@botcamp/contracts";
 import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BotSectionName,
@@ -13,18 +13,20 @@ import {
   ThinkingLevelSchema,
   TimeZoneSchema,
   UpdateGroupInput,
-} from "@rakazo/contracts";
-import { CARD_TITLE_ESCAPED_CHARACTERS, ONCE_ROUTINE_CRON, redactSecrets } from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { CARD_TITLE_ESCAPED_CHARACTERS, ONCE_ROUTINE_CRON, redactSecrets } from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   commitBotUpdate,
   createGroupRepos,
   createRepos,
   InstructionConflictError,
   IsolationError,
+  loadSharedGroupRosters,
+  runAsSystem,
   SpaceDeletionInProgressError,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { FleetCardSummary } from "./approval-ask.js";
 import { approvalDetailLength, MAX_APPROVAL_SUMMARY_LENGTH } from "./approval-ask.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
@@ -180,9 +182,14 @@ async function prepareUpdateGroup(
 ): Promise<FleetPrepared> {
   const group = await resolveGroup(deps.prisma, run, args);
   if ("error" in group) return group;
-  const current: Member[] = group.members
-    .filter((member) => member.bot.archivedAt === null)
-    .map((member) => ({ id: member.botId, name: member.bot.name }));
+  const roster = group.shared
+    ? (
+        await runAsSystem("shared group member names", () =>
+          loadSharedGroupRosters(deps.prisma, [group.id], run.userId),
+        )
+      ).get(group.id)?.members
+    : undefined;
+  const current: Member[] = namedFleetMembers(group.members, roster);
   const currentIds = new Set(current.map((member) => member.id));
 
   const removeIds = stringList(args.remove_bot_ids, "remove_bot_ids");
@@ -568,6 +575,24 @@ export async function listFleet(
  * Up to one group past the cap of the groups the sidebar shows. A group left with too few active
  * members is hidden there, so it is skipped here and never counts toward the cap.
  */
+/** Roster names when this is a shared group; otherwise the private bot names that are visible. */
+export function namedFleetMembers(
+  members: ReadonlyArray<{
+    botId: string;
+    bot: { name: string; archivedAt: Date | null } | null;
+  }>,
+  roster?: ReadonlyArray<{ botId: string; name: string }>,
+): Member[] {
+  if (roster) {
+    return roster.map((member) => ({ id: member.botId, name: singleLine(member.name) }));
+  }
+  return members.flatMap((member) =>
+    member.bot && member.bot.archivedAt === null
+      ? [{ id: member.botId, name: singleLine(member.bot.name) }]
+      : [],
+  );
+}
+
 async function visibleGroups(prisma: PrismaClient, run: FleetRun): Promise<FleetGroup[]> {
   const visible: FleetGroup[] = [];
   let cursor: string | undefined;
@@ -577,6 +602,7 @@ async function visibleGroups(prisma: PrismaClient, run: FleetRun): Promise<Fleet
       select: {
         id: true,
         name: true,
+        shared: true,
         pinned: true,
         section: { select: { name: true } },
         members: {
@@ -588,10 +614,17 @@ async function visibleGroups(prisma: PrismaClient, run: FleetRun): Promise<Fleet
       take: GROUP_PAGE_SIZE,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
+    const sharedIds = page.flatMap((group) => (group.shared ? [group.id] : []));
+    const rosters = sharedIds.length
+      ? await runAsSystem("list shared group names", () =>
+          loadSharedGroupRosters(prisma, sharedIds, run.userId),
+        )
+      : new Map();
     for (const group of page) {
-      const members = group.members
-        .filter((member) => member.bot.archivedAt === null)
-        .map((member) => ({ id: member.botId, name: singleLine(member.bot.name) }));
+      const members = namedFleetMembers(
+        group.members,
+        group.shared ? rosters.get(group.id)?.members : undefined,
+      );
       if (members.length < GROUP_MEMBER_MIN) continue;
       visible.push({
         id: group.id,
@@ -668,9 +701,7 @@ export async function organizeBot(
     }
     const target = await resolveGroup(deps.prisma, run, args);
     if ("error" in target) return { error: target.error };
-    if (
-      target.members.filter((member) => member.bot.archivedAt === null).length < GROUP_MEMBER_MIN
-    ) {
+    if (namedFleetMembers(target.members).length < GROUP_MEMBER_MIN) {
       return { error: NOT_FOUND };
     }
     if (section) {
@@ -724,10 +755,12 @@ export async function createFleetGroup(
       groupId: existing.id,
       threadId: existing.thread.id,
       name: singleLine(existing.name),
-      members: existing.members.map((member) => ({
-        id: member.botId,
-        name: singleLine(member.bot.name),
-      })),
+      members: namedFleetMembers(
+        existing.members.map((member) => ({
+          botId: member.botId,
+          bot: member.bot ? { name: member.bot.name, archivedAt: null } : null,
+        })),
+      ),
     };
   }
   let group: Group;
@@ -1167,6 +1200,7 @@ async function resolveGroup(prisma: PrismaClient, run: FleetRun, args: Record<st
     select: {
       id: true,
       name: true,
+      shared: true,
       members: {
         orderBy: { createdAt: "asc" },
         select: { botId: true, bot: { select: { name: true, archivedAt: true } } },

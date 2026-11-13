@@ -1,5 +1,5 @@
-import type { AgentRuntime, AgentRuntimeEvent } from "@rakazo/adapter-kit";
-import type { ChatApprovalClassifyInput } from "@rakazo/core";
+import type { AgentRuntime, AgentRuntimeEvent } from "@botcamp/adapter-kit";
+import type { ChatApprovalClassifyInput } from "@botcamp/core";
 import { describe, expect, it, vi } from "vitest";
 import { approvalPauseBlocks, createChatApprovalReplyClassifier } from "./chat-approval-reply.js";
 

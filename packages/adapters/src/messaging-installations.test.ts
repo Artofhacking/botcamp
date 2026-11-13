@@ -1,7 +1,7 @@
-import type { MessagingInstallProvider, SecretStore } from "@rakazo/adapter-kit";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { IsolationError } from "@rakazo/db";
+import type { MessagingInstallProvider, SecretStore } from "@botcamp/adapter-kit";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { IsolationError } from "@botcamp/db";
 import { expect, it, vi } from "vitest";
 import { MessagingInstallations } from "./messaging-installations.js";
 

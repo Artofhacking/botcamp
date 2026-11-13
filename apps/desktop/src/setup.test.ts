@@ -9,7 +9,7 @@ import type {
   DesktopReachability,
   DesktopSetup,
   DesktopSetupState,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { ES_MESSAGES } from "./locales/es.js";
 import { HE_MESSAGES } from "./locales/he.js";

@@ -19,13 +19,8 @@ whatever this setting says. Details and the threat model are in
 
 **The key.** Content is encrypted under keys derived from `ENCRYPTION_KEY` (and
 `ENCRYPTION_MASTER_KEYS`, if set). Without them, a backup of the database and `DATA_DIR` cannot
-be read, by you or by anyone else. `install-images.sh` says so once, when it generates the key:
-
-```text
-Back up ENCRYPTION_KEY from /path/to/rakazo/.env. Encrypted content cannot be recovered without it.
-```
-
-It never prints the key. Store a copy somewhere other than the server and its backups.
+be read, by you or by anyone else. Back up `ENCRYPTION_KEY`. Store a copy somewhere other than the
+server and its backups. Encrypted content cannot be recovered without it.
 
 **The switch.** `CONTENT_ENCRYPTION=on|off` in `.env`:
 
@@ -33,7 +28,7 @@ It never prints the key. Store a copy somewhere other than the server and its ba
 | --- | --- |
 | Compose files, published images, Railway | `on` |
 | Desktop app, **This computer** | `off` (the computer's disk encryption covers it) |
-| Source checkout with `NODE_ENV=development` or `RAKAZO_ALLOW_DEV_SECRETS=1` | `off` |
+| Source checkout with `NODE_ENV=development` or `BOTCAMP_ALLOW_DEV_SECRETS=1` | `off` |
 
 With `off`, new content and files are stored readable, so you can query your own database
 directly and a lost key cannot lose them. Content encrypted earlier still reads with the key, so
@@ -41,11 +36,11 @@ switching off never makes data unreadable. To convert it too, run `content-encry
 Any other value stops the API and worker at startup.
 
 To switch on later, set `CONTENT_ENCRYPTION=on`, restart, then encrypt what was stored while
-it was off. From the published-images folder (other stacks use their own Compose file):
+it was off. From a checkout:
 
 ```bash
-docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api content-encryption migrate
-docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api content-encryption status
+docker compose -f infra/compose/docker-compose.yml exec api pnpm --filter @botcamp/api content-encryption migrate
+docker compose -f infra/compose/docker-compose.yml exec api pnpm --filter @botcamp/api content-encryption status
 ```
 
 Search works in both modes and while rows are mixed.
@@ -55,8 +50,8 @@ documents and revisions as JSON lines. It reads the whole database by default; n
 `--space <id>`, `--thread <id>` or `--bot <id>`. It only reads.
 
 ```bash
-docker compose -f docker-compose.images.yml exec -T api \
-  pnpm -s --filter @rakazo/api content-encryption export --bot <bot id> > rakazo-export.jsonl
+docker compose -f infra/compose/docker-compose.yml exec -T api \
+  pnpm -s --filter @botcamp/api content-encryption export --bot <bot id> > rakazo-export.jsonl
 ```
 
 The export is plaintext: store it like the database itself. Files are not included; use
@@ -128,7 +123,7 @@ note in each bot’s thread asks you to remove large or unneeded files. The work
 `computer.sleep_deferred` with reason `too_large` or `too_many_files`. Saves leave out rebuildable
 caches, dependencies (`node_modules` and `.venv`), build output (`.next` and `.turbo`), logs and
 core dump files. These files stay on the running computer but are absent on a fresh restore.
-Docker, Kubernetes and Railway put tool caches under `/tmp/rakazo-cache`, outside the saved home.
+Docker, Kubernetes and Railway put tool caches under `/tmp/botcamp-cache`, outside the saved home.
 Staging left by a killed process is removed at startup and by the worker within minutes.
 
 ### Moving existing homes
@@ -139,8 +134,8 @@ is mounted. It skips homes already stored, so it can be stopped and run again. E
 downloaded and checked before the home counts as moved. It never deletes local files.
 
 ```bash
-docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api home-storage migrate --dry-run
-docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api home-storage migrate
+docker compose -f infra/compose/docker-compose.yml exec api pnpm --filter @botcamp/api home-storage migrate --dry-run
+docker compose -f infra/compose/docker-compose.yml exec api pnpm --filter @botcamp/api home-storage migrate
 ```
 
 Homes listed as having no computer belong to bots that no longer exist; they are left alone.
@@ -176,8 +171,8 @@ node dist/cli/shared-storage.js push-tokens --dry-run
 node dist/cli/shared-storage.js push-tokens
 
 # Source checkout equivalents:
-pnpm --filter @rakazo/api shared-storage artifacts
-pnpm --filter @rakazo/api shared-storage push-tokens
+pnpm --filter @botcamp/api shared-storage artifacts
+pnpm --filter @botcamp/api shared-storage push-tokens
 ```
 
 The artifact migration uploads and decrypts each file to verify it before conditionally

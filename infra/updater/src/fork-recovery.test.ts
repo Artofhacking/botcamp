@@ -1,10 +1,16 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { ServerUpdateRun } from "@rakazo/contracts";
+import type { ServerUpdateRun } from "@botcamp/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { upsertEnvAssignments } from "@botcamp/core";
 import { createUpdaterApp } from "./index.js";
-import { DEFAULT_COMPOSE_FILE, resolveUpdaterConfig } from "./updater-logic.js";
+import {
+  DEFAULT_COMPOSE_FILE,
+  pinnedImageTags,
+  readTagState,
+  resolveUpdaterConfig,
+} from "./updater-logic.js";
 
 const token = "fake-updater-recovery-token-0000000000";
 const currentCommit = "1".repeat(40);
@@ -13,6 +19,8 @@ const oldTag = `local-${currentCommit}`;
 const originalRemote = "https://github.com/example/previous-fork";
 const nextRemote = "https://github.com/example/next-fork";
 const originalEnv = `POSTGRES_APP_PASSWORD=fake-app-password\nRAKAZO_IMAGE_TAG=${oldTag}\nRAKAZO_IMAGE_TAG_PREVIOUS=v0.9.0\n`;
+/** A restored pin keeps the old tag and writes it under both names the readers accept. */
+const restoredEnv = upsertEnvAssignments(originalEnv, pinnedImageTags(oldTag, "v0.9.0"));
 const directories: string[] = [];
 
 afterEach(async () => {
@@ -55,7 +63,7 @@ if (command === "docker") {
   call.compose = fs.readFileSync(args[args.indexOf("--file") + 1], "utf8");
   call.serviceEnv = fs.readFileSync(fixture.serviceEnv, "utf8");
   call.envFile = fs.readFileSync(args[args.indexOf("--env-file") + 1], "utf8");
-  call.imageTag = process.env.RAKAZO_IMAGE_TAG;
+  call.imageTag = (process.env.BOTCAMP_IMAGE_TAG ?? process.env.RAKAZO_IMAGE_TAG);
   log();
   if (!args.includes("up")) fail("Unexpected Docker command");
   if (args.includes("--build") && fixture.failures.length > 0) fail("new API unhealthy");
@@ -180,7 +188,7 @@ describe.skipIf(process.platform === "win32")("fork recovery through fake execut
       compose: expect.stringContaining("command: old"),
       serviceEnv: "REVISION=old\n",
       imageTag: oldTag,
-      envFile: originalEnv,
+      envFile: restoredEnv,
     });
     expect(fixture.record.steps.map((step) => step.id)).toEqual([
       "remote",
@@ -208,7 +216,11 @@ describe.skipIf(process.platform === "win32")("fork recovery through fake execut
       branch: options.branch,
       remote: originalRemote,
     });
-    expect(await readFile(fixture.config.envFile, "utf8")).toBe(originalEnv);
+    expect(await readFile(fixture.config.envFile, "utf8")).toBe(restoredEnv);
+    expect(readTagState(await readFile(fixture.config.envFile, "utf8"))).toEqual({
+      currentTag: oldTag,
+      previousTag: "v0.9.0",
+    });
   });
 
   it("skips Compose recovery when restoring the checkout fails", async () => {
@@ -225,7 +237,8 @@ describe.skipIf(process.platform === "win32")("fork recovery through fake execut
     ]);
     expect(fixture.record.steps.at(-1)).toMatchObject({ id: "restore-remote", ok: true });
     expect(fixture.state.remote).toBe(originalRemote);
-    expect(await readFile(fixture.config.envFile, "utf8")).toBe(originalEnv);
+    expect(await readFile(fixture.config.envFile, "utf8")).toBe(restoredEnv);
+    expect(readTagState(restoredEnv)).toEqual({ currentTag: oldTag, previousTag: "v0.9.0" });
   });
 
   it("reports failed Compose recovery while keeping the restored checkout and image pin", async () => {
@@ -246,7 +259,11 @@ describe.skipIf(process.platform === "win32")("fork recovery through fake execut
       branch: "deploy",
       remote: originalRemote,
     });
-    expect(await readFile(fixture.config.envFile, "utf8")).toBe(originalEnv);
+    expect(await readFile(fixture.config.envFile, "utf8")).toBe(restoredEnv);
+    expect(readTagState(await readFile(fixture.config.envFile, "utf8"))).toEqual({
+      currentTag: oldTag,
+      previousTag: "v0.9.0",
+    });
   });
 
   it.each(["checkout", "merge"] as const)(
@@ -290,8 +307,9 @@ describe.skipIf(process.platform === "win32")("fork recovery through fake execut
     ).toBe(false);
     expect(fixture.calls.filter((call) => call.command === "docker")).toHaveLength(1);
     expect(fixture.state).toEqual({ commit: targetCommit, branch: "main", remote: nextRemote });
-    expect(await readFile(fixture.config.envFile, "utf8")).toContain(
-      `RAKAZO_IMAGE_TAG=local-${targetCommit}\n`,
-    );
+    const pinned = await readFile(fixture.config.envFile, "utf8");
+    expect(pinned).toContain(`RAKAZO_IMAGE_TAG=local-${targetCommit}\n`);
+    expect(pinned).toContain(`BOTCAMP_IMAGE_TAG=local-${targetCommit}\n`);
+    expect(readTagState(pinned).currentTag).toBe(`local-${targetCommit}`);
   });
 });

@@ -6,11 +6,11 @@ import path from "node:path";
 import { serve } from "@hono/node-server";
 import type { Browser, BrowserContext, CDPSession, Page } from "@playwright/test";
 import { chromium } from "@playwright/test";
-import type { createApp } from "@rakazo/api/app";
-import { abortableDelay, RESPONSE_STREAMING_STORAGE_KEY } from "@rakazo/core";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { createThreadEvents, createThreadMessage, runAsSystem } from "@rakazo/db";
+import type { createApp } from "@botcamp/api/app";
+import { abortableDelay, RESPONSE_STREAMING_STORAGE_KEY } from "@botcamp/core";
+import { loadRootEnv } from "@botcamp/core/node/load-root-env";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { createThreadEvents, createThreadMessage, runAsSystem } from "@botcamp/db";
 import type { NumericSummary } from "../performance-report.js";
 import {
   parseTcpPort,
@@ -122,12 +122,12 @@ async function benchmark() {
       dataDir: path.join(temporaryRoot, "data"),
     });
     Object.assign(process.env, env);
-    if (!skipBuild) run("pnpm", ["--filter", "@rakazo/web", "build"], env);
+    if (!skipBuild) run("pnpm", ["--filter", "@botcamp/web", "build"], env);
     migrateDatabase(env);
 
     const [{ InMemoryRealtimeFanout }, { createApp }] = await Promise.all([
-      import("@rakazo/adapters"),
-      import("@rakazo/api/app"),
+      import("@botcamp/adapters"),
+      import("@botcamp/api/app"),
     ]);
     // Shared with the event writer below, so streamed updates reach the app's subscribers.
     const realtime = new InMemoryRealtimeFanout();

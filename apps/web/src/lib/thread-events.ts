@@ -7,8 +7,8 @@ import type {
   ThreadMessage,
   ThreadMessagePage,
   ThreadSnapshot,
-} from "@rakazo/contracts";
-import { RUN_TRIGGERS } from "@rakazo/contracts";
+} from "@botcamp/contracts";
+import { RUN_TRIGGERS } from "@botcamp/contracts";
 import {
   isActive,
   isBackgroundRunTrigger,
@@ -26,7 +26,7 @@ import {
   takeLiveMessage,
   updateCloudAgentMessages,
   upsertMessageById,
-} from "@rakazo/core";
+} from "@botcamp/core";
 
 const runTriggers = new Set<string>(RUN_TRIGGERS);
 
@@ -556,6 +556,10 @@ export function reduceThreadSnapshot(
       botId: event.botId,
       runId: event.runId,
       callId: typeof event.payload.callId === "string" ? event.payload.callId : known?.callId,
+      senderUserId:
+        typeof event.payload.senderUserId === "string"
+          ? event.payload.senderUserId
+          : known?.senderUserId,
       ...replyMetadata(event.payload, known),
       createdAt: known?.createdAt ?? event.createdAt,
     };

@@ -1,4 +1,4 @@
-import type { DesktopEnvironment } from "@rakazo/core/node/desktop-runtime";
+import type { DesktopEnvironment } from "@botcamp/core/node/desktop-runtime";
 import {
   ensureScreenCommand as coreEnsureScreenCommand,
   interactiveScreenCommand as coreInteractiveScreenCommand,
@@ -13,7 +13,7 @@ import {
   stopBrowserCommand,
   stopExtraScreenCommand,
   stopScreenTransportsCommand,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 
 export {
   browserProfilePathForScreen,
@@ -21,13 +21,13 @@ export {
   quiesceBrowserProfilesCommand,
   stopBrowserCommand,
   stopExtraScreenCommand,
-} from "@rakazo/core/node/desktop-runtime";
+} from "@botcamp/core/node/desktop-runtime";
 
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { pathToFileURL } from "node:url";
-import { canReleaseScreenLease, canTakeScreenLease } from "@rakazo/core";
+import { canReleaseScreenLease, canTakeScreenLease } from "@botcamp/core";
 import type Docker from "dockerode";
 import { z } from "zod";
 import type { SandboxInput } from "./computer-spec.js";
@@ -92,7 +92,7 @@ export const computerActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("focus"), application: z.string(), uri: z.string().optional() }),
 ]);
 
-export { BROWSER_APPLICATIONS as DOCKER_BROWSER_ALIASES } from "@rakazo/core/node/desktop-runtime";
+export { BROWSER_APPLICATIONS as DOCKER_BROWSER_ALIASES } from "@botcamp/core/node/desktop-runtime";
 
 export function assertRequestIdentity(
   botId: string | undefined,
@@ -104,13 +104,72 @@ export function assertRequestIdentity(
   }
 }
 
+/** Bot id written now, or by the previous release. */
+export function labeledComputerBotId(labels: Record<string, string> | undefined) {
+  return labels?.["botcamp.botId"] ?? labels?.["rakazo.botId"];
+}
+
+/** Space id written now, then the previous release's space and workspace labels. */
+export function labeledComputerSpaceId(labels: Record<string, string> | undefined) {
+  return (
+    labels?.["botcamp.spaceId"] ?? labels?.["rakazo.spaceId"] ?? labels?.["rakazo.workspaceId"]
+  );
+}
+
+/**
+ * False when this container is the previous computer identity, or its image is not the one
+ * the supervisor would start. A missing desired image id skips the image comparison.
+ * Volumes are not part of this answer; removing the container keeps them.
+ */
+export function computerGenerationCurrent(
+  info: {
+    Image?: string;
+    Config?: { User?: string; Labels?: { [key: string]: string } | null } | null;
+    HostConfig?: {
+      NetworkMode?: string;
+      Mounts?: Array<{ Target?: string } | null> | null;
+    } | null;
+    Mounts?: Array<{ Destination?: string } | null> | null;
+  },
+  desiredImageId?: string,
+): boolean {
+  const labels = info.Config?.Labels ?? {};
+  if (labels["rakazo.botId"] && !labels["botcamp.botId"]) return false;
+  if (labels["rakazo.managed"] === "true" && labels["botcamp.managed"] !== "true") return false;
+  if ((info.Config?.User ?? "") === "rakazo") return false;
+  const targets = [
+    ...(info.HostConfig?.Mounts ?? []).map((mount) => mount?.Target),
+    ...(info.Mounts ?? []).map((mount) => mount?.Destination),
+  ];
+  if (targets.includes("/home/rakazo")) return false;
+  const network = info.HostConfig?.NetworkMode ?? "";
+  if (network.startsWith("rakazo-")) return false;
+  if (desiredImageId && info.Image && info.Image !== desiredImageId) return false;
+  return true;
+}
+
 export function hasComputerIdentity(
   labels: Record<string, string> | undefined,
   botId: string,
   spaceId: string,
 ) {
-  const labeledSpaceId = labels?.["rakazo.spaceId"] ?? labels?.["rakazo.workspaceId"];
-  return labels?.["rakazo.botId"] === botId && labeledSpaceId === spaceId;
+  return labeledComputerBotId(labels) === botId && labeledComputerSpaceId(labels) === spaceId;
+}
+
+/**
+ * Computer request header from this release, then the name the previous release sent.
+ */
+export function computerRequestHeader(
+  c: { req: { header: (name: string) => string | undefined } },
+  suffix:
+    | "bot-id"
+    | "screen-id"
+    | "screen-lease-id"
+    | "preserve-screen"
+    | "cancel-run-work"
+    | "space-id",
+) {
+  return c.req.header(`x-botcamp-${suffix}`) || c.req.header(`x-rakazo-${suffix}`) || undefined;
 }
 
 export function hasValidBearerToken(authorization: string | undefined, expectedToken: string) {
@@ -370,6 +429,8 @@ export interface ScreenAssignment {
   controlToken?: string;
   /** When the setup script last finished for this screen on the current boot. */
   ensuredAt?: number;
+  /** The browser is up, and this boot has no websockify or noVNC files. */
+  viewerMissing?: boolean;
 }
 
 /** The page helper opened a browser of its own instead of the one on the screen. */
@@ -542,8 +603,8 @@ export function containerActionStep(
     argv = [
       "env",
       `DISPLAY=${display}`,
-      ...(browserProfile ? [`RAKAZO_BROWSER_PROFILE=${browserProfile}`] : []),
-      isHttpUrl ? "xdg-open" : "rakazo-browser",
+      ...(browserProfile ? [`BOTCAMP_BROWSER_PROFILE=${browserProfile}`] : []),
+      isHttpUrl ? "xdg-open" : "botcamp-browser",
       target,
     ];
   } else {
@@ -551,11 +612,11 @@ export function containerActionStep(
     argv = [
       "env",
       `DISPLAY=${display}`,
-      ...(browser && browserProfile ? [`RAKAZO_BROWSER_PROFILE=${browserProfile}`] : []),
+      ...(browser && browserProfile ? [`BOTCAMP_BROWSER_PROFILE=${browserProfile}`] : []),
       // focus routes through the image wrapper, which raises a matching window
       // by WM_CLASS or execs the allowlisted launcher to spawn one.
-      ...(action.kind === "focus" ? ["rakazo-focus-or-launch"] : []),
-      browser ? "rakazo-browser" : action.application,
+      ...(action.kind === "focus" ? ["botcamp-focus-or-launch"] : []),
+      browser ? "botcamp-browser" : action.application,
       ...(action.uri ? [action.uri] : []),
     ];
   }
@@ -563,7 +624,7 @@ export function containerActionStep(
 }
 
 /** Image label of computers whose control service takes aimed and sideways scrolls. */
-export const AIMED_SCROLL_CONTROL_LABEL = "rakazo.control.aimedScroll";
+export const AIMED_SCROLL_CONTROL_LABEL = "botcamp.control.aimedScroll";
 
 /**
  * Whether a computer's control service can run these actions. One built before aimed and
@@ -602,7 +663,7 @@ export function normalizeWorkspaceRelative(value: string) {
 }
 
 export function workspaceTarget(relative: string) {
-  return relative ? path.posix.join("/home/rakazo", relative) : "/home/rakazo";
+  return relative ? path.posix.join("/home/botcamp", relative) : "/home/botcamp";
 }
 
 export function sandboxTimeoutCommand(argv: string[], timeoutMs: number, completionMarker: string) {
@@ -778,9 +839,9 @@ export function demuxDockerStream(buffer: Buffer): { stdout: string; stderr: str
 export function computerCommandEnv(layout: { display: string }) {
   return [
     `DISPLAY=${layout.display}`,
-    "HOME=/home/rakazo",
-    "PATH=/home/rakazo/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-    "NPM_CONFIG_PREFIX=/home/rakazo/.local",
+    "HOME=/home/botcamp",
+    "PATH=/home/botcamp/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "NPM_CONFIG_PREFIX=/home/botcamp/.local",
     "PIP_USER=1",
   ];
 }
@@ -825,6 +886,9 @@ export function isManagedComputer(
   image: string,
 ) {
   const labels = info.Config.Labels ?? {};
-  const managed = labels["rakazo.managed"] === "true" || info.Config.Image === image;
+  const managed =
+    labels["botcamp.managed"] === "true" ||
+    labels["rakazo.managed"] === "true" ||
+    info.Config.Image === image;
   return managed && hasComputerIdentity(labels, botId, spaceId);
 }

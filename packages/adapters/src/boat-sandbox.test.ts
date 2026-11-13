@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type * as TimersPromises from "node:timers/promises";
 import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { FetchError, ResponseError } from "@boatdev/sdk";
-import type { ComputerRef, PortableFile, StreamedPortableFile } from "@rakazo/adapter-kit";
+import type { ComputerRef, PortableFile, StreamedPortableFile } from "@botcamp/adapter-kit";
 import {
   SandboxDamagedError,
   SandboxRateLimitError,
@@ -10,9 +10,9 @@ import {
   SandboxUnavailableError,
   SandboxUnresponsiveError,
   WorkspaceTooLargeError,
-} from "@rakazo/adapter-kit";
-import { screenDisplayArgv, shellQuote } from "@rakazo/core/node/desktop-runtime";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { screenDisplayArgv, shellQuote } from "@botcamp/core/node/desktop-runtime";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { parse } from "shell-quote";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -105,7 +105,7 @@ function exportAll(provider: BoatSandboxProvider, computer: ComputerRef, signal?
 
 function archivesLeft(api: FakeBoatApi, computer: ComputerRef): string[] {
   return [...api.files(computer.id).keys()].filter((path) =>
-    path.startsWith("/tmp/rakazo-workspace-archive-"),
+    path.startsWith("/tmp/botcamp-workspace-archive-"),
   );
 }
 
@@ -1636,7 +1636,7 @@ describe("BoatSandboxProvider", () => {
     expect(artifactRaw).not.toHaveBeenCalled();
     expect(createDownloadUrl).toHaveBeenCalledOnce();
     expect(createDownloadUrl.mock.calls[0]?.[0].fileUrlRequest.path).toMatch(
-      /^\/tmp\/rakazo-workspace-archive-[0-9a-f-]+\.tar\.gz$/,
+      /^\/tmp\/botcamp-workspace-archive-[0-9a-f-]+\.tar\.gz$/,
     );
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, init] = fetchMock.mock.calls[0]!;
@@ -1645,7 +1645,7 @@ describe("BoatSandboxProvider", () => {
     // Stopping the browsers, archiving, and removing the archive.
     expect(command).toHaveBeenCalledTimes(3);
     expect(command.mock.calls.at(-1)?.[0].commandRequest.command).toMatch(
-      /^rm -f -- '\/tmp\/rakazo-workspace-archive-/,
+      /^rm -f -- '\/tmp\/botcamp-workspace-archive-/,
     );
     expect(archivesLeft(api, computer)).toEqual([]);
   });
@@ -2087,7 +2087,7 @@ describe("BoatSandboxProvider", () => {
     expect(seen).toEqual([
       {
         command: expect.stringMatching(
-          /^DISPLAY=:20 RAKAZO_CDP_PORT=9241 HOME='\/home\/user\/rakazo-home' RAKAZO_BROWSER_ARGS_STDIN=1 bash -c '.*\/usr\/local\/bin\/rakazo-page-browser.*\$HOME\/\.local\/bin\/rakazo-page-browser.*\bact\b/,
+          /^DISPLAY=:20 RAKAZO_CDP_PORT=9241 HOME='\/home\/user\/rakazo-home' RAKAZO_BROWSER_ARGS_STDIN=1 bash -c '.*\/usr\/local\/bin\/botcamp-page-browser.*\$HOME\/\.local\/bin\/botcamp-page-browser.*\bact\b/,
         ),
         input: `${JSON.stringify({ command: "act", actions: [fill] })}\n`,
       },
@@ -2286,7 +2286,7 @@ describe("Boat computer snapshot", () => {
   }
 
   it("names the snapshot after the setup it captures", () => {
-    expect(BOAT_COMPUTER_SNAPSHOT).toMatch(/^rakazo-computer-[0-9a-f]{12}$/);
+    expect(BOAT_COMPUTER_SNAPSHOT).toMatch(/^botcamp-computer-[0-9a-f]{12}$/);
     expect(boatComputerSnapshotName(["mkdir -p a", PREPARE_LINUX_DESKTOP])).not.toBe(
       boatComputerSnapshotName(["mkdir -p b", PREPARE_LINUX_DESKTOP]),
     );
@@ -2300,7 +2300,7 @@ describe("Boat computer snapshot", () => {
     await new BoatSandboxProvider({ apiKey: "test-key" }, api).buildComputerSnapshot();
     const setup = scripts(command).join("\n");
     expect(setup).toContain("agent-browser-linux-");
-    expect(setup).not.toContain("rakazo-page-browser");
+    expect(setup).not.toContain("botcamp-page-browser");
   });
 
   it("starts new computers from the ready snapshot with only their own env", async () => {
@@ -2338,13 +2338,13 @@ describe("Boat computer snapshot", () => {
       await vi.waitFor(() => expect(remove).toHaveBeenCalledOnce());
       const third = await provision(provider);
 
-      const computers = api.creates.filter((request) => request.env?.RAKAZO_BOT_ID);
+      const computers = api.creates.filter((request) => (request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID));
       expect(computers.map((request) => request.from)).toEqual([
         undefined,
         undefined,
         BOAT_COMPUTER_SNAPSHOT,
       ]);
-      const builds = api.creates.filter((request) => !request.env?.RAKAZO_BOT_ID);
+      const builds = api.creates.filter((request) => !(request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID));
       expect(builds).toEqual([{ ttlSeconds: 1800, noEnv: true }]);
       const buildId = api.savedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.sourceSandboxId;
       expect([first.id, second.id, third.id]).not.toContain(buildId);

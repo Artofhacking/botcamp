@@ -188,7 +188,7 @@ export function composerSelectedMentions(
   return [...selected.values()];
 }
 
-/** Only action tokens need prompt offsets; bot routing remains deduplicated metadata. */
+/** Bots, people, and @everyone stay in the text. Action tokens keep offsets so they can be removed. */
 export function composerMentionsForPrompt(
   draft: string,
   skill: { name: string } | null,
@@ -196,7 +196,9 @@ export function composerMentionsForPrompt(
 ): ComposerMention[] {
   const offset = (skill ? skill.name.length + 2 : 0) - (draft.length - draft.trimStart().length);
   return composerSelectedMentions(bindings).map((mention) => {
-    if (mention.kind === "bot" || mention.kind === "everyone") return mention;
+    if (mention.kind === "bot" || mention.kind === "person" || mention.kind === "everyone") {
+      return mention;
+    }
     return {
       ...mention,
       ranges: bindings

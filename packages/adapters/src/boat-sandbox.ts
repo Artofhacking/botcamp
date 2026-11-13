@@ -30,7 +30,7 @@ import type {
   StreamedPortableFile,
   TerminalRequest,
   WorkspaceExportLimits,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   SandboxDamagedError,
   SandboxRateLimitError,
@@ -38,10 +38,10 @@ import {
   SandboxUnavailableError,
   SandboxUnresponsiveError,
   WorkspaceTooLargeError,
-} from "@rakazo/adapter-kit";
-import type { ComputerSize } from "@rakazo/contracts";
-import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { ComputerSize } from "@botcamp/contracts";
+import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 import {
   BoatApiError,
   BoatRequestGate,
@@ -75,7 +75,7 @@ const BOAT_BROWSER_PROFILES = `${BOAT_WORKSPACE}/.browser-profiles`;
 /** Outside the workspace so checkpoints never carry it. Boat runs every command as `user`. */
 const BOAT_COMMAND_ENV = "/home/user/.rakazo-command-env";
 /** Where an export archives the workspace; outside it for the same reason. */
-const BOAT_ARCHIVE_PREFIX = "/tmp/rakazo-workspace-archive-";
+const BOAT_ARCHIVE_PREFIX = "/tmp/botcamp-workspace-archive-";
 const BOAT_READY_TIMEOUT_MS = 5 * 60_000;
 const BOAT_RECOVER_POLL_MAX_MS = 15_000;
 /**
@@ -1267,7 +1267,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     timeoutMs: number,
     signal?: AbortSignal,
   ): Promise<BoatCommandResult> {
-    const marker = `/tmp/rakazo-command-${randomUUID()}.completed-124`;
+    const marker = `/tmp/botcamp-command-${randomUUID()}.completed-124`;
     const wrapped = timeoutCommand(command, timeoutMs, marker);
     const timeoutSeconds = Math.ceil(timeoutMs / 1_000);
     const detached = timeoutSeconds + 5 > BOAT_API_COMMAND_TIMEOUT_SECONDS;
@@ -1718,7 +1718,7 @@ function boatCwd(cwd: string | undefined): string {
     !cwd ||
     cwd === "." ||
     cwd === "/" ||
-    cwd === "/home/rakazo" ||
+    cwd === "/home/botcamp" ||
     cwd === "/home/user" ||
     cwd === BOAT_WORKSPACE
   ) {
@@ -1726,8 +1726,8 @@ function boatCwd(cwd: string | undefined): string {
   }
   const relative = cwd.startsWith(`${BOAT_WORKSPACE}/`)
     ? cwd.slice(BOAT_WORKSPACE.length + 1)
-    : cwd.startsWith("/home/rakazo/")
-      ? cwd.slice("/home/rakazo/".length)
+    : cwd.startsWith("/home/botcamp/")
+      ? cwd.slice("/home/botcamp/".length)
       : cwd;
   return path.posix.join("rakazo-home", normalizeWorkspacePath(relative));
 }
@@ -1750,7 +1750,7 @@ const BOAT_COMPUTER_SETUP = [
 /** A snapshot name that changes with the setup it captures, so older computers keep theirs. */
 export function boatComputerSnapshotName(setup: readonly string[]): string {
   const hash = createHash("sha256").update(setup.join("\0")).digest("hex").slice(0, 12);
-  return `rakazo-computer-${hash}`;
+  return `botcamp-computer-${hash}`;
 }
 
 export const BOAT_COMPUTER_SNAPSHOT = boatComputerSnapshotName(BOAT_COMPUTER_SETUP);

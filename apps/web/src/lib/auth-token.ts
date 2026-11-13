@@ -1,4 +1,4 @@
-import { SESSION_BEARER_STORAGE_KEY } from "@rakazo/contracts";
+import { SESSION_BEARER_STORAGE_KEY } from "@botcamp/contracts";
 
 /**
  * The session token lives here instead of a cookie, because the app is served from one site

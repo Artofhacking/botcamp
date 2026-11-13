@@ -9,12 +9,12 @@ import { chromium, expect, test } from "@playwright/test";
 const execute = promisify(execFile);
 const helper = path.resolve(
   import.meta.dirname,
-  "../../../infra/sandboxes/computer/rakazo-page-browser",
+  "../../../infra/sandboxes/computer/botcamp-page-browser",
 );
 
 // The helper drives Chromium through agent-browser; CI installs the pinned binary and sets this.
 test.skip(
-  !process.env.CI && !process.env.RAKAZO_AGENT_BROWSER,
+  !process.env.CI && !(process.env.BOTCAMP_AGENT_BROWSER ?? process.env.RAKAZO_AGENT_BROWSER),
   "set RAKAZO_AGENT_BROWSER (infra/sandboxes/computer/install-agent-browser.sh)",
 );
 
@@ -30,7 +30,7 @@ test("live page helper preserves identity, masks passwords, and reports partial 
       <label>Name <input id="name"></label><input aria-label="Password" type="password" value="fake-test-password">
       <button id="save" onclick="this.dataset.clicks=Number(this.dataset.clicks||0)+1">Save</button>
       <label><input type="checkbox">Agree</label><button disabled>Disabled</button>
-      <script>window.__rakazoPageBrowser={snapshot:()=>({title:'spoofed'})};</script>`);
+      <script>window.__botcampPageBrowser={snapshot:()=>({title:'spoofed'})};</script>`);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();

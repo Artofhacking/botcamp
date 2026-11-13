@@ -1,11 +1,10 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { AccountSecurity, UsageSummary } from "@rakazo/contracts";
+import type { AccountSecurity, UsageSummary } from "@botcamp/contracts";
 import {
   accountDisplay,
   displayName,
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import {
   Button,
   Field,
@@ -16,7 +15,7 @@ import {
   OptionSelect,
   ToggleGroup,
   ToggleGroupItem,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import {
   Table,
   TableBody,
@@ -24,7 +23,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@rakazo/ui-web/components/ui/table";
+} from "@botcamp/ui-web/components/ui/table";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { RefObject } from "react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
@@ -235,6 +235,10 @@ export function GeneralSettingsPanels({
   );
   const passkeysSupported = usePasskeysSupported();
   const canLinkSso = Boolean(accountSecurity?.sso && !accountSecurity.ssoLinked);
+  const directory = accountSecurity?.directory;
+  const [timezonePending, setTimezonePending] = useState(false);
+  const [timezoneError, setTimezoneError] = useState<string | null>(null);
+  const deviceTimezone = localTimezone();
 
   function chooseLocale(next: UiLocale) {
     if (next === locale) return;
@@ -386,10 +390,18 @@ export function GeneralSettingsPanels({
       <TrustedLinkSitesSettings />
       <ComputerDeviceSettings />
 
-      {showPassword || passkeysSupported || canLinkSso ? (
+      {showPassword || passkeysSupported || canLinkSso || directory ? (
         <SettingsGroup title={<Trans>Security</Trans>}>
           {showPassword ? <ChangePasswordRow email={email} /> : null}
           {canLinkSso ? <LinkSsoRow /> : null}
+          {directory ? (
+            <LinkSsoRow
+              provider="directory"
+              label={directory.name}
+              linked={accountSecurity?.directoryLinked ? (directory.profile ?? null) : null}
+              attached={Boolean(accountSecurity?.directoryLinked)}
+            />
+          ) : null}
           <PasskeySettings />
         </SettingsGroup>
       ) : null}

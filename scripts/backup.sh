@@ -23,7 +23,7 @@ for artifact in "$OUT/rakazo.sql" "$OUT/homes.tgz"; do
   fi
 done
 "${compose[@]}" exec -T postgres pg_dump -U rakazo rakazo > "$OUT/rakazo.sql"
-if [[ "${RAKAZO_BACKUP_SKIP_HOMES:-0}" == "1" ]] || [[ ! -e "$ROOT/data" && ! -L "$ROOT/data" ]]; then
+if [[ "${BOTCAMP_BACKUP_SKIP_HOMES:-${RAKAZO_BACKUP_SKIP_HOMES:-0}}" == "1" ]] || [[ ! -e "$ROOT/data" && ! -L "$ROOT/data" ]]; then
   tar -czf "$OUT/homes.tgz" --files-from /dev/null
 else
   [[ ! -L "$ROOT/data" && -d "$ROOT/data" ]] || { echo "data must be a directory, not a symlink" >&2; exit 1; }

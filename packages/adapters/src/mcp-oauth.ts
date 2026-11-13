@@ -1,5 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import { SecretStoreUnavailableError } from "@botcamp/adapter-kit";
+import {
+  isLocalhostOrLoopbackIp,
+  MCP_OAUTH_CLIENT_REQUIRED,
+  mcpOAuthEnvReferences,
+  parseMcpOAuthAuthorizationParams,
+} from "@botcamp/contracts";
+import { readBoundedResponseBytes } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
+import { availableInSpace, itemSecretIn, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type {
   OAuthClientProvider,
   OAuthDiscoveryState,
@@ -18,21 +30,15 @@ import type {
   OAuthClientMetadata,
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import {
-  isLocalhostOrLoopbackIp,
-  MCP_OAUTH_CLIENT_REQUIRED,
-  mcpOAuthEnvReferences,
-  parseMcpOAuthAuthorizationParams,
-} from "@rakazo/contracts";
-import { readBoundedResponseBytes } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
-import { availableInSpace, itemSecretIn, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { MCP_DYNAMIC_REGISTRATION_UNSUPPORTED, needsMcpOAuthClient } from "./mcp-server-health.js";
 import { secureFetch, validateUrl, withEndpointOriginFallback } from "./mcp-transport.js";
+import {
+  isQqMailMcpEndpoint,
+  mcpOAuthRedirectFor,
+  QQ_MAIL_MCP_ENDPOINT,
+  QQ_MAIL_OAUTH_CLIENT_NAME,
+} from "./qq-mail-oauth.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
 import { deleteSecretBestEffort, holdSecretNotifications } from "./secret-store-factory.js";
@@ -286,6 +292,8 @@ type ProviderOptions = {
   refresh?: (heldRefreshToken: string) => Promise<TokenGrant>;
   /** The instance opt-in that lets OAuth URLs use plain HTTP on a private network. */
   allowPrivateEndpoint?: boolean;
+  /** Registration name. QQ Mail admits only its trusted name; other servers stay BotCamp. */
+  clientName?: string;
 };
 
 /** Refresh before expiry to cover clock skew and request time. */
@@ -391,7 +399,7 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
     const applicationType = hostname === "localhost" || hostname === "127.0.0.1" ? "native" : "web";
     return {
       redirect_uris: [redirectUri],
-      client_name: "BotCamp",
+      client_name: this.options.clientName ?? "BotCamp",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
@@ -764,7 +772,7 @@ async function startRemoteAuthorization(
     authProvider: provider,
     fetch: provider.wrapFetch(network.fetch),
   });
-  const client = new Client({ name: "rakazo-oauth", version: "0.1.0" });
+  const client = new Client({ name: "botcamp-oauth", version: "0.1.0" });
   const signal = AbortSignal.timeout(15_000);
   try {
     await client.connect(transport, { signal, timeout: 15_000 });
@@ -982,6 +990,7 @@ export class McpOAuthBroker {
       },
     });
     if (!server) throw new Error("MCP server endpoint is required for OAuth");
+    const redirectUri = mcpOAuthRedirectFor(server.endpoint, input.redirectUri);
     const context = { spaceId: input.spaceId, userId: input.userId };
     const loaded = await this.loadMaterial(server, context);
     // A stdio server has no MCP endpoint; OAuth runs against its authorization server.
@@ -1006,7 +1015,7 @@ export class McpOAuthBroker {
     const sessionId = randomUUID();
     let authorizationUrl: URL | undefined;
     const provider = this.createProvider(server, context, loaded, {
-      redirectUri: input.redirectUri,
+      redirectUri,
       state: sessionId,
       scope: input.scope,
       onAuthorization: (url) => {
@@ -1071,7 +1080,7 @@ export class McpOAuthBroker {
         spaceId: input.spaceId,
         userId: input.userId,
         endpoint: target,
-        redirectUri: input.redirectUri,
+        redirectUri,
         oauthCiphertext: sessionMaterial.ciphertext,
       },
     });
@@ -1290,6 +1299,7 @@ export class McpOAuthBroker {
           : {}),
         allowPrivateEndpoint: this.allowPrivateEndpoint,
         ...options,
+        ...(isQqMailMcpEndpoint(endpoint) ? { clientName: QQ_MAIL_OAUTH_CLIENT_NAME } : {}),
       },
     );
   }
@@ -1584,4 +1594,24 @@ export class McpOAuthBroker {
       return {};
     }
   }
+}
+
+/** True when this person has a live QQ Mail MCP grant, in addition to any older mailbox secret. */
+export async function qqMailGrantConnected(
+  prisma: PrismaClient,
+  secrets: SecretStore,
+  actor: { spaceId: string; userId: string },
+): Promise<boolean> {
+  const server = await prisma.mcpServer.findFirst({
+    where: {
+      ...availableInSpace(actor),
+      endpoint: QQ_MAIL_MCP_ENDPOINT,
+      enabled: true,
+      installId: null,
+    },
+    select: { id: true, endpoint: true, secretId: true },
+  });
+  if (!server) return false;
+  const summary = await new McpOAuthBroker(prisma, secrets).summaryFor(server, actor);
+  return summary.status === "connected";
 }

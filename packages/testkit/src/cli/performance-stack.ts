@@ -3,8 +3,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { CDPSession } from "@playwright/test";
-import { abortableDelay } from "@rakazo/core";
-import { createPool } from "@rakazo/db";
+import { abortableDelay } from "@botcamp/core";
+import { createPool } from "@botcamp/db";
 import { disposableDatabaseEnv, startPostgres } from "./postgres.js";
 
 export const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -89,8 +89,8 @@ async function adminQuery(url: string, sql: string) {
 }
 
 export function migrateDatabase(env: NodeJS.ProcessEnv) {
-  run("pnpm", ["--filter", "@rakazo/db", "generate"], env);
-  run("pnpm", ["--filter", "@rakazo/db", "exec", "prisma", "migrate", "deploy"], env);
+  run("pnpm", ["--filter", "@botcamp/db", "generate"], env);
+  run("pnpm", ["--filter", "@botcamp/db", "exec", "prisma", "migrate", "deploy"], env);
 }
 
 export function run(command: string, args: string[], env: NodeJS.ProcessEnv) {
@@ -107,7 +107,7 @@ export function startPreview(env: NodeJS.ProcessEnv, port: number) {
     "pnpm",
     [
       "--filter",
-      "@rakazo/web",
+      "@botcamp/web",
       "exec",
       "vite",
       "preview",

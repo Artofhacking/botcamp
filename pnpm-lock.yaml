@@ -56,39 +56,39 @@ importers:
 
   apps/api:
     dependencies:
+      '@botcamp/adapter-kit':
+        specifier: workspace:*
+        version: link:../../packages/adapter-kit
+      '@botcamp/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
+      '@botcamp/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@botcamp/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
+      '@botcamp/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
+      '@botcamp/page-kit':
+        specifier: workspace:*
+        version: link:../../packages/page-kit
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.14)
       '@orpc/server':
         specifier: 1.15.7
         version: 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.22.0)
-      '@rakazo/adapter-kit':
-        specifier: workspace:*
-        version: link:../../packages/adapter-kit
-      '@rakazo/adapters':
-        specifier: workspace:*
-        version: link:../../packages/adapters
-      '@rakazo/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rakazo/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../../packages/logging
-      '@rakazo/memory':
-        specifier: workspace:*
-        version: link:../../packages/memory
-      '@rakazo/page-kit':
-        specifier: workspace:*
-        version: link:../../packages/page-kit
       fflate:
         specifier: 0.8.3
         version: 0.8.3
@@ -108,10 +108,10 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@rakazo/logging':
+      '@botcamp/logging':
         specifier: workspace:*
         version: link:../../packages/logging
       '@sentry/electron':
@@ -124,18 +124,18 @@ importers:
         specifier: 3.3.4
         version: 3.3.4
     devDependencies:
+      '@botcamp/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@botcamp/ui-tokens':
+        specifier: workspace:*
+        version: link:../../packages/ui-tokens
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
-      '@rakazo/adapters':
-        specifier: workspace:*
-        version: link:../../packages/adapters
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rakazo/ui-tokens':
-        specifier: workspace:*
-        version: link:../../packages/ui-tokens
       electron:
         specifier: 45.0.0
         version: 45.0.0
@@ -160,6 +160,24 @@ importers:
       '@better-auth/passkey':
         specifier: 1.7.15
         version: 1.7.15(bsvb52x3ypldxbxgxis7ot3sgm)
+      '@botcamp/chat-ui':
+        specifier: workspace:*
+        version: link:../../packages/chat-ui
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
+      '@botcamp/ui-tokens':
+        specifier: workspace:*
+        version: link:../../packages/ui-tokens
+      '@botcamp/ui-web':
+        specifier: workspace:*
+        version: link:../../packages/ui-web
       '@lingui/core':
         specifier: 6.6.0
         version: 6.6.0(@babel/core@7.29.7)(@babel/types@7.29.8)
@@ -175,24 +193,6 @@ importers:
       '@orpc/tanstack-query':
         specifier: 1.15.7
         version: 1.15.7(@opentelemetry/api@1.9.1)(@orpc/client@1.15.7(@opentelemetry/api@1.9.1))(@tanstack/query-core@5.104.5)
-      '@rakazo/chat-ui':
-        specifier: workspace:*
-        version: link:../../packages/chat-ui
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../../packages/logging
-      '@rakazo/ui-tokens':
-        specifier: workspace:*
-        version: link:../../packages/ui-tokens
-      '@rakazo/ui-web':
-        specifier: workspace:*
-        version: link:../../packages/ui-web
       '@sentry/react':
         specifier: 11.8.0
         version: 11.8.0(react-router@7.18.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
@@ -284,22 +284,22 @@ importers:
 
   apps/worker:
     dependencies:
-      '@rakazo/adapter-kit':
+      '@botcamp/adapter-kit':
         specifier: workspace:*
         version: link:../../packages/adapter-kit
-      '@rakazo/adapters':
+      '@botcamp/adapters':
         specifier: workspace:*
         version: link:../../packages/adapters
-      '@rakazo/core':
+      '@botcamp/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@rakazo/db':
+      '@botcamp/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@rakazo/logging':
+      '@botcamp/logging':
         specifier: workspace:*
         version: link:../../packages/logging
-      '@rakazo/memory':
+      '@botcamp/memory':
         specifier: workspace:*
         version: link:../../packages/memory
     devDependencies:
@@ -312,15 +312,15 @@ importers:
 
   infra/sandboxes/supervisor:
     dependencies:
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../../../packages/logging
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.14)
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../../../packages/logging
       dockerode:
         specifier: 5.0.1
         version: 5.0.1(patch_hash=4e3w6bgm3rh6hjush2fsvzwl7m)
@@ -346,18 +346,18 @@ importers:
 
   infra/updater:
     dependencies:
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.14)
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../../packages/logging
       hono:
         specifier: 4.13.14
         version: 4.13.14
@@ -377,7 +377,7 @@ importers:
 
   packages/adapter-kit:
     dependencies:
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../contracts
       zod:
@@ -411,6 +411,24 @@ importers:
       '@boatdev/sdk':
         specifier: 1.11.0
         version: 1.11.0
+      '@botcamp/adapter-kit':
+        specifier: workspace:*
+        version: link:../adapter-kit
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@botcamp/db':
+        specifier: workspace:*
+        version: link:../db
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../logging
+      '@botcamp/page-kit':
+        specifier: workspace:*
+        version: link:../page-kit
       '@boxd-sh/sdk':
         specifier: 0.2.20
         version: 0.2.20
@@ -477,24 +495,6 @@ importers:
       '@photon-ai/chat-adapter-imessage':
         specifier: 3.2.0
         version: 3.2.0(chat@4.43.0(zod@4.6.7))(typescript@7.0.2)(zod@4.6.7)
-      '@rakazo/adapter-kit':
-        specifier: workspace:*
-        version: link:../adapter-kit
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../core
-      '@rakazo/db':
-        specifier: workspace:*
-        version: link:../db
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../logging
-      '@rakazo/page-kit':
-        specifier: workspace:*
-        version: link:../page-kit
       '@stripe/link-sdk':
         specifier: 0.15.0
         version: 0.15.0
@@ -586,19 +586,19 @@ importers:
       '@better-auth/passkey':
         specifier: 1.7.15
         version: 1.7.15(bsvb52x3ypldxbxgxis7ot3sgm)
-      '@rakazo/adapter-kit':
+      '@botcamp/adapter-kit':
         specifier: workspace:*
         version: link:../adapter-kit
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@rakazo/core':
+      '@botcamp/core':
         specifier: workspace:*
         version: link:../core
-      '@rakazo/db':
+      '@botcamp/db':
         specifier: workspace:*
         version: link:../db
-      '@rakazo/ui-tokens':
+      '@botcamp/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens
       better-auth:
@@ -629,16 +629,16 @@ importers:
 
   packages/chat-ui:
     dependencies:
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@rakazo/core':
+      '@botcamp/core':
         specifier: workspace:*
         version: link:../core
-      '@rakazo/ui-tokens':
+      '@botcamp/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens
-      '@rakazo/ui-web':
+      '@botcamp/ui-web':
         specifier: workspace:*
         version: link:../ui-web
       '@ronradtke/react-native-markdown-display':
@@ -706,15 +706,15 @@ importers:
 
   packages/core:
     dependencies:
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@botcamp/ui-tokens':
+        specifier: workspace:*
+        version: link:../ui-tokens
       '@observablehq/plot':
         specifier: 0.6.17
         version: 0.6.17
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@rakazo/ui-tokens':
-        specifier: workspace:*
-        version: link:../ui-tokens
       '@tanstack/query-core':
         specifier: 5.104.5
         version: 5.104.5
@@ -770,24 +770,24 @@ importers:
 
   packages/db:
     dependencies:
+      '@botcamp/adapter-kit':
+        specifier: workspace:*
+        version: link:../adapter-kit
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@botcamp/logging':
+        specifier: workspace:*
+        version: link:../logging
       '@prisma/adapter-pg':
         specifier: 7.10.1
         version: 7.10.1
       '@prisma/client':
         specifier: 7.10.1
         version: 7.10.1(prisma@7.10.1(@types/node@26.5.0)(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(magicast@0.5.5)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2))(typescript@7.0.2)
-      '@rakazo/adapter-kit':
-        specifier: workspace:*
-        version: link:../adapter-kit
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../core
-      '@rakazo/logging':
-        specifier: workspace:*
-        version: link:../logging
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -829,10 +829,10 @@ importers:
 
   packages/memory:
     dependencies:
-      '@rakazo/adapter-kit':
+      '@botcamp/adapter-kit':
         specifier: workspace:*
         version: link:../adapter-kit
-      '@rakazo/db':
+      '@botcamp/db':
         specifier: workspace:*
         version: link:../db
     devDependencies:
@@ -845,10 +845,10 @@ importers:
 
   packages/page-kit:
     dependencies:
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@rakazo/ui-tokens':
+      '@botcamp/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens
       esbuild:
@@ -879,27 +879,27 @@ importers:
 
   packages/testkit:
     dependencies:
+      '@botcamp/adapter-kit':
+        specifier: workspace:*
+        version: link:../adapter-kit
+      '@botcamp/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@botcamp/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@botcamp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@botcamp/db':
+        specifier: workspace:*
+        version: link:../db
+      '@botcamp/page-kit':
+        specifier: workspace:*
+        version: link:../page-kit
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.14)
-      '@rakazo/adapter-kit':
-        specifier: workspace:*
-        version: link:../adapter-kit
-      '@rakazo/adapters':
-        specifier: workspace:*
-        version: link:../adapters
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@rakazo/core':
-        specifier: workspace:*
-        version: link:../core
-      '@rakazo/db':
-        specifier: workspace:*
-        version: link:../db
-      '@rakazo/page-kit':
-        specifier: workspace:*
-        version: link:../page-kit
       '@testcontainers/postgresql':
         specifier: 12.2.1
         version: 12.2.1
@@ -913,15 +913,15 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1127.0
         version: 3.1127.0
+      '@botcamp/api':
+        specifier: workspace:*
+        version: link:../../apps/api
+      '@botcamp/sandbox-supervisor':
+        specifier: workspace:*
+        version: link:../../infra/sandboxes/supervisor
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
-      '@rakazo/api':
-        specifier: workspace:*
-        version: link:../../apps/api
-      '@rakazo/sandbox-supervisor':
-        specifier: workspace:*
-        version: link:../../infra/sandboxes/supervisor
       '@types/pngjs':
         specifier: 6.0.5
         version: 6.0.5
@@ -949,13 +949,13 @@ importers:
       '@base-ui/react':
         specifier: 1.9.0
         version: 1.9.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@rakazo/contracts':
+      '@botcamp/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@rakazo/core':
+      '@botcamp/core':
         specifier: workspace:*
         version: link:../core
-      '@rakazo/ui-tokens':
+      '@botcamp/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens
       class-variance-authority:

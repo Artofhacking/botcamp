@@ -7,7 +7,7 @@ import type {
   SemanticMemoryResponse,
   SemanticMemoryResult,
   SemanticMemorySaveRequest,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import type { HonchoConnectionConfig, HonchoReasoningLevel } from "./honcho-client.js";
 import {
   createHonchoConclusions,

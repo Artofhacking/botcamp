@@ -18,9 +18,9 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { COMPUTER_CACHE_ENV } from "@rakazo/core/node/desktop-runtime";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { COMPUTER_CACHE_ENV } from "@botcamp/core/node/desktop-runtime";
+import { getLogger } from "@botcamp/logging";
 import { Agent, request as httpRequest } from "undici";
 import WebSocket from "ws";
 import type { RawExecEvent } from "./exec-computer.js";
@@ -57,10 +57,11 @@ const IMAGE_USER = 1000;
 // The computer image's own command (its Dockerfile CMD). The instance starts it without privilege
 // escalation, as Docker and Kubernetes computers start, which a restricted project cannot set on
 // the container itself.
-const IMAGE_COMMAND = "/usr/bin/env -u LD_PRELOAD /usr/local/bin/rakazo-computer";
+const IMAGE_COMMAND = "/usr/bin/env -u LD_PRELOAD /usr/local/bin/botcamp-computer";
 // Names the bot that owns an instance. An instance carrying another bot's value is never
 // reused or replaced.
-const BOT_ID_KEY = "user.rakazo-bot-id";
+const BOT_ID_KEY = "user.botcamp-bot-id";
+const LEGACY_BOT_ID_KEY = "user.rakazo-bot-id";
 
 export interface IncusSandboxOptions {
   /** HTTPS address of the Incus API, such as `https://incus.example.test:8443`. */
@@ -221,18 +222,19 @@ export class IncusSandboxProvider implements SandboxProvider {
       const name = request.providerRef;
       const existing = await this.instance(name, signal);
       if (existing) this.assertOwner(existing, name, request.botId);
-      if (existing?.status === "Running") {
+      if (existing?.status === "Running" && this.identityCurrent(existing, request.botId)) {
         await this.waitForReady(name, request.botId, context);
         return { id: name, botId: request.botId, kind: "incus", providerRef: name, fresh: false };
       }
-      // A stopped instance deletes itself; remove one that failed. Its replacement gets a new
-      // name, so nothing here waits for it to go.
+      // A stopped instance deletes itself. A running one from the previous identity is removed
+      // too: its command and home are the names this process no longer starts. The saved
+      // workspace is restored by the caller. Nothing here waits for the delete.
       if (existing) await this.remove(name, signal).catch(() => {});
     }
     await this.removeOrphans(request.botId, request.providerRef, signal);
     // A new name for every start, as the Daytona provider does: a later start never adopts an
     // instance that an abandoned one created, so that one can be deleted without a race.
-    const name = `rakazo-${randomUUID()}`;
+    const name = `botcamp-${randomUUID()}`;
     await this.create(name, request.botId, signal);
     try {
       await this.waitForReady(name, request.botId, context);
@@ -247,6 +249,13 @@ export class IncusSandboxProvider implements SandboxProvider {
     if (computer.kind !== "incus") return false;
     const instance = await this.instance(instanceName(computer), context.signal);
     return instance?.status === "Running";
+  }
+
+  async acceptsRunningComputer(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    if (computer.kind !== "incus") return true;
+    const instance = await this.instance(instanceName(computer), context.signal);
+    if (instance?.status !== "Running" || !instance) return true;
+    return this.identityCurrent(instance, computer.botId);
   }
 
   async prepare(computer: ComputerRef, context: AdapterContext): Promise<void> {
@@ -390,21 +399,28 @@ export class IncusSandboxProvider implements SandboxProvider {
     if (!/^[A-Za-z0-9_-]+$/.test(botId)) return;
     let instances: IncusInstance[];
     try {
-      const filter = encodeURIComponent(`config.${BOT_ID_KEY} eq ${botId}`);
-      const { metadata } = await this.request(
-        "GET",
-        `/1.0/instances?recursion=1&filter=${filter}`,
-        signal,
+      const listed = await Promise.all(
+        [BOT_ID_KEY, LEGACY_BOT_ID_KEY].map(async (key) => {
+          const filter = encodeURIComponent(`config.${key} eq ${botId}`);
+          const { metadata } = await this.request(
+            "GET",
+            `/1.0/instances?recursion=1&filter=${filter}`,
+            signal,
+          );
+          return (metadata ?? []) as IncusInstance[];
+        }),
       );
-      instances = (metadata ?? []) as IncusInstance[];
+      instances = listed.flat();
     } catch (error) {
       signal.throwIfAborted();
       getLogger().warn("list Incus instances left by earlier starts", { error });
       return;
     }
+    const seen = new Set<string>();
     for (const instance of instances) {
-      if (!instance.name || instance.name === keep || instance.config?.[BOT_ID_KEY] !== botId)
-        continue;
+      if (!instance.name || instance.name === keep || seen.has(instance.name)) continue;
+      seen.add(instance.name);
+      if (!this.ownedBy(instance, botId)) continue;
       await this.remove(instance.name, signal).catch((error) => {
         signal.throwIfAborted();
         getLogger().warn("remove Incus instance left by an earlier start", { error });
@@ -439,8 +455,19 @@ export class IncusSandboxProvider implements SandboxProvider {
     };
   }
 
+  private identityCurrent(instance: IncusInstance, botId: string): boolean {
+    const config = instance.config ?? {};
+    if (config[BOT_ID_KEY] !== botId) return false;
+    return String(config["oci.entrypoint"] ?? "").includes("/usr/local/bin/botcamp-computer");
+  }
+
+  private ownedBy(instance: IncusInstance, botId: string) {
+    const config = instance.config ?? {};
+    return (config[BOT_ID_KEY] ?? config[LEGACY_BOT_ID_KEY]) === botId;
+  }
+
   private assertOwner(instance: IncusInstance, name: string, botId: string) {
-    if (instance.config?.[BOT_ID_KEY] !== botId) {
+    if (!this.ownedBy(instance, botId)) {
       throw new Error(`Incus instance ${name} belongs to another bot`);
     }
   }

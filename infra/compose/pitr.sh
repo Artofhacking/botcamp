@@ -13,7 +13,7 @@ set -Eeuo pipefail
 umask 077
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="${RAKAZO_DEPLOY_DIR:-$(cd "${HERE}/../.." && pwd)}"
+PROJECT_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-$(cd "${HERE}/../.." && pwd)}}"
 ENV_FILE="${PITR_ENV_FILE:-${PROJECT_DIR}/.env}"
 COMPOSE_FILE="${PROJECT_DIR}/infra/compose/docker-compose.prod.yml"
 ROLE=rakazo_pitr

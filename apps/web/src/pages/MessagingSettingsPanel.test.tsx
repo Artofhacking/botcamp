@@ -48,7 +48,7 @@ vi.mock("@lingui/react/macro", () => {
     Trans: ({ children }: { children?: ReactNode }) => children,
   };
 });
-vi.mock("@rakazo/ui-web", () => {
+vi.mock("@botcamp/ui-web", () => {
   const Pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
     Button: ({

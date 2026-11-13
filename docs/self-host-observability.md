@@ -10,8 +10,8 @@ or `off` (default `info`). Production defaults to `LOG_FORMAT=json`; development
 unless you set `json` or `pretty`.
 
 Axiom is optional. Set both `AXIOM_TOKEN` and `AXIOM_DATASET` for ingest to one shared dataset.
-Services set `service.name` (`rakazo-api`, `rakazo-worker`, `rakazo-sandbox-supervisor`,
-`rakazo-updater`). A partial Axiom config logs a one-time warning and stays off. `AXIOM_EDGE` is a
+Services set `service.name` (`botcamp-api`, `botcamp-worker`, `botcamp-sandbox-supervisor`,
+`botcamp-updater`). A partial Axiom config logs a one-time warning and stays off. `AXIOM_EDGE` is a
 regional hostname; `AXIOM_EDGE_URL` must be https and wins when both are set.
 
 ## Computer usage events
@@ -92,7 +92,7 @@ child commands do not receive them.
 Set `OTEL_EXPORTER_OTLP_ENDPOINT` on the worker to enable optional OpenTelemetry traces
 (for example, `http://otel-collector:4318`). The OTLP/HTTP exporter appends `/v1/traces`
 to the base endpoint and honors standard `OTEL_EXPORTER_OTLP_HEADERS` (comma-separated
-`key=value` pairs) and `OTEL_SERVICE_NAME` (default `rakazo-worker`). Compose workers
+`key=value` pairs) and `OTEL_SERVICE_NAME` (default `botcamp-worker`). Compose workers
 read these settings from `.env`. With an empty or unset endpoint, no tracing SDK loads
 or initializes. No collector or hosted service is required to run BotCamp.
 
@@ -144,7 +144,7 @@ durable audit trail, and events from before enablement are not backfilled.
 The API and worker append a row to `security_events` and write a `security.event` log line for:
 
 - sign-up, sign-in, sign-out, and failed sign-in or sign-up
-- session revocation, password and passkey changes, and account deletion
+- session revocation, password changes, and account deletion
 - model, MCP, connector, voice, memory, and secret credentials created, changed, or removed
 - deployment settings changes, approval decisions, and approval policy changes
 - refused private or internal destinations (`egress.refused`) and auth rate-limit hits
@@ -231,11 +231,11 @@ Monitoring is opt-in. Install `host-alert.py` as `/usr/local/sbin/rakazo-host-al
 and timer and enable `rakazo-host-check.timer`. Checks run every five minutes and report low disk
 space, failed backups, a verified backup older than 36 hours, missing configured IPv4 SSH rules, or
 installed updates waiting for a reboot.
-To also check API and worker containers, set `RAKAZO_MONITOR_COMPOSE_PROJECT` in `backup.env` to
+To also check API and worker containers, set `BOTCAMP_MONITOR_COMPOSE_PROJECT` in `backup.env` to
 the Compose project name (`rakazo-prod` for production). The worker probe checks heartbeat and
 reconciliation freshness. Leave the variable unset if container monitoring is managed elsewhere.
 
-The dedicated-volume check is enabled only by `RAKAZO_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
+The dedicated-volume check is enabled only by `BOTCAMP_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
 Identical alerts are suppressed for a day; recovery sends a separate notification.
 
 Alerts go to the system journal by default; no external service is required. For optional Slack
@@ -261,18 +261,18 @@ endpoint that accepts a JSON array of events with a bearer token, for example Ax
 `https://api.axiom.co/v1/datasets/<dataset>/ingest`.
 
 ```env
-RAKAZO_AUDIT_SINK_URL=https://ingest.example.com/v1/events
+BOTCAMP_AUDIT_SINK_URL=https://ingest.example.com/v1/events
 # Optional: name the SSH keys you expect (fingerprints from `ssh-keygen -lf key.pub`).
-RAKAZO_AUDIT_KNOWN_KEYS=SHA256:replace-with-fingerprint=laptop SHA256:replace-with-fingerprint=ci
-# Optional: RAKAZO_AUDIT_TOKEN_FILE (default /etc/rakazo/audit-ship.token), RAKAZO_AUDIT_HOST
-# (default: the hostname), and RAKAZO_AUDIT_HEARTBEAT_SECONDS (default 10800, three hours).
+BOTCAMP_AUDIT_KNOWN_KEYS=SHA256:replace-with-fingerprint=laptop SHA256:replace-with-fingerprint=ci
+# Optional: BOTCAMP_AUDIT_TOKEN_FILE (default /etc/rakazo/audit-ship.token), BOTCAMP_AUDIT_HOST
+# (default: the hostname), and BOTCAMP_AUDIT_HEARTBEAT_SECONDS (default 10800, three hours).
 ```
 
 Use a token that can only write to that one destination, so a compromised host cannot read or delete
 what it already sent. The shipper follows `/var/log/auth.log` and the audit log and sends `ssh.login`
 (with `key_name`, `unknown` for keys not listed), `ssh.failed`, `sudo.command`, `su`,
 `identity.change`, and `file.change` (with the rule's `watch` key and the changed `paths`), plus a
-`shipper.heartbeat` on start and every `RAKAZO_AUDIT_HEARTBEAT_SECONDS`. Every
+`shipper.heartbeat` on start and every `BOTCAMP_AUDIT_HEARTBEAT_SECONDS`. Every
 event carries `event`, `host`, `source`, `message`, and `_time`. Offsets advance only after the sink
 accepts a batch, and failures retry with backoff, so events arrive at least once. On first start it
 ships the current auth log and starts the audit log at its end. With monitoring installed, the host

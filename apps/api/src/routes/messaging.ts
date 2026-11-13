@@ -1,16 +1,16 @@
-import { ORPCError } from "@orpc/server";
-import { messagingDeliverJob } from "@rakazo/adapter-kit";
-import { PersonalChatError } from "@rakazo/adapters";
-import { displayName } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import { messagingDeliverJob } from "@botcamp/adapter-kit";
+import { PersonalChatError } from "@botcamp/adapters";
+import { displayName } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import {
   crossSpaceCommunicationAllowed,
   formatMessagingLinkCode,
   issueMessagingLinkCode,
   messagingIdentityForBot,
   runAsSystem,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import type { RouterContext } from "./context.js";
 import { isUniqueViolation } from "./shared.js";
 

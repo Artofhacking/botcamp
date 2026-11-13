@@ -1,5 +1,4 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import { linkableChatApps, messagingProviderName } from "@rakazo/core";
+import { linkableChatApps, messagingProviderName } from "@botcamp/core";
 import {
   Button,
   Dialog,
@@ -8,7 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronLeft } from "lucide-react";
 import QRCode from "qrcode";
 import type { FormEvent } from "react";

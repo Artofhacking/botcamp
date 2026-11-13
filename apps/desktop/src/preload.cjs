@@ -20,7 +20,7 @@ ipcRenderer.on("desktop.links.url", (_event, link) => {
   for (const listener of linkListeners) listener(link);
 });
 
-contextBridge.exposeInMainWorld("rakazoDesktop", {
+contextBridge.exposeInMainWorld("botcampDesktop", {
   platform: process.platform,
   nativeWindowFrame: process.platform === "win32",
   badge: {

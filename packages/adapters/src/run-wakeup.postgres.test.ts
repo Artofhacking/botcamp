@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type { BackgroundJobHandlers, JobPublisher } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import { stuckWorkStatusMessage } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import type { BackgroundJobHandlers, JobPublisher } from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import { stuckWorkStatusMessage } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
 import {
   appendEvent,
   appendEventInTransaction,
@@ -14,8 +14,8 @@ import {
   provisionMessagingIdentity,
   runAsSystem,
   runAsTenant,
-} from "@rakazo/db";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { InMemoryRealtimeFanout } from "./realtime.js";
 import { RunJobPublisher, RunStarter, RunWorkerHost } from "./run-wakeup.js";

@@ -1,4 +1,4 @@
-import { MODEL_KEY_FORMAT_ERROR } from "@rakazo/contracts";
+import { MODEL_KEY_FORMAT_ERROR } from "@botcamp/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultCatalogModelId } from "./model-selection.js";
 import { modelAcceptsImageInput } from "./model-vision.js";
@@ -380,7 +380,7 @@ describe("Pi model catalog", () => {
       listPiCatalog().find((entry) => entry.provider === "cloudflare-workers-ai")?.catalogProbe,
     ).toBeUndefined();
 
-    const previous = process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
+    const previous = (process.env.BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC ?? process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC);
     process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC = "0";
     try {
       await expect(

@@ -1,5 +1,5 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { normalizeMessageOrigin } from "@rakazo/core";
+import type { MessageBlock } from "@botcamp/contracts";
+import { normalizeMessageOrigin } from "@botcamp/core";
 import type { Prisma, PrismaClient } from "./client.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
@@ -45,6 +45,7 @@ export function loadRunHistoryMessages(
       replyTo: { select: { id: true, threadId: true, role: true, botId: true, blocks: true } },
       clientNonce: true,
       origin: true,
+      senderUserId: true,
       steeringMessages: { where: { botId: run.botId, runId: null }, select: { id: true } },
     },
   });
@@ -70,6 +71,8 @@ export interface CreateThreadMessageInput {
   clientNonce?: string;
   /** `web` | `mac` | `windows` | `linux` | `android`, or `chat:<provider>`. Anything else is not stored. */
   origin?: string;
+  /** The person who sent a shared-group message. */
+  senderUserId?: string;
   markUnread?: boolean;
   /** Terminal echo after the run is already cancelled. Every other write stays rejected. */
   allowCancelledRun?: boolean;
@@ -114,6 +117,7 @@ export async function createThreadMessageInTransaction(
       runId: input.runId,
       clientNonce: input.clientNonce,
       ...(origin ? { origin } : {}),
+      ...(input.senderUserId ? { senderUserId: input.senderUserId } : {}),
     },
   });
 }

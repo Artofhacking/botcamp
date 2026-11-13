@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import type { PrismaClient } from "@rakazo/db";
+import type { PrismaClient } from "@botcamp/db";
 
 /**
  * One bot per account is the primary one, and only it manages the others. The rule is stored

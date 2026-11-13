@@ -1,4 +1,5 @@
 import path from "node:path";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { BOTCAMP_CLOUD_URL } from "./setup-config.js";
 
 /**
@@ -6,7 +7,9 @@ import { BOTCAMP_CLOUD_URL } from "./setup-config.js";
  * inlines `RAKAZO_PASSKEY_RP_ID`, so the app and its entitlements must be built with the same value.
  */
 export const PASSKEY_RP_ID =
-  process.env.RAKAZO_PASSKEY_RP_ID?.trim().toLowerCase() || new URL(BOTCAMP_CLOUD_URL).hostname;
+  firstNonEmpty(process.env.BOTCAMP_PASSKEY_RP_ID, process.env.RAKAZO_PASSKEY_RP_ID)
+    ?.trim()
+    .toLowerCase() || new URL(BOTCAMP_CLOUD_URL).hostname;
 
 /**
  * Relying parties whose passkeys this build can use through the system passkey sheet. The

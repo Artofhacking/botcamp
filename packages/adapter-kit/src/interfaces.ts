@@ -1,4 +1,4 @@
-import type { ComputerSize } from "@rakazo/contracts";
+import type { ComputerSize } from "@botcamp/contracts";
 import type {
   AdapterContext,
   AdapterDescriptor,
@@ -154,6 +154,12 @@ export interface SandboxProvider {
    * throws when it cannot tell.
    */
   isRunning?(computer: ComputerRef, context: AdapterContext): Promise<boolean>;
+  /**
+   * Whether a confirmed-running reference still matches the computer this process would start.
+   * False means the next provision replaces it. Omitted, or a throw when the provider cannot
+   * tell, means the reference is kept.
+   */
+  acceptsRunningComputer?(computer: ComputerRef, context: AdapterContext): Promise<boolean>;
   /**
    * Read-only probe: true only when the provider already holds this reference stopped with its
    * disk kept, so it resumes as it was without anything running now.

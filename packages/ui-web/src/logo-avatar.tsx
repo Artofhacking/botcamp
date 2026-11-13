@@ -1,13 +1,13 @@
-import { parseBotAvatarValue } from "@rakazo/contracts";
-import type { LogoAvatarActivity } from "@rakazo/core";
+import { parseBotAvatarValue } from "@botcamp/contracts";
+import type { LogoAvatarActivity } from "@botcamp/core";
 import {
   LOGO_AVATAR_BODY_Y,
   LOGO_AVATAR_EYES,
   LOGO_AVATAR_VIEWBOX,
   logoAvatarEyeInk,
   logoAvatarTraits,
-} from "@rakazo/core";
-import { botEyeColor, tokens } from "@rakazo/ui-tokens";
+} from "@botcamp/core";
+import { botEyeColor, tokens } from "@botcamp/ui-tokens";
 import type { CSSProperties } from "react";
 import { memo, useId, useMemo } from "react";
 import { useAvatarMotionVisibility } from "./hooks/use-avatar-motion-visibility.js";

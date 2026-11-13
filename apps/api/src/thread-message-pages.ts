@@ -1,14 +1,14 @@
-import type { MessageBlock, ThreadMessage, ThreadMessagePage } from "@rakazo/contracts";
-import { MessageBlock as MessageBlockSchema } from "@rakazo/contracts";
+import type { MessageBlock, ThreadMessage, ThreadMessagePage } from "@botcamp/contracts";
+import { MessageBlock as MessageBlockSchema } from "@botcamp/contracts";
 import {
   BACKGROUND_RUN_TRIGGERS,
   callIdFromClientNonce,
   isBackgroundInputBlock,
   isBackgroundRunTrigger,
   isPeerReceiptBlocks,
-} from "@rakazo/core";
-import { messageReplyPreview } from "@rakazo/core/message-quote";
-import type { Prisma, PrismaClient } from "@rakazo/db";
+} from "@botcamp/core";
+import { messageReplyPreview } from "@botcamp/core/message-quote";
+import type { Prisma, PrismaClient } from "@botcamp/db";
 
 type MessageDb = PrismaClient | Prisma.TransactionClient;
 
@@ -269,6 +269,7 @@ function toThreadMessage(row: {
   } | null;
   runId: string | null;
   clientNonce?: string | null;
+  senderUserId?: string | null;
   createdAt: Date;
 }): ThreadMessage {
   const parent = row.replyTo?.threadId === row.threadId ? row.replyTo : null;
@@ -295,6 +296,7 @@ function toThreadMessage(row: {
     replyPreview,
     runId: row.runId ?? undefined,
     callId: callIdFromClientNonce(row.clientNonce),
+    senderUserId: row.senderUserId ?? undefined,
     createdAt: row.createdAt.toISOString(),
   };
 }

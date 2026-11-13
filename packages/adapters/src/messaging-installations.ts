@@ -5,11 +5,11 @@ import type {
   MessagingInstallationStore,
   MessagingInstallProvider,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import type { Actor, MessagingInstallationSummary } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { IsolationError, requireMembership, runAsSystem } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { Actor, MessagingInstallationSummary } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { IsolationError, requireMembership, runAsSystem } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { credentialDigest } from "./credential-digest.js";
 import { installationSenderAddress } from "./installed-messaging-surface.js";
 

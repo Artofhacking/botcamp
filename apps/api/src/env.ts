@@ -2,7 +2,7 @@ import type {
   ApnsVoipConfig,
   PhotonProjectCredentials,
   TelegramBotCredentials,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import {
   apnsVoipConfig,
   boatApiKeyFromEnv,
@@ -14,11 +14,17 @@ import {
   resolveSandboxProvider,
   secretStoreOptionsFromEnv,
   telegramBotsFromEnv,
-} from "@rakazo/adapters";
-import type { OidcConfig } from "@rakazo/auth";
-import type { MinimumClientBuilds, NavLink } from "@rakazo/contracts";
-import { parseMinimumClientBuilds, parseNavLinks } from "@rakazo/contracts";
-import { parseCrispWebsiteId } from "@rakazo/contracts/content-security-policy";
+} from "@botcamp/adapters";
+import {
+  directoryLoginEndpoints,
+  directoryLoginProfile,
+  directoryLoginScopes,
+  exchangeDirectoryAuthorizationCode,
+} from "@botcamp/adapters/lark-directory-login";
+import type { DirectoryLoginConfig, OidcConfig } from "@botcamp/auth";
+import type { MinimumClientBuilds, NavLink } from "@botcamp/contracts";
+import { parseMinimumClientBuilds, parseNavLinks } from "@botcamp/contracts";
+import { parseCrispWebsiteId } from "@botcamp/contracts/content-security-policy";
 import {
   attachmentCountFromEnv,
   phoneCallSettings,
@@ -28,10 +34,12 @@ import {
   resolveScreenProxySecret,
   resolveSupervisorToken,
   uploadSizeFromEnv,
-} from "@rakazo/core";
-import { monitoringPseudonymSecret } from "@rakazo/logging";
+} from "@botcamp/core";
+import { monitoringPseudonymSecret } from "@botcamp/logging";
 
-export { resolveCloudAgentProvider, resolveSandboxProvider } from "@rakazo/adapters";
+export { resolveCloudAgentProvider, resolveSandboxProvider } from "@botcamp/adapters";
+
+import { firstNonEmpty } from "@botcamp/core/env-name";
 
 /** Where a local development stack serves the web client. */
 const DEFAULT_WEB_ORIGIN = "http://127.0.0.1:5173";
@@ -41,6 +49,8 @@ export interface AppEnv {
   /** Opt-in Have I Been Pwned check for new passwords. Default off: it calls an outside service. */
   breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
+  /** Directory login. Present only when its application credentials are set. */
+  directory?: DirectoryLoginConfig;
   nodeEnv: string;
   desktopStackToken?: string;
   databaseUrl: string;
@@ -202,14 +212,53 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     "AUTH_PASSWORD_ENABLED",
     "AUTH_BREACHED_PASSWORD_CHECK_ENABLED",
     "OIDC_ALLOW_SIGNUP_BYPASS",
+    "LARK_LOGIN_ALLOW_SIGNUP_BYPASS",
   ]) {
     const value = source[key];
     if (value && !["true", "false"].includes(value))
       throw new Error(`${key} must be true or false`);
   }
   const passwordAuth = source.AUTH_PASSWORD_ENABLED !== "false";
-  if (!passwordAuth && !issuer)
-    throw new Error("AUTH_PASSWORD_ENABLED=false requires OIDC configuration");
+  const directoryAppId = optional(source.LARK_LOGIN_APP_ID);
+  const directoryAppSecret = optional(source.LARK_LOGIN_APP_SECRET);
+  if (Boolean(directoryAppId) !== Boolean(directoryAppSecret)) {
+    throw new Error("LARK_LOGIN_APP_ID and LARK_LOGIN_APP_SECRET must be configured together");
+  }
+  const directoryDomain = optional(source.LARK_DOMAIN)?.toLowerCase();
+  const directoryEndpoints = directoryAppId ? directoryLoginEndpoints(directoryDomain) : null;
+  if (directoryAppId && !directoryEndpoints) {
+    throw new Error("LARK_DOMAIN must be feishu or lark when directory login is configured");
+  }
+  if (!passwordAuth && !issuer && !directoryAppId)
+    throw new Error("AUTH_PASSWORD_ENABLED=false requires OIDC or directory login configuration");
+  const directoryScopes = list(source.LARK_LOGIN_SCOPES);
+  const directory: DirectoryLoginConfig | undefined =
+    directoryAppId && directoryAppSecret && directoryEndpoints
+      ? {
+          issuer: directoryEndpoints.issuer,
+          name: optional(source.LARK_LOGIN_NAME) ?? (directoryDomain === "lark" ? "Lark" : "飞书"),
+          clientId: directoryAppId,
+          clientSecret: directoryAppSecret,
+          authorizationUrl: directoryEndpoints.authorizationUrl,
+          tokenUrl: directoryEndpoints.tokenUrl,
+          // Extra names are added to the command-line set. They cannot replace it.
+          scopes: directoryLoginScopes(directoryScopes),
+          allowSignupBypass: source.LARK_LOGIN_ALLOW_SIGNUP_BYPASS === "true",
+          exchange: (input) =>
+            exchangeDirectoryAuthorizationCode({
+              tokenUrl: directoryEndpoints.tokenUrl,
+              clientId: directoryAppId,
+              clientSecret: directoryAppSecret,
+              ...input,
+            }),
+          profile: (accessToken) =>
+            directoryLoginProfile(
+              directoryEndpoints.userInfoUrl,
+              accessToken,
+              optional(source.LARK_LOGIN_TENANT),
+            ),
+        }
+      : undefined;
   const oidc =
     issuer && clientId && clientSecret
       ? {
@@ -232,10 +281,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     passwordAuth,
     breachedPasswordCheck: source.AUTH_BREACHED_PASSWORD_CHECK_ENABLED === "true",
     oidc,
+    directory,
     nodeEnv: source.NODE_ENV ?? "",
     databaseUrl: required(source, "DATABASE_URL"),
     realtimeDatabaseUrl: source.REALTIME_DATABASE_URL ?? required(source, "DATABASE_URL"),
-    desktopStackToken: optional(source.RAKAZO_DESKTOP_STACK_TOKEN),
+    desktopStackToken: optional(
+      firstNonEmpty(source.BOTCAMP_DESKTOP_STACK_TOKEN, source.RAKAZO_DESKTOP_STACK_TOKEN),
+    ),
     authSecret,
     authUrl: resolveWebOrigin(source.BETTER_AUTH_URL, webOrigin, "BETTER_AUTH_URL"),
     webOrigin,
@@ -257,9 +309,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     piSessionRecording: source.PI_SESSION_RECORDING === "true",
     ticketBoardEnabled: source.TICKET_BOARD_ENABLED === "true",
     userDevicesEnabled: source.USER_DEVICES_ENABLED !== "false",
-    navLinks: parseNavLinks(source.RAKAZO_NAV_LINKS),
-    adminEmails: list(source.RAKAZO_ADMIN_EMAILS).map((email) => email.toLowerCase()),
-    adminUserIds: list(source.RAKAZO_ADMIN_USER_IDS),
+    navLinks: parseNavLinks(firstNonEmpty(source.BOTCAMP_NAV_LINKS, source.RAKAZO_NAV_LINKS)),
+    adminEmails: list(firstNonEmpty(source.BOTCAMP_ADMIN_EMAILS, source.RAKAZO_ADMIN_EMAILS)).map(
+      (email) => email.toLowerCase(),
+    ),
+    adminUserIds: list(firstNonEmpty(source.BOTCAMP_ADMIN_USER_IDS, source.RAKAZO_ADMIN_USER_IDS)),
     ...phoneCallSettings(source),
     maxUploadSizeBytes: uploadSizeFromEnv(source),
     maxAttachmentsPerMessage: attachmentCountFromEnv(source),
@@ -345,8 +399,12 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
     port: Number(source.API_PORT ?? 3100),
-    gitSha: optional(source.GIT_SHA) ?? optional(source.RAKAZO_GIT_SHA),
-    minimumClientBuilds: parseMinimumClientBuilds(source.RAKAZO_MIN_CLIENT_BUILD),
+    gitSha:
+      optional(source.GIT_SHA) ??
+      optional(firstNonEmpty(source.BOTCAMP_GIT_SHA, source.RAKAZO_GIT_SHA)),
+    minimumClientBuilds: parseMinimumClientBuilds(
+      firstNonEmpty(source.BOTCAMP_MIN_CLIENT_BUILD, source.RAKAZO_MIN_CLIENT_BUILD),
+    ),
     browserMonitoring: browserMonitoringFromEnv(source),
     crispWebsiteId: parseCrispWebsiteId(source.CRISP_WEBSITE_ID),
   };

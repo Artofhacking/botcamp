@@ -1,6 +1,4 @@
 import { hostname } from "node:os";
-import { ORPCError, onError } from "@orpc/server";
-import { RPCHandler } from "@orpc/server/fetch";
 import type {
   AgentContextStrategy,
   AgentRuntime,
@@ -14,7 +12,7 @@ import type {
   RealtimeFanout,
   SandboxProvider,
   TransactionalEmailProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   SandboxAllowanceUsedError,
   SandboxDamagedError,
@@ -22,7 +20,7 @@ import {
   SandboxUnavailableError,
   SandboxUnresponsiveError,
   VoiceAccountError,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import type {
   ComposioProvider,
   ConnectorRegistry,
@@ -30,7 +28,7 @@ import type {
   PluginTextReader,
   RemoteConnectorDependencies,
   UserDeviceGateway,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import {
   applyMessagingOutboundStatus,
   auditLogConfig,
@@ -110,16 +108,16 @@ import {
   userDeviceInternalAddress,
   verifyModelServesAgents,
   withSecretPersistence,
-} from "@rakazo/adapters";
-import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
-import type { Actor, AuthCapabilities } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@botcamp/auth";
+import type { Actor, AuthCapabilities } from "@botcamp/contracts";
 import {
   isLocalhostOrLoopbackIp,
   PLUGIN_SUBMISSIONS_PATH,
   SERVER_BUILD_HEADER,
-} from "@rakazo/contracts";
-import { encryptionKeyWarning, signupPolicyFromEnv } from "@rakazo/core";
-import type { Pool, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { encryptionKeyWarning, signupPolicyFromEnv } from "@botcamp/core";
+import type { Pool, PrismaClient } from "@botcamp/db";
 import {
   configureProviderTransactionPool,
   createBoardEvents,
@@ -145,17 +143,19 @@ import {
   weekEnd,
   weeklyPointsUsed,
   weekStart,
-} from "@rakazo/db";
-import type { Logger } from "@rakazo/logging";
+} from "@botcamp/db";
+import type { Logger } from "@botcamp/logging";
 import {
   createServiceLogger,
   enrichLogContext,
   getLogger,
   installLogger,
   SERVICE_NAMES,
-} from "@rakazo/logging";
-import { markExpectedFailure, requestLogging } from "@rakazo/logging/hono";
-import { MarkdownMemoryStore } from "@rakazo/memory";
+} from "@botcamp/logging";
+import { markExpectedFailure, requestLogging } from "@botcamp/logging/hono";
+import { MarkdownMemoryStore } from "@botcamp/memory";
+import { ORPCError, onError } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { deleteAccountContent } from "./account-deletion.js";
@@ -176,6 +176,7 @@ import {
   withClientIp,
 } from "./client-ip.js";
 import { cspReportRoutes } from "./csp-report.js";
+import { createDirectoryGrant } from "./directory-grant.js";
 import { configuredEmailProvider } from "./email.js";
 import type { AppEnv } from "./env.js";
 import { loadEnv } from "./env.js";
@@ -313,7 +314,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     ? { prisma: prismaOverride, pool: undefined }
     : createDb(env.databaseUrl, {
         poolMax,
-        applicationName: "rakazo-api",
+        applicationName: "botcamp-api",
         keyProvider: contentKeyProviderFromEnv(),
         encryptContent: env.contentEncryption,
       });
@@ -380,7 +381,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (!inMemoryJobs && !created.pool) {
     ownedJobPool = createPool(env.databaseUrl, {
       poolMax: parsePositiveInteger(process.env.DB_POOL_MAX, 4),
-      applicationName: "rakazo-api-jobs",
+      applicationName: "botcamp-api-jobs",
     });
   }
   const jobPool = created.pool ?? ownedJobPool;
@@ -619,6 +620,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     passwordAuth: env.passwordAuth,
     breachedPasswordCheck: env.breachedPasswordCheck,
     oidc: env.oidc,
+    directory: env.directory,
     secret: env.authSecret,
     baseURL: env.authUrl,
     webOrigin: env.webOrigin,
@@ -767,6 +769,18 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     userDevices: userDevicesOverride ?? userDevices,
     paymentWallet,
     shutdownSignal: shutdown.signal,
+    directory: env.directory
+      ? createDirectoryGrant({
+          prisma,
+          key: env.authSecret,
+          directory: {
+            clientId: env.directory.clientId,
+            clientSecret: env.directory.clientSecret,
+            tokenUrl: env.directory.tokenUrl,
+            brand: env.directory.issuer.includes("larksuite.com") ? "lark" : "feishu",
+          },
+        })
+      : undefined,
   });
 
   const jobHandlers = createBackgroundJobHandlers({
@@ -969,6 +983,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       sso: env.oidc
         ? { name: env.oidc.name, availability: auth.ssoAvailability() ?? "checking" }
         : null,
+      directory: env.directory
+        ? { name: env.directory.name, availability: "available" as const }
+        : null,
       passwordAuth: env.passwordAuth !== false,
       passwordReset: env.passwordAuth !== false && Boolean(email),
       resetUrl:
@@ -1103,7 +1120,11 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user) return null;
     const actor = await actorFromMembership(
-      requireMembership(prisma, session.user.id, request.headers.get("x-rakazo-space-id")),
+      requireMembership(
+        prisma,
+        session.user.id,
+        request.headers.get("x-botcamp-space-id") || request.headers.get("x-rakazo-space-id"),
+      ),
     );
     return actor && { actor, sessionId: session.session.id };
   };

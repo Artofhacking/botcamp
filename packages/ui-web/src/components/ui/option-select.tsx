@@ -1,4 +1,4 @@
-import { cn } from "@rakazo/ui-web/lib/utils";
+import { cn } from "@botcamp/ui-web/lib/utils";
 import {
   Select,
   SelectContent,

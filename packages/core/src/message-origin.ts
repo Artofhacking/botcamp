@@ -1,5 +1,5 @@
-import type { AppMessageOrigin } from "@rakazo/contracts";
-import { AppMessageOriginSchema } from "@rakazo/contracts";
+import type { AppMessageOrigin } from "@botcamp/contracts";
+import { AppMessageOriginSchema } from "@botcamp/contracts";
 import { messagingProviderName } from "./messaging-providers.js";
 
 /**

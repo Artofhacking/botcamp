@@ -6,9 +6,8 @@ import https from "node:https";
 import net from "node:net";
 import path from "node:path";
 import tls from "node:tls";
-import { lingui } from "@lingui/vite-plugin";
-import type { DesktopStackProbeResponse } from "@rakazo/contracts";
-import { buildIdAt } from "@rakazo/contracts/client-build";
+import type { DesktopStackProbeResponse } from "@botcamp/contracts";
+import { buildIdAt } from "@botcamp/contracts/client-build";
 import {
   appContentSecurityPolicy,
   COMPUTER_SCREEN_PREFIX,
@@ -17,11 +16,13 @@ import {
   contentSecurityPolicyFor,
   parseContentSecuritySources,
   parseCrispWebsiteId,
-} from "@rakazo/contracts/content-security-policy";
+} from "@botcamp/contracts/content-security-policy";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import {
   safeScreenProxyResponseHeaders,
   stripSensitiveHandshakeHeaders,
-} from "@rakazo/core/node/screen-proxy-response";
+} from "@botcamp/core/node/screen-proxy-response";
+import { lingui } from "@lingui/vite-plugin";
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -472,15 +473,23 @@ function attachNovncProxy(server: ViteDevServer | PreviewServer, secret: string,
 
 export default defineConfig(({ command, mode }) => {
   // A host can serve the app from a subpath (Demox serves it at /app/); assets follow this.
-  const webBase = process.env.RAKAZO_WEB_BASE?.trim() || "/";
+  const webBase =
+    firstNonEmpty(process.env.BOTCAMP_WEB_BASE, process.env.RAKAZO_WEB_BASE)?.trim() || "/";
   // Names this build in every API request; the dev server has none, so the handshake stays off.
   const buildId = command === "build" ? buildIdAt(new Date()) : "";
   const rootEnv = loadEnv(mode, path.resolve(import.meta.dirname, "../.."), "");
   const api = process.env.API_PROXY_TARGET ?? rootEnv.API_PROXY_TARGET ?? "http://127.0.0.1:3100";
-  const previewHost = process.env.RAKAZO_HOST ?? rootEnv.RAKAZO_HOST ?? "localhost";
+  const previewHost =
+    firstNonEmpty(process.env.BOTCAMP_HOST, process.env.RAKAZO_HOST) ??
+    firstNonEmpty(rootEnv.BOTCAMP_HOST, rootEnv.RAKAZO_HOST) ??
+    "localhost";
   const allowedHosts = [
     previewHost,
-    ...(process.env.RAKAZO_ALLOWED_HOSTS ?? rootEnv.RAKAZO_ALLOWED_HOSTS ?? "")
+    ...(
+      firstNonEmpty(process.env.BOTCAMP_ALLOWED_HOSTS, process.env.RAKAZO_ALLOWED_HOSTS) ??
+      firstNonEmpty(rootEnv.BOTCAMP_ALLOWED_HOSTS, rootEnv.RAKAZO_ALLOWED_HOSTS) ??
+      ""
+    )
       .split(",")
       .map((entry) => entry.trim())
       .filter(Boolean),
@@ -497,19 +506,34 @@ export default defineConfig(({ command, mode }) => {
         process.env.SANDBOX_SUPERVISOR_TOKEN ?? rootEnv.SANDBOX_SUPERVISOR_TOKEN,
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? rootEnv.BETTER_AUTH_SECRET,
     });
-  const performanceAssetDelayMs = Number(process.env.RAKAZO_PERFORMANCE_ASSET_DELAY_MS ?? 0);
+  const performanceAssetDelayMs = Number(
+    firstNonEmpty(
+      process.env.BOTCAMP_PERFORMANCE_ASSET_DELAY_MS,
+      process.env.RAKAZO_PERFORMANCE_ASSET_DELAY_MS,
+    ) ?? 0,
+  );
   const desktopStackToken =
-    process.env.RAKAZO_DESKTOP_STACK_TOKEN ?? rootEnv.RAKAZO_DESKTOP_STACK_TOKEN ?? "";
-  const imageTag = process.env.RAKAZO_IMAGE_TAG ?? rootEnv.RAKAZO_IMAGE_TAG ?? "edge";
+    firstNonEmpty(
+      process.env.BOTCAMP_DESKTOP_STACK_TOKEN,
+      process.env.RAKAZO_DESKTOP_STACK_TOKEN,
+    ) ??
+    firstNonEmpty(rootEnv.BOTCAMP_DESKTOP_STACK_TOKEN, rootEnv.RAKAZO_DESKTOP_STACK_TOKEN) ??
+    "";
+  const imageTag =
+    firstNonEmpty(process.env.BOTCAMP_IMAGE_TAG, process.env.RAKAZO_IMAGE_TAG) ??
+    firstNonEmpty(rootEnv.BOTCAMP_IMAGE_TAG, rootEnv.RAKAZO_IMAGE_TAG) ??
+    "edge";
   // Invalid origins throw here, so the server refuses to start rather than serve a wider policy.
   const appPolicy = appContentSecurityPolicy({
     scriptSrc: parseContentSecuritySources(
       "RAKAZO_CSP_SCRIPT_SRC",
-      process.env.RAKAZO_CSP_SCRIPT_SRC ?? rootEnv.RAKAZO_CSP_SCRIPT_SRC,
+      firstNonEmpty(process.env.BOTCAMP_CSP_SCRIPT_SRC, process.env.RAKAZO_CSP_SCRIPT_SRC) ??
+        firstNonEmpty(rootEnv.BOTCAMP_CSP_SCRIPT_SRC, rootEnv.RAKAZO_CSP_SCRIPT_SRC),
     ),
     connectSrc: parseContentSecuritySources(
       "RAKAZO_CSP_CONNECT_SRC",
-      process.env.RAKAZO_CSP_CONNECT_SRC ?? rootEnv.RAKAZO_CSP_CONNECT_SRC,
+      firstNonEmpty(process.env.BOTCAMP_CSP_CONNECT_SRC, process.env.RAKAZO_CSP_CONNECT_SRC) ??
+        firstNonEmpty(rootEnv.BOTCAMP_CSP_CONNECT_SRC, rootEnv.RAKAZO_CSP_CONNECT_SRC),
     ),
     crisp: parseCrispWebsiteId(process.env.CRISP_WEBSITE_ID ?? rootEnv.CRISP_WEBSITE_ID) !== null,
   });
@@ -529,7 +553,10 @@ export default defineConfig(({ command, mode }) => {
         },
       },
     },
-    define: { "import.meta.env.RAKAZO_BUILD": JSON.stringify(buildId) },
+    define: {
+      "import.meta.env.BOTCAMP_BUILD": JSON.stringify(buildId),
+      "import.meta.env.RAKAZO_BUILD": JSON.stringify(buildId),
+    },
     plugins: [
       {
         // The API reads this to name the deployed build, and a tab fetches it to confirm the
@@ -644,7 +671,7 @@ export default defineConfig(({ command, mode }) => {
       },
       {
         // The hosts the running server allows, as Vite resolved them, for proxied upgrades.
-        name: "rakazo-api-proxy-hosts",
+        name: "botcamp-api-proxy-hosts",
         configureServer: (server) => {
           proxyHosts = server.config.server.allowedHosts;
         },
@@ -659,7 +686,10 @@ export default defineConfig(({ command, mode }) => {
       },
     ],
     server: {
-      host: process.env.RAKAZO_DEV_HOST ?? rootEnv.RAKAZO_DEV_HOST ?? "127.0.0.1",
+      host:
+        firstNonEmpty(process.env.BOTCAMP_DEV_HOST, process.env.RAKAZO_DEV_HOST) ??
+        firstNonEmpty(rootEnv.BOTCAMP_DEV_HOST, rootEnv.RAKAZO_DEV_HOST) ??
+        "127.0.0.1",
       port: webPort,
       strictPort: true,
       allowedHosts,

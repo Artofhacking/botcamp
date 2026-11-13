@@ -15,7 +15,7 @@ export const BROWSER_APPLICATIONS = new Set([
   "firefox",
   "google-chrome",
   "google-chrome-stable",
-  "rakazo-browser",
+  "botcamp-browser",
 ]);
 export interface DesktopEnvironment {
   homeDir: string;
@@ -27,20 +27,20 @@ export interface DesktopEnvironment {
   bindHost?: string;
 }
 export const DEFAULT_DESKTOP_ENV: DesktopEnvironment = {
-  homeDir: "/home/rakazo",
-  workspaceDir: "/home/rakazo",
-  browserProfilesDir: "/home/rakazo/.browser-profiles",
+  homeDir: "/home/botcamp",
+  workspaceDir: "/home/botcamp",
+  browserProfilesDir: "/home/botcamp/.browser-profiles",
   displayStart: 1,
   bindHost: "127.0.0.1",
   preservePrimaryDisplay: true,
 };
 /** Rebuildable tool caches live outside the saved home. Tools create these under /tmp. */
 export const COMPUTER_CACHE_ENV = {
-  XDG_CACHE_HOME: "/tmp/rakazo-cache/xdg",
-  npm_config_cache: "/tmp/rakazo-cache/npm",
-  PIP_CACHE_DIR: "/tmp/rakazo-cache/pip",
-  PLAYWRIGHT_BROWSERS_PATH: "/tmp/rakazo-cache/ms-playwright",
-  UV_CACHE_DIR: "/tmp/rakazo-cache/uv",
+  XDG_CACHE_HOME: "/tmp/botcamp-cache/xdg",
+  npm_config_cache: "/tmp/botcamp-cache/npm",
+  PIP_CACHE_DIR: "/tmp/botcamp-cache/pip",
+  PLAYWRIGHT_BROWSERS_PATH: "/tmp/botcamp-cache/ms-playwright",
+  UV_CACHE_DIR: "/tmp/botcamp-cache/uv",
 };
 
 function gatewayHost(host = "127.0.0.1") {
@@ -116,7 +116,7 @@ export function browserProfilePathForScreen(screenId: string, env = DEFAULT_DESK
 }
 
 function browserPidPathForScreen(screenId: string) {
-  return `/tmp/rakazo/browser-pid-${browserKeyForScreen(screenId)}`;
+  return `/tmp/botcamp/browser-pid-${browserKeyForScreen(screenId)}`;
 }
 
 function browserRunningFunction(profile: string, pidFile: string) {
@@ -182,7 +182,7 @@ function browserRunningFunction(profile: string, pidFile: string) {
 }
 
 export function browserLauncherPath(displayNumber: number | string) {
-  return `/tmp/rakazo/browser-launch-${displayNumber}`;
+  return `/tmp/botcamp/browser-launch-${displayNumber}`;
 }
 
 function browserLauncherCommand(
@@ -198,11 +198,11 @@ function browserLauncherCommand(
       ? // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
         ['desktop_display="${0##*-}"', "desktop_debug=$((9221 + desktop_display))"]
       : []),
-    "browser=$(command -v rakazo-browser || command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)",
+    "browser=$(command -v botcamp-browser || command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)",
     `export DISPLAY=${layout.display} HOME=${shellQuote(env.homeDir)}`,
     // Docker exec does not inherit the session bus exported by container startup.
     // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
-    'if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -r /tmp/rakazo/dbus-session ]; then . /tmp/rakazo/dbus-session; fi',
+    'if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -r /tmp/botcamp/dbus-session ]; then . /tmp/botcamp/dbus-session; fi',
     // The image preloads libnss_wrapper so arbitrary UIDs resolve. Chromium's
     // process stays up with these flags while that library is loaded, and the
     // debugging port never opens. Drop only that entry for this exec.
@@ -322,7 +322,7 @@ function stopProfileDirectoriesCommand(profileList: string) {
     "set -eu",
     "failed=0",
     "running=0",
-    "mkdir -p /tmp/rakazo",
+    "mkdir -p /tmp/botcamp",
     `for profile in ${profileList}; do`,
     '  [ -d "$profile" ] || continue',
     '  case "$profile" in',
@@ -330,7 +330,7 @@ function stopProfileDirectoriesCommand(profileList: string) {
     "    */chromium-bot-*) hash=${profile##*chromium-bot-} ;;",
     '    *) hash=$(basename -- "$profile") ;;',
     "  esac",
-    '  pid_file="/tmp/rakazo/browser-pid-$hash"',
+    '  pid_file="/tmp/botcamp/browser-pid-$hash"',
     `  bash -eu -c ${shellQuote(`profile=$1; pid_file=$2;\n${stop}`)} desktop "$profile" "$pid_file" || { [ "$?" -eq ${BROWSER_STILL_RUNNING_EXIT} ] && running=1 || failed=1; }`,
     "done",
     '[ "$failed" -eq 0 ] || exit 1',
@@ -377,7 +377,7 @@ export function resetDesktopRuntimeCommand(env = DEFAULT_DESKTOP_ENV) {
     "sleep 0.1",
     `pkill -KILL -f ${shellQuote(gatewayPattern)} || true`,
     stopAllDesktopBrowsersCommand(env),
-    "for marker in /tmp/rakazo/browser-profile-*; do",
+    "for marker in /tmp/botcamp/browser-profile-*; do",
     '  [ -f "$marker" ] || continue',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
     "  display=${marker##*-}",
@@ -388,11 +388,11 @@ export function resetDesktopRuntimeCommand(env = DEFAULT_DESKTOP_ENV) {
     "done",
     // Retire the default image's legacy primary VNC process too.
     "pkill -f '^([^ ]*/)?x11vnc .* -rfbport 5900( |$)' || true",
-    `rm -f ${TARGETS}/view-* ${TARGETS}/control-* /tmp/rakazo/browser-pid-* /tmp/rakazo/browser-profile-* /tmp/rakazo/browser-launch-*`,
+    `rm -f ${TARGETS}/view-* ${TARGETS}/control-* /tmp/botcamp/browser-pid-* /tmp/botcamp/browser-profile-* /tmp/botcamp/browser-launch-*`,
   ].join("\n");
 }
 
-const TARGETS = "/tmp/rakazo/desktop-targets";
+const TARGETS = "/tmp/botcamp/desktop-targets";
 
 // Menu exec strings run through `/bin/sh -c`, where `#` starts a comment; rgb:a/b/c keeps
 // hex colors intact. infra/sandboxes/computer/fluxbox.menu carries the same entry.
@@ -414,7 +414,7 @@ export function stopPageBrowserDaemonCommand() {
     '  [ -e "$proc/exe" ] || continue',
     '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
     '  case "$exe" in',
-    "    */agent-browser) kill -TERM \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    '    */agent-browser) kill -TERM "${proc#/proc/}" 2>/dev/null || true ;;',
     "  esac",
     "done",
     "sleep 0.2",
@@ -422,7 +422,7 @@ export function stopPageBrowserDaemonCommand() {
     '  [ -e "$proc/exe" ] || continue',
     '  exe=$(readlink "$proc/exe" 2>/dev/null || true)',
     '  case "$exe" in',
-    "    */agent-browser) kill -KILL \"${proc#/proc/}\" 2>/dev/null || true ;;",
+    '    */agent-browser) kill -KILL "${proc#/proc/}" 2>/dev/null || true ;;',
     "  esac",
     "done",
     "exit 0",
@@ -431,11 +431,11 @@ export function stopPageBrowserDaemonCommand() {
 
 // Keep fixed mapping files present: TokenFile may be reading the directory concurrently.
 function revokeTargetCommand(kind: "view" | "control" | "terminal", display: number | string) {
-  return `mkdir -p ${TARGETS}; : >/tmp/rakazo/${kind}-target-next-${display}; mv /tmp/rakazo/${kind}-target-next-${display} ${TARGETS}/${kind}-${display}`;
+  return `mkdir -p ${TARGETS}; : >/tmp/botcamp/${kind}-target-next-${display}; mv /tmp/botcamp/${kind}-target-next-${display} ${TARGETS}/${kind}-${display}`;
 }
 
 function stopVncCommand(kind: "view" | "control", layout: DesktopLayout) {
-  const socketPrefix = `/tmp/rakazo/sockets/${kind}-${layout.displayNumber}-`;
+  const socketPrefix = `/tmp/botcamp/sockets/${kind}-${layout.displayNumber}-`;
   const pattern = quoteLayout(`^([^ ]*/)?x11vnc .* -unixsock ${socketPrefix}[^ ]+( |$)`);
   return [
     `pkill -f ${pattern} || true`,
@@ -447,14 +447,14 @@ function stopVncCommand(kind: "view" | "control", layout: DesktopLayout) {
   ].join("\n");
 }
 
-const TERMINAL_SERVER = "/tmp/rakazo/rakazo-terminal.py";
+const TERMINAL_SERVER = "/tmp/botcamp/rakazo-terminal.py";
 
 function terminalServerPattern(socket: string) {
   return `^([^ ]*/)?python[0-9.]* ${TERMINAL_SERVER} ${socket}( |$)`;
 }
 
 function stopTerminalCommand(layout: DesktopLayout) {
-  const socketPrefix = `/tmp/rakazo/sockets/terminal-${layout.displayNumber}-`;
+  const socketPrefix = `/tmp/botcamp/sockets/terminal-${layout.displayNumber}-`;
   const pattern = quoteLayout(terminalServerPattern(`${socketPrefix}[^ ]+`));
   return [
     revokeTargetCommand("terminal", layout.displayNumber),
@@ -462,7 +462,7 @@ function stopTerminalCommand(layout: DesktopLayout) {
     `pkill -f ${pattern} || true`,
     `for i in $(seq 1 10); do pgrep -f ${pattern} >/dev/null || break; sleep 0.1; done`,
     `pkill -KILL -f ${pattern} || true`,
-    `rm -rf ${socketPrefix}* /tmp/rakazo/terminal-state-${layout.displayNumber}`,
+    `rm -rf ${socketPrefix}* /tmp/botcamp/terminal-state-${layout.displayNumber}`,
   ].join("\n");
 }
 
@@ -479,19 +479,19 @@ function gatewayCommand(port: string, host = "127.0.0.1") {
     proxyEnvironmentCommand(),
     `mkdir -p ${TARGETS}`,
     // This lock only covers gateway startup; desktop startup remains independent.
-    `exec 10>/tmp/rakazo/gateway-${port}.lock; flock -w 120 10`,
+    `exec 10>/tmp/botcamp/gateway-${port}.lock; flock -w 120 10`,
     `if ! pgrep -f ${gatewayPattern} >/dev/null || ! (echo >/dev/tcp/${probeHost}/${port}) >/dev/null 2>&1; then`,
     // Older images boot a single-screen gateway on this port. Retire it under the startup lock.
     `  pkill -f ${portPattern} || true`,
     `  for i in $(seq 1 20); do if ! (echo >/dev/tcp/${probeHost}/${port}) >/dev/null 2>&1; then break; fi; sleep 0.1; done`,
     `  if (echo >/dev/tcp/${probeHost}/${port}) >/dev/null 2>&1; then echo 'screen gateway port is busy' >&2; exit 1; fi`,
-    `  nohup "$proxy" --heartbeat=30 --web="$web" --token-plugin=TokenFile --token-source=${TARGETS} ${host}:${port} 8>&- 9>&- 10>&- </dev/null >/tmp/rakazo/gateway-${port}.log 2>&1 &`,
+    `  nohup "$proxy" --heartbeat=30 --web="$web" --token-plugin=TokenFile --token-source=${TARGETS} ${host}:${port} 8>&- 9>&- 10>&- </dev/null >/tmp/botcamp/gateway-${port}.log 2>&1 &`,
     "fi",
     `for i in $(seq 1 50); do (echo >/dev/tcp/${probeHost}/${port}) >/dev/null 2>&1 && break; sleep 0.1; done`,
     `flock -u 10; exec 10>&-`,
     `if ! (echo >/dev/tcp/${probeHost}/${port}) >/dev/null 2>&1; then`,
     "  echo 'screen gateway did not start' >&2",
-    `  tail -c 2000 /tmp/rakazo/gateway-${port}.log >&2 || true`,
+    `  tail -c 2000 /tmp/botcamp/gateway-${port}.log >&2 || true`,
     "  exit 1",
     "fi",
   ].join("\n");
@@ -524,7 +524,7 @@ function renderStopScreenTransportsCommand(index: number | undefined, env = DEFA
     stopVncCommand("view", layout),
     stopVncCommand("control", layout),
     stopTerminalCommand(layout),
-    `rm -f /tmp/rakazo/control-token-${layout.displayNumber}`,
+    `rm -f /tmp/botcamp/control-token-${layout.displayNumber}`,
   ].join("\n");
 }
 
@@ -540,7 +540,7 @@ function renderStopExtraScreenCommand(
     // Stop every client before touching browser state or recycling the display.
     renderStopScreenTransportsCommand(index, env),
     stopBrowserCommand(screenId, env),
-    `rm -f /tmp/rakazo/browser-profile-${layout.displayNumber} ${browserLauncherPath(layout.displayNumber)}`,
+    `rm -f /tmp/botcamp/browser-profile-${layout.displayNumber} ${browserLauncherPath(layout.displayNumber)}`,
     ...(index === 0 && env.preservePrimaryDisplay
       ? []
       : [
@@ -562,10 +562,40 @@ export function prepareBrowserProfileCommand(screenId: string, env = DEFAULT_DES
   return `mkdir -p ${shellQuote(browserProfilePathForScreen(screenId, env))}`;
 }
 
+/** Printed when websockify or the noVNC files are absent. The browser can still open pages. */
+export const SCREEN_VIEWER_MISSING = "This computer's screen did not start.";
+
+/** Stdout marker from a desktop setup that left the browser up without a screen viewer. */
+export const SCREEN_VIEWER_MISSING_MARKER = "RAKAZO_SCREEN_VIEWER=missing";
+
+function screenViewerProbeCommand() {
+  return [
+    'proxy=""',
+    'web=""',
+    "if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; fi",
+    "if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; fi",
+  ].join("\n");
+}
+
 function proxyEnvironmentCommand() {
   return [
-    'if command -v websockify >/dev/null 2>&1; then proxy=$(command -v websockify); elif [ -x /opt/noVNC/utils/websockify/run ]; then proxy=/opt/noVNC/utils/websockify/run; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
-    'if [ -d /usr/share/novnc ]; then web=/usr/share/novnc; elif [ -d /opt/noVNC ]; then web=/opt/noVNC; else echo "This computer\'s screen did not start." >&2; exit 1; fi',
+    screenViewerProbeCommand(),
+    `if [ -z "$proxy" ] || [ -z "$web" ]; then echo ${shellQuote(SCREEN_VIEWER_MISSING)} >&2; exit 1; fi`,
+  ].join("\n");
+}
+
+/**
+ * Page tools only need the browser. A computer without the screen viewer still opens pages,
+ * and tells the caller so a screen or terminal request can fail without waiting.
+ */
+export function continueWithoutScreenViewerCommand() {
+  return [
+    screenViewerProbeCommand(),
+    'if [ -z "$proxy" ] || [ -z "$web" ]; then',
+    `  echo ${shellQuote(SCREEN_VIEWER_MISSING)} >&2`,
+    `  echo ${SCREEN_VIEWER_MISSING_MARKER}`,
+    "  exit 0",
+    "fi",
   ].join("\n");
 }
 
@@ -577,7 +607,7 @@ function renderEnsureScreenCommand(
 ) {
   const layout = commandLayout(index, env);
   const fluxHome = `/tmp/fluxbox-home-${layout.displayNumber}`;
-  const log = `/tmp/rakazo/screen-${layout.displayNumber}`;
+  const log = `/tmp/botcamp/screen-${layout.displayNumber}`;
   const profile = browserProfilePathForScreen(screenId, env);
   const pidFile = browserPidPathForScreen(screenId);
   const setupDisplay =
@@ -592,21 +622,21 @@ function renderEnsureScreenCommand(
           `mkdir -p ${fluxHome}/.fluxbox`,
           `printf '[begin] (Desktop)\\n[exec] (Browser) {%s}\\n[exec] (Terminal) {%s}\\n[end]\\n' ${browserLauncherPath(layout.displayNumber)} ${shellQuote(TERMINAL_MENU_COMMAND)} >${fluxHome}/.fluxbox/menu`,
           `if ! xdpyinfo -display ${layout.display} >/dev/null 2>&1; then`,
-          `  mkdir -p /tmp/rakazo ${fluxHome}/.fluxbox /tmp/.X11-unix`,
+          `  mkdir -p /tmp/botcamp ${fluxHome}/.fluxbox /tmp/.X11-unix`,
           `  rm -f /tmp/.X${layout.displayNumber}-lock /tmp/.X11-unix/X${layout.displayNumber}`,
           `  nohup Xvfb ${layout.display} -screen 0 1280x800x24 -ac +extension RANDR +render -noreset -nolisten tcp 8>&- 9>&- </dev/null >${log}-xvfb.log 2>&1 &`,
           `  for i in $(seq 1 100); do xdpyinfo -display ${layout.display} >/dev/null 2>&1 && break; sleep 0.1; done`,
           `  if ! xdpyinfo -display ${layout.display} >/dev/null 2>&1; then echo 'computer display did not start' >&2; tail -c 2000 ${log}-xvfb.log >&2 || true; exit 1; fi`,
-          `  if [ -f /etc/rakazo/fluxbox/init ]; then cp /etc/rakazo/fluxbox/init ${fluxHome}/.fluxbox/init; else printf "session.screen0.toolbar.visible: false\\n" >${fluxHome}/.fluxbox/init; fi`,
-          `  cp /etc/rakazo/fluxbox/apps ${fluxHome}/.fluxbox/apps 2>/dev/null || true`,
+          `  if [ -f /etc/botcamp/fluxbox/init ]; then cp /etc/botcamp/fluxbox/init ${fluxHome}/.fluxbox/init; else printf "session.screen0.toolbar.visible: false\\n" >${fluxHome}/.fluxbox/init; fi`,
+          `  cp /etc/botcamp/fluxbox/apps ${fluxHome}/.fluxbox/apps 2>/dev/null || true`,
           `  printf '\\nsession.menuFile: %s\\n' ${fluxHome}/.fluxbox/menu >>${fluxHome}/.fluxbox/init`,
           `  HOME=${shellQuote(env.homeDir)} CHROME_USER_DATA_DIR=${shellQuote(profile)} BROWSER=${browserLauncherPath(layout.displayNumber)} DISPLAY=${layout.display} nohup fluxbox -rc ${fluxHome}/.fluxbox/init 8>&- 9>&- </dev/null >${log}-fluxbox.log 2>&1 &`,
           "fi",
         ];
   const targetFile = `${TARGETS}/view-${layout.displayNumber}`;
-  const socket = `/tmp/rakazo/sockets/view-${layout.displayNumber}-\${desktop_view_token}`;
+  const socket = `/tmp/botcamp/sockets/view-${layout.displayNumber}-\${desktop_view_token}`;
   const setupView = [
-    `mkdir -p ${TARGETS} /tmp/rakazo/sockets`,
+    `mkdir -p ${TARGETS} /tmp/botcamp/sockets`,
     `if [ ! -S ${socket} ] || ! pgrep -f ${quoteLayout(`^([^ ]*/)?x11vnc .* -unixsock ${socket}( |$)`)} >/dev/null; then`,
     stopVncCommand("view", layout),
     `  nohup x11vnc -display ${layout.display} -forever -shared -viewonly -nopw -rfbport 0 -unixsock ${socket} -xkb -ncache 0 8>&- 9>&- </dev/null >${log}-x11vnc.log 2>&1 &`,
@@ -617,8 +647,8 @@ function renderEnsureScreenCommand(
     // TokenFile, which reloads the directory on each handshake.
     `desired=$(printf '%s: unix_socket:%s\\n' "$desktop_view_token" ${socket})`,
     `if [ ! -f ${targetFile} ] || [ "$(cat ${targetFile})" != "$desired" ]; then`,
-    `  printf '%s\\n' "$desired" >/tmp/rakazo/view-target-next-${layout.displayNumber}`,
-    `  mv /tmp/rakazo/view-target-next-${layout.displayNumber} ${targetFile}`,
+    `  printf '%s\\n' "$desired" >/tmp/botcamp/view-target-next-${layout.displayNumber}`,
+    `  mv /tmp/botcamp/view-target-next-${layout.displayNumber} ${targetFile}`,
     "fi",
     gatewayCommand(layout.viewPort, layout.bindHost),
   ];
@@ -627,15 +657,14 @@ function renderEnsureScreenCommand(
     ...layoutVariables(index, env),
     `desktop_view_token=${shellQuote(viewToken)}`,
     '[[ "$desktop_view_token" =~ ^[a-zA-Z0-9_-]{1,64}$ ]] || exit 75',
-    proxyEnvironmentCommand(),
-    `mkdir -p /tmp/rakazo`,
+    `mkdir -p /tmp/botcamp`,
     `printf %s ${shellQuote(browserLauncherCommand(index, screenId, env))} >${browserLauncherPath(layout.displayNumber)}`,
     `chmod 700 ${browserLauncherPath(layout.displayNumber)}`,
     ...setupDisplay,
     `xdpyinfo -display ${layout.display} >/dev/null 2>&1 || { echo 'computer display is not running' >&2; exit 1; }`,
-    `mkdir -p /tmp/rakazo ${shellQuote(path.posix.dirname(profile))}`,
+    `mkdir -p /tmp/botcamp ${shellQuote(path.posix.dirname(profile))}`,
     ...browserRunningFunction(profile, pidFile),
-    `printf %s ${shellQuote(profile)} >/tmp/rakazo/browser-profile-${layout.displayNumber}`,
+    `printf %s ${shellQuote(profile)} >/tmp/botcamp/browser-profile-${layout.displayNumber}`,
     "launch_browser() {",
     `  ${prepareBrowserProfileCommand(screenId, env)}`,
     `  rm -f ${shellQuote(profile)}/SingletonLock ${shellQuote(profile)}/SingletonCookie ${shellQuote(profile)}/SingletonSocket`,
@@ -664,6 +693,8 @@ function renderEnsureScreenCommand(
     `  tail -c 4000 ${log}-browser.log >&2 || true`,
     "  exit 1",
     "fi",
+    // The debugging port is up. The viewer is only for the embedded screen and terminal.
+    continueWithoutScreenViewerCommand(),
     ...setupView,
     `for i in $(seq 1 50); do (echo >/dev/tcp/${gatewayProbeHost(layout.bindHost)}/${layout.viewPort}) >/dev/null 2>&1 && exit 0; sleep 0.1; done`,
     "echo 'screen view port did not open' >&2",
@@ -676,7 +707,7 @@ export function interactiveScreenCommand(
   controlToken?: string,
   layout: DesktopLayout = screenPorts(0),
 ) {
-  const tokenFile = `/tmp/rakazo/control-token-${layout.displayNumber}`;
+  const tokenFile = `/tmp/botcamp/control-token-${layout.displayNumber}`;
   const targetFile = `${TARGETS}/control-${layout.displayNumber}`;
   const stopProcesses = [
     "set -eu",
@@ -696,14 +727,14 @@ export function interactiveScreenCommand(
     ].join("\n");
   }
   if (!controlToken) throw new Error("interactive screen requires a control token");
-  const socket = `/tmp/rakazo/sockets/control-${layout.displayNumber}-${browserKeyForScreen(controlToken)}`;
+  const socket = `/tmp/botcamp/sockets/control-${layout.displayNumber}-${browserKeyForScreen(controlToken)}`;
   const process = quoteLayout(`^([^ ]*/)?x11vnc .* -unixsock ${socket}( |$)`);
   return [
     "set -eu",
     `if ! { [ -f ${tokenFile} ] && [ "$(cat ${tokenFile})" = ${shellQuote(controlToken)} ] && [ -S ${socket} ] && pgrep -f ${process} >/dev/null; }; then`,
     stopProcesses,
-    `mkdir -p ${TARGETS} /tmp/rakazo/sockets`,
-    `nohup x11vnc -display ${layout.display} -forever -shared -nopw -rfbport 0 -unixsock ${socket} -xkb -ncache 0 8>&- 9>&- </dev/null >/tmp/rakazo/x11vnc-control-${layout.displayNumber}.log 2>&1 &`,
+    `mkdir -p ${TARGETS} /tmp/botcamp/sockets`,
+    `nohup x11vnc -display ${layout.display} -forever -shared -nopw -rfbport 0 -unixsock ${socket} -xkb -ncache 0 8>&- 9>&- </dev/null >/tmp/botcamp/x11vnc-control-${layout.displayNumber}.log 2>&1 &`,
     `for i in $(seq 1 50); do [ -S ${socket} ] && pgrep -f ${process} >/dev/null && break; sleep 0.1; done`,
     `[ -S ${socket} ] && pgrep -f ${process} >/dev/null || exit 1`,
     `printf %s ${shellQuote(controlToken)} >${tokenFile}`,
@@ -711,8 +742,8 @@ export function interactiveScreenCommand(
     // Repair missing/empty routes even when the input-capable process is already alive.
     `desired=$(printf '%s: unix_socket:%s\\n' ${shellQuote(controlToken)} ${socket})`,
     `if [ ! -f ${targetFile} ] || [ "$(cat ${targetFile})" != "$desired" ]; then`,
-    `  printf '%s\\n' "$desired" >/tmp/rakazo/control-target-next-${layout.displayNumber}`,
-    `  mv /tmp/rakazo/control-target-next-${layout.displayNumber} ${targetFile}`,
+    `  printf '%s\\n' "$desired" >/tmp/botcamp/control-target-next-${layout.displayNumber}`,
+    `  mv /tmp/botcamp/control-target-next-${layout.displayNumber} ${targetFile}`,
     "fi",
     gatewayCommand(layout.controlPort, layout.bindHost),
   ].join("\n");
@@ -747,10 +778,10 @@ export function startTerminalCommand(
 ) {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(terminalToken)) throw new Error("invalid terminal token");
   const display = layout.displayNumber;
-  const tokenFile = `/tmp/rakazo/control-token-${display}`;
-  const socket = `/tmp/rakazo/sockets/terminal-${display}-${browserKeyForScreen(controlToken)}`;
+  const tokenFile = `/tmp/botcamp/control-token-${display}`;
+  const socket = `/tmp/botcamp/sockets/terminal-${display}-${browserKeyForScreen(controlToken)}`;
   const target = `${TARGETS}/terminal-${display}`;
-  const next = `/tmp/rakazo/terminal-target-next-${display}`;
+  const next = `/tmp/botcamp/terminal-target-next-${display}`;
   const entry = `printf '%s: unix_socket:%s\\n' ${shellQuote(terminalToken)} ${socket}`;
   return [
     // Callers differ (the Docker supervisor runs plain `bash -c`); an unpublished token must
@@ -761,11 +792,11 @@ export function startTerminalCommand(
     `  { cat ${target} 2>/dev/null || true; ${entry}; } >${next}`,
     "else",
     stopTerminalCommand(layout),
-    `  mkdir -p ${TARGETS} /tmp/rakazo/sockets`,
+    `  mkdir -p ${TARGETS} /tmp/botcamp/sockets`,
     // Displays share the program file; replace it whole so a starting server never reads half.
     `  printf %s ${shellQuote(TERMINAL_SERVER_PROGRAM)} >${TERMINAL_SERVER}.$$`,
     `  mv ${TERMINAL_SERVER}.$$ ${TERMINAL_SERVER}`,
-    `  HOME=${shellQuote(env.homeDir)} nohup python3 ${TERMINAL_SERVER} ${socket} ${shellQuote(cwd)} /tmp/rakazo/terminal-state-${display} 8>&- 9>&- </dev/null >/tmp/rakazo/terminal-${display}.log 2>&1 &`,
+    `  HOME=${shellQuote(env.homeDir)} nohup python3 ${TERMINAL_SERVER} ${socket} ${shellQuote(cwd)} /tmp/botcamp/terminal-state-${display} 8>&- 9>&- </dev/null >/tmp/botcamp/terminal-${display}.log 2>&1 &`,
     `  for i in $(seq 1 50); do [ -S ${socket} ] && break; sleep 0.1; done`,
     `  [ -S ${socket} ] || exit 1`,
     `  ${entry} >${next}`,
@@ -774,7 +805,7 @@ export function startTerminalCommand(
   ].join("\n");
 }
 
-const REGISTRY = "/tmp/rakazo/desktop-assignments";
+const REGISTRY = "/tmp/botcamp/desktop-assignments";
 const TOKEN_PLACEHOLDER = "RAKAZO_INTERNAL_VIEW_TOKEN";
 
 function registryLockCommand(screenId: string) {
@@ -826,7 +857,7 @@ for slot in pathlib.Path(sys.argv[1]).glob("*.slot"):
         with slot.open() as source: used.add(int(source.readline()))
     except ValueError: pass
 # A damaged assignment must not make a live display available to another bot.
-for marker in pathlib.Path("/tmp/rakazo").glob("browser-profile-*"):
+for marker in pathlib.Path("/tmp/botcamp").glob("browser-profile-*"):
     display = marker.name.rsplit("-", 1)[-1]
     if display.isascii() and display.isdigit(): used.add(int(display) - ${env.displayStart})
 index = 0

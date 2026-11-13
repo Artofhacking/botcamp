@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { LinkFavicons } from "@rakazo/chat-ui/web";
-import { LinkFaviconsContext, RemoteImagesContext } from "@rakazo/chat-ui/web";
-import { analyticsScreen } from "@rakazo/core";
-import { Button } from "@rakazo/ui-web";
+import type { LinkFavicons } from "@botcamp/chat-ui/web";
+import { LinkFaviconsContext, RemoteImagesContext } from "@botcamp/chat-ui/web";
+import { analyticsScreen } from "@botcamp/core";
+import { Button } from "@botcamp/ui-web";
 import {
   Suspense,
   useEffect,
@@ -178,14 +178,14 @@ function SessionApp() {
     return <SessionUnavailable refetch={session.refetch} />;
   }
   if (gate === "loading" && !nextHoldingAnonymous) {
-    return <PageLoading data-rakazo-app-state="session-pending" />;
+    return <PageLoading data-botcamp-app-state="session-pending" />;
   }
 
   const user = session.data?.user;
   return (
     <QueryUserProvider value={user?.id ?? null}>
       <MarkdownLinkPrompt>
-        <div className="h-full" data-rakazo-app-state="ready">
+        <div className="h-full" data-botcamp-app-state="ready">
           <Suspense fallback={<PageLoading />}>
             <Routes>
               <Route
@@ -345,7 +345,7 @@ function AppFailed() {
   return (
     <div
       className="grid h-full place-items-center bg-background px-6 text-center"
-      data-rakazo-app-state="failed"
+      data-botcamp-app-state="failed"
     >
       <div className="flex flex-col items-center">
         <p className="text-[13.5px] text-muted-foreground/80">

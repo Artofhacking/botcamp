@@ -5,7 +5,7 @@ import type {
   WebProvider,
   WebSearchHit,
   WebSearchRequest,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import { z } from "zod";
 import { combineSignals } from "./connector-safety.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
@@ -133,7 +133,7 @@ export class KeenableWebProvider implements WebProvider {
     signal.throwIfAborted();
     const headers: Record<string, string> = {
       "User-Agent": USER_AGENT,
-      "X-Keenable-Title": "rakazo",
+      "X-Keenable-Title": "BotCamp",
     };
     if (this.apiKey) headers["X-API-Key"] = this.apiKey;
     const raw = await withAbort(

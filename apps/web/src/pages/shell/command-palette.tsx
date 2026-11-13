@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { PageIcon } from "@rakazo/chat-ui/web";
-import type { Bot, PageSummary } from "@rakazo/contracts";
+import { PageIcon } from "@botcamp/chat-ui/web";
+import type { Bot, PageSummary } from "@botcamp/contracts";
 import {
   Badge,
   BotAvatar,
@@ -14,7 +14,7 @@ import {
   CommandList,
   CommandShortcut,
   Kbd,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { Check } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";

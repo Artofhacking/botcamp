@@ -1,9 +1,17 @@
 // Runs before first paint, as a file because the app's CSP blocks inline scripts.
 (() => {
-  const key = "rakazo.uiAppearance";
+  const key = "botcamp.uiAppearance";
+  const previousKey = "rakazo.uiAppearance";
   let preference = "system";
   try {
-    const stored = localStorage.getItem(key);
+    let stored = localStorage.getItem(key);
+    if (stored === null) {
+      stored = localStorage.getItem(previousKey);
+      if (stored !== null) {
+        localStorage.setItem(key, stored);
+        localStorage.removeItem(previousKey);
+      }
+    }
     if (stored === "system" || stored === "light" || stored === "dark") preference = stored;
   } catch {}
   const systemLight =

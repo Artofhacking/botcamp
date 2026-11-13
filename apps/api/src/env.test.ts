@@ -66,6 +66,30 @@ describe("loadEnv", () => {
       loadEnv({ ...base, RAKAZO_NAV_LINKS: '[{"id":"x","label":"X","path":"/api/me"}]' }),
     ).toThrow("RAKAZO_NAV_LINKS");
   });
+  it("keeps a legacy setting when the new name is empty", () => {
+    const links = '[{"id":"clients","label":"Clients","path":"/ext/clients/"}]';
+    const parsed = [{ id: "clients", label: "Clients", path: "/ext/clients/", trusted: false }];
+    expect(loadEnv({ ...base, RAKAZO_NAV_LINKS: links }).navLinks).toEqual(parsed);
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: links }).navLinks).toEqual(parsed);
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: "", RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      parsed,
+    );
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: "  ", RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      parsed,
+    );
+    const next = '[{"id":"models","label":"Models","path":"/ext/models/"}]';
+    expect(loadEnv({ ...base, BOTCAMP_NAV_LINKS: next, RAKAZO_NAV_LINKS: links }).navLinks).toEqual(
+      [{ id: "models", label: "Models", path: "/ext/models/", trusted: false }],
+    );
+    expect(loadEnv({ ...base, RAKAZO_GIT_SHA: "legacy-sha" }).gitSha).toBe("legacy-sha");
+    expect(loadEnv({ ...base, BOTCAMP_GIT_SHA: "next-sha" }).gitSha).toBe("next-sha");
+    expect(loadEnv({ ...base, BOTCAMP_GIT_SHA: "", RAKAZO_GIT_SHA: "legacy-sha" }).gitSha).toBe(
+      "legacy-sha",
+    );
+    expect(
+      loadEnv({ ...base, BOTCAMP_GIT_SHA: "next-sha", RAKAZO_GIT_SHA: "legacy-sha" }).gitSha,
+    ).toBe("next-sha");
+  });
   it("keeps Crisp chat off unless a valid website ID is set", () => {
     expect(loadEnv(base).crispWebsiteId).toBeNull();
     expect(
@@ -365,6 +389,47 @@ describe("OIDC environment", () => {
   it("guards password-only lockout without contacting discovery", () => {
     expect(() => loadEnv({ ...base, AUTH_PASSWORD_ENABLED: "false" })).toThrow(/requires OIDC/);
     expect(loadEnv({ ...base, ...oidc, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
+  });
+  it("accepts directory login credentials in place of OIDC", () => {
+    const login = {
+      LARK_LOGIN_APP_ID: "cli-test",
+      LARK_LOGIN_APP_SECRET: "test-secret",
+      LARK_LOGIN_TENANT: "tenant-1",
+    };
+    expect(() => loadEnv({ ...base, LARK_LOGIN_APP_ID: "cli-test" })).toThrow(
+      /configured together/,
+    );
+    expect(() =>
+      loadEnv({ ...base, ...login, LARK_DOMAIN: "other", AUTH_PASSWORD_ENABLED: "false" }),
+    ).toThrow(/LARK_DOMAIN/);
+    const env = loadEnv({ ...base, ...login, LARK_DOMAIN: "lark" });
+    expect(env.directory).toMatchObject({
+      name: "Lark",
+      issuer: "https://accounts.larksuite.com",
+      clientId: "cli-test",
+      allowSignupBypass: false,
+    });
+    expect(env.directory?.scopes).toEqual(
+      expect.arrayContaining([
+        "contact:user.email:readonly",
+        "contact:user.employee:readonly",
+        "calendar:calendar:read",
+      ]),
+    );
+    expect(env.directory?.scopes).not.toContain("offline_access");
+    expect(env.directory?.scopes).not.toContain("im:message.send_as_user");
+    expect(
+      loadEnv({
+        ...base,
+        ...login,
+        LARK_LOGIN_SCOPES: "contact:user.email:readonly extra:scope",
+      }).directory?.scopes,
+    ).toEqual(expect.arrayContaining(["extra:scope", "calendar:calendar:read"]));
+    expect(loadEnv({ ...base, ...login, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
+    expect(
+      loadEnv({ ...base, ...login, LARK_LOGIN_ALLOW_SIGNUP_BYPASS: "true" }).directory
+        ?.allowSignupBypass,
+    ).toBe(true);
   });
   it("leaves the breached password check off unless explicitly enabled", () => {
     expect(loadEnv(base).breachedPasswordCheck).toBe(false);

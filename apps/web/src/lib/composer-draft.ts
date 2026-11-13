@@ -1,8 +1,8 @@
-import type { ComposerMentionBinding } from "@rakazo/core";
-import { validateComposerMentionBindings } from "@rakazo/core";
+import type { ComposerMentionBinding } from "@botcamp/core";
+import { validateComposerMentionBindings } from "@botcamp/core";
 
-export const COMPOSER_DRAFT_STORAGE_PREFIX = "rakazo.composerDraft.";
-const COMPOSER_BINDINGS_STORAGE_PREFIX = "rakazo.composerBindings.";
+export const COMPOSER_DRAFT_STORAGE_PREFIX = "botcamp.composerDraft.";
+const COMPOSER_BINDINGS_STORAGE_PREFIX = "botcamp.composerBindings.";
 
 type ComposerDraftSubmission = { text: string; bindingRecord: string | null };
 const pendingSubmissions = new Map<string, ComposerDraftSubmission>();

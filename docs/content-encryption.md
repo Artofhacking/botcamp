@@ -134,9 +134,9 @@ Does not protect against:
 4. Encrypt existing content, then check nothing is left:
 
    ```bash
-   pnpm --filter @rakazo/api content-encryption migrate --dry-run
-   pnpm --filter @rakazo/api content-encryption migrate
-   pnpm --filter @rakazo/api content-encryption status
+   pnpm --filter @botcamp/api content-encryption migrate --dry-run
+   pnpm --filter @botcamp/api content-encryption migrate
+   pnpm --filter @botcamp/api content-encryption status
    ```
 
    `migrate` works in batches, locks each batch while rewriting it, and can be
@@ -154,7 +154,7 @@ Rotate the master key:
 1. Generate a key and put it first: `ENCRYPTION_MASTER_KEYS="k2:<new>,k1:<old>"`
    (omit `k1` if you never set one; the derived `env` key stays available).
 2. Deploy the API and worker with the new value.
-3. `pnpm --filter @rakazo/api content-encryption rotate` re-wraps every space
+3. `pnpm --filter @botcamp/api content-encryption rotate` re-wraps every space
    key under `k2`. Each new wrap is verified before it replaces the old one.
 4. `status` should list space keys only under `k2`. Remove `k1` once backups
    that depend on it have expired.
@@ -206,7 +206,7 @@ allow that principal:
 
 ```bash
 aws login --profile rakazo-kms
-AWS_KMS_PROFILE=rakazo-kms pnpm -s --filter @rakazo/api content-encryption export --bot <bot id> > rakazo-export.jsonl
+AWS_KMS_PROFILE=rakazo-kms pnpm -s --filter @botcamp/api content-encryption export --bot <bot id> > rakazo-export.jsonl
 ```
 
 ### Wrapped settings
@@ -218,7 +218,7 @@ secret; the KMS credentials it still holds only work from the server's address
 process unwraps them once at startup. To wrap a value the API already has:
 
 ```bash
-docker compose -f docker-compose.images.yml exec -T api \
+docker compose -f infra/compose/docker-compose.yml exec -T api \
   sh -c 'printenv BETTER_AUTH_SECRET | node dist/cli/wrap-env.js BETTER_AUTH_SECRET'
 ```
 
@@ -234,7 +234,7 @@ read, such as `POSTGRES_PASSWORD`, `POSTGRES_APP_PASSWORD` and `SCREEN_PROXY_SEC
 without a key manager stops startup with the variable's name.
 
 Other key managers implement the `KeyProvider` interface in
-`@rakazo/adapter-kit` (`activeKeyId`, `wrap`, `unwrap`), pass the shared suite in
+`@botcamp/adapter-kit` (`activeKeyId`, `wrap`, `unwrap`), pass the shared suite in
 `packages/adapters/src/key-provider-conformance.test.ts`, and are selected in
 `keyManagerFromEnv`. A provider only wraps 32-byte data keys: one per space
 key and one per wrapped setting, never per stored message or file.

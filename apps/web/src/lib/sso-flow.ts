@@ -1,6 +1,6 @@
+import type { DesktopDeepLink } from "@botcamp/contracts";
+import { ssoDesktopCallback } from "@botcamp/contracts";
 import { t } from "@lingui/core/macro";
-import type { DesktopDeepLink } from "@rakazo/contracts";
-import { ssoDesktopCallback } from "@rakazo/contracts";
 import { setAuthToken } from "./auth-token";
 import { desktopBridge } from "./desktop";
 import { documentPath, routePathOfUrl, routeSearch, toAppDocument } from "./static-host-route";
@@ -11,7 +11,7 @@ type SsoResult = {
 };
 
 export const SSO_CALLBACK_PATH = "/sso/callback";
-const SSO_CHANNEL = "rakazo-sso-oauth";
+const SSO_CHANNEL = "botcamp-sso-oauth";
 const SSO_TIMEOUT_MS = 5 * 60_000;
 let cancelActiveAttempt: (() => void) | undefined;
 

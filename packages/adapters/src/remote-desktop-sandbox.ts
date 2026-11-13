@@ -13,9 +13,9 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 import { sandboxIdleMs } from "./computer-idle.js";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import { PORTABLE_TRANSFER_BATCH_BYTES } from "./computer-workspace.js";
@@ -688,7 +688,7 @@ function remoteCwd(cwd: string | undefined): string {
     !cwd ||
     cwd === "." ||
     cwd === "/" ||
-    cwd === "/home/rakazo" ||
+    cwd === "/home/botcamp" ||
     cwd === "/home/user" ||
     cwd === REMOTE_WORKSPACE
   ) {
@@ -696,8 +696,8 @@ function remoteCwd(cwd: string | undefined): string {
   }
   const relative = cwd.startsWith(`${REMOTE_WORKSPACE}/`)
     ? cwd.slice(REMOTE_WORKSPACE.length + 1)
-    : cwd.startsWith("/home/rakazo/")
-      ? cwd.slice("/home/rakazo/".length)
+    : cwd.startsWith("/home/botcamp/")
+      ? cwd.slice("/home/botcamp/".length)
       : cwd;
   return workspacePath(REMOTE_WORKSPACE, relative);
 }

@@ -1,4 +1,4 @@
-import type { ActionApprovalRule as StoredActionApprovalRule } from "@rakazo/contracts";
+import type { ActionApprovalRule as StoredActionApprovalRule } from "@botcamp/contracts";
 
 const APPROVAL_EXEMPT_TOOLS = new Set([
   "computer_observe",
@@ -49,6 +49,7 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "create_child_routine",
   "feedback",
   "mailbox_send",
+  "directory_write",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
   "respond_agent_connection",
@@ -78,6 +79,7 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "mailbox_list",
   "mailbox_get",
   "mailbox_search",
+  "directory_read",
 ]);
 
 const READ_ONLY_CONNECTOR_PATTERN = /(^|[_-])(get|list|search|find|read)([_-]|$)/i;
@@ -225,6 +227,7 @@ const OWN_STATE_RESULT_TOOLS = new Set([
   "list_fleet",
   "list_secrets",
   "message_user",
+  "sync_channels",
   "read_history",
   "recall_memory",
   "remember",

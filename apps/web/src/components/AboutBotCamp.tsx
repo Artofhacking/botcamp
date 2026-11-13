@@ -1,4 +1,4 @@
-import { Button } from "@rakazo/ui-web";
+import { Button } from "@botcamp/ui-web";
 import { useEffect, useState } from "react";
 import { apiOrigin } from "../lib/api-origin.js";
 import { useCopyText } from "../lib/copy-text.js";

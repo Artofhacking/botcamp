@@ -1,5 +1,5 @@
 import { Duplex, Readable, Writable } from "node:stream";
-import { resolveSupervisorToken } from "@rakazo/core";
+import { resolveSupervisorToken } from "@botcamp/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computerCommandEnv } from "./supervisor-logic.js";
 
@@ -26,7 +26,7 @@ beforeEach(() => {
   mock.failWhen = () => false;
   mock.inspect.mockResolvedValue({
     Config: {
-      Labels: { "rakazo.managed": "true", "rakazo.botId": "bot", "rakazo.spaceId": "space" },
+      Labels: { "botcamp.managed": "true", "botcamp.botId": "bot", "botcamp.spaceId": "space" },
     },
     State: { Running: true, StartedAt: "2026-01-01T00:00:00Z" },
     HostConfig: {},
@@ -51,7 +51,7 @@ function post(path: string, body: unknown) {
     headers: {
       authorization: `Bearer ${resolveSupervisorToken(process.env)}`,
       "content-type": "application/json",
-      "x-rakazo-bot-id": "bot",
+      "x-botcamp-bot-id": "bot",
       "x-rakazo-space-id": "space",
     },
     body: JSON.stringify(body),

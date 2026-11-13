@@ -1,5 +1,5 @@
-import { SandboxDamagedError } from "@rakazo/adapter-kit";
-import type { AdapterContext, ComputerRef } from "@rakazo/adapter-kit";
+import { SandboxDamagedError } from "@botcamp/adapter-kit";
+import type { AdapterContext, ComputerRef } from "@botcamp/adapter-kit";
 import { describe, expect, it } from "vitest";
 import { ExecComputer } from "./exec-computer.js";
 

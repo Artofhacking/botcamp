@@ -13,11 +13,11 @@
   "iconLibrary": "lucide",
   "rtl": false,
   "aliases": {
-    "components": "@rakazo/ui-web/components",
-    "utils": "@rakazo/ui-web/lib/utils",
-    "ui": "@rakazo/ui-web/components/ui",
-    "lib": "@rakazo/ui-web/lib",
-    "hooks": "@rakazo/ui-web/hooks"
+    "components": "@botcamp/ui-web/components",
+    "utils": "@botcamp/ui-web/lib/utils",
+    "ui": "@botcamp/ui-web/components/ui",
+    "lib": "@botcamp/ui-web/lib",
+    "hooks": "@botcamp/ui-web/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

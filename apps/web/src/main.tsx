@@ -1,6 +1,7 @@
+import "./lib/migrate-browser-storage";
 import "./zod-config";
 import "./monitoring-bootstrap";
-import { BotAvatarActivityProvider, Toaster, TooltipProvider } from "@rakazo/ui-web";
+import { BotAvatarActivityProvider, Toaster, TooltipProvider } from "@botcamp/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { StrictMode, useEffect, useLayoutEffect, useRef } from "react";

@@ -13,4 +13,4 @@ The installer copies it to `BotCamp-<version>.ico` and points the Start menu, de
 and pinned taskbar shortcuts at that file. Windows otherwise keeps the previous icon
 cached against `BotCamp.exe`, which is what the Start menu and the taskbar right-click
 menu keep showing after an upgrade.
-Refresh `icon.ico` and `icon-macos.png` with `pnpm --filter @rakazo/ui-tokens export:brand`.
+Refresh `icon.ico` and `icon-macos.png` with `pnpm --filter @botcamp/ui-tokens export:brand`.

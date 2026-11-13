@@ -592,9 +592,11 @@ describe("listGroups archived", () => {
     const listed = await groupRepos.listGroups(actor);
     expect(listed.map((item) => item.id)).toEqual(["openable"]);
     expect(findMany.mock.calls[0]![0].where).toEqual({
-      spaceId: "space-1",
-      userId: "user-1",
       archivedAt: null,
+      OR: [
+        { spaceId: "space-1", userId: "user-1" },
+        { shared: true, participants: { some: { userId: "user-1" } } },
+      ],
     });
   });
 });

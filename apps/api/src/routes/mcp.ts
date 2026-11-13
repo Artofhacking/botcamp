@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { runContinueJob } from "@rakazo/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   createPluginMarketplace,
   isTransientFetchError,
@@ -13,19 +13,19 @@ import {
   recordMcpServerHealth,
   sanitizeComposioError,
   verifyMcpInstall,
-} from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import { signupSurveyAsksTeamSize } from "@rakazo/contracts";
-import { comparePlugins, containsSecret, matchesPluginQuery } from "@rakazo/core";
-import type { Prisma } from "@rakazo/db";
+} from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import { signupSurveyAsksTeamSize } from "@botcamp/contracts";
+import { comparePlugins, containsSecret, matchesPluginQuery } from "@botcamp/core";
+import type { Prisma } from "@botcamp/db";
 import {
   AVAILABILITY_SELECT,
   availableInSpace,
   IsolationError,
   itemSecretIn,
   spaceAvailability,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { requireAdmin } from "../admins.js";
 import {
   assertNameFreeWhereAvailable,

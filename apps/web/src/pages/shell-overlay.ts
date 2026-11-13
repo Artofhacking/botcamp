@@ -19,11 +19,12 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 /** The shell overlay a URL opens; the URL is its only source of truth so links and reloads keep it. */
 export type ShellOverlay =
   | { kind: "settings"; section: SettingsSection; spaceId: string | null }
+  | { kind: "integrations" }
   | { kind: "skills" }
   | { kind: "mcp"; serverId?: string }
   | null;
 
-const OVERLAY_KEYS = ["settings", "space", "skills", "mcp", "messaging"] as const;
+const OVERLAY_KEYS = ["settings", "space", "integrations", "skills", "mcp", "messaging"] as const;
 
 function isSettingsSection(value: string): value is SettingsSection {
   return (SETTINGS_SECTIONS as readonly string[]).includes(value);
@@ -42,6 +43,7 @@ export function readShellOverlay(params: URLSearchParams): ShellOverlay {
       spaceId: params.get("space") || null,
     };
   }
+  if (params.has("integrations")) return { kind: "integrations" };
   if (params.has("skills")) return { kind: "skills" };
   if (params.has("mcp")) {
     const serverId = params.get("mcp");

@@ -1,12 +1,11 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
   SpaceMemoryConfig,
   ThreadMessage,
   VoiceStatus,
-} from "@rakazo/contracts";
-import { DEFAULT_NEW_BOT_AVATAR_SET } from "@rakazo/contracts";
+} from "@botcamp/contracts";
+import { DEFAULT_NEW_BOT_AVATAR_SET } from "@botcamp/contracts";
 import {
   answerableAskMessageIds,
   channelMessageSender,
@@ -17,13 +16,15 @@ import {
   isActive,
   isRunWorking,
   memberName,
-} from "@rakazo/core";
-import { fetchFresh, writeSaved } from "@rakazo/core/query";
-import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { Button } from "@rakazo/ui-web";
-import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
+  sharedGroupFaces,
+} from "@botcamp/core";
+import { fetchFresh, writeSaved } from "@botcamp/core/query";
+import type { GroupAvatarMember } from "@botcamp/ui-web";
+import { Button } from "@botcamp/ui-web";
+import { useIsMobile } from "@botcamp/ui-web/hooks/use-mobile";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
-import { Monitor, Moon, Plus, ScrollText, Sun, Users } from "lucide-react";
+import { Monitor, Moon, Plug, Plus, ScrollText, Sun, Users } from "lucide-react";
 import {
   Suspense,
   useCallback,
@@ -566,14 +567,19 @@ function SpaceShell() {
     () => (inGroup ? { groupId: groupId ?? "" } : { botId: active?.id ?? "" }),
     [active?.id, groupId, inGroup],
   );
-  const transcriptMembers = activeSnapshot?.members ?? activeGroup?.members;
+  const transcriptMembers = useMemo(
+    () => sharedGroupFaces(activeGroup?.shared, activeGroup?.members, activeSnapshot?.members),
+    [activeGroup?.members, activeGroup?.shared, activeSnapshot?.members],
+  );
   const resolveTranscriptBot = useCallback(
     (botId: string) => {
+      const member = transcriptMembers.find((candidate) => candidate.botId === botId);
+      if (activeGroup?.shared && member) return member;
       const bot = bots.find((candidate) => candidate.id === botId);
       if (bot) return bot;
-      return transcriptMembers?.find((member) => member.botId === botId);
+      return member;
     },
-    [bots, transcriptMembers],
+    [activeGroup?.shared, bots, transcriptMembers],
   );
   const nextWorkingBots: GroupAvatarMember[] = workingRuns.map((run) => {
     const bot = resolveTranscriptBot(run.botId);
@@ -594,13 +600,15 @@ function SpaceShell() {
     (botId: string | undefined) => memberName(transcriptMembers, botId),
     [transcriptMembers],
   );
-  const { composerMentionTargets } = useComposerMentions({
+  const { composerMentionTargets, footerLogos, setFooterLogos } = useComposerMentions({
     rpc,
     queries,
     bots,
     groups,
     inGroup,
     groupId,
+    userId,
+    integrationsOpen: overlay?.kind === "integrations",
     initialBotsLoaded,
   });
   const shellReady =
@@ -844,6 +852,18 @@ function SpaceShell() {
       onSelect: () => setPanel("create-group"),
     },
     {
+      id: "new-shared-group",
+      label: t`New shared group`,
+      icon: Users,
+      onSelect: () => setPanel("create-shared-group"),
+    },
+    {
+      id: "integrations",
+      label: t`Connect apps`,
+      icon: Plug,
+      onSelect: () => setOverlay({ kind: "integrations" }),
+    },
+    {
       id: "skills",
       label: t`Skills`,
       icon: ScrollText,
@@ -1014,10 +1034,12 @@ function SpaceShell() {
             setDeleteGroupTarget={dialogs.setDeleteGroupTarget}
           />
         }
+        footerLogos={footerLogos}
         user={session.data?.user}
         ticketBoardEnabled={Boolean(bootstrapMe?.ticketBoardEnabled)}
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
         openSettings={openSettings}
+        openIntegrations={() => setOverlay({ kind: "integrations" })}
         openSkills={() => setOverlay({ kind: "skills" })}
       />
 
@@ -1109,6 +1131,12 @@ function SpaceShell() {
               onJumpToMessage={jumpToReplyMessage}
               onOpenPeerMessages={openPeerMessages}
               memberName={resolveTranscriptMemberName}
+              personName={
+                activeGroup?.shared
+                  ? (senderUserId) =>
+                      activeGroup.people?.find((person) => person.userId === senderUserId)?.name
+                  : undefined
+              }
               peerBot={resolveTranscriptBot}
               onRefresh={refreshActiveThread}
               onBotChanged={refreshBots}
@@ -1203,6 +1231,7 @@ function SpaceShell() {
 
       <ShellSidePanel
         rpc={rpc}
+        userId={userId}
         panel={panel}
         setPanel={setPanel}
         active={active}
@@ -1313,7 +1342,9 @@ function SpaceShell() {
         <AppOverlays
           overlay={overlay}
           setOverlay={setOverlay}
+          activeBotId={activeBotId.current}
           stdioEnabled={bootstrapMe?.mcpStdioEnabled === true}
+          onConnectedAppsChange={setFooterLogos}
         />
       </Suspense>
 

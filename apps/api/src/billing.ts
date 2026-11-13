@@ -6,21 +6,21 @@ import type {
   BillingSubscriptionSnapshot,
   ProductAnalytics,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   BillingCheckoutCompletedError,
   BillingCustomerNotFoundError,
   BillingNoMonthlyCreditsError,
-} from "@rakazo/adapter-kit";
-import { sandboxAllowance, sandboxHoursLeft } from "@rakazo/adapters";
-import type { Actor, BillingStatus, ByokInterval } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import { sandboxAllowance, sandboxHoursLeft } from "@botcamp/adapters";
+import type { Actor, BillingStatus, ByokInterval } from "@botcamp/contracts";
 import {
   BYOK_ANNUAL_PRICE_CENTS,
   BYOK_MONTHLY_PRICE_CENTS,
   INVITED_TRIAL_WEEKS,
   TRIAL_DAYS,
-} from "@rakazo/contracts";
-import type { BillingAccount, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import type { BillingAccount, PrismaClient } from "@botcamp/db";
 import {
   billingAccountForOrganization,
   byokFreeUntil,
@@ -39,8 +39,8 @@ import {
   releaseCheckoutLease,
   replaceBillingCustomer,
   syncBillingSnapshot,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { applyAccessGrants } from "./access-grants.js";
 import { createReferrals } from "./referrals.js";
 

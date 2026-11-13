@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { CronFreq, CronPreset, CronUnit } from "@rakazo/core";
+import type { CronFreq, CronPreset, CronUnit } from "@botcamp/core";
 import {
   CRON_FREQS,
   clampIntervalAmount,
@@ -9,8 +9,8 @@ import {
   describeCronPreset,
   localizedClock,
   russianIntervalUnit,
-} from "@rakazo/core";
-import { Input, NativeSelect, NativeSelectOption } from "@rakazo/ui-web";
+} from "@botcamp/core";
+import { Input, NativeSelect, NativeSelectOption } from "@botcamp/ui-web";
 import { Clock } from "lucide-react";
 import { cronLabels, cronUnitLabel } from "../lib/cron";
 

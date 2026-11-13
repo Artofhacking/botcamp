@@ -10,11 +10,22 @@ pick 2 to 10 bots and choose **Create group**.
 
 Each bot keeps its own memory, computer and instructions; the group only shares the conversation.
 
+## Share a group with other people
+
+**New shared group** invites other accounts by email. Group settings list the people and bots already in the group. The creator and admins search for an account to invite, or invite with an email, and can add a bot they own. A member can talk in the group, and can leave it. Only the creator deletes the group or changes who is an admin.
+
+A bot in the group is shown as the owner's name, a hyphen, then the bot's name. That is the only name it is given for the turn, so it does not also answer as its private name. The sidebar marks a shared group and still shows its latest message. The open chat shows each member's avatar and that name. Messages use those names. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
+
+@ in a shared group lists the people and the bots who are in it, and does not list scheduled routines. Naming a person leaves their name in the message. A bot there starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
+
+A private group is unchanged: it still belongs to one person and holds 2 to 10 of that person's bots.
+
 ## Who answers
 
-- With no mention, the first bot in the group answers and can bring in the others.
+- In a private group, with no mention, the first bot answers and can bring in the others.
 - **@Name** wakes that bot. Mention several to wake them all.
 - **@everyone** wakes every bot in the group.
+- In a shared group, a bot starts only when the message names it or uses @everyone.
 
 To rename the group or change who is in it, open **Group settings** from the group's header.
 **Delete group** removes the group chat.

@@ -1,5 +1,5 @@
-import type { TextDirection } from "@rakazo/core";
-import { matchUiLocale, textDirectionForLocale, translate } from "@rakazo/core";
+import type { TextDirection } from "@botcamp/core";
+import { matchUiLocale, textDirectionForLocale, translate } from "@botcamp/core";
 import type { IpcMainInvokeEvent } from "electron";
 import type { AppTarget } from "./app-frame.js";
 import { fromAppFrame } from "./app-frame.js";

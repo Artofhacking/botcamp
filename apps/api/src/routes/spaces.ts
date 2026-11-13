@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
-import type { Actor, SpaceNavigation } from "@rakazo/contracts";
-import type { createGroupRepos, createRepos, PrismaClient } from "@rakazo/db";
+import type { Actor, SpaceNavigation } from "@botcamp/contracts";
+import type { createGroupRepos, createRepos, PrismaClient } from "@botcamp/db";
 import {
   CannotDeleteDefaultSpaceError,
   CannotDeleteLastSpaceError,
@@ -18,7 +18,7 @@ import {
   SpaceNotFoundError,
   setSpaceSettingOverride,
   spaceSettingOverrides,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import type { RouterDeps } from "../router.js";
 import { listRoutinesDto } from "../routines.js";
 import { deleteSpaceWithContent } from "../space-deletion.js";

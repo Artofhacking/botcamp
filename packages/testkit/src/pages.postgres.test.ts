@@ -2,12 +2,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { EncryptedSecretStore } from "@rakazo/adapters";
-import type { createApp } from "@rakazo/api/app";
-import type { PageDetail, PageSummary, ThreadSnapshot } from "@rakazo/contracts";
-import { SHARED_PAGE_PATH_PREFIX } from "@rakazo/contracts";
-import { createSpaceForMember, deletePageShareSecrets } from "@rakazo/db";
-import { pageViewerCode } from "@rakazo/page-kit/compile";
+import { EncryptedSecretStore } from "@botcamp/adapters";
+import type { createApp } from "@botcamp/api/app";
+import type { PageDetail, PageSummary, ThreadSnapshot } from "@botcamp/contracts";
+import { SHARED_PAGE_PATH_PREFIX } from "@botcamp/contracts";
+import { createSpaceForMember, deletePageShareSecrets } from "@botcamp/db";
+import { pageViewerCode } from "@botcamp/page-kit/compile";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { BotIntroHarness } from "./discard-bot-intro.js";
 import { discardBotIntroFromCreate } from "./discard-bot-intro.js";
@@ -34,7 +34,7 @@ describePages("pages", () => {
   const stamp = Date.now();
 
   beforeAll(async () => {
-    const { createApp } = await import("@rakazo/api/app");
+    const { createApp } = await import("@botcamp/api/app");
     const handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,
       dataDir: mkdtempSync(path.join(tmpdir(), "rakazo-pages-")),

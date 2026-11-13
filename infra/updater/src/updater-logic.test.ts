@@ -1,9 +1,10 @@
-import { DEFAULT_COMPOSE_PROJECT_NAME, isLocalImageTag } from "@rakazo/core";
+import { DEFAULT_COMPOSE_PROJECT_NAME, isLocalImageTag } from "@botcamp/core";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_COMPOSE_FILE,
   DEFAULT_UPDATER_PORT,
   missingSecretAssignments,
+  pinnedImageTags,
   readEnvAssignment,
   readTagState,
   resolveUpdaterConfig,
@@ -24,7 +25,7 @@ describe("resolveUpdaterConfig", () => {
       updateServices: ["api", "worker", "web"],
       envFile: "/srv/rakazo/.env",
       projectName: DEFAULT_COMPOSE_PROJECT_NAME,
-      token: base.RAKAZO_UPDATER_TOKEN,
+      token: base.BOTCAMP_UPDATER_TOKEN ?? base.RAKAZO_UPDATER_TOKEN,
       port: DEFAULT_UPDATER_PORT,
     });
   });
@@ -42,6 +43,71 @@ describe("resolveUpdaterConfig", () => {
     expect(() => resolveUpdaterConfig({ ...base, COMPOSE_PROJECT_NAME: "-f" })).toThrow(
       /project name/,
     );
+  });
+
+  it("keeps a legacy setting when the new name is empty and lets a non-empty new name win", () => {
+    const token = "fake-review-updater-token-000000000000";
+    const legacy = {
+      RAKAZO_DEPLOY_DIR: "/srv/rakazo",
+      RAKAZO_UPDATER_TOKEN: token,
+      RAKAZO_IMAGE: "ghcr.io/example/app",
+      RAKAZO_UPDATER_HOST: "10.0.0.8",
+      RAKAZO_UPDATER_PORT: "7099",
+    };
+    expect(resolveUpdaterConfig(legacy)).toMatchObject({
+      deployDir: "/srv/rakazo",
+      image: "ghcr.io/example/app",
+      host: "10.0.0.8",
+      port: 7099,
+      token,
+    });
+    expect(
+      resolveUpdaterConfig({
+        BOTCAMP_DEPLOY_DIR: "/srv/botcamp",
+        BOTCAMP_UPDATER_TOKEN: token,
+        BOTCAMP_IMAGE: "ghcr.io/example/next",
+        BOTCAMP_UPDATER_HOST: "10.1.0.8",
+        BOTCAMP_UPDATER_PORT: "7100",
+      }),
+    ).toMatchObject({
+      deployDir: "/srv/botcamp",
+      image: "ghcr.io/example/next",
+      host: "10.1.0.8",
+      port: 7100,
+      token,
+    });
+    expect(
+      resolveUpdaterConfig({
+        ...legacy,
+        BOTCAMP_DEPLOY_DIR: "",
+        BOTCAMP_UPDATER_TOKEN: " ",
+        BOTCAMP_IMAGE: "",
+        BOTCAMP_UPDATER_HOST: "",
+        BOTCAMP_UPDATER_PORT: "",
+      }),
+    ).toMatchObject({
+      deployDir: "/srv/rakazo",
+      image: "ghcr.io/example/app",
+      host: "10.0.0.8",
+      port: 7099,
+      token,
+    });
+    expect(
+      resolveUpdaterConfig({
+        ...legacy,
+        BOTCAMP_DEPLOY_DIR: "/srv/botcamp",
+        BOTCAMP_UPDATER_TOKEN: token,
+        BOTCAMP_IMAGE: "ghcr.io/example/next",
+        BOTCAMP_UPDATER_HOST: "10.1.0.8",
+        BOTCAMP_UPDATER_PORT: "7100",
+      }),
+    ).toMatchObject({
+      deployDir: "/srv/botcamp",
+      image: "ghcr.io/example/next",
+      host: "10.1.0.8",
+      port: 7100,
+      token,
+    });
   });
 
   it("binds to loopback unless the deployment says otherwise, so a stray port is not a door", () => {
@@ -253,6 +319,32 @@ describe("readTagState", () => {
    */
   it("falls back to a tag that is local-only, so nothing tries to pull it", () => {
     expect(isLocalImageTag(readTagState("").currentTag)).toBe(true);
+  });
+
+  it("reads either tag name, skips a blank new name, and reads a tag written under both", () => {
+    expect(readTagState("RAKAZO_IMAGE_TAG=v1.0.0\n").currentTag).toBe("v1.0.0");
+    expect(readTagState("BOTCAMP_IMAGE_TAG=v2.0.0\n").currentTag).toBe("v2.0.0");
+    expect(readTagState("BOTCAMP_IMAGE_TAG=\nRAKAZO_IMAGE_TAG=v1.4.0\n").currentTag).toBe("v1.4.0");
+    expect(readTagState("BOTCAMP_IMAGE_TAG=v9.0.0\nRAKAZO_IMAGE_TAG=v1.0.0\n").currentTag).toBe(
+      "v9.0.0",
+    );
+    const written = pinnedImageTags("v2.0.0", "v1.9.0");
+    expect(written).toMatchObject({
+      BOTCAMP_IMAGE_TAG: "v2.0.0",
+      RAKAZO_IMAGE_TAG: "v2.0.0",
+      BOTCAMP_IMAGE_TAG_PREVIOUS: "v1.9.0",
+      RAKAZO_IMAGE_TAG_PREVIOUS: "v1.9.0",
+    });
+    const text = Object.entries(written)
+      .map(([key, value]) => `${key}=${value}`)
+      .join("\n");
+    expect(readTagState(text)).toEqual({ currentTag: "v2.0.0", previousTag: "v1.9.0" });
+    expect(readTagState(`RAKAZO_IMAGE_TAG=${written.RAKAZO_IMAGE_TAG}\n`).currentTag).toBe(
+      "v2.0.0",
+    );
+    expect(readTagState(`BOTCAMP_IMAGE_TAG=${written.BOTCAMP_IMAGE_TAG}\n`).currentTag).toBe(
+      "v2.0.0",
+    );
   });
 });
 

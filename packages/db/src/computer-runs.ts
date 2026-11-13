@@ -1,4 +1,4 @@
-import { getLogger } from "@rakazo/logging";
+import { getLogger } from "@botcamp/logging";
 import type { PrismaClient } from "./generated/prisma/client.js";
 
 /**

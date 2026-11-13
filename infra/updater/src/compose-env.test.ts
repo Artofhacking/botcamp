@@ -46,18 +46,21 @@ const NOT_PASSED: Record<string, string> = {
   OWNER_PASSWORD: "bootstrap-owner CLI input, passed on its own command line",
   PM2_HOME: "restart-supervisor detection for PM2 hosts; Compose restarts containers",
   INVOCATION_ID: "restart-supervisor detection for systemd hosts; Compose restarts containers",
-  RAKAZO_ALLOW_DEV_SECRETS: "development-only escape hatch for placeholder secrets",
+  BOTCAMP_ALLOW_DEV_SECRETS: "development-only escape hatch for placeholder secrets",
   EMAIL_EMULATOR: "ignored when NODE_ENV=production",
   AWS_KMS_PROFILE: "for maintainer laptops; servers use AWS_KMS_ACCESS_KEY_ID and its secret",
   GIT_SHA: "baked into the image at build time; a pass-through entry would unset it",
   SHELL: "host shell for the desktop computer, which only the Electron app runs",
+  PATH: "inherited by the process; the directory command uses it to find its binary",
   CLOUDFLARE_ACCOUNT_ID: "written into Pi's environment from stored gateway settings",
   CLOUDFLARE_GATEWAY_ID: "written into Pi's environment from stored gateway settings",
   COMPOSE_PROJECT_NAME: "read by the updater sidecar, which has its own environment",
-  RAKAZO_COMPOSE_PROJECT_NAME: "read by the updater sidecar, which has its own environment",
-  RAKAZO_IMAGE_TAG: "read by deployment tooling and the updater sidecar, not app processes",
-  RAKAZO_DEPLOYED_MIGRATIONS: "passed only to the migration CLI by the production deploy script",
-  RAKAZO_IMAGE_TAG_PREVIOUS: "read by the updater sidecar, which has its own environment",
+  BOTCAMP_COMPOSE_PROJECT_NAME: "read by the updater sidecar, which has its own environment",
+  BOTCAMP_IMAGE_TAG: "read by deployment tooling and the updater sidecar, not app processes",
+  BOTCAMP_DEPLOYED_MIGRATIONS: "passed only to the migration CLI by the production deploy script",
+  BOTCAMP_IMAGE_TAG_PREVIOUS: "read by the updater sidecar, which has its own environment",
+  BOTCAMP_UPDATER_TOKEN:
+    "updater sidecar credential; the api and worker must not receive the Docker-socket token",
   KUBERNETES_SANDBOX_COMPUTER_IMAGE: KUBERNETES_SANDBOX,
   KUBERNETES_SANDBOX_HOME_CLAIM: KUBERNETES_SANDBOX,
   KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS: KUBERNETES_SANDBOX,
@@ -94,8 +97,8 @@ const INDIRECT = {
     // core/secrets-guard.ts resolves these by name.
     "SANDBOX_SUPERVISOR_TOKEN",
     // pi-local-provider.ts reads these through a small helper.
-    "RAKAZO_LOCAL_CONTEXT_WINDOW",
-    "RAKAZO_LOCAL_MAX_TOKENS",
+    "BOTCAMP_LOCAL_CONTEXT_WINDOW",
+    "BOTCAMP_LOCAL_MAX_TOKENS",
     // The OTLP exporter reads its standard settings itself.
     "OTEL_EXPORTER_OTLP_HEADERS",
     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
@@ -153,6 +156,12 @@ function scanEnvReads(dirs: readonly string[]): Set<string> {
       }
     }
   }
+  // Readers accept the previous RAKAZO_* name, and Compose passes the BOTCAMP_* key.
+  for (const name of [...names]) {
+    if (!name.startsWith("RAKAZO_")) continue;
+    names.delete(name);
+    names.add(`BOTCAMP_${name.slice("RAKAZO_".length)}`);
+  }
   return names;
 }
 
@@ -191,7 +200,6 @@ function loadServices(file: string): Record<string, ComposeService> {
 
 /** Each deployable stack: a base file plus any overlay layered on it. */
 const STACKS = [
-  ["docker-compose.images.yml"],
   ["docker-compose.prod.yml"],
   ["docker-compose.prod.yml", "docker-compose.prod.docker.yml"],
   ["docker-compose.yml"],
@@ -209,7 +217,12 @@ describe("api and worker environment allowlists", () => {
       expect(api).toContain(key);
       expect(worker).toContain(key);
     }
-    for (const key of ["BETTER_AUTH_SECRET", "OIDC_CLIENT_SECRET", "SCREEN_PROXY_SECRET"]) {
+    for (const key of [
+      "BETTER_AUTH_SECRET",
+      "OIDC_CLIENT_SECRET",
+      "LARK_LOGIN_APP_SECRET",
+      "SCREEN_PROXY_SECRET",
+    ]) {
       expect(api).toContain(key);
       expect(worker).not.toContain(key);
     }
@@ -243,13 +256,16 @@ describe("api and worker environment allowlists", () => {
       for (const key of [
         "BETTER_AUTH_SECRET",
         "OIDC_CLIENT_SECRET",
+        "LARK_LOGIN_APP_SECRET",
         "SCREEN_PROXY_SECRET",
+        "BOTCAMP_UPDATER_TOKEN",
         "RAKAZO_UPDATER_TOKEN",
         "STRIPE_SECRET_KEY",
         "POSTGRES_PASSWORD",
       ]) {
         expect(worker).not.toHaveProperty(key);
       }
+      expect(stackEnvironment(files, "api")).not.toHaveProperty("BOTCAMP_UPDATER_TOKEN");
       expect(stackEnvironment(files, "api")).not.toHaveProperty("RAKAZO_UPDATER_TOKEN");
       // The database password reaches both processes only inside DATABASE_URL.
       expect(stackEnvironment(files, "api")).not.toHaveProperty("POSTGRES_PASSWORD");

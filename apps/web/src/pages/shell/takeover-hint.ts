@@ -1,4 +1,4 @@
-const STORAGE_KEY = "rakazo.takeoverHintDismissed";
+const STORAGE_KEY = "botcamp.takeoverHintDismissed";
 
 /** The person turned off the note shown before the first takeover. */
 export function takeoverHintDismissed(): boolean {

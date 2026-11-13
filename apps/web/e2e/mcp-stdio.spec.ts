@@ -1,6 +1,6 @@
+import type { McpServer } from "@botcamp/contracts";
 import type { Route } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import type { McpServer } from "@rakazo/contracts";
 import { captureScreenshot, completeOnboarding, openMcpServers, signup } from "./helpers";
 
 const credentialsTemplate = `{

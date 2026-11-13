@@ -1,4 +1,3 @@
-import { implement, ORPCError } from "@orpc/server";
 import {
   applyCodexLiveCatalog,
   applyProviderLiveCatalog,
@@ -18,10 +17,11 @@ import {
   offeredCatalog,
   providerCatalogCache,
   providerLiveCatalogsForSpace,
+  qqMailGrantConnected,
   savedCatalogSelections,
   scriptedCatalogEntry,
   validateConnectedModelChoice,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import type {
   Actor,
   ModelCatalogEntry,
@@ -29,14 +29,15 @@ import type {
   ModelRoleChoice,
   ModelRoleSettings,
   ModelRoleView,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   appContract,
   canonicalPiProviderId,
   modelSupportsRole,
   OPENAI_COMPATIBLE_PROVIDER_ID,
-} from "@rakazo/contracts";
-import { createGroupRepos, createRepos, recordSecurityEvent, runAsTenant } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { createGroupRepos, createRepos, recordSecurityEvent, runAsTenant } from "@botcamp/db";
+import { implement, ORPCError } from "@orpc/server";
 import { createAgentImportServices } from "../agent-import-services.js";
 import { createAgentSkillsService } from "../agent-skills.js";
 import { createBotRemoval } from "../bot-removal.js";
@@ -92,6 +93,7 @@ export function createRouterContext(deps: RouterDeps) {
     events: deps.events,
     connectors: deps.connectors,
     secretStore: deps.secrets,
+    qqMailMcpConnected: (actor: Actor) => qqMailGrantConnected(deps.prisma, deps.secrets, actor),
   };
   const mcpOAuth = deps.mcpOAuth ?? new McpOAuthBroker(deps.prisma, deps.secrets);
   const {

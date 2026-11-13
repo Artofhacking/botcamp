@@ -3,11 +3,15 @@ import type {
   MessagingInboundAttachment,
   MessagingInboundMessage,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
-import { messagingDeliverJob, runContinueJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@rakazo/contracts";
-import type { ChatApprovalChoice, ChatApprovalClassifyInput, MessagingCommand } from "@rakazo/core";
+} from "@botcamp/adapter-kit";
+import { messagingDeliverJob, runContinueJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@botcamp/contracts";
+import type {
+  ChatApprovalChoice,
+  ChatApprovalClassifyInput,
+  MessagingCommand,
+} from "@botcamp/core";
 import {
   CHAT_APPROVAL_APP_ONLY_NOTE,
   CHAT_APPROVAL_REPLY_REMINDER,
@@ -21,7 +25,7 @@ import {
   parseMessagingCommand,
   promptTextForAttachments,
   sanitizeMessagingLabel,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import type {
   MessagingIdentityRequest,
   Prisma,
@@ -29,15 +33,15 @@ import type {
   ProvisionedMessagingIdentity,
   SignupPolicyEnv,
   ThreadEvents,
-} from "@rakazo/db";
+} from "@botcamp/db";
 import {
   createThreadMessage,
   crossSpaceCommunicationAllowed,
   messagingIdentityForBot,
   normalizeMessagingLinkCode,
   redeemMessagingLinkCode,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { MessagingReceipts } from "./messaging-receipts.js";
 import {
   MESSAGE_ROUTING_REARMED_REASON,

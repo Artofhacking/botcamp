@@ -67,6 +67,12 @@ it("lets SSO reach its API callback instead of capturing a separate loopback ori
     }),
   ).toBeUndefined();
   expect(
+    oauthCallbackFrom(url, {
+      frameName: "botcamp-sso-oauth",
+      excludeOrigins: ["http://127.0.0.1:5173"],
+    }),
+  ).toBeUndefined();
+  expect(
     oauthCallbackFrom("http://localhost:53692/callback?code=model-code", {
       frameName: "rakazo-model-oauth",
     }),

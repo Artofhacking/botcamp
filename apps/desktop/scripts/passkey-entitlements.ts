@@ -5,6 +5,7 @@
 // values as for `pnpm build`.
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { passkeyEntitlements } from "../src/passkeys.js";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -14,6 +15,10 @@ const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as
 const base = readFileSync(path.join(root, pkg.build.mac.entitlements), "utf8");
 process.stdout.write(
   passkeyEntitlements(base, process.env.APPLE_TEAM_ID ?? "", pkg.build.appId, {
-    developerMode: process.env.RAKAZO_PASSKEY_DEVELOPER_MODE === "1",
+    developerMode:
+      firstNonEmpty(
+        process.env.BOTCAMP_PASSKEY_DEVELOPER_MODE,
+        process.env.RAKAZO_PASSKEY_DEVELOPER_MODE,
+      ) === "1",
   }),
 );

@@ -320,6 +320,24 @@ describe("compose project name resolution", () => {
     expect(resolveComposeProjectName({})).toBe(DEFAULT_COMPOSE_PROJECT_NAME);
   });
 
+  it("keeps a legacy project name when the new name is empty", () => {
+    expect(resolveComposeProjectName({ BOTCAMP_COMPOSE_PROJECT_NAME: "new-stack" })).toBe(
+      "new-stack",
+    );
+    expect(
+      resolveComposeProjectName({
+        BOTCAMP_COMPOSE_PROJECT_NAME: "",
+        RAKAZO_COMPOSE_PROJECT_NAME: "manual-stack",
+      }),
+    ).toBe("manual-stack");
+    expect(
+      resolveComposeProjectName({
+        BOTCAMP_COMPOSE_PROJECT_NAME: "new-stack",
+        RAKAZO_COMPOSE_PROJECT_NAME: "manual-stack",
+      }),
+    ).toBe("new-stack");
+  });
+
   it("ignores blank values and refuses a name that is not a single argv", () => {
     expect(resolveComposeProjectName({ COMPOSE_PROJECT_NAME: "  " })).toBe(
       DEFAULT_COMPOSE_PROJECT_NAME,
@@ -637,7 +655,10 @@ describe("managed env assignments", () => {
 describe("sidecar boundary validation", () => {
   it("normalizes a request the API already validated", () => {
     expect(
-      validateUpdateRequest({ repoUrl: "https://github.com/artofhacking/botcamp.git", branch: " main " }),
+      validateUpdateRequest({
+        repoUrl: "https://github.com/artofhacking/botcamp.git",
+        branch: " main ",
+      }),
     ).toEqual({
       request: {
         repoUrl: "https://github.com/artofhacking/botcamp.git",

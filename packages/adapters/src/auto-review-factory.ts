@@ -1,4 +1,5 @@
-import type { AutoReviewProvider, AutoReviewRequest, AutoReviewResult } from "@rakazo/adapter-kit";
+import type { AutoReviewProvider, AutoReviewRequest, AutoReviewResult } from "@botcamp/adapter-kit";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import type { LlmAutoReviewOptions } from "./auto-review.js";
 import {
   autoReviewMinConfidence,
@@ -39,7 +40,10 @@ export function createAutoReviewProvider(
         apiKey,
         fetch: options.fetch,
         timeoutMs: options.timeoutMs ?? autoReviewTimeoutMs(env),
-        model: options.model ?? env.RAKAZO_AUTO_REVIEW_MODEL?.trim() ?? DEFAULT_JEV_MODEL,
+        model:
+          options.model ??
+          firstNonEmpty(env.BOTCAMP_AUTO_REVIEW_MODEL, env.RAKAZO_AUTO_REVIEW_MODEL)?.trim() ??
+          DEFAULT_JEV_MODEL,
         minConfidence: options.minConfidence ?? autoReviewMinConfidence(env),
       });
     }

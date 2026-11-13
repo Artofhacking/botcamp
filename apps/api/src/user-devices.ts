@@ -1,4 +1,4 @@
-import type { UserDeviceHub, UserDeviceRevokeReason, UserDevices } from "@rakazo/adapters";
+import type { UserDeviceHub, UserDeviceRevokeReason, UserDevices } from "@botcamp/adapters";
 import {
   createUserDeviceToken,
   hashUserDeviceToken,
@@ -8,17 +8,17 @@ import {
   userDeviceDisconnectBody,
   userDeviceForwardBody,
   validUserDeviceForwardSecret,
-} from "@rakazo/adapters";
-import type { UserDeviceList, UserDevicePairResponse } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import type { UserDeviceList, UserDevicePairResponse } from "@botcamp/contracts";
 import {
   USER_DEVICE_CONNECT_PATH,
   USER_DEVICE_PAIR_PATH,
   USER_DEVICE_PATH,
   USER_DEVICE_SESSION_PATH,
   userDevicePairRequest,
-} from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { recordSecurityEvent, runAsSystem } from "@rakazo/db";
+} from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { recordSecurityEvent, runAsSystem } from "@botcamp/db";
 import type { Hono } from "hono";
 import { readBoundedBody } from "./http-body.js";
 

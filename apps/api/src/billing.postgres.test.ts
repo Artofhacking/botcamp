@@ -1,8 +1,8 @@
-import type { ProductAnalytics } from "@rakazo/adapter-kit";
-import { BillingEmulator } from "@rakazo/adapters";
-import type { Actor, AnalyticsEvent } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { billingAccountForOrganization, createBillingAccount, createDb } from "@rakazo/db";
+import type { ProductAnalytics } from "@botcamp/adapter-kit";
+import { BillingEmulator } from "@botcamp/adapters";
+import type { Actor, AnalyticsEvent } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { billingAccountForOrganization, createBillingAccount, createDb } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   BILLING_RETURN_PATH,

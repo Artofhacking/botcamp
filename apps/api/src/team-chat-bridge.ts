@@ -4,19 +4,19 @@ import type {
   TeamChatInboundMessage,
   TeamChatSendRequest,
   TeamChatSendResult,
-} from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { ATTACHMENT_MAX_COUNT, AutomatedSenderPoliciesSchema } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { ATTACHMENT_MAX_COUNT, AutomatedSenderPoliciesSchema } from "@botcamp/contracts";
 import {
   botMessageMaxHops,
   chatMessageOrigin,
   messageBlockForArtifact,
   promptTextForAttachments,
-} from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { clearEndedRunState, teamChatRunClientNonce } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { clearEndedRunState, teamChatRunClientNonce } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { MessagingReceipts } from "./messaging-receipts.js";
 import type { TeamChatEngagementJudge } from "./team-chat-judge.js";
 import {

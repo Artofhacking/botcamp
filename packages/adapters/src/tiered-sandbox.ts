@@ -6,8 +6,8 @@ import type {
   ComputerRef,
   ProcessEvent,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
 
 /**
  * Where a bot's computer runs.
@@ -52,6 +52,21 @@ class TieredSandbox {
 
   describe() {
     return this.pick("small").describe();
+  }
+
+  /**
+   * The resident small computer does not bill for simply staying up. A burst computer does:
+   * it is a separate machine, and an idle one is stopped and put back on the small tier.
+   * This stays synchronous. The idle check compares the result with `=== true`.
+   */
+  billsWhileRunning(computer: Pick<ComputerRef, "kind">): boolean {
+    if (computer.kind === "docker" || computer.kind === "desktop") return false;
+    if (computer.kind === "kubernetes") return true;
+    for (const provider of Object.values(this.options.providers)) {
+      if (provider?.describe().id === computer.kind)
+        return provider.billsWhileRunning?.(computer) ?? false;
+    }
+    return false;
   }
 
   async provision(request: { botId: string }, context: AdapterContext) {

@@ -1,7 +1,6 @@
-import { ORPCError } from "@orpc/server";
-import type { JobPublisher, ProductAnalytics, SandboxProvider } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
-import { cancelComputerRunWork, screenLeaseIdForRun, toComputerRef } from "@rakazo/adapters";
+import type { JobPublisher, ProductAnalytics, SandboxProvider } from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
+import { cancelComputerRunWork, screenLeaseIdForRun, toComputerRef } from "@botcamp/adapters";
 import type {
   Actor,
   GroupMember,
@@ -9,12 +8,12 @@ import type {
   MessageReaction,
   ReplyPreview,
   ThreadSnapshot,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   GROUP_MEMBER_MIN,
   MessageBlock as MessageBlockSchema,
   resolveBotAvatarSet,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_RUN_TRIGGERS,
@@ -29,9 +28,9 @@ import {
   resolveGroupTargetBotIds,
   runFailureError,
   runReadsThreadHistory,
-} from "@rakazo/core";
-import { deriveMessageQuote, messageReplyPreview } from "@rakazo/core/message-quote";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import { deriveMessageQuote, messageReplyPreview } from "@botcamp/core/message-quote";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   answerWaitingRunWithTextInTransaction,
   appendEventInTransaction,
@@ -42,13 +41,16 @@ import {
   eligibleWaitingTextAnswer,
   expireComputerExecutionLeases,
   IsolationError,
-  lockOwnedGroup,
+  loadSharedGroupRosters,
+  lockReadableGroup,
   primaryActiveRun,
   retireWaitingQuestionInTransaction,
+  runAsSystemInTransaction,
   touchGroupUpdatedAt,
   transientRunEventsWhere,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import {
   buildSendPrompt,
   buildUserMessageBlocks,
@@ -57,6 +59,7 @@ import {
 } from "./artifacts.js";
 import { resolveBusyBotName, toComputerStatus } from "./computer-status.js";
 import { withSerializableRetry } from "./serializable-retry.js";
+import { partitionSharedGroupBots, wakeSharedGroupBots } from "./shared-group-wake.js";
 import type { ImageAdmissionRun } from "./thread-image-admission.js";
 import { assertThreadImageInput } from "./thread-image-admission.js";
 import { loadMessagePage } from "./thread-message-pages.js";
@@ -73,8 +76,11 @@ export type ThreadTarget =
       groupId: string;
       threadId: string;
       groupName: string;
-      members: GroupMember[];
+      members: Array<GroupMember & { userId?: string; spaceId?: string }>;
       memberBotIds: string[];
+      /** Set for a shared group. Sends write into this space, which is the creator's. */
+      shared?: boolean;
+      spaceId?: string;
     };
 
 const THREAD_MESSAGE_PAGE_SIZE = 100;
@@ -208,7 +214,11 @@ async function replayExistingSend(
   const linkedRun =
     message.sourceRuns[0] ??
     (message.runId ? await deps.prisma.run.findUnique({ where: { id: message.runId } }) : null);
-  if (!linkedRun && orderedReceiptRuns.length === 0) return null;
+  if (!linkedRun && orderedReceiptRuns.length === 0) {
+    // The saved message named no bot. Replay it without starting one.
+    if (message.senderUserId) return sendResult(message, [], { allowQuiet: true });
+    return null;
+  }
   const runs = orderedReceiptRuns.length
     ? orderedReceiptRuns
     : message.sourceRuns.length
@@ -242,9 +252,17 @@ function sendEventRunIds(payload: Prisma.JsonValue | undefined): string[] {
   return Array.isArray(runIds) ? runIds.filter((id): id is string => typeof id === "string") : [];
 }
 
-function sendResult(message: { seq: number }, runs: Array<{ id: string; taskId: string }>) {
+function sendResult(
+  message: { seq: number },
+  runs: Array<{ id: string; taskId: string }>,
+  options?: { allowQuiet?: boolean },
+) {
   const first = runs[0];
-  if (!first) throw new IsolationError("Send did not create a run");
+  if (!first) {
+    // A shared-group message can name no bot. The text stays; nothing starts.
+    if (options?.allowQuiet) return { seq: message.seq, runIds: [] as string[] };
+    throw new IsolationError("Send did not create a run");
+  }
   return {
     taskId: first.taskId,
     runId: first.id,
@@ -283,20 +301,51 @@ export async function cancelSupersededQueuedRuns(
   });
 }
 
+type LoadedGroupMember = {
+  botId: string;
+  name: string;
+  color: string;
+  avatarSet: ReturnType<typeof resolveBotAvatarSet>;
+  userId?: string;
+  spaceId?: string;
+};
+
 async function lockAndLoadGroupMembers(
   tx: Prisma.TransactionClient,
   actor: Actor,
   target: Extract<ThreadTarget, { kind: "group" }>,
-) {
-  await lockOwnedGroup(tx, actor, target.groupId);
-  const group = await tx.chatGroup.findFirst({
+): Promise<{ shared: boolean; spaceId: string; members: LoadedGroupMember[] }> {
+  const locked = await lockReadableGroup(tx, actor, target.groupId);
+  const visible = await tx.chatGroup.findFirst({
     where: {
       id: target.groupId,
-      spaceId: actor.spaceId,
-      userId: actor.userId,
       archivedAt: null,
       thread: { id: target.threadId },
+      ...(locked.shared ? {} : { spaceId: actor.spaceId, userId: actor.userId }),
     },
+    select: { id: true },
+  });
+  if (!visible) throw new IsolationError();
+  if (locked.shared) {
+    const rosters = await runAsSystemInTransaction(tx, "read shared group member names", () =>
+      loadSharedGroupRosters(tx, [target.groupId], actor.userId),
+    );
+    const roster = rosters.get(target.groupId);
+    return {
+      shared: true,
+      spaceId: locked.spaceId,
+      members: (roster?.members ?? []).map((member) => ({
+        botId: member.botId,
+        name: member.name,
+        color: member.color,
+        avatarSet: member.avatarSet,
+        userId: member.userId,
+        spaceId: member.spaceId,
+      })),
+    };
+  }
+  const group = await tx.chatGroup.findFirst({
+    where: { id: target.groupId },
     include: {
       members: {
         where: { bot: { archivedAt: null } },
@@ -306,19 +355,23 @@ async function lockAndLoadGroupMembers(
     },
   });
   if (!group || group.members.length < GROUP_MEMBER_MIN) throw new IsolationError();
-  return group.members.map((member) => ({
-    botId: member.bot.id,
-    name: member.bot.name,
-    color: member.bot.color,
-    avatarSet: resolveBotAvatarSet(member.bot.avatarSet),
-  }));
+  return {
+    shared: false,
+    spaceId: actor.spaceId,
+    members: group.members.map((member) => ({
+      botId: member.bot.id,
+      name: member.bot.name,
+      color: member.bot.color,
+      avatarSet: resolveBotAvatarSet(member.bot.avatarSet),
+    })),
+  };
 }
 
-/** The bots a send wakes: the bot itself, or the group members it names (else the first). */
+/** The bots a send wakes. A private group with no name still wakes its first bot. */
 export function sendTargetBotIds(
   target:
     | { kind: "bot"; botId: string }
-    | { kind: "group"; members: Array<{ botId: string; name: string }> },
+    | { kind: "group"; shared?: boolean; members: Array<{ botId: string; name: string }> },
   input: { text?: string; mentions?: MentionTargetInput[] },
 ): string[] {
   if (target.kind === "bot") return [target.botId];
@@ -326,6 +379,7 @@ export function sendTargetBotIds(
     text: input.text ?? "",
     members: target.members.map((member) => ({ id: member.botId, name: member.name })),
     explicitMentions: splitMentionTargets(input.mentions).botMentionIds,
+    fallback: !target.shared,
   });
 }
 
@@ -356,6 +410,8 @@ export async function resolveThreadTarget(
       color: member.bot.color,
       avatarSet: resolveBotAvatarSet(member.bot.avatarSet),
       status: primaryActiveRun(member.bot.runs)?.status ?? "idle",
+      ...(member.bot.userId ? { userId: member.bot.userId } : {}),
+      ...(member.bot.spaceId ? { spaceId: member.bot.spaceId } : {}),
     }));
     return {
       kind: "group",
@@ -364,6 +420,7 @@ export async function resolveThreadTarget(
       groupName: group.name,
       members,
       memberBotIds: members.map((member) => member.botId),
+      ...(group.shared ? { shared: true as const, spaceId: group.spaceId } : {}),
     };
   }
   throw new IsolationError();
@@ -1030,10 +1087,21 @@ export async function sendThreadMessage(
         return { message, runs: [run], routineRuns, eventSeq: event.seq };
       }
 
-      const members = await lockAndLoadGroupMembers(tx, actor, target);
+      const loaded = await lockAndLoadGroupMembers(tx, actor, target);
+      const members = loaded.members;
       const memberBotIds = members.map((member) => member.botId);
       const mentionTargets = splitMentionTargets(input.mentions);
-      const targetBotIds = sendTargetBotIds({ kind: "group", members }, input);
+      const targetBotIds = sendTargetBotIds(
+        { kind: "group", members, shared: loaded.shared },
+        input,
+      );
+      const { inThreadIds, foreign } = partitionSharedGroupBots(
+        loaded.shared,
+        loaded.spaceId,
+        members,
+        targetBotIds,
+      );
+      const spaceId = loaded.spaceId;
       const { blocks: attachmentBlocks, artifacts } = await resolveGroupSendAttachments(
         { prisma: tx, maxAttachmentsPerMessage: deps.maxAttachmentsPerMessage },
         actor,
@@ -1049,26 +1117,28 @@ export async function sendThreadMessage(
       // Group ownership is locked first, then the thread, as in the normal write path.
       await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
       routineRuns = (await startRoutines?.(tx)) ?? [];
-      const activeRuns = await tx.run.findMany({
-        where: {
-          threadId: target.threadId,
-          botId: { in: targetBotIds },
-          status: { in: [...ACTIVE_RUN_STATUSES] },
-        },
-        select: {
-          id: true,
-          taskId: true,
-          botId: true,
-          status: true,
-          trigger: true,
-          modelProvider: true,
-          modelId: true,
-          modelPinned: true,
-          thinkingLevel: true,
-        },
-      });
+      const activeRuns = inThreadIds.length
+        ? await tx.run.findMany({
+            where: {
+              threadId: target.threadId,
+              botId: { in: inThreadIds },
+              status: { in: [...ACTIVE_RUN_STATUSES] },
+            },
+            select: {
+              id: true,
+              taskId: true,
+              botId: true,
+              status: true,
+              trigger: true,
+              modelProvider: true,
+              modelId: true,
+              modelPinned: true,
+              thinkingLevel: true,
+            },
+          })
+        : [];
       if (input.imageHandling === "confirm") {
-        for (const botId of targetBotIds) {
+        for (const botId of inThreadIds) {
           await assertImageRecipients(tx, actor, target, input.text, attachmentBlocks, {
             botId,
             runs: activeRuns.filter((run) => run.botId === botId),
@@ -1088,13 +1158,14 @@ export async function sendThreadMessage(
         replyQuote,
         clientNonce: input.clientNonce,
         origin: input.origin,
+        ...(loaded.shared ? { senderUserId: actor.userId } : {}),
       });
       const activeByBotId = new Map<string, (typeof activeRuns)[number]>();
       const answeredByBotId = new Map<string, Array<(typeof activeRuns)[number]>>();
       for (const run of activeRuns) {
         if (run.status === "waiting_input") {
           const answered = await answerWaitingRunWithTextInTransaction(tx, {
-            spaceId: actor.spaceId,
+            spaceId,
             threadId: target.threadId,
             runId: run.id,
             answeredByUserId: actor.userId,
@@ -1107,7 +1178,7 @@ export async function sendThreadMessage(
             answeredByBotId.set(run.botId, queuedForBot);
           } else {
             await retireWaitingQuestionInTransaction(tx, {
-              spaceId: actor.spaceId,
+              spaceId,
               threadId: target.threadId,
               botId: run.botId,
               runId: run.id,
@@ -1123,7 +1194,8 @@ export async function sendThreadMessage(
         }
       }
       const runs: Array<{ id: string; taskId: string; botId: string; status: string }> = [];
-      for (const botId of targetBotIds) {
+      for (const botId of inThreadIds) {
+        const ownerId = members.find((member) => member.botId === botId)?.userId ?? actor.userId;
         const answered = answeredByBotId.get(botId);
         if (answered) {
           const steered = answered.filter((run) =>
@@ -1152,21 +1224,21 @@ export async function sendThreadMessage(
         }
         const task = await tx.task.create({
           data: {
-            spaceId: actor.spaceId,
+            spaceId,
             botId,
             threadId: target.threadId,
-            userId: actor.userId,
+            userId: ownerId,
             prompt: buildSendPrompt(input.text, artifacts, connectorNames),
             status: "queued",
           },
         });
         const run = await tx.run.create({
           data: {
-            spaceId: actor.spaceId,
+            spaceId,
             botId,
             threadId: target.threadId,
             taskId: task.id,
-            userId: actor.userId,
+            userId: ownerId,
             status: "queued",
             trigger: "user",
             clientNonce: sendRunClientNonce(input.clientNonce, message.id, botId),
@@ -1176,7 +1248,8 @@ export async function sendThreadMessage(
         runs.push(run);
       }
       const firstRun = runs[0];
-      const eventBotId = firstRun?.botId ?? targetBotIds[0];
+      const eventBotId =
+        firstRun?.botId ?? inThreadIds[0] ?? (loaded.shared ? target.groupId : undefined);
       if (!eventBotId) throw new IsolationError("Group send did not resolve a target");
       if (firstRun) {
         await tx.message.update({ where: { id: message.id }, data: { runId: firstRun.id } });
@@ -1193,7 +1266,7 @@ export async function sendThreadMessage(
       }
       await touchGroupUpdatedAt(tx, target.groupId);
       const event = await appendEventInTransaction(tx, {
-        spaceId: actor.spaceId,
+        spaceId,
         threadId: target.threadId,
         botId: eventBotId,
         type: "thread.message.created",
@@ -1208,9 +1281,27 @@ export async function sendThreadMessage(
           replyToMessageId,
           replyQuote,
           replyPreview,
+          ...(loaded.shared ? { senderUserId: actor.userId } : {}),
         },
       });
-      return { message, runs, routineRuns, eventSeq: event.seq };
+      return {
+        message,
+        runs,
+        routineRuns,
+        eventSeq: event.seq,
+        quiet: loaded.shared && runs.length === 0,
+        wake: foreign.length
+          ? {
+              groupId: target.groupId,
+              groupName: target.groupName,
+              groupThreadId: target.threadId,
+              sourceMessageId: message.id,
+              senderUserId: actor.userId,
+              senderText: input.text ?? "",
+              bots: foreign,
+            }
+          : undefined,
+      };
     });
 
   const committed = await withSerializableRetry(commit).catch(async (error) => {
@@ -1242,8 +1333,17 @@ export async function sendThreadMessage(
       if (steersUserMessage(run)) await releaseTakeover(run.id);
     }
   }
+  if ("wake" in committed && committed.wake) {
+    await wakeSharedGroupBots(deps, committed.wake).catch((error) => {
+      getLogger().error("shared group wake", error);
+    });
+  }
   await enqueueRunsNeedingContinue(deps.jobs, [...committed.routineRuns, ...committed.runs]);
-  return sendResult(committed.message, committed.runs);
+  return sendResult(
+    committed.message,
+    committed.runs,
+    "quiet" in committed && committed.quiet ? { allowQuiet: true } : undefined,
+  );
 }
 
 const REACTION_TURN_COOLDOWN_MS = 30_000;
@@ -1292,17 +1392,29 @@ export async function reactToThreadMessage(
       const run = steering?.run;
       return { eventSeq: null, runs: run?.status === "waiting_takeover" ? [run] : [] };
     }
-    const members =
+    const loaded =
       target.kind === "group" ? await lockAndLoadGroupMembers(tx, actor, target) : undefined;
-    const currentTarget = members
-      ? { ...target, memberBotIds: members.map((member) => member.botId) }
+    const currentTarget = loaded
+      ? {
+          ...target,
+          memberBotIds: loaded.members.map((member) => member.botId),
+          shared: loaded.shared,
+          spaceId: loaded.spaceId,
+        }
       : target;
     const replyBotId = input.mayStartTurn
       ? await reactionReplyBotId(tx, currentTarget, parent)
       : undefined;
-    const botId =
+    const replyMember = loaded?.members.find((member) => member.botId === replyBotId);
+    const replyForeign = Boolean(
+      loaded?.shared && replyMember?.spaceId && replyMember.spaceId !== loaded.spaceId,
+    );
+    const listedBotId =
       replyBotId ??
       (currentTarget.kind === "bot" ? currentTarget.botId : currentTarget.memberBotIds[0]);
+    const botId =
+      listedBotId ??
+      (loaded?.shared && currentTarget.kind === "group" ? currentTarget.groupId : undefined);
     if (!botId) throw new IsolationError();
     const blocks: MessageBlock[] = [{ kind: "text", text: input.reaction }];
     const message = await createThreadMessageInTransaction(tx, {
@@ -1311,16 +1423,20 @@ export async function reactToThreadMessage(
       blocks,
       replyToMessageId: parent.id,
       clientNonce: input.clientNonce,
+      ...(loaded?.shared ? { senderUserId: actor.userId } : {}),
     });
-    const runs = replyBotId
-      ? await startReactionTurn(tx, actor, target.threadId, replyBotId, parent, message, {
-          ...input,
-          canReleaseTakeover: Boolean(releaseTakeover),
-        })
-      : [];
+    const runs =
+      replyBotId && !replyForeign
+        ? await startReactionTurn(tx, actor, target.threadId, replyBotId, parent, message, {
+            ...input,
+            canReleaseTakeover: Boolean(releaseTakeover),
+            spaceId: loaded?.spaceId,
+            userId: replyMember?.userId,
+          })
+        : [];
     if (target.kind === "group") await touchGroupUpdatedAt(tx, target.groupId);
     const event = await appendEventInTransaction(tx, {
-      spaceId: actor.spaceId,
+      spaceId: loaded?.spaceId ?? actor.spaceId,
       threadId: target.threadId,
       botId,
       type: "thread.message.created",
@@ -1331,6 +1447,7 @@ export async function reactToThreadMessage(
         blocks,
         replyToMessageId: parent.id,
         ...(runs.length ? { runIds: runs.map((run) => run.id) } : {}),
+        ...(loaded?.shared ? { senderUserId: actor.userId } : {}),
       },
     });
     return { eventSeq: event.seq, runs };
@@ -1378,8 +1495,16 @@ async function startReactionTurn(
   botId: string,
   parent: { id: string; runId: string | null },
   message: { id: string; seq: number },
-  input: { reaction: MessageReaction; clientNonce: string; canReleaseTakeover: boolean },
+  input: {
+    reaction: MessageReaction;
+    clientNonce: string;
+    canReleaseTakeover: boolean;
+    spaceId?: string;
+    userId?: string;
+  },
 ): Promise<Array<{ id: string; taskId: string; status: string }>> {
+  const spaceId = input.spaceId ?? actor.spaceId;
+  const userId = input.userId ?? actor.userId;
   const activeRuns = await tx.run.findMany({
     where: { threadId, botId, status: { in: [...ACTIVE_RUN_STATUSES] } },
     select: { id: true, taskId: true, status: true },
@@ -1412,7 +1537,7 @@ async function startReactionTurn(
       active.id === parent.runId
     ) {
       const answered = await answerWaitingRunWithTextInTransaction(tx, {
-        spaceId: actor.spaceId,
+        spaceId,
         threadId,
         runId: active.id,
         answeredByUserId: actor.userId,
@@ -1442,21 +1567,21 @@ async function startReactionTurn(
   if (recentReaction) return [];
   const task = await tx.task.create({
     data: {
-      spaceId: actor.spaceId,
+      spaceId,
       botId,
       threadId,
-      userId: actor.userId,
+      userId,
       prompt: input.reaction,
       status: "queued",
     },
   });
   const run = await tx.run.create({
     data: {
-      spaceId: actor.spaceId,
+      spaceId,
       botId,
       threadId,
       taskId: task.id,
-      userId: actor.userId,
+      userId,
       status: "queued",
       trigger: "reaction",
       clientNonce: sendRunClientNonce(input.clientNonce, message.id),
@@ -1497,9 +1622,10 @@ export function cancelThreadRuns(
   actor: Pick<Actor, "spaceId">,
   target:
     | { kind: "bot"; botId: string; threadId: string }
-    | { kind: "group"; memberBotIds: string[]; threadId: string },
+    | { kind: "group"; memberBotIds: string[]; threadId: string; spaceId?: string },
   note?: { botId: string },
 ) {
+  const eventSpaceId = target.kind === "group" && target.spaceId ? target.spaceId : actor.spaceId;
   return async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
     const cancelled = await tx.run.updateManyAndReturn({
@@ -1555,7 +1681,7 @@ export function cancelThreadRuns(
     let eventSeq: number | null = null;
     for (const run of cancelled) {
       const event = await appendEventInTransaction(tx, {
-        spaceId: actor.spaceId,
+        spaceId: eventSpaceId,
         threadId: target.threadId,
         botId: run.botId,
         type: "run.cancelled",
@@ -1573,7 +1699,7 @@ export function cancelThreadRuns(
         botId: note.botId,
       });
       const event = await appendEventInTransaction(tx, {
-        spaceId: actor.spaceId,
+        spaceId: eventSpaceId,
         threadId: target.threadId,
         botId: note.botId,
         type: "thread.message.created",

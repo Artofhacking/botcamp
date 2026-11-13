@@ -1,6 +1,6 @@
-import type { AppBootstrap } from "@rakazo/contracts";
-import { ATTACHMENT_MAX_BYTES, attachmentMaxBytes } from "@rakazo/contracts";
-import { displayIdentityResult } from "@rakazo/core";
+import type { AppBootstrap } from "@botcamp/contracts";
+import { ATTACHMENT_MAX_BYTES, attachmentMaxBytes } from "@botcamp/contracts";
+import { displayIdentityResult } from "@botcamp/core";
 import { initialBootstrapTarget } from "./bootstrap-target";
 import { identityLabels } from "./identity-display";
 import { markOnce } from "./performance";
@@ -33,7 +33,10 @@ let primedBootstrap: {
 
 // Before anything reads the address: a path route becomes a hash route with no request.
 adoptHashRoute();
-const initialTarget = initialBootstrapTarget(documentPath(), Boolean(window.rakazoDesktop));
+const initialTarget = initialBootstrapTarget(
+  documentPath(),
+  Boolean(window.botcampDesktop ?? window.rakazoDesktop),
+);
 if (initialTarget) {
   const { botId } = initialTarget;
   const promise = requestBootstrap(botId);

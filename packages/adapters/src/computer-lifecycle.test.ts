@@ -8,15 +8,15 @@ import type {
   ComputerRef,
   JobPublisher,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   SandboxAllowanceUsedError,
   SandboxDamagedError,
   SandboxSizeUnavailableError,
   SandboxUnresponsiveError,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { clearThread } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { clearThread } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   acquireComputerExecutionLease,
@@ -988,6 +988,111 @@ describe("computer provisioning", () => {
       }
     },
   );
+
+  it("replaces a running computer the provider rejects as the previous identity", async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-team-replace-"));
+    const sandbox = new FakeSandboxProvider();
+    const started = await sandbox.provision({ botId: "team-1", homePath: dataDir }, context);
+    sandbox.acceptsRunningComputer = async () => false;
+    const prisma = {
+      computer: {
+        findUniqueOrThrow: vi.fn(async () => ({
+          id: "computer-1",
+          spaceId: "workspace-1",
+          userId: "user-1",
+          homeKey: "team-1",
+          providerRef: started.providerRef,
+          kind: "fake",
+          scope: "team",
+          state: "running",
+          screenGeneration: 3,
+          maintenanceId: null,
+          controlLeaseId: null,
+          runningSince: new Date("2024-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+        })),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      computerRun: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    } as unknown as PrismaClient;
+    const provision = vi.spyOn(sandbox, "provision");
+    try {
+      await provisionComputer(
+        {
+          prisma,
+          sandbox,
+          home: new LocalAgentHomeStore(dataDir),
+          jobs: {} as JobPublisher,
+          events: {} as ThreadEvents,
+          dataDir,
+        },
+        "computer-1",
+        context,
+      );
+      expect(provision).toHaveBeenCalled();
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a running computer when its identity cannot be read", async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-team-identity-"));
+    const sandbox = new FakeSandboxProvider();
+    const started = await sandbox.provision({ botId: "team-1", homePath: dataDir }, context);
+    sandbox.acceptsRunningComputer = async () => {
+      throw new Error("status unread");
+    };
+    const row = {
+      id: "computer-1",
+      spaceId: "workspace-1",
+      userId: "user-1",
+      homeKey: "team-1",
+      providerRef: started.providerRef as string,
+      kind: "fake",
+      scope: "team",
+      state: "running",
+      screenGeneration: 3,
+      maintenanceId: null,
+      controlLeaseId: null,
+      runningSince: new Date("2024-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+    };
+    const updateMany = vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      Object.assign(row, data);
+      return { count: 1 };
+    });
+    const prisma = {
+      computer: { findUniqueOrThrow: vi.fn(async () => ({ ...row })), updateMany },
+      computerRun: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    } as unknown as PrismaClient;
+    const provision = vi.spyOn(sandbox, "provision");
+    try {
+      const ref = await provisionComputer(
+        {
+          prisma,
+          sandbox,
+          home: new LocalAgentHomeStore(dataDir),
+          jobs: {} as JobPublisher,
+          events: {} as ThreadEvents,
+          dataDir,
+        },
+        "computer-1",
+        context,
+      );
+      expect(provision).not.toHaveBeenCalled();
+      expect(ref.providerRef).toBe(started.providerRef);
+      expect(row.state).toBe("running");
+      expect(row.screenGeneration).toBe(3);
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
 
   it.each([
     { stage: "prepare", rollbackFails: false, providerRef: "provider-2", kind: "e2b" },

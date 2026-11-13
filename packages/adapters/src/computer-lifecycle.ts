@@ -5,7 +5,7 @@ import type {
   ComputerRef,
   JobPublisher,
   SandboxProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   computerControlExpireJobKey,
   SandboxAllowanceUsedError,
@@ -13,24 +13,24 @@ import {
   SandboxSizeUnavailableError,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
-} from "@rakazo/adapter-kit";
-import type { ComputerSize, ComputerUpdate } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import type { ComputerSize, ComputerUpdate } from "@botcamp/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   abortableDelay,
   isRetryableError,
   parseScreenLeaseId,
   screenLeaseId,
-} from "@rakazo/core";
-import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma, PrismaClient, ThreadEvents } from "@botcamp/db";
 import {
   expireComputerExecutionLeases,
   parseComputerMode,
   planComputerSize,
   recordComputerRunEnd,
   recordComputerRunStart,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import {
   clearInactiveUserComputerControl,
   expireComputerControl,
@@ -206,7 +206,10 @@ export async function provisionComputer(
     deps.sandbox.isRunning
   ) {
     const ref = toComputerRef(existing);
-    if (await confirmedRunning(deps.sandbox, ref, context)) {
+    if (
+      (await confirmedRunning(deps.sandbox, ref, context)) &&
+      (await acceptsRunningComputer(deps.sandbox, ref, context))
+    ) {
       context.signal.throwIfAborted();
       const runningSince = existing.runningSince ?? new Date();
       const retained = await deps.prisma.computer.updateMany({
@@ -628,6 +631,29 @@ export async function provisionComputer(
  * Whether the provider confirms this reference is running. A status it still cannot read after
  * short retries is not a confirmation, so the caller reconnects as it did before the check.
  */
+/**
+ * A provider that cannot say, or has no opinion, keeps the running computer. Only an explicit
+ * false replaces it. Replacing is what retires a computer from the previous identity.
+ */
+async function acceptsRunningComputer(
+  sandbox: SandboxProvider,
+  ref: ComputerRef,
+  context: AdapterContext,
+): Promise<boolean> {
+  const check = sandbox.acceptsRunningComputer;
+  if (!check) return true;
+  try {
+    context.signal.throwIfAborted();
+    const accepted = await check(ref, context);
+    context.signal.throwIfAborted();
+    return accepted !== false;
+  } catch (error) {
+    context.signal.throwIfAborted();
+    getLogger().warn("computer.identity_check", { provider: ref.kind, error });
+    return true;
+  }
+}
+
 async function confirmedRunning(
   sandbox: SandboxProvider,
   ref: ComputerRef,

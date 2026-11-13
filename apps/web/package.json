@@ -1,5 +1,5 @@
 {
-  "name": "@rakazo/web",
+  "name": "@botcamp/web",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -20,12 +20,11 @@
     "@orpc/client": "1.15.7",
     "@orpc/contract": "1.15.7",
     "@orpc/tanstack-query": "1.15.7",
-    "@rakazo/chat-ui": "workspace:*",
-    "@rakazo/contracts": "workspace:*",
-    "@rakazo/core": "workspace:*",
-    "@rakazo/logging": "workspace:*",
-    "@rakazo/ui-tokens": "workspace:*",
-    "@rakazo/ui-web": "workspace:*",
+    "@botcamp/chat-ui": "workspace:*",
+    "@botcamp/contracts": "workspace:*",
+    "@botcamp/core": "workspace:*",
+    "@botcamp/ui-tokens": "workspace:*",
+    "@botcamp/ui-web": "workspace:*",
     "@sentry/react": "11.8.0",
     "@simplewebauthn/browser": "13.3.0",
     "@tanstack/react-query": "5.104.5",
@@ -35,7 +34,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "7.18.4",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@botcamp/logging": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "7.29.7",

@@ -25,8 +25,23 @@ import {
   stackResourceDir,
 } from "./local-stack.js";
 
-const COMPOSE_DIR = path.resolve(import.meta.dirname, "..", "..", "..", "infra", "compose");
 const fakeHex = (bytes: number) => "ab".repeat(bytes);
+const ENV_TEMPLATE = [
+  "POSTGRES_PASSWORD=",
+  "POSTGRES_APP_PASSWORD=",
+  "BETTER_AUTH_SECRET=",
+  "ENCRYPTION_KEY=",
+  "SCREEN_PROXY_SECRET=",
+  "SANDBOX_SUPERVISOR_TOKEN=",
+  "BOTCAMP_IMAGE=ghcr.io/artofhacking/botcamp/app",
+  "BOTCAMP_IMAGE_TAG=edge",
+  "RAKAZO_IMAGE_TAG=edge",
+  "BOTCAMP_COMPUTER_IMAGE_TAG=edge",
+  "RAKAZO_COMPUTER_IMAGE_TAG=edge",
+  "SANDBOX_PROVIDER=docker",
+  "OPENROUTER_API_KEY=",
+  "",
+].join("\n");
 
 describe("stack locations", () => {
   it("keeps the compose project under user data", () => {
@@ -62,8 +77,8 @@ describe("resolveImageTag", () => {
 });
 
 describe("renderStackEnv", () => {
-  it("fills the generated secrets and drops the image tag lines of the shipped template", async () => {
-    const template = await readFile(path.join(COMPOSE_DIR, STACK_ENV_TEMPLATE), "utf8");
+  it("fills the generated secrets and drops the image tag lines", async () => {
+    const template = ENV_TEMPLATE;
     const rendered = renderStackEnv(template, fakeHex);
     const lines = rendered.split("\n");
 
@@ -77,10 +92,16 @@ describe("renderStackEnv", () => {
     ]) {
       expect(lines).toContain(`${name}=${"ab".repeat(32)}`);
     }
-    expect(lines.some((line) => line.startsWith("RAKAZO_IMAGE_TAG="))).toBe(false);
-    expect(lines.some((line) => line.startsWith("RAKAZO_COMPUTER_IMAGE_TAG="))).toBe(false);
+    for (const name of [
+      "BOTCAMP_IMAGE_TAG",
+      "RAKAZO_IMAGE_TAG",
+      "BOTCAMP_COMPUTER_IMAGE_TAG",
+      "RAKAZO_COMPUTER_IMAGE_TAG",
+    ]) {
+      expect(lines.some((line) => line.startsWith(`${name}=`))).toBe(false);
+    }
     // Everything else, including the image names and empty optional keys, stays verbatim.
-    expect(lines).toContain("RAKAZO_IMAGE=ghcr.io/artofhacking/botcamp/app");
+    expect(lines).toContain("BOTCAMP_IMAGE=ghcr.io/artofhacking/botcamp/app");
     expect(lines).toContain("SANDBOX_PROVIDER=docker");
     expect(lines).toContain("OPENROUTER_API_KEY=");
     expect(rendered.endsWith("\n")).toBe(template.endsWith("\n"));
@@ -364,11 +385,16 @@ const ok: Script = (args) => {
 
 describe("LocalStackController", () => {
   let root: string;
+  let resources: string;
   let calls: RecordedCall[];
   let phases: string[];
 
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), "rakazo-stack-"));
+    resources = path.join(root, "resources");
+    await mkdir(resources);
+    await writeFile(path.join(resources, STACK_COMPOSE_FILE), "name: test\n");
+    await writeFile(path.join(resources, STACK_ENV_TEMPLATE), ENV_TEMPLATE);
     calls = [];
     phases = [];
   });
@@ -385,7 +411,7 @@ describe("LocalStackController", () => {
       exists: (file) => file === "/usr/bin/docker",
       allocatePort: async () => 45174,
       stackDir: path.join(root, "stack"),
-      resourceDir: COMPOSE_DIR,
+      resourceDir: resources,
       localWebUrl: "http://127.0.0.1:5173",
       imageTag: "v1.2.3",
       randomHex: fakeHex,
@@ -487,20 +513,25 @@ describe("LocalStackController", () => {
       expect(call.binary).toBe("/usr/bin/docker");
       expect(call.cwd).toBe(stackPath);
       expect(call.env).toMatchObject({
+        BOTCAMP_IMAGE_TAG: "v1.2.3",
         RAKAZO_IMAGE_TAG: "v1.2.3",
+        BOTCAMP_COMPUTER_IMAGE_TAG: "v1.2.3",
         RAKAZO_COMPUTER_IMAGE_TAG: "v1.2.3",
         COMPOSE_PROGRESS: "plain",
         HOME: "/home/me",
       });
       expect(call.env).not.toHaveProperty("OPENROUTER_API_KEY");
     }
-    expect(calls.at(-1)?.env.RAKAZO_DESKTOP_STACK_TOKEN).toBe("ab".repeat(32));
+    expect(
+      calls.at(-1)?.env.BOTCAMP_DESKTOP_STACK_TOKEN ?? calls.at(-1)?.env.RAKAZO_DESKTOP_STACK_TOKEN,
+    ).toBe("ab".repeat(32));
 
     await expect(readFile(path.join(stackPath, STACK_COMPOSE_FILE), "utf8")).resolves.toBe(
-      await readFile(path.join(COMPOSE_DIR, STACK_COMPOSE_FILE), "utf8"),
+      "name: test\n",
     );
     const env = await readFile(path.join(stackPath, STACK_ENV_FILE), "utf8");
     expect(env).toContain(`POSTGRES_PASSWORD=${"ab".repeat(16)}`);
+    expect(env).not.toContain("BOTCAMP_IMAGE_TAG=");
     expect(env).not.toContain("RAKAZO_IMAGE_TAG=");
     if (process.platform !== "win32") {
       expect((await stat(path.join(stackPath, STACK_ENV_FILE))).mode & 0o777).toBe(0o600);
@@ -790,7 +821,9 @@ describe("LocalStackController", () => {
     expect(stack.webUrl()).toBe("http://127.0.0.1:45174");
     expect(calls.filter((call) => call.args[7] === "pull")).toHaveLength(1);
     expect(
-      calls.filter((call) => call.args[7] === "up").map((call) => call.env.RAKAZO_WEB_PORT),
+      calls
+        .filter((call) => call.args[7] === "up")
+        .map((call) => call.env.BOTCAMP_WEB_PORT ?? call.env.RAKAZO_WEB_PORT),
     ).toEqual(["5173", "45174"]);
     expect(calls.at(-1)?.env).toMatchObject({
       RAKAZO_API_PORT: "0",

@@ -1,5 +1,5 @@
-import type { ModelOAuthBegin, SettingsScope, ThinkingLevel } from "@rakazo/contracts";
-import { cancelModelOAuthAttempt, finishModelOAuthAttempt } from "@rakazo/core";
+import type { ModelOAuthBegin, SettingsScope, ThinkingLevel } from "@botcamp/contracts";
+import { cancelModelOAuthAttempt, finishModelOAuthAttempt } from "@botcamp/core";
 import { useEffect, useRef, useState } from "react";
 import { desktopBridge, oauthStateOf, onDesktopOAuthCallback } from "./desktop";
 import { waitForModelOAuth } from "./model-auth";
@@ -179,7 +179,7 @@ export function useModelOAuthSignIn(options: {
       } else {
         // null means the browser blocked the popup — the card keeps showing the
         // URL, and callers can flag that nothing opened.
-        if (!window.open(started.verificationUri, "rakazo-model-oauth", "noopener,noreferrer")) {
+        if (!window.open(started.verificationUri, "botcamp-model-oauth", "noopener,noreferrer")) {
           setPopupBlocked(true);
         }
       }

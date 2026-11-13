@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildSkillMd } from "@rakazo/core";
+import { buildSkillMd } from "@botcamp/core";
 
 /** Walk up from this module so a bundled server file still finds the repo docs. */
 function docsDirectory(): string {

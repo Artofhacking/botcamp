@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { Button, Field, FieldError, FieldLabel, Input } from "@rakazo/ui-web";
+import { Button, Field, FieldError, FieldLabel, Input } from "@botcamp/ui-web";
 import { useId, useState } from "react";
 import type { ConnectionMode } from "./ConnectionModeFields";
 import { ConnectionModeFields } from "./ConnectionModeFields";
@@ -84,7 +84,7 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
           aria-invalid={workspaceValid ? undefined : true}
           aria-describedby={workspaceValid ? undefined : workspaceErrorId}
           onChange={(event) => setWorkspace(event.target.value)}
-          placeholder="rakazo-<space>"
+          placeholder="botcamp-<space>"
           maxLength={512}
           autoComplete="off"
         />

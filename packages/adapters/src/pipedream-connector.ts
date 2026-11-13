@@ -6,8 +6,8 @@ import type {
   ConnectorEvent,
   ConnectorTool,
   ManagedConnectorProvider,
-} from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import { catalogToolPrefix } from "./approval-effect.js";
 import { collectPages, filterCatalog } from "./composio-connector.js";
 import { resolveAccountToolCall, scopeConnectorTools } from "./connector-accounts.js";

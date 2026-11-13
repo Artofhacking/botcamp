@@ -7,7 +7,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { _electron as electron, expect, test } from "@playwright/test";
-import type { BotCampDesktop } from "@rakazo/contracts";
+import type { BotCampDesktop } from "@botcamp/contracts";
 
 const APP_MARKER = "Existing BotCamp instance ready";
 /** Outlasts the shell's 20s wait for a mounted app before it rejects the server. */

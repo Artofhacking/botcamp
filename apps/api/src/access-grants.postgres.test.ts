@@ -1,7 +1,7 @@
-import { BillingEmulator } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { asSystem, createDb } from "@rakazo/db";
+import { BillingEmulator } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { asSystem, createDb } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAccessGrant, revokeAccessGrant } from "./access-grants.js";
 import { createBillingService } from "./billing.js";

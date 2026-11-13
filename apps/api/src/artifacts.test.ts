@@ -1,6 +1,6 @@
-import type { ArtifactStore } from "@rakazo/adapter-kit";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import type { ArtifactStore } from "@botcamp/adapter-kit";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   ArtifactListCursorError,

@@ -1,5 +1,5 @@
-import type { PrismaClient } from "@rakazo/db";
-import { messagingIdentityForBot } from "@rakazo/db";
+import type { PrismaClient } from "@botcamp/db";
+import { messagingIdentityForBot } from "@botcamp/db";
 
 /**
  * Executor dep answering "does this bot belong to a messaging identity?" —

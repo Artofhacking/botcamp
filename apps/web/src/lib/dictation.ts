@@ -5,7 +5,7 @@ import {
   recognitionLocaleTag,
   speechLocaleTag,
   withAbort,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import { desktopBridge } from "./desktop.js";
 import { DesktopSpeechRecognition } from "./desktop-speech.js";
 import { getActiveUiLocale } from "./i18n.js";
@@ -60,8 +60,8 @@ export function webSpeechAvailable(): boolean {
  */
 function electronSpeechHost(): boolean {
   if (typeof window !== "undefined") {
-    const host = window as Window & { rakazoDesktop?: unknown };
-    if (host.rakazoDesktop) return true;
+    const host = window as Window & { botcampDesktop?: unknown; rakazoDesktop?: unknown };
+    if (host.botcampDesktop || host.rakazoDesktop) return true;
   }
   if (typeof navigator === "undefined") return false;
   const agent = navigator.userAgent;

@@ -461,10 +461,6 @@ msgstr "访问令牌（可选）"
 msgid "Account"
 msgstr "账户"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Account default"
-msgstr "账户默认"
-
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Account ID"
@@ -701,6 +697,10 @@ msgstr "全部时间"
 msgid "Allow"
 msgstr "允许"
 
+#: src/lib/dictation.ts
+msgid "Allow BotCamp to use Speech Recognition and the microphone in System Settings."
+msgstr "请在系统设置中允许 BotCamp 使用语音识别和麦克风。"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow cross-space bot communication"
 msgstr "允许跨空间机器人通信"
@@ -712,10 +712,6 @@ msgstr "允许在本空间使用"
 #: src/components/AskCard.tsx
 msgid "Allow once"
 msgstr "允许一次"
-
-#: src/lib/dictation.ts
-msgid "Allow BotCamp to use Speech Recognition and the microphone in System Settings."
-msgstr "请在系统设置中允许 BotCamp 使用语音识别和麦克风。"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -736,6 +732,10 @@ msgstr "已连接"
 #: src/pages/Auth.tsx
 msgid "Already have an account?"
 msgstr "已有账户？"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Already linked"
+msgstr "已经链接"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Always act"
@@ -957,10 +957,17 @@ msgstr "认证"
 msgid "Authentication failed."
 msgstr "身份验证失败。"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Authorization code"
 msgstr "授权码"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Authorization code was rejected"
+msgstr "授权码不正确"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -1119,13 +1126,14 @@ msgstr "Bot 屏幕"
 msgid "Bot screen preview"
 msgstr "Bot 屏幕预览"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Bot style"
-msgstr "Bot 形象"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Bot's model"
 msgstr "Bot 的模型"
+
+#: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
+msgid "BotCamp credits"
+msgstr "BotCamp 额度"
 
 #: src/components/SignupSurvey.tsx
 msgid "Both"
@@ -1146,10 +1154,6 @@ msgstr "每个 Bot 都有自己的电脑和浏览器"
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Brain label"
 msgstr "Brain 标签"
-
-#: src/components/integrations/skills-dialog.tsx
-msgid "Browse"
-msgstr "浏览"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
@@ -1173,6 +1177,11 @@ msgstr "回拨"
 msgid "Call with {0}"
 msgstr "与 {0} 通话"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Callback address"
+msgstr "回调地址"
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
 msgstr "正在呼叫你…"
@@ -1180,10 +1189,6 @@ msgstr "正在呼叫你…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "正在呼叫…"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Calls"
-msgstr "调用"
 
 #: src/components/pages/SharePopover.tsx
 msgid "Can view without signing in"
@@ -1287,9 +1292,9 @@ msgstr "正在修改…"
 msgid "Chart failed to render: {error}"
 msgstr "图表渲染失败：{error}"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat"
-msgstr "对话"
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Chat app code"
+msgstr "聊天工具二维码"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Chat Completions"
@@ -1363,7 +1368,6 @@ msgid "Checking connection…"
 msgstr "正在检查连接…"
 
 #: src/components/ComputersUnavailableHint.tsx
-#: src/components/DesktopUpdates.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "正在检查…"
@@ -1592,6 +1596,11 @@ msgstr "电脑"
 msgid "Computer failed to boot"
 msgstr "电脑启动失败"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Computer failed to boot"
+msgstr "电脑启动失败"
+
 #: src/components/ModelCredits.tsx
 msgid "Computer hours left"
 msgstr "剩余电脑时长"
@@ -1651,6 +1660,7 @@ msgstr "确认移除"
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "请确认此浏览器会话可以访问该 URL，然后重新测试。"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -1717,6 +1727,7 @@ msgid "Connect your own API key in Models or choose BotCamp credits in Billing."
 msgstr "请在“模型”中连接你自己的 API 密钥，或在“账单”中选择 BotCamp 额度。"
 
 #: src/components/ComputerDeviceSettings.tsx
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -1785,7 +1796,6 @@ msgstr "上下文限制"
 #: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/dialogs.tsx
 msgid "Continue"
 msgstr "继续"
 
@@ -1850,10 +1860,6 @@ msgstr "复制提示词"
 #: src/components/markdown-copy.tsx
 msgid "Copy rows"
 msgstr "复制行"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Cost"
-msgstr "费用"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -1968,10 +1974,6 @@ msgstr "无法创建群组"
 #: src/pages/shell/dialogs.tsx
 msgid "Could not create section"
 msgstr "无法创建分组"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Could not create space"
-msgstr "无法创建工作区"
 
 #: src/pages/Onboarding.tsx
 msgid "Could not create your bot"
@@ -2124,6 +2126,10 @@ msgstr "无法加载登录选项"
 msgid "Could not load skill"
 msgstr "无法加载技能"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Could not load the mailbox"
+msgstr "无法读取邮箱连接"
+
 #: src/pages/Artifacts.tsx
 msgid "Could not load this artifact."
 msgstr "无法加载此产物。"
@@ -2162,6 +2168,11 @@ msgstr "无法播放测试片段"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Could not preview plugin"
 msgstr "无法预览插件"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Could not reach the mailbox"
+msgstr "连不上邮箱"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Could not reach the model server."
@@ -2254,7 +2265,6 @@ msgstr "无法运行例行任务"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
-#: src/pages/shell/dialogs.tsx
 #: src/pages/shell/use-space-roster.ts
 msgid "Could not save"
 msgstr "无法保存"
@@ -2325,7 +2335,9 @@ msgstr "无法发送"
 msgid "Could not show the credential"
 msgstr "无法显示凭据"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Could not sign in"
 msgstr "无法登录"
 
@@ -2422,10 +2434,6 @@ msgstr "无法加载此页面。请重试。"
 msgid "Couldn't load your wallet"
 msgstr "无法加载钱包"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Couldn't update bot style"
-msgstr "无法更新 Bot 形象"
-
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
 msgstr "无法更新消息设置"
@@ -2468,7 +2476,6 @@ msgid "Create Routine"
 msgstr "新建例行任务"
 
 #: src/components/AskCard.tsx
-#: src/pages/shell/dialogs.tsx
 msgid "Create space"
 msgstr "创建工作区"
 
@@ -2527,10 +2534,6 @@ msgstr "当前密码"
 msgid "Custom header"
 msgstr "自定义请求头"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Customer support"
-msgstr "客户支持"
-
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Customize"
 msgstr "自定义"
@@ -2585,7 +2588,6 @@ msgstr "默认"
 
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
 #: src/pages/RoutineEditor.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
 msgstr "默认（{0}）"
 
@@ -2700,10 +2702,6 @@ msgstr "描述"
 msgid "Design"
 msgstr "设计"
 
-#: src/components/DesktopUpdates.tsx
-msgid "Desktop app"
-msgstr "桌面应用"
-
 #: src/components/ComputerProviderSettings.tsx
 msgid "Desktop ID"
 msgstr "桌面端 ID"
@@ -2737,10 +2735,6 @@ msgstr "听写失败。"
 msgid "Did you mean <0>{emailSuggestion}</0>?"
 msgstr "你是不是想输入 <0>{emailSuggestion}</0>？"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Disable a tool"
-msgstr "禁用工具"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "已禁用"
@@ -2749,6 +2743,7 @@ msgstr "已禁用"
 msgid "Discard recording"
 msgstr "丢弃录音"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/MessagingSettingsPanel.tsx
@@ -2816,21 +2811,17 @@ msgstr "Docker 已配置，但电脑没有响应。请确认 sandbox supervisor 
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker 限制对你电脑的访问，以提高安全性。使用{hostLabel}时，Bot 可以处理你的本地文件并使用本地工具。"
 
-#: src/components/SidebarFooter.tsx
-msgid "Docs"
-msgstr "文档"
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Document changed. Reopen to edit the latest version."
 msgstr "文档已更改。请重新打开以编辑最新版本。"
 
-#: src/pages/shell/takeover-prompt.tsx
-msgid "Don't show this again"
-msgstr "下次不再提醒"
-
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "还没有账户？"
+
+#: src/pages/shell/takeover-prompt.tsx
+msgid "Don't show this again"
+msgstr "下次不再提醒"
 
 #: src/components/AccountDataSettings.tsx
 #: src/components/ToolActivityDisclosure.tsx
@@ -2867,10 +2858,6 @@ msgstr "下载 CSV"
 #: src/components/pages/DownloadPdfButton.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
-
-#: src/components/DesktopUpdates.tsx
-msgid "Downloading…"
-msgstr "正在下载…"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Draft skill"
@@ -2926,11 +2913,6 @@ msgstr "把验证码发到我的邮箱"
 msgid "Email verification required"
 msgstr "需要验证邮箱"
 
-#. placeholder {0}: humanizeTool(toolName)
-#: src/pages/shell/bot-panel.tsx
-msgid "Enable {0}"
-msgstr "启用 {0}"
-
 #: src/components/ComputerProviderSettings.tsx
 msgid "End user ID"
 msgstr "最终用户 ID"
@@ -2939,15 +2921,13 @@ msgstr "最终用户 ID"
 msgid "Ends {day}"
 msgstr "将于 {day} 结束"
 
-#: src/components/GitHubStarPrompt.tsx
-msgid "Enjoying BotCamp?"
-msgstr "喜欢 BotCamp 吗？"
-
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "请输入密码"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/lib/user-error.ts
+#: src/pages/shell/message-cards.tsx
 msgid "Enter a valid email"
 msgstr "请输入有效的电子邮件地址"
 
@@ -2969,6 +2949,11 @@ msgstr "请输入 1 到 1000 之间的整数作为图像限制。"
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "测试前请输入 API 密钥。"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Enter the 16-character authorization code"
+msgstr "请输入 16 位授权码"
 
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
@@ -3012,8 +2997,8 @@ msgid "Every {n} hours at :{minute}"
 msgstr "每{n}小时{minute}分"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Every bot in this space reads these notes and keeps them up to date."
-msgstr "此空间中的所有机器人都会读取并更新这些笔记。"
+msgid "Every bot reads these notes and keeps them up to date."
+msgstr "所有机器人都会读取并更新这些笔记。"
 
 #: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
@@ -3275,10 +3260,6 @@ msgstr "网关地址"
 msgid "General"
 msgstr "通用"
 
-#: src/components/SidebarFooter.tsx
-msgid "Get the mobile app"
-msgstr "获取移动应用"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr "正在准备"
@@ -3439,10 +3420,6 @@ msgstr "你会如何使用 BotCamp？"
 msgid "I’m done"
 msgstr "我做完了"
 
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "Icon set"
-msgstr "图标集"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "If you heard that, voice is ready."
 msgstr "如果听到了，说明语音已就绪。"
@@ -3504,14 +3481,6 @@ msgstr "包含 API 密钥"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Incoming call"
 msgstr "来电"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Inherit default"
-msgstr "沿用默认"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Input"
-msgstr "输入"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3598,7 +3567,6 @@ msgid "Invite link"
 msgstr "邀请链接"
 
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
 msgstr "隔离"
 
@@ -3690,6 +3658,7 @@ msgstr "让机器人在 MEMORY.md 之外，按语义保存和回忆事实。"
 msgid "Light"
 msgstr "浅色"
 
+#: src/pages/shell/chat-tool-link.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "Link"
 msgstr "关联"
@@ -3706,6 +3675,10 @@ msgstr "关联私信"
 #: src/components/AccountAccess.tsx
 msgid "Link SSO"
 msgstr "关联 SSO"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Link your chat app"
+msgstr "链接你的聊天工具"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -3730,10 +3703,6 @@ msgstr "加载更多"
 #: src/pages/RoutineRunHistory.tsx
 msgid "Load older runs"
 msgstr "加载更早的运行记录"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Load web images automatically"
-msgstr "自动加载网络图片"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
@@ -3765,7 +3734,6 @@ msgid "Loading voice providers…"
 msgstr "正在加载语音提供方…"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-dialog.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/AdminAccessPage.tsx
 #: src/pages/Artifacts.tsx
@@ -3813,19 +3781,21 @@ msgstr "低"
 msgid "Low"
 msgstr "低"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Mailbox"
+msgstr "邮箱"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "主模型"
 
 #: src/pages/BillingSettingsPanel.tsx
-#: src/pages/SettingsOverlay.tsx
 msgid "Manage"
 msgstr "管理"
 
-#. placeholder {0}: option.name
 #. placeholder {0}: providerName(choice)
 #: src/pages/ModelRoleSettings.tsx
-#: src/pages/SettingsOverlay.tsx
 msgid "Manage {0}"
 msgstr "管理 {0}"
 
@@ -3837,10 +3807,6 @@ msgstr "管理账单"
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "管理 MCP 服务器"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Manage other bots"
-msgstr "管理其他机器人"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"
@@ -3941,10 +3907,6 @@ msgstr "记忆 {position}"
 #: src/pages/shell/agent-import.tsx
 msgid "Memory for {title}"
 msgstr "{title} 的记忆"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Memory scope"
-msgstr "记忆范围"
 
 #: src/pages/shell/composer.tsx
 msgid "Mentions"
@@ -4049,22 +4011,16 @@ msgstr "未接来电"
 msgid "Mode"
 msgstr "模式"
 
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Model"
 msgstr "模型"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
 msgstr "模型“{modelId}”未列出。"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Model connections"
-msgstr "模型连接"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4266,6 +4222,24 @@ msgstr "新建群组"
 msgid "New group chat"
 msgstr "新建群聊"
 
+msgid "New shared group"
+msgstr "新建共享群聊"
+
+msgid "Invite with an email"
+msgstr "用邮箱邀请"
+
+msgid "People"
+msgstr "成员"
+
+msgid "Admin"
+msgstr "管理员"
+
+msgid "Your bots"
+msgstr "你的机器人"
+
+msgid "Create shared group"
+msgstr "创建共享群聊"
+
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr "新建登录"
@@ -4283,11 +4257,6 @@ msgstr "新的待办"
 msgid "New password"
 msgstr "新密码"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-msgid "New private space"
-msgstr "新建私人空间"
-
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "New section"
@@ -4296,10 +4265,6 @@ msgstr "新建分组"
 #: src/pages/KnowledgeSection.tsx
 msgid "New skill"
 msgstr "新建技能"
-
-#: src/pages/shell/dialogs.tsx
-msgid "New space"
-msgstr "新建工作区"
 
 #: src/pages/Board.tsx
 msgid "New ticket"
@@ -4465,7 +4430,6 @@ msgstr "不在 BotCamp 目录中"
 msgid "Not in the plugin catalog"
 msgstr "不在插件目录中"
 
-#: src/components/GitHubStarPrompt.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Not now"
 msgstr "暂不"
@@ -4495,6 +4459,10 @@ msgstr "通知"
 msgid "Number"
 msgstr "号码"
 
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Number from your phone"
+msgstr "手机上的数字"
+
 #: src/pages/McpOAuthCallback.tsx
 msgid "OAuth authorization was cancelled."
 msgstr "OAuth 授权已取消。"
@@ -4515,6 +4483,7 @@ msgstr "OAuth 已连接"
 msgid "OAuth connection failed"
 msgstr "OAuth 连接失败"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth 已过期"
@@ -4571,7 +4540,6 @@ msgstr "仅自己"
 #: src/pages/PaymentWalletSettingsPanel.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/import-setup-card.tsx
-#: src/pages/shell/message-view.tsx
 msgid "Open"
 msgstr "打开"
 
@@ -4593,6 +4561,11 @@ msgstr "打开 {title}"
 #: src/pages/Onboarding.tsx
 msgid "Open <0>{0}</0> and enter this code:"
 msgstr "打开 <0>{0}</0>，输入这个验证码："
+
+#: src/components/pages/PublicPageShell.tsx
+#: src/pages/SharedPage.tsx
+msgid "Open BotCamp"
+msgstr "打开 BotCamp"
 
 #: src/pages/shell/chat-header.tsx
 msgid "Open call"
@@ -4622,11 +4595,6 @@ msgstr "打开链接"
 #: src/pages/shell/chat-header.tsx
 msgid "Open navigation"
 msgstr "打开导航"
-
-#: src/components/pages/PublicPageShell.tsx
-#: src/pages/SharedPage.tsx
-msgid "Open BotCamp"
-msgstr "打开 BotCamp"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Open work"
@@ -4673,11 +4641,6 @@ msgstr "组织"
 msgid "Organization API key"
 msgstr "组织 API 密钥"
 
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "Original"
-msgstr "原始"
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "原消息不可用"
@@ -4686,10 +4649,6 @@ msgstr "原消息不可用"
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Other model…"
 msgstr "其他模型…"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Output"
-msgstr "输出"
 
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts
@@ -4828,6 +4787,11 @@ msgstr "已暂停"
 msgid "Pending"
 msgstr "待处理"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Permission"
+msgstr "权限"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
 msgstr "权限"
@@ -4947,10 +4911,6 @@ msgstr "优先级"
 msgid "Private"
 msgstr "私有"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "Private workspace with its own bots and groups."
-msgstr "单独的工作区，有自己的 Bot 和群组。"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Productivity"
 msgstr "效率"
@@ -4985,16 +4945,6 @@ msgstr "拉取请求"
 msgid "Queued"
 msgstr "排队中"
 
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/shell/avatar-studio-popover.tsx
-msgid "BotCamp"
-msgstr "BotCamp"
-
-#: src/components/ModelCredits.tsx
-#: src/pages/Onboarding.tsx
-msgid "BotCamp credits"
-msgstr "BotCamp 额度"
-
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "rakazo-shared and IDs starting with bot- are reserved for BotCamp."
 msgstr "rakazo-shared 和以 bot- 开头的 ID 保留给 BotCamp 使用。"
@@ -5006,10 +4956,6 @@ msgstr "回应"
 #: src/pages/shell/message-hover-actions.tsx
 msgid "Reactions"
 msgstr "表情回应"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Read replies aloud"
-msgstr "朗读回复"
 
 #: src/pages/shell/import-status.ts
 msgid "Ready"
@@ -5044,6 +4990,7 @@ msgstr "最近"
 msgid "Recommended"
 msgstr "推荐"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Reconnect"
@@ -5390,7 +5337,6 @@ msgstr "正在恢复工作区"
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-dialog.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/AdminAccessPage.tsx
 #: src/pages/Auth.tsx
@@ -5410,15 +5356,15 @@ msgstr "立即重试"
 msgid "Retry screen"
 msgstr "重新连接屏幕"
 
-#. placeholder {0}: call.botName
-#: src/components/call/CallCard.tsx
-msgid "Return to call with {0}"
-msgstr "返回与 {0} 的通话"
-
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/SlackInstallCallback.tsx
 msgid "Return to BotCamp"
 msgstr "返回 BotCamp"
+
+#. placeholder {0}: call.botName
+#: src/components/call/CallCard.tsx
+msgid "Return to call with {0}"
+msgstr "返回与 {0} 的通话"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -5490,10 +5436,6 @@ msgstr "运行中"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "正在运行…"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Runs"
-msgstr "运行"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5646,10 +5588,6 @@ msgstr "搜索模型"
 msgid "Search runs"
 msgstr "搜索运行记录"
 
-#: src/components/integrations/skills-dialog.tsx
-msgid "Search skills"
-msgstr "搜索技能"
-
 #: src/components/VaultSettings.tsx
 msgid "Search Vault"
 msgstr "搜索保险库"
@@ -5720,10 +5658,6 @@ msgstr "发送录音"
 #: src/pages/Auth.tsx
 msgid "Send reset link"
 msgstr "发送重置链接"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Send with Enter"
-msgstr "按 Enter 发送"
 
 #: src/components/AskCard.tsx
 #: src/components/SecretAskCard.tsx
@@ -5809,7 +5743,6 @@ msgstr "共享，任何拥有链接的人都可查看"
 
 #: src/components/pages/PagesList.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Shared"
 msgstr "共享"
 
@@ -5849,10 +5782,6 @@ msgstr "显示密码"
 msgid "Show selected"
 msgstr "显示已选"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Show tool activity"
-msgstr "显示工具活动"
-
 #: src/components/call/VoiceChatCard.tsx
 msgid "Show transcript"
 msgstr "显示文字记录"
@@ -5879,15 +5808,17 @@ msgstr "登录"
 msgid "Sign in again"
 msgstr "重新登录"
 
+#. placeholder {0}: new URL(pasteSession.authorizationUrl).hostname
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Sign in at <0>{0}</0>, then paste the callback address."
+msgstr "在 <0>{0}</0> 登录，然后粘贴回调地址。"
+
 #. placeholder {0}: new URL(oauth.verificationUri).hostname
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Sign in at <0>{0}</0>, then paste the code here."
 msgstr "在 <0>{0}</0> 登录，然后将代码粘贴到这里。"
-
-#: src/pages/Auth.tsx
-msgid "Sign in to BotCamp"
-msgstr "登录 BotCamp"
 
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
@@ -5964,7 +5895,6 @@ msgstr "未启用 Slack"
 msgid "Slide up to lock"
 msgstr "上滑锁定"
 
-#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr "部分插件无法加载。"
@@ -6011,10 +5941,6 @@ msgstr "工作区"
 msgid "Space default"
 msgstr "工作区默认"
 
-#: src/pages/SettingsOverlay.tsx
-msgid "Spaces"
-msgstr "工作区"
-
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
 msgstr "朗读"
@@ -6038,10 +5964,6 @@ msgstr "SSO"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO 暂时不可用，请重试。"
-
-#: src/components/GitHubStarPrompt.tsx
-msgid "Star on GitHub"
-msgstr "在 GitHub 上加星"
 
 #: src/pages/shell/computer-overlay.tsx
 msgid "Start"
@@ -6136,10 +6058,6 @@ msgstr "正在停止…"
 msgid "Stored encrypted"
 msgstr "已加密存储"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Stream replies"
-msgstr "流式回复"
-
 #: src/lib/identity-display.ts
 msgid "subagent"
 msgstr "子 Agent"
@@ -6148,10 +6066,6 @@ msgstr "子 Agent"
 #: src/pages/Onboarding.tsx
 msgid "Submit"
 msgstr "提交"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Submit a plugin"
-msgstr "提交插件"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -6219,6 +6133,7 @@ msgid "Table"
 msgstr "表格"
 
 #: src/pages/shell/computer-overlay.tsx
+#: src/pages/shell/message-view.tsx
 msgid "Take control"
 msgstr "接管控制权"
 
@@ -6254,6 +6169,11 @@ msgstr "模板"
 msgid "Test"
 msgstr "测试"
 
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "Test and save"
+msgstr "测试并保存"
+
 #: src/components/ModelConnectionPreflightNotice.tsx
 msgid "Test API key"
 msgstr "测试 API 密钥"
@@ -6271,9 +6191,16 @@ msgstr "测试运行"
 msgid "Testing"
 msgstr "测试"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/components/ModelConnectionPreflightNotice.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Testing…"
 msgstr "正在测试…"
+
+#: src/components/integrations/deployment-apps.tsx
+#: src/pages/shell/message-cards.tsx
+msgid "That address has no authorization code"
+msgstr "这个地址没有授权码"
 
 #: src/pages/shell/composer-error.tsx
 msgid "The bot can use the file but won't see the picture."
@@ -6282,6 +6209,10 @@ msgstr "Bot 可以使用该文件，但看不到图片内容。"
 #: src/lib/dictation.ts
 msgid "The browser keeps dropping the microphone. Start dictation again to retry."
 msgstr "浏览器反复断开麦克风。重新开始听写以重试。"
+
+#: src/pages/shell/chat-tool-link.tsx
+msgid "The code expired"
+msgstr "二维码已过期"
 
 #: src/lib/model-connection-preflight.ts
 msgid "The connection timed out."
@@ -6354,18 +6285,19 @@ msgstr "对方可免费使用 {weeks} 周。"
 #: src/components/call/CallCard.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "思考"
-
-#: src/pages/shell/transcript.tsx
-msgid "Thinking…"
-msgstr "思考中"
 
 #. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "思考：{0}"
+
+#: src/components/ToolActivityDisclosure.tsx
+#: src/lib/roster-status.ts
+#: src/pages/shell/transcript.tsx
+msgid "Thinking…"
+msgstr "思考中"
 
 #: src/lib/user-error.ts
 msgid "This app needs its own sign-in setup to connect."
@@ -6487,8 +6419,8 @@ msgid "This provider is not connected yet."
 msgstr "此提供方尚未连接。"
 
 #: src/pages/ModelSettingsOverlay.tsx
-msgid "This removes the connection from every space."
-msgstr "这会从所有工作区移除这个连接。"
+msgid "This removes the connection."
+msgstr "这会移除这个连接。"
 
 #: src/pages/Auth.tsx
 msgid "This reset link is invalid or expired"
@@ -6561,10 +6493,6 @@ msgstr "至:"
 msgid "Today"
 msgstr "今天"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Tokens"
-msgstr "Token"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr "工具参数（JSON）"
@@ -6583,7 +6511,6 @@ msgid "Tool name"
 msgstr "工具名称"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "工具"
 
@@ -6675,6 +6602,7 @@ msgid "Uninstall"
 msgstr "卸载"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/shell/chat-tool-link.tsx
 msgid "Unlink"
 msgstr "取消关联"
 
@@ -6695,10 +6623,6 @@ msgstr "未读"
 #: src/pages/shell/use-composer-actions.ts
 msgid "Unsupported file type: {0}"
 msgstr "不支持的文件类型：{0}"
-
-#: src/components/DesktopUpdates.tsx
-msgid "Up to date"
-msgstr "已是最新"
 
 #: src/components/ModelCredits.tsx
 msgid "Update"
@@ -6731,10 +6655,6 @@ msgstr "更新进度"
 #: src/lib/client-update.ts
 msgid "Update required"
 msgstr "需要更新"
-
-#: src/pages/settings-nav.ts
-msgid "Updates"
-msgstr "更新"
 
 #. placeholder {0}: update.name
 #: src/components/ComputerUpdateProgress.tsx
@@ -6788,6 +6708,10 @@ msgstr "访问令牌请使用 {oauthEnvReference}。"
 msgid "Use a found model"
 msgstr "使用找到的模型"
 
+#: src/components/ModelCredits.tsx
+msgid "Use BotCamp credits"
+msgstr "使用 BotCamp 额度"
+
 #: src/lib/model-connection-preflight.ts
 msgid "Use Connect to verify the key."
 msgstr "请使用“连接”验证密钥。"
@@ -6811,10 +6735,6 @@ msgstr "使用我的订阅或 API 密钥"
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
 msgstr "输入密码时请用受保护输入。"
-
-#: src/components/ModelCredits.tsx
-msgid "Use BotCamp credits"
-msgstr "使用 BotCamp 额度"
 
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "Use space default"
@@ -6900,7 +6820,6 @@ msgid "View source"
 msgstr "查看源代码"
 
 #: src/pages/settings-nav.ts
-#: src/pages/shell/bot-panel.tsx
 #: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
@@ -6967,10 +6886,6 @@ msgstr "欢迎使用 BotCamp"
 #: src/pages/shell/dialogs.tsx
 msgid "What about its memories?"
 msgstr "它的记忆怎么处理？"
-
-#: src/pages/shell/dialogs.tsx
-msgid "What can this space use?"
-msgstr "这个工作区可以使用什么？"
 
 #: src/components/SignupSurvey.tsx
 msgid "What do you most want BotCamp to help with?"
@@ -7050,10 +6965,7 @@ msgstr "工作中"
 msgid "Working instructions"
 msgstr "工作指令"
 
-#: src/components/ToolActivityDisclosure.tsx
-#: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
-#: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "处理中…"
 
@@ -7182,51 +7094,3 @@ msgstr "你的语音提供方拒绝了该密钥。"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr "邮政编码"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Mailbox"
-msgstr "邮箱"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Permission"
-msgstr "权限"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Test and save"
-msgstr "测试并保存"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Authorization code was rejected"
-msgstr "授权码不正确"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Could not reach the mailbox"
-msgstr "连不上邮箱"
-
-#: src/components/integrations/deployment-apps.tsx
-msgid "Enter the 16-character authorization code"
-msgstr "请输入 16 位授权码"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Could not load the mailbox"
-msgstr "无法读取邮箱连接"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Already linked"
-msgstr "已经链接"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Chat app code"
-msgstr "聊天工具二维码"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Link your chat app"
-msgstr "链接你的聊天工具"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Number from your phone"
-msgstr "手机上的数字"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "The code expired"
-msgstr "二维码已过期"

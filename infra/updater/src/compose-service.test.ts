@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { RECREATED_SERVICES } from "@rakazo/core";
+import { RECREATED_SERVICES } from "@botcamp/core";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
@@ -45,7 +45,6 @@ describe("worker error reporting configuration", () => {
   it.each([
     "docker-compose.yml",
     "docker-compose.prod.yml",
-    "docker-compose.images.yml",
     "docker-compose.prod.docker.yml",
   ])("passes optional settings through %s", (file) => {
     const { services } = parse(
@@ -91,11 +90,13 @@ describe("the updater compose service", () => {
   it("is bind-mounted at the same path it has on the host", () => {
     const mount = (updater.volumes ?? []).find((volume) => volume.includes("RAKAZO_DEPLOY_DIR"));
     // biome-ignore lint/suspicious/noTemplateCurlyInString: this is the literal Compose expression
-    const deployDir = "${RAKAZO_DEPLOY_DIR:-/srv/rakazo}";
+    const deployDir = "${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}";
     const separatorIndex = mount?.indexOf("}:${") ?? -1;
     const source = separatorIndex < 0 ? undefined : mount?.slice(0, separatorIndex + 1);
     const destination = separatorIndex < 0 ? undefined : mount?.slice(separatorIndex + 2);
-    expect(updater.environment?.RAKAZO_DEPLOY_DIR).toBe(deployDir);
+    expect(updater.environment?.BOTCAMP_DEPLOY_DIR ?? updater.environment?.RAKAZO_DEPLOY_DIR).toBe(
+      deployDir,
+    );
     expect(mount).toBe(`${deployDir}:${deployDir}`);
     expect(source).toBe(destination);
   });
@@ -130,11 +131,11 @@ describe("the updater compose service", () => {
     // environment is exactly what this file declares. Pinning them here would make the documented
     // variables inert: the operator sets them, the updater never sees them, and the overlay is
     // dropped on every recreate.
-    expect(updater.environment?.RAKAZO_COMPOSE_FILE).toBe(
-      interpolated("RAKAZO_COMPOSE_FILE", "infra/compose/docker-compose.prod.yml"),
+    expect(updater.environment?.BOTCAMP_COMPOSE_FILE).toBe(
+      "${BOTCAMP_COMPOSE_FILE:-${RAKAZO_COMPOSE_FILE:-infra/compose/docker-compose.prod.yml}}",
     );
-    expect(updater.environment?.RAKAZO_UPDATE_SERVICES).toBe(
-      interpolated("RAKAZO_UPDATE_SERVICES"),
+    expect(updater.environment?.BOTCAMP_UPDATE_SERVICES).toBe(
+      "${BOTCAMP_UPDATE_SERVICES:-${RAKAZO_UPDATE_SERVICES:-}}",
     );
     expect(updater.environment?.COMPOSE_PATH_SEPARATOR).toBe(
       interpolated("COMPOSE_PATH_SEPARATOR"),
@@ -149,12 +150,16 @@ describe("the updater compose service", () => {
   it("does not load the application env_file into the root-equivalent process", () => {
     expect(updater.env_file).toBeUndefined();
     // biome-ignore lint/suspicious/noTemplateCurlyInString: this is the literal Compose expression
-    expect(updater.environment?.RAKAZO_UPDATER_TOKEN).toBe("${RAKAZO_UPDATER_TOKEN:-}");
+    expect(updater.environment?.BOTCAMP_UPDATER_TOKEN).toBe(
+      "${BOTCAMP_UPDATER_TOKEN:-${RAKAZO_UPDATER_TOKEN:-}}",
+    );
   });
 
   it("does not let the api container reach the Docker socket to update itself", () => {
     expect(compose.services.api?.volumes ?? []).not.toContain("/var/run/docker.sock");
+    expect(compose.services.api?.environment?.BOTCAMP_UPDATER_URL).toBeUndefined();
     expect(compose.services.api?.environment?.RAKAZO_UPDATER_URL).toBeUndefined();
+    expect(compose.services.api?.environment?.BOTCAMP_UPDATER_TOKEN).toBeUndefined();
     expect(compose.services.api?.environment?.RAKAZO_UPDATER_TOKEN).toBeUndefined();
   });
 

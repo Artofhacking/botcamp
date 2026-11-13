@@ -4,8 +4,8 @@ import type {
   AutoReviewRequest,
   ConnectorCall,
   ToolBatch,
-} from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   applyJudgeDecision,
   approvalModeFromPreference,
@@ -26,12 +26,12 @@ import {
   toolRequiresApproval,
   toolRequiresExplicitApproval,
   unattendedTriggerToolRequiresApproval,
-} from "@rakazo/core";
-import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
-import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import type { AuditEventInput } from "@rakazo/db";
-import { recordAuditEvent, runSecretKind } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import { normalizedHttpUrl, urlSite } from "@botcamp/core/egress";
+import { approvalEffectKey, toolEffectIdempotencyKey } from "@botcamp/core/node/approval-effect-key";
+import type { AuditEventInput } from "@botcamp/db";
+import { recordAuditEvent, runSecretKind } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { FleetCardSummary } from "./approval-ask.js";
 import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH } from "./approval-ask.js";
 import {

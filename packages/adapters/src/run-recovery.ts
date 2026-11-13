@@ -1,6 +1,6 @@
-import { isTerminal } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { expireComputerExecutionLeases } from "@rakazo/db";
+import { isTerminal } from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
+import { expireComputerExecutionLeases } from "@botcamp/db";
 import { EXECUTION_LEASE_MS } from "./computer-lifecycle.js";
 
 type RecoveryRun = { id: string; botId: string; bot: { computerId: string | null } };

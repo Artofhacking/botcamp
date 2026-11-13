@@ -1,10 +1,10 @@
-import type { RealtimeFanout } from "@rakazo/adapter-kit";
-import { BOT_SECRET_VALUE_MAX_LENGTH, encodeLoginSecret } from "@rakazo/contracts";
+import type { RealtimeFanout } from "@botcamp/adapter-kit";
+import { BOT_SECRET_VALUE_MAX_LENGTH, encodeLoginSecret } from "@botcamp/contracts";
 import {
   TAKEOVER_COMPUTER_DONE_STATE,
   TAKEOVER_COMPUTER_PENDING_STATE,
   TAKEOVER_COMPUTER_SKIPPED_STATE,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "./client.js";
 import { CrossSpaceCommunicationBlockedError } from "./cross-space-communication.js";
@@ -116,6 +116,10 @@ describe("finalizeRun", () => {
         },
         message: { findFirst: vi.fn(async () => null) },
         bot: { update: vi.fn(async () => ({})) },
+        sharedGroupWake: {
+          findUnique: vi.fn(async () => null),
+          update: vi.fn(async () => ({})),
+        },
       };
       const transaction = vi
         .fn()
@@ -196,6 +200,10 @@ describe("finalizeRun", () => {
         })),
       },
       bot: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => null),
+        update: vi.fn(async () => ({})),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
@@ -259,6 +267,10 @@ describe("finalizeRun", () => {
       },
       message: { findFirst: vi.fn(async () => null), create },
       bot: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => null),
+        update: vi.fn(async () => ({})),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
@@ -277,6 +289,104 @@ describe("finalizeRun", () => {
       error: "terminated",
     });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("copies a foreign bot's finished text onto the shared group and wakes that thread", async () => {
+    const text = { kind: "text" as const, text: "On my way." };
+    const steps = { kind: "steps" as const, steps: [{ label: "Look", count: 1 }] };
+    const tx = {
+      externalEffect: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      $queryRaw: vi.fn(async () => []),
+      run: {
+        findUnique: vi.fn(async () => ({ status: "running", userId: "user-1" })),
+        findUniqueOrThrow: vi.fn(async () => ({ sourceMessage: null })),
+        findFirst: vi.fn(async () => null),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      attempt: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      task: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      thread: {
+        update: vi.fn(async () => ({ nextEventSeq: 4, nextMessageSeq: 8 })),
+        findUnique: vi.fn(async () => ({ spaceId: "group-space" })),
+      },
+      secret: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      event: {
+        create: vi.fn(async ({ data }: { data: { threadId: string; seq: number } }) => ({
+          threadId: data.threadId,
+          seq: data.seq,
+          createdAt: new Date(),
+        })),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+      },
+      steeringMessage: {
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        findMany: vi.fn(async () => []),
+        updateMany: vi.fn(async () => ({ count: 0 })),
+      },
+      message: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async ({ data }: { data: { threadId: string } }) => ({
+          ...data,
+          id: data.threadId === "group-thread" ? "mirrored" : "private-reply",
+        })),
+      },
+      bot: { update: vi.fn(async () => ({})) },
+      chatGroup: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => ({
+          id: "wake-1",
+          groupId: "group-1",
+          groupThreadId: "group-thread",
+          mirroredAt: null,
+        })),
+        update: vi.fn(async () => ({})),
+      },
+    };
+    const publish = vi.fn(async () => undefined);
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+
+    await finalizeRun(
+      prisma,
+      {
+        spaceId: "bot-space",
+        threadId: "private-thread",
+        botId: "bot-1",
+        runId: "run-1",
+        taskId: "task-1",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 1,
+        outcome: "completed",
+        blocks: [steps, text],
+      },
+      { publish } as never,
+    );
+
+    expect(tx.message.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        threadId: "group-thread",
+        role: "bot",
+        botId: "bot-1",
+        blocks: [text],
+        clientNonce: "shared-group-mirror:run-1",
+      }),
+    });
+    expect(tx.event.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        spaceId: "group-space",
+        threadId: "group-thread",
+        botId: "bot-1",
+        type: "thread.message.created",
+        payload: { messageId: "mirrored", role: "bot", blocks: [text] },
+      }),
+    });
+    expect(tx.sharedGroupWake.update).toHaveBeenCalledWith({
+      where: { id: "wake-1" },
+      data: { mirroredAt: expect.any(Date) },
+    });
+    expect(publish).toHaveBeenCalledWith("thread:group-thread", JSON.stringify({ cursor: 3 }));
   });
 
   it("resumes a held messaging inbound as a messaging run", async () => {
@@ -318,6 +428,10 @@ describe("finalizeRun", () => {
       },
       message: { findFirst: vi.fn(async () => null) },
       bot: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => null),
+        update: vi.fn(async () => ({})),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
@@ -389,6 +503,10 @@ describe("finalizeRun", () => {
       },
       message: { findFirst: vi.fn(async () => null) },
       bot: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => null),
+        update: vi.fn(async () => ({})),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
@@ -482,6 +600,10 @@ describe("finalizeRun", () => {
       },
       message: { findFirst: vi.fn(async () => null) },
       bot: { update: vi.fn(async () => ({})) },
+      sharedGroupWake: {
+        findUnique: vi.fn(async () => null),
+        update: vi.fn(async () => ({})),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),

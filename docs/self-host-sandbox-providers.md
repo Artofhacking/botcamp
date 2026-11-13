@@ -9,14 +9,13 @@ for the sharing and persistence contract.
 | Goal | Set | Also need |
 | --- | --- | --- |
 | Local Docker computers | `SANDBOX_PROVIDER=docker` | `SANDBOX_SUPERVISOR_TOKEN`, computer image, Docker socket for supervisor |
-| UI only, no computers | `SANDBOX_PROVIDER=none` | No provider credential; published-images Compose still requires `SANDBOX_SUPERVISOR_TOKEN` |
-| Managed remote desktop | `e2b` / `novita` / `daytona` / `createos` / `boat` / `boxd` | `SANDBOX_SUPERVISOR_TOKEN` (published-images Compose), matching API key (and optional URL knobs for Daytona/CreateOS/Boat) |
+| UI only, no computers | `SANDBOX_PROVIDER=none` | No provider credential. Docker Compose still requires `SANDBOX_SUPERVISOR_TOKEN` |
+| Managed remote desktop | `e2b` / `novita` / `daytona` / `createos` / `boat` / `boxd` | `SANDBOX_SUPERVISOR_TOKEN` when Compose starts a supervisor, plus the provider API key (and optional URL knobs for Daytona/CreateOS/Boat) |
 | One pod per computer on your own cluster | `SANDBOX_PROVIDER=kubernetes` | API and worker running in the cluster, a namespace and a Role that can create, read, delete and exec into pods |
 | One app container per computer on your own Incus server | `SANDBOX_PROVIDER=incus` | Incus API address, a client certificate restricted to one project, and a route from the API, worker and web to the computers' network |
 
-Published-images [Compose](../infra/compose/docker-compose.images.yml) defaults to **`docker`**.
-It always starts the supervisor and requires `SANDBOX_SUPERVISOR_TOKEN`, including for `none`
-and remote providers. This stack credential does not replace a remote provider's API key.
+A source checkout uses [Compose](../infra/compose/docker-compose.yml). Docker computers need
+`SANDBOX_SUPERVISOR_TOKEN`. That token does not replace a remote provider's API key.
 
 ## Settings configuration
 
@@ -36,10 +35,7 @@ The Electron desktop app is a client of the same API. Docker remains the default
 
 Native file reads and workspace exports are limited to 8 MiB per file. A larger workspace file fails the checkpoint and preserves the previous saved workspace; local files remain on the computer. Writes are bounded by the 12 MiB encoded request limit.
 
-- **Published images** (`docker-compose.images.yml`) default to `SANDBOX_PROVIDER=docker` with a
-  local supervisor and published `ghcr.io/artofhacking/botcamp/computer` image. No E2B account required.
-  Optional: set `e2b`, `novita`, `daytona`, `createos`, or `boat` plus the matching API key for remote computers.
-- **Docker** is the quick-start default for published images and for a source checkout / full local
+- **Docker** is the quick-start default for a source checkout / full local
   Compose stack. Workspace bots share a persistent Team Computer by default; Private computers are
   optional. Keep the supervisor private, as the included Compose files do.
 - **E2B** runs bot computers away from the BotCamp host and is a good choice for public or multi-user
@@ -77,7 +73,7 @@ Native file reads and workspace exports are limited to 8 MiB per file. A larger 
 
 Compose starts a **sandbox supervisor** (from the app image) on the internal
 network (port `7091` in published-images). It creates sibling **computer**
-containers from `RAKAZO_COMPUTER_IMAGE` + `RAKAZO_COMPUTER_IMAGE_TAG`.
+containers from `BOTCAMP_COMPUTER_IMAGE` + `BOTCAMP_COMPUTER_IMAGE_TAG`.
 
 Requirements:
 
@@ -105,17 +101,17 @@ The published computer image uses Chromium. To use Brave instead, build the imag
 `BROWSER=brave` and point Compose at it:
 
 ```bash
-docker build --build-arg BROWSER=brave -t rakazo-computer-brave infra/sandboxes/computer
+docker build --build-arg BROWSER=brave -t botcamp-computer-brave infra/sandboxes/computer
 ```
 
 ```env
-RAKAZO_COMPUTER_IMAGE=rakazo-computer-brave
-RAKAZO_COMPUTER_IMAGE_TAG=latest
+BOTCAMP_COMPUTER_IMAGE=botcamp-computer-brave
+BOTCAMP_COMPUTER_IMAGE_TAG=latest
 ```
 
-The image holds one browser, and `rakazo-browser` launches whichever is installed. A locally built
-image is not on a registry, so start the stack with `bash install-images.sh --pull-never` after
-pulling the other images once. Brave's Rewards, Wallet, Leo, VPN and News are disabled by managed
+The image holds one browser, and `botcamp-browser` launches whichever is installed. A locally built
+image is not on a registry, so start Compose with `--pull never` after the other images are
+already present. Brave's Rewards, Wallet, Leo, VPN and News are disabled by managed
 policy. Browser identity is only one input to bot-check challenges; the host's IP reputation usually
 matters more.
 
@@ -138,7 +134,7 @@ Each pod runs the image's own user (uid 1000) with no service account token and 
 with all Linux capabilities dropped, privilege escalation off and the runtime's default seccomp
 profile, like a Docker computer (these apply to newly created pods; a pod that was already running
 keeps its old spec until it is stopped and recreated),
-and is labelled `app.kubernetes.io/name=rakazo-computer` and `rakazo-bot-id=<bot id>`. Commands,
+and is labelled `app.kubernetes.io/name=botcamp-computer` and `botcamp-bot-id=<bot id>`. Commands,
 file transfers and workspace save and restore go through `pods/exec`; save and restore stream the
 home as one tar archive. Screens use the image's desktop gateway on the pod IP, so the API, the
 worker and the web screen proxy must be able to reach pods in that namespace on port `6080` and the
@@ -156,7 +152,7 @@ local Docker computer. The claim must be in the computer namespace, so in practi
 run in the API's namespace. Because a ReadWriteOnce volume is attached to one node,
 `KUBERNETES_SANDBOX_HOME_COLOCATE_NAMESPACE` and `KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS` (a JSON
 object) are required with it and become a required pod affinity to the pods that hold the volume,
-for example `{"app":"rakazo-api"}`. The pod gets `fsGroup: 1000`. An existing pod without the home
+for example `{"app":"botcamp-api"}`. The pod gets `fsGroup: 1000`. An existing pod without the home
 volume keeps copying its files until it is stopped; its next fresh pod mounts the saved home. This applies only to the local home store; with
 `OBJECT_STORAGE_BUCKET` set, the home claim is ignored and homes are copied as usual.
 
@@ -166,7 +162,7 @@ The API and worker service account needs this in the computer namespace:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: rakazo-computers
+  name: botcamp-computers
   namespace: rakazo-sandboxes
 rules:
   - apiGroups: [""]
@@ -204,7 +200,7 @@ uids) and the limits above, all set on the instance so a profile cannot loosen t
 own start command and every command run as the image's user (uid 1000) with no privilege
 escalation, the same boundary as a Docker computer, so a custom image must keep that command.
 
-Each start creates a new instance named `rakazo-<uuid>` and labelled `user.rakazo-bot-id=<bot id>`;
+Each start creates a new instance named `botcamp-<uuid>` and labelled `user.botcamp-bot-id=<bot id>`;
 one carrying another bot's id is never reused or deleted. Instances are ephemeral: Incus deletes
 one when it stops, and the saved workspace is the persistence boundary, copied in when a computer
 starts and saved back when it stops, as on Kubernetes. Only cache paths and the screen size are set
@@ -224,18 +220,18 @@ certificate cannot change its project's restrictions or limits. On the Incus hos
 
 ```bash
 incus network create rakazo0
-incus network acl create rakazo-computers
+incus network acl create botcamp-computers
 # Public internet only: no host, LAN, link-local, multicast or cloud-metadata addresses.
-incus network acl rule add rakazo-computers egress action=reject \
+incus network acl rule add botcamp-computers egress action=reject \
   destination=0.0.0.0/8,10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.0.0.0/24,192.168.0.0/16,198.18.0.0/15,224.0.0.0/3
-incus network acl rule add rakazo-computers egress action=reject protocol=tcp \
+incus network acl rule add botcamp-computers egress action=reject protocol=tcp \
   destination=::1/128,fc00::/7,fe80::/10,ff00::/8
-incus network acl rule add rakazo-computers egress action=reject protocol=udp \
+incus network acl rule add botcamp-computers egress action=reject protocol=udp \
   destination=::1/128,fc00::/7,fe80::/10,ff00::/8
-incus network acl rule add rakazo-computers egress action=reject protocol=icmp6 icmp_type=128 \
+incus network acl rule add botcamp-computers egress action=reject protocol=icmp6 icmp_type=128 \
   destination=::1/128,fc00::/7,fe80::/10
 # Screens, from the address the API, worker and web connect from.
-incus network acl rule add rakazo-computers ingress action=allow protocol=tcp \
+incus network acl rule add botcamp-computers ingress action=allow protocol=tcp \
   source=<rakazo-server-address> destination_port=6100
 
 incus project create rakazo -c features.images=true -c features.profiles=true \
@@ -243,7 +239,7 @@ incus project create rakazo -c features.images=true -c features.profiles=true \
   -c restricted.images.servers=ghcr.io
 incus profile device add default root disk path=/ pool=default --project rakazo
 incus profile device add default eth0 nic network=rakazo0 --project rakazo \
-  security.acls=rakazo-computers security.acls.default.egress.action=allow \
+  security.acls=botcamp-computers security.acls.default.egress.action=allow \
   security.ipv4_filtering=true security.ipv6_filtering=true
 
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes -days 3650 \
@@ -396,7 +392,7 @@ rechecks each selected PID's marker descriptors before signaling it.
 
 ### E2B computer template
 
-E2B computers start from the `rakazo-computer` template: E2B's stock desktop at
+E2B computers start from the `botcamp-computer` template: E2B's stock desktop at
 2 vCPU and 4 GB instead of its 8 vCPU and 8 GB. Build it once in the E2B team that
 owns `E2B_API_KEY`, and again whenever its definition in
 `packages/adapters/src/e2b-template.ts` changes:
@@ -417,7 +413,7 @@ Build the desktop template once in the account that owns that key:
 NOVITA_API_KEY=<deployment-key> pnpm sandbox:novita-template
 ```
 
-The `rakazo-computer` template uses Novita's desktop image at 2 vCPU and 4 GB.
+The `botcamp-computer` template uses Novita's desktop image at 2 vCPU and 4 GB.
 The provider requires this template and does not fall back to the larger stock desktop.
 To use another desktop template, set `SANDBOX_TEMPLATE` to the same name when building
 and on both services. Rebuild when the template definition changes; existing computers
@@ -444,7 +440,7 @@ or network error does not authorize replacing an existing computer.
 
 ### Boat computer snapshot
 
-Boat computers start from a named snapshot, `rakazo-computer-<hash>`, that already has the
+Boat computers start from a named snapshot, `botcamp-computer-<hash>`, that already has the
 desktop tools installed. The hash follows the setup in `packages/adapters/src/boat-sandbox.ts`,
 so changing it produces a new name and existing computers keep the one they started from.
 
@@ -461,7 +457,7 @@ BOAT_API_KEY=<deployment key> pnpm sandbox:boat-snapshot
 ### boxd computers
 
 boxd computers are isolated microVMs: no boxd credentials inside, and no route to the
-account's other machines. They start from a snapshot, `rakazo-computer-<hash>`, with the
+account's other machines. They start from a snapshot, `botcamp-computer-<hash>`, with the
 desktop tools and Chrome installed, built the same way as Boat's: once in the background
 when missing, from a fresh machine that is deleted afterwards. To build it ahead of the
 first computer:
@@ -476,11 +472,10 @@ with its memory, so programs it was running continue when it resumes.
 
 ## Verify a provider change
 
-After changing provider or keys (from the published-images drop directory that
-holds `docker-compose.images.yml` and `.env`):
+After changing provider or keys, from a checkout:
 
 ```bash
-docker compose --env-file .env -f docker-compose.images.yml up -d
+docker compose -f infra/compose/docker-compose.yml up -d
 curl -fsS http://127.0.0.1:3100/internal/health
 ```
 

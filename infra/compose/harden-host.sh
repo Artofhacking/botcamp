@@ -7,7 +7,7 @@ SSH_PORT="${SSH_PORT:-22}"
 [[ "${SSH_PORT}" =~ ^[0-9]+$ ]] && ((SSH_PORT > 0 && SSH_PORT <= 65535)) || { echo "Invalid SSH_PORT" >&2; exit 1; }
 
 if [[ "${EUID}" -ne 0 ]]; then
-  exec sudo --preserve-env=DEPLOY_USER,SSH_PORT,SSH_CONNECTION,RAKAZO_DEPLOY_DIR bash "$0" "$@"
+  exec sudo --preserve-env=DEPLOY_USER,SSH_PORT,SSH_CONNECTION,BOTCAMP_DEPLOY_DIR,RAKAZO_DEPLOY_DIR bash "$0" "$@"
 fi
 
 # Validate the guard's session identity before installing packages or writing host settings.
@@ -129,10 +129,13 @@ systemctl daemon-reload
 systemctl enable rakazo-drop-ip-options.service
 systemctl restart rakazo-drop-ip-options.service
 
-if [[ -z "${RAKAZO_DEPLOY_DIR:-}" && -r /etc/rakazo/deploy.env ]]; then
-  RAKAZO_DEPLOY_DIR="$(sed -n 's/^RAKAZO_DEPLOY_DIR=//p' /etc/rakazo/deploy.env | tail -1 | tr -d '"')"
+if [[ -z "${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-}}" && -r /etc/rakazo/deploy.env ]]; then
+  BOTCAMP_DEPLOY_DIR="$(sed -n 's/^BOTCAMP_DEPLOY_DIR=//p' /etc/rakazo/deploy.env | tail -1 | tr -d '"')"
+  if [[ -z "${BOTCAMP_DEPLOY_DIR}" ]]; then
+    RAKAZO_DEPLOY_DIR="$(sed -n 's/^RAKAZO_DEPLOY_DIR=//p' /etc/rakazo/deploy.env | tail -1 | tr -d '"')"
+  fi
 fi
-DEPLOY_DIR="${RAKAZO_DEPLOY_DIR:-/srv/rakazo}"
+DEPLOY_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}"
 [[ "${DEPLOY_DIR}" == /* ]] || { echo "RAKAZO_DEPLOY_DIR must be an absolute path" >&2; exit 1; }
 DEPLOY_HOME="$(getent passwd "${DEPLOY_USER}" | cut -d: -f6)"
 

@@ -4,9 +4,8 @@ import { randomUUID } from "node:crypto";
 import { access, lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { serve } from "@hono/node-server";
-import type { ServerUpdateRun } from "@rakazo/contracts";
-import type { ComposeUpdateStep } from "@rakazo/core";
+import type { ServerUpdateRun } from "@botcamp/contracts";
+import type { ComposeUpdateStep } from "@botcamp/core";
 import {
   chooseUpdateStrategy,
   commitImageTag,
@@ -19,11 +18,9 @@ import {
   gitUntrackedFilesArgv,
   gitWorktreeContentDiffArgv,
   hasValidBearerToken,
-  IMAGE_TAG_ENV,
   imageRef,
   isGitCommit,
   normalizeUpdateBranch,
-  PREVIOUS_IMAGE_TAG_ENV,
   parseGitNameOnly,
   parseGitStatusPorcelain,
   parseLsRemoteReleases,
@@ -33,16 +30,20 @@ import {
   selectLatestRelease,
   upsertEnvAssignments,
   validateUpdateRequest,
-} from "@rakazo/core";
-import type { Logger } from "@rakazo/logging";
-import { SERVICE_NAMES } from "@rakazo/logging";
-import { createRootLogger } from "@rakazo/logging/axiom";
-import { requestLogging } from "@rakazo/logging/hono";
+} from "@botcamp/core";
+import { firstNonEmpty } from "@botcamp/core/env-name";
+import type { Logger } from "@botcamp/logging";
+import { SERVICE_NAMES } from "@botcamp/logging";
+import { createRootLogger } from "@botcamp/logging/axiom";
+import { requestLogging } from "@botcamp/logging/hono";
+import { serve } from "@hono/node-server";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { UpdaterConfig } from "./updater-logic.js";
 import {
   missingSecretAssignments,
+  pinnedImageTagEnv,
+  pinnedImageTags,
   readTagState,
   resolveUpdaterConfig,
   truncateOutput,
@@ -109,7 +110,7 @@ export function commandEnvironment(
   // Root against a checkout the deploy user owns makes git exit 128 with "detected dubious
   // ownership". It is declared here, not in Compose, because this allowlist drops the service
   // environment; it is applied after `overrides` so a caller cannot widen it.
-  const deployDir = source.RAKAZO_DEPLOY_DIR?.trim();
+  const deployDir = firstNonEmpty(source.BOTCAMP_DEPLOY_DIR, source.RAKAZO_DEPLOY_DIR)?.trim();
   const gitOwnership =
     deployDir === undefined || deployDir === ""
       ? {}
@@ -629,10 +630,10 @@ export function createUpdaterApp(
       error: null,
       steps: [],
     };
-    const revertAssignments = {
-      [IMAGE_TAG_ENV]: input.fromTag,
-      [PREVIOUS_IMAGE_TAG_ENV]: input.originalPreviousTag ?? input.fromTag,
-    };
+    const revertAssignments = pinnedImageTags(
+      input.fromTag,
+      input.originalPreviousTag ?? input.fromTag,
+    );
     // A failed Git command can still change files. Restore once before Compose recovery, or in
     // finally for failures that never reached Compose.
     let checkoutNeedsRestore = false;
@@ -682,15 +683,14 @@ export function createUpdaterApp(
       try {
         await writeEnvAssignments({
           ...missingSecretAssignments(await readEnvFile()),
-          [IMAGE_TAG_ENV]: toTag,
-          [PREVIOUS_IMAGE_TAG_ENV]: input.fromTag,
+          ...pinnedImageTags(toTag, input.fromTag),
         });
       } catch {
         record.error = "Could not persist the target image tag in the deployment environment.";
         record.restartAdvice = `${record.error} Nothing was recreated.`;
         return record;
       }
-      const composeEnv: Record<string, string> = { [IMAGE_TAG_ENV]: toTag };
+      const composeEnv: Record<string, string> = pinnedImageTagEnv(toTag);
       if (record.toCommit !== null) composeEnv.GIT_SHA = record.toCommit;
 
       for (const step of composeSteps) {
@@ -715,7 +715,7 @@ export function createUpdaterApp(
                   command: previous.command,
                   args: previous.args,
                 },
-                { [IMAGE_TAG_ENV]: input.fromTag },
+                pinnedImageTagEnv(input.fromTag),
                 false,
               ));
             record.restart = recovered ? "not-required" : "manual";

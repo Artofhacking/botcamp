@@ -1,8 +1,13 @@
+import type { AccountSecurity } from "@botcamp/contracts";
+import { Button, Input, Label } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { AccountSecurity } from "@rakazo/contracts";
-import { Button, Input, Label } from "@rakazo/ui-web";
 import { useEffect, useState } from "react";
-import { fetchAccountSecurity, requestAccountDeletionCode } from "../lib/account-security";
+import {
+  configuredSignInProvider,
+  fetchAccountSecurity,
+  requestAccountDeletionCode,
+} from "../lib/account-security";
 import { authClient } from "../lib/auth";
 import { clearComposerDrafts } from "../lib/composer-draft";
 import { forgetSignedIn } from "../lib/returning-user";
@@ -122,18 +127,20 @@ export function DeleteAccountForm({
             </div>
           ) : (
             <>
-              {security.sso ? (
+              {configuredSignInProvider(security) ? (
                 <Button
                   variant="outline"
                   disabled={pending}
                   onClick={() =>
                     void action(async () => {
+                      const provider = configuredSignInProvider(security);
+                      if (!provider) return;
                       const returnTo = ssoReturnURL(false);
                       const result = await runSsoFlow(
                         (disableRedirect, callbackURL) =>
                           authClient.signIn.social({
                             disableRedirect,
-                            provider: "oidc",
+                            provider,
                             additionalData: { reauthenticate: true },
                             callbackURL: callbackURL(returnTo),
                             errorCallbackURL: callbackURL(returnTo),
@@ -216,8 +223,20 @@ export function DeleteAccountForm({
   );
 }
 
-/** Links the organization's SSO identity to an account that signed up another way. */
-export function LinkSsoRow() {
+/** Links the organization's SSO or directory identity to an account that signed up another way. */
+export function LinkSsoRow({
+  provider = "oidc",
+  label,
+  linked = null,
+  attached = false,
+}: {
+  provider?: "oidc" | "directory";
+  label?: string;
+  /** The linked person's name and picture. Hides the link button. */
+  linked?: { name: string; image?: string } | null;
+  /** Already attached even when no name was stored. Hides the link button. */
+  attached?: boolean;
+} = {}) {
   const { t } = useLingui();
   const [error, setError] = useState<string | null>(() => {
     const code = redirectError("link");
@@ -232,7 +251,7 @@ export function LinkSsoRow() {
         (disableRedirect, callbackURL) =>
           authClient.linkSocial({
             disableRedirect,
-            provider: "oidc",
+            provider,
             callbackURL: callbackURL(returnTo),
             errorCallbackURL: callbackURL(failed),
           }),
@@ -245,11 +264,25 @@ export function LinkSsoRow() {
   }
   return (
     <SettingsRow
-      label={<Trans>SSO</Trans>}
+      label={label ?? <Trans>SSO</Trans>}
       control={
-        <Button variant="secondary" size="sm" onClick={() => void link()}>
-          <Trans>Link SSO</Trans>
-        </Button>
+        linked ? (
+          <span className="flex min-w-0 items-center gap-2">
+            {linked.image ? (
+              <img
+                alt=""
+                src={linked.image}
+                referrerPolicy="no-referrer"
+                className="size-6 shrink-0 rounded-full object-cover"
+              />
+            ) : null}
+            <span className="truncate text-[13px]">{linked.name}</span>
+          </span>
+        ) : attached ? null : (
+          <Button variant="secondary" size="sm" onClick={() => void link()}>
+            <Trans>Link SSO</Trans>
+          </Button>
+        )
       }
     >
       {error ? (
@@ -259,6 +292,28 @@ export function LinkSsoRow() {
       ) : null}
     </SettingsRow>
   );
+}
+
+/** Starts the directory link for the signed-in account. Returns an error message, or null. */
+export async function beginDirectoryLink(): Promise<string | null> {
+  const returnTo = ssoReturnURL(false);
+  const failed = ssoReturnURL(true);
+  try {
+    const result = await runSsoFlow(
+      (disableRedirect, callbackURL) =>
+        authClient.linkSocial({
+          disableRedirect,
+          provider: "directory",
+          callbackURL: callbackURL(returnTo),
+          errorCallbackURL: callbackURL(failed),
+        }),
+      [returnTo, failed],
+    );
+    if (result.error) return authErrorText(result.error, t`Could not continue`);
+    return null;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : t`Could not continue`;
+  }
 }
 
 const LINK_RETURN = "sso-link";

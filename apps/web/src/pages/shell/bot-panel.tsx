@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -6,13 +5,13 @@ import type {
   ComputerMode,
   ModelCatalogEntry,
   ThinkingLevel,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   BOT_COMPUTER_MODES,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   resolveBotAvatarSet,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   chatModelChoices,
   connectedModelChoices,
@@ -20,7 +19,7 @@ import {
   modelOptionKey,
   parseModelOptionKey,
   resolveSelectableModelId,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import {
   Button,
   Input,
@@ -34,7 +33,8 @@ import {
   TabsTrigger,
   Textarea,
   Toggle,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Settings, X } from "lucide-react";
 import type { ReactNode } from "react";

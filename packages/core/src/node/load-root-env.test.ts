@@ -23,14 +23,14 @@ describe("root environment loading", () => {
   it("does not import local configuration into test processes", () => {
     vi.stubEnv("NODE_ENV", "test");
     loadRootEnv();
-    expect(process.env.RAKAZO_TEST_ENV_SENTINEL).toBeUndefined();
+    expect((process.env.BOTCAMP_TEST_ENV_SENTINEL ?? process.env.RAKAZO_TEST_ENV_SENTINEL)).toBeUndefined();
     expect(process.env.DATA_DIR).toBeUndefined();
   });
 
   it("loads development configuration and anchors relative data paths to its directory", () => {
     vi.stubEnv("NODE_ENV", "development");
     loadRootEnv();
-    expect(process.env.RAKAZO_TEST_ENV_SENTINEL).toBe("fixture");
+    expect((process.env.BOTCAMP_TEST_ENV_SENTINEL ?? process.env.RAKAZO_TEST_ENV_SENTINEL)).toBe("fixture");
     expect(process.env.DATA_DIR).toBe(path.join(root, "data"));
   });
 
@@ -38,12 +38,12 @@ describe("root environment loading", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("RAKAZO_TEST_ENV_SENTINEL", "caller");
     loadRootEnv();
-    expect(process.env.RAKAZO_TEST_ENV_SENTINEL).toBe("caller");
+    expect((process.env.BOTCAMP_TEST_ENV_SENTINEL ?? process.env.RAKAZO_TEST_ENV_SENTINEL)).toBe("caller");
   });
 
   it("loads configuration when a live verification explicitly opts in", () => {
     vi.stubEnv("NODE_ENV", "test");
     loadRootEnv({ allowInTests: true });
-    expect(process.env.RAKAZO_TEST_ENV_SENTINEL).toBe("fixture");
+    expect((process.env.BOTCAMP_TEST_ENV_SENTINEL ?? process.env.RAKAZO_TEST_ENV_SENTINEL)).toBe("fixture");
   });
 });

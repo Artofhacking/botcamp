@@ -22,7 +22,7 @@ function fixture() {
   const shared = path.join(home, ".browser-profiles/chromium");
   mkdirSync(shared, { recursive: true });
   mkdirSync(runtime);
-  const profile = (bot: string) => browserProfilePathForScreen(bot).replace("/home/rakazo", home);
+  const profile = (bot: string) => browserProfilePathForScreen(bot).replace("/home/botcamp", home);
   const run = (script: string) => {
     // GNU cp's reflink optimization has no macOS equivalent; all copy semantics remain intact.
     const portable =
@@ -35,8 +35,8 @@ function fixture() {
         "-eu",
         "-c",
         portable
-          .replaceAll("/tmp/rakazo", runtime)
-          .replaceAll("/home/rakazo", home)
+          .replaceAll("/tmp/botcamp", runtime)
+          .replaceAll("/home/botcamp", home)
           .replaceAll("/proc", path.join(root, "no-proc")),
       ],
       {

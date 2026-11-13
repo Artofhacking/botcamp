@@ -12,7 +12,7 @@ vi.mock("@lingui/react/macro", () => ({
       strings.reduce((text, part, index) => text + part + (values[index] ?? ""), ""),
   }),
 }));
-vi.mock("@rakazo/ui-web", () => ({
+vi.mock("@botcamp/ui-web", () => ({
   Button: ({ children, ...props }: { children?: ReactNode }) => (
     <button type="button" {...props}>
       {children}
@@ -81,8 +81,8 @@ describe("sidebar brand", () => {
     expect(link?.href).toBe(new URL("/", window.location.origin).href);
     expect(link?.target).toBe("_blank");
     expect(link?.rel).toContain("noopener");
-    expect(link?.textContent).toBe("");
-    expect(link?.getAttribute("aria-label")).toBe("BotCamp");
+    expect(link?.textContent).toContain("BotCamp");
+    expect(link?.getAttribute("aria-label")).toBeNull();
     expect(link?.querySelector("img")?.getAttribute("src")).toBe("/icon-192.png");
   });
 

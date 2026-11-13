@@ -7,10 +7,10 @@ import {
   migrateLocalPushTokens,
   PrismaPushTokenStore,
   unwrapEnvFromKeyManager,
-} from "@rakazo/adapters";
-import { resolveEncryptionKey } from "@rakazo/core";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
-import { createDb } from "@rakazo/db";
+} from "@botcamp/adapters";
+import { resolveEncryptionKey } from "@botcamp/core";
+import { loadRootEnv } from "@botcamp/core/node/load-root-env";
+import { createDb } from "@botcamp/db";
 
 loadRootEnv();
 await unwrapEnvFromKeyManager();

@@ -32,12 +32,12 @@ function runUnder(script: string, folder: string) {
 it("writes this release's page-browser files once, and again when they differ", () => {
   root = mkdtempSync(path.join(tmpdir(), "page-browser-install-"));
   execFileSync("mkdir", ["-p", `${root}/usr/local/bin`]);
-  const wrapper = `${root}/usr/local/bin/rakazo-page-browser`;
-  const secrets = `${root}/usr/local/lib/rakazo/page_secrets.py`;
+  const wrapper = `${root}/usr/local/bin/botcamp-page-browser`;
+  const secrets = `${root}/usr/local/lib/botcamp/page_secrets.py`;
 
   runUnder(installPageBrowserFilesCommand(), root);
   expect(readFileSync(wrapper, "utf8")).toBe(
-    readFileSync(path.join(computer, "rakazo-page-browser"), "utf8"),
+    readFileSync(path.join(computer, "botcamp-page-browser"), "utf8"),
   );
   expect(readFileSync(secrets, "utf8")).toBe(
     readFileSync(path.join(computer, "page_secrets.py"), "utf8"),
@@ -51,7 +51,7 @@ it("writes this release's page-browser files once, and again when they differ", 
   expect(readFileSync(secrets, "utf8")).toBe("edited");
 
   // One from another release gets this release's copy.
-  writeFileSync(`${root}/usr/local/lib/rakazo/page-browser.version`, "older");
+  writeFileSync(`${root}/usr/local/lib/botcamp/page-browser.version`, "older");
   runUnder(installPageBrowserFilesCommand(), root);
   expect(readFileSync(secrets, "utf8")).toBe(
     readFileSync(path.join(computer, "page_secrets.py"), "utf8"),
@@ -69,13 +69,13 @@ it("installs the page browser into the home when the image is not writable", () 
     command.slice(command.indexOf(marker)),
   ].join("\n");
   execFileSync("bash", ["-c", files], { env: { ...process.env, HOME: root } });
-  expect(readFileSync(`${root}/.local/bin/rakazo-page-browser`, "utf8")).toBe(
-    readFileSync(path.join(computer, "rakazo-page-browser"), "utf8"),
+  expect(readFileSync(`${root}/.local/bin/botcamp-page-browser`, "utf8")).toBe(
+    readFileSync(path.join(computer, "botcamp-page-browser"), "utf8"),
   );
   expect(readFileSync(`${root}/.local/bin/page_secrets.py`, "utf8")).toBe(
     readFileSync(path.join(computer, "page_secrets.py"), "utf8"),
   );
-  expect(statSync(`${root}/.local/bin/rakazo-page-browser`).mode & 0o777).toBe(0o755);
+  expect(statSync(`${root}/.local/bin/botcamp-page-browser`).mode & 0o777).toBe(0o755);
 
   writeFileSync(`${root}/.local/bin/page_secrets.py`, "edited");
   execFileSync("bash", ["-c", files], { env: { ...process.env, HOME: root } });
@@ -95,7 +95,7 @@ it("skips the home install when the image already has the page browser", () => {
   const current = [
     "image_missing",
     "x86_64",
-    `${AGENT_BROWSER_SHA256.x64}  /home/rakazo/.local/bin/agent-browser`,
+    `${AGENT_BROWSER_SHA256.x64}  /home/botcamp/.local/bin/agent-browser`,
     pageBrowserFilesVersion(),
   ].join("\n");
   expect(planPageBrowserInstall(current, pageBrowserFilesVersion())).toEqual({ action: "ready" });

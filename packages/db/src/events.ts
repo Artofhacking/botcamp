@@ -1,4 +1,4 @@
-import type { ProductAnalytics, RealtimeFanout } from "@rakazo/adapter-kit";
+import type { ProductAnalytics, RealtimeFanout } from "@botcamp/adapter-kit";
 import type {
   BotSecretDestination,
   ChatAlert,
@@ -6,7 +6,7 @@ import type {
   MessageBlock,
   OneTimeCodeTarget,
   ProductEvent,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   AnalyticsTrigger,
   BOT_INSTRUCTIONS_MAX_LENGTH,
@@ -17,7 +17,7 @@ import {
   MessageBlock as MessageBlockSchema,
   normalizeOneTimeCode,
   ThreadActivityPayloadSchema,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   blocksToAgentHistoryText,
@@ -38,10 +38,10 @@ import {
   SITE_SENDING_TOOLS,
   STEERING_CONTINUATION_PROMPT,
   sanitizeJsonValue,
-} from "@rakazo/core";
-import { urlSite } from "@rakazo/core/egress";
-import { approvalEffectKey } from "@rakazo/core/node/approval-effect-key";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/core";
+import { urlSite } from "@botcamp/core/egress";
+import { approvalEffectKey } from "@botcamp/core/node/approval-effect-key";
+import { getLogger } from "@botcamp/logging";
 import { saveApprovalRule, storedBatchActions } from "./approval-settings.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import { createChatAlerts } from "./chat-alerts.js";
@@ -63,6 +63,7 @@ import {
 import { deleteRunSecretsInTransaction } from "./run-secrets.js";
 import { isRunResponse, readRunTimingFields } from "./run-timing.js";
 import { RUN_TURN_CHECKPOINT_KIND } from "./run-turn-checkpoint.js";
+import { runAsSystemInTransaction } from "./row-security.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
@@ -1775,6 +1776,10 @@ export async function finalizeRun(
   const committed = await withTransactionRetry(() => finalizeRunOnce(prisma, input));
   if (!committed) return false;
   await notifyRealtime(realtime, committed.threadId, committed.seq);
+  // The reply was written on the bot's own thread. Wake the group so it shows there too.
+  if (committed.groupEvent) {
+    await notifyRealtime(realtime, committed.groupEvent.threadId, committed.groupEvent.seq);
+  }
   const timing = await readRunTimingFields(prisma, input.runId);
   if (committed.firstResponse) {
     getLogger().info("run.first_response", { "run.id": input.runId, ...timing });
@@ -1813,6 +1818,57 @@ export function completedRunBlocks(
 // default counts that wait, and expiring would fail a run whose work already finished.
 const FINALIZE_TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 20_000 };
 
+/** Post a foreign bot's finished text onto the shared group, then mark the wake copied. */
+async function copySharedGroupReply(
+  tx: Prisma.TransactionClient,
+  input: {
+    runId: string;
+    botId: string;
+    outcome: "completed" | "failed";
+    blocks: MessageBlock[];
+    now: Date;
+  },
+): Promise<{ threadId: string; seq: number } | undefined> {
+  const wake = await tx.sharedGroupWake.findUnique({ where: { runId: input.runId } });
+  if (!wake || wake.mirroredAt !== null) return undefined;
+  let groupEvent: { threadId: string; seq: number } | undefined;
+  if (input.outcome === "completed") {
+    const textBlocks = input.blocks.filter((block) => block.kind === "text");
+    if (textBlocks.length > 0) {
+      const groupThread = await tx.thread.findUnique({
+        where: { id: wake.groupThreadId },
+        select: { spaceId: true },
+      });
+      if (groupThread) {
+        const mirrored = await createThreadMessageInTransaction(tx, {
+          threadId: wake.groupThreadId,
+          role: "bot",
+          blocks: textBlocks,
+          botId: input.botId,
+          clientNonce: `shared-group-mirror:${input.runId}`,
+        });
+        const event = await appendEventInTransaction(tx, {
+          spaceId: groupThread.spaceId,
+          threadId: wake.groupThreadId,
+          botId: input.botId,
+          type: "thread.message.created",
+          payload: { messageId: mirrored.id, role: "bot", blocks: textBlocks },
+        });
+        await tx.chatGroup.update({
+          where: { id: wake.groupId },
+          data: { updatedAt: input.now },
+        });
+        groupEvent = { threadId: event.threadId, seq: event.seq };
+      }
+    }
+  }
+  await tx.sharedGroupWake.update({
+    where: { id: wake.id },
+    data: { mirroredAt: input.now },
+  });
+  return groupEvent;
+}
+
 async function finalizeRunOnce(
   prisma: PrismaClient,
   input: FinalizeRunInput,
@@ -1821,6 +1877,7 @@ async function finalizeRunOnce(
   seq: number;
   continuationRunId: string | null;
   firstResponse: boolean;
+  groupEvent?: { threadId: string; seq: number };
 } | null> {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
@@ -1957,7 +2014,25 @@ async function finalizeRunOnce(
     }
     const continuationRunId = await createPendingSteeringRun(tx, input);
     await tx.bot.update({ where: { id: input.botId }, data: { updatedAt: now } });
-    return { threadId: lastEvent.threadId, seq: lastEvent.seq, continuationRunId, firstResponse };
+    // The worker finishes as the bot's own tenant. shared_group_wakes is visible
+    // only to a system context, so a tenant read skips the copy and the group
+    // never sees the reply.
+    const groupEvent = await runAsSystemInTransaction(tx, "copy a shared group bot reply", () =>
+      copySharedGroupReply(tx, {
+        runId: input.runId,
+        botId: input.botId,
+        outcome: input.outcome,
+        blocks: replyBlocks,
+        now,
+      }),
+    );
+    return {
+      threadId: lastEvent.threadId,
+      seq: lastEvent.seq,
+      continuationRunId,
+      firstResponse,
+      groupEvent,
+    };
   }, FINALIZE_TRANSACTION_OPTIONS);
 }
 

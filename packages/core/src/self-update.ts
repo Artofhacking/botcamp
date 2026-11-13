@@ -1,3 +1,5 @@
+import { firstNonEmpty } from "./env-name.js";
+
 /** The repository a stock BotCamp deployment tracks. */
 export const OFFICIAL_REPO_URL = "https://github.com/artofhacking/botcamp";
 export const DEFAULT_UPDATE_BRANCH = "main";
@@ -215,19 +217,19 @@ export function updateSteps(input: UpdatePlanInput): UpdateStep[] {
       id: "generate",
       label: "Regenerate the database client",
       command: "pnpm",
-      args: ["--filter", "@rakazo/db", "run", "generate"],
+      args: ["--filter", "@botcamp/db", "run", "generate"],
     },
     {
       id: "build",
       label: "Build the web app",
       command: "pnpm",
-      args: ["--filter", "@rakazo/web", "run", "build"],
+      args: ["--filter", "@botcamp/web", "run", "build"],
     },
     {
       id: "migrate",
       label: "Apply database migrations",
       command: "pnpm",
-      args: ["--filter", "@rakazo/db", "run", "migrate"],
+      args: ["--filter", "@botcamp/db", "run", "migrate"],
     },
   );
   return steps;
@@ -247,7 +249,10 @@ export const RESTART_SUPERVISOR_ENV = "RAKAZO_UPDATE_RESTART_SUPERVISOR";
 export function detectRestartSupervisor(
   env: Record<string, string | undefined>,
 ): RestartSupervisor {
-  const declared = env[RESTART_SUPERVISOR_ENV]?.trim();
+  const declared = firstNonEmpty(
+    env.BOTCAMP_UPDATE_RESTART_SUPERVISOR,
+    env[RESTART_SUPERVISOR_ENV],
+  );
   if (declared) return { kind: "declared", label: declared };
   if (env.INVOCATION_ID?.trim()) return { kind: "systemd", label: "systemd" };
   if (env.pm_id?.trim() || env.PM2_HOME?.trim()) return { kind: "pm2", label: "pm2" };

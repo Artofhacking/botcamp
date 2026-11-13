@@ -1,4 +1,4 @@
-import type { ComputerRef } from "@rakazo/adapter-kit";
+import type { ComputerRef } from "@botcamp/adapter-kit";
 
 /** Told back to the model when the tool that needed the computer could not start it. */
 export const COMPUTER_START_RETRY_ERROR = "The computer did not start. Try again.";

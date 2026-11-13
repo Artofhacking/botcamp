@@ -1,8 +1,8 @@
 // `tsx src/cli/set-weekly-quota.ts <email|userId> [tokens]`
 // Reports a member's weekly model-token allowance and this week's spend; with a
 // token count it also sets the allowance.
-import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
-import { createDb, runAsSystem, weekEnd, weeklyTokensUsed } from "@rakazo/db";
+import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
+import { createDb, runAsSystem, weekEnd, weeklyTokensUsed } from "@botcamp/db";
 
 const target = process.argv[2];
 const requested = process.argv[3];

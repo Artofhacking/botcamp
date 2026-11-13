@@ -1,10 +1,13 @@
-import { normalizedHttpUrl } from "@rakazo/core/egress";
+import { normalizedHttpUrl } from "@botcamp/core/egress";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
 import { isMailboxAppName } from "./mailbox-app.js";
 import { loadSavedMailbox } from "./mailbox-connection.js";
+import { qqMailGrantConnected } from "./mcp-oauth.js";
 import { addMcpServerFromTool } from "./mcp-server-tool.js";
+import { GITHUB_APP_NAME, GITHUB_MCP_ENDPOINT, isGithubAppName } from "./github-app.js";
+import { isNotionAppName, NOTION_APP_NAME, NOTION_MCP_ENDPOINT } from "./notion-app.js";
 import type { RunContext } from "./run-context.js";
 import { runScopedToolExecutionId } from "./run-effects.js";
 import { flushProgress, publishMidTurnNarration, showNarrationStatus } from "./run-progress.js";
@@ -67,6 +70,27 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
   return call.finish({ error: `unknown tool ${name}` });
 }
 
+
+/** Hosted apps whose Connect row is their own MCP sign-in. */
+const HOSTED_MCP_APPS = [
+  {
+    matches: isNotionAppName,
+    name: NOTION_APP_NAME,
+    endpoint: NOTION_MCP_ENDPOINT,
+    description: "Search and edit pages and databases.",
+  },
+  {
+    matches: isGithubAppName,
+    name: GITHUB_APP_NAME,
+    endpoint: GITHUB_MCP_ENDPOINT,
+    description: "Search and change repositories, issues, and pull requests.",
+  },
+] as const;
+
+function hostedMcpApp(app: string) {
+  return HOSTED_MCP_APPS.find((entry) => entry.matches(app));
+}
+
 /** Web, cloud agents, MCP servers, app connections and connector tools. */
 export const integrationTools: ToolHandlers = {
   async web_search(ctx, call) {
@@ -91,10 +115,39 @@ export const integrationTools: ToolHandlers = {
     return call.finish(await addMcpServerFromTool(deps, run, bot.id, args, executionId));
   },
   async connect_app(ctx, call) {
-    const { deps, run, runId, context } = ctx;
+    const { deps, run, runId, context, bot } = ctx;
     const { args, executionId, applied } = call;
     await flushProgress(ctx);
     await showNarrationStatus(ctx, await publishMidTurnNarration(ctx, true));
+    const hosted = typeof args.app === "string" ? hostedMcpApp(args.app) : undefined;
+    if (hosted) {
+      const existing = await deps.prisma.mcpServer.findFirst({
+        where: { userId: run.userId, spaceId: run.spaceId, endpoint: hosted.endpoint },
+        select: { id: true },
+      });
+      if (existing) {
+        return call.finish({
+          status: "pending",
+          message:
+            `${hosted.name} is already added. Ask the user to choose Connect on ${hosted.name} ` +
+            "in Integrations, or to authorize the card already in the chat.",
+        });
+      }
+      return call.finish(
+        await addMcpServerFromTool(
+          deps,
+          run,
+          bot.id,
+          {
+            name: hosted.name,
+            transport: "streamable_http",
+            endpoint: hosted.endpoint,
+            description: hosted.description,
+          },
+          executionId,
+        ),
+      );
+    }
     const mailboxConnected =
       typeof args.app === "string" && isMailboxAppName(args.app)
         ? Boolean(
@@ -102,7 +155,11 @@ export const integrationTools: ToolHandlers = {
               userId: run.userId,
               spaceId: run.spaceId,
             }).catch(() => null),
-          )
+          ) ||
+          (await qqMailGrantConnected(deps.prisma, deps.secretStore, {
+            userId: run.userId,
+            spaceId: run.spaceId,
+          }).catch(() => false))
         : false;
     return call.finish(
       await connectApp(

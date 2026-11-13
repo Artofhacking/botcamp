@@ -1,6 +1,6 @@
-import { encodeLoginSecret } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { runLoginKind } from "@rakazo/db";
+import { encodeLoginSecret } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { runLoginKind } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import { storeBotSecret } from "./bot-secrets.js";
 import { fakeDatabase } from "./bot-secrets.test-support.js";

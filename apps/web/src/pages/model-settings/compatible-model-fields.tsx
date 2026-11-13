@@ -1,7 +1,7 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { ThinkingLevel } from "@rakazo/contracts";
-import { isOllamaCloudBaseUrl } from "@rakazo/contracts";
-import { compatibleThinkingLevels, toggleEnabledModelId } from "@rakazo/core";
+import type { ThinkingLevel } from "@botcamp/contracts";
+import { isOllamaCloudBaseUrl } from "@botcamp/contracts";
+import { compatibleThinkingLevels, toggleEnabledModelId } from "@botcamp/core";
 import {
   Button,
   Checkbox,
@@ -12,7 +12,7 @@ import {
   ModelThinkingOptions,
   NativeSelect,
   NativeSelectOption,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { ModelPreflightFeedback } from "../../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../../components/ModelHeadersEditor";
 import { useListSearch } from "../../lib/use-list-search";

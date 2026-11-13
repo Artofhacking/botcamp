@@ -11,6 +11,30 @@ export function memberName(
   return members.find((member) => member.botId === botId)?.name;
 }
 
+/**
+ * Who a group chat draws. A shared group uses its roster, which names every
+ * member bot, including ones another person added. The open thread only
+ * contributes run status, so a stale snapshot cannot hide those faces.
+ */
+export function sharedGroupFaces<T extends { botId: string; status?: string }>(
+  shared: boolean | undefined,
+  groupMembers: readonly T[] | undefined,
+  snapshotMembers: readonly T[] | undefined,
+): readonly T[] {
+  if (!shared) return snapshotMembers ?? groupMembers ?? [];
+  const roster = groupMembers ?? [];
+  if (roster.length === 0) return snapshotMembers ?? [];
+  const status = new Map(
+    (snapshotMembers ?? []).flatMap((member) =>
+      member.status ? ([[member.botId, member.status]] as const) : [],
+    ),
+  );
+  return roster.map((member) => {
+    const live = status.get(member.botId);
+    return live ? { ...member, status: live } : member;
+  });
+}
+
 const MENTION_PATTERN = /@([A-Za-z0-9][A-Za-z0-9_-]{0,39})/g;
 
 function escapeRegExp(value: string): string {
@@ -40,6 +64,11 @@ export function resolveGroupTargetBotIds(input: {
   members: GroupMemberRef[];
   /** Bot ids from typed mention chips (non-members are ignored for wake). */
   explicitMentions?: string[];
+  /**
+   * Private groups wake the first member when the message names none.
+   * A shared group passes false: a bot starts only when it is named.
+   */
+  fallback?: boolean;
 }): string[] {
   const membersById = new Map(input.members.map((member) => [member.id, member]));
   const targetIds = new Set<string>();
@@ -69,7 +98,7 @@ export function resolveGroupTargetBotIds(input: {
     }
   }
 
-  if (targetIds.size === 0 && input.members[0]) {
+  if (input.fallback !== false && targetIds.size === 0 && input.members[0]) {
     targetIds.add(input.members[0].id);
   }
 

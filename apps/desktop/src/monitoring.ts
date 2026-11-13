@@ -1,10 +1,11 @@
-import type { ClientOperation, MonitoringConfig } from "@rakazo/logging/monitoring";
+import { firstNonEmpty } from "@botcamp/core/env-name";
+import type { ClientOperation, MonitoringConfig } from "@botcamp/logging/monitoring";
 import {
   createClientErrorReporter,
   isMonitoringUserId,
   nativeMonitoringDsn,
   sanitizeMonitoringEvent,
-} from "@rakazo/logging/monitoring";
+} from "@botcamp/logging/monitoring";
 import type * as ElectronSentry from "@sentry/electron/main";
 import { configureNativeCrashReporting, disableNativeCrashReporting } from "./native-crashes.js";
 
@@ -25,7 +26,7 @@ const owners = new Map<string, ReturnType<typeof ElectronSentry.makeElectronTran
 /** A local or agent build would otherwise file its errors as the production release's. */
 export function desktopReportsErrors(
   packaged: boolean,
-  release = process.env.RAKAZO_DESKTOP_RELEASE,
+  release = firstNonEmpty(process.env.BOTCAMP_DESKTOP_RELEASE, process.env.RAKAZO_DESKTOP_RELEASE),
 ): boolean {
   return packaged && release === "1";
 }

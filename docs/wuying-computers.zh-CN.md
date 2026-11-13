@@ -35,7 +35,7 @@ Bot 可以把一台现有的[无影云电脑](https://www.aliyun.com/product/ecs
 
 管理员不用改环境变量，就能把新电脑切换到无影。
 
-1. 先把自己设成管理员：把账号邮箱写进 `.env` 的 `RAKAZO_ADMIN_EMAILS`，然后重启 API。这个邮箱必须是已验证的。
+1. 先把自己设成管理员：把账号邮箱写进 `.env` 的 `BOTCAMP_ADMIN_EMAILS`，然后重启 API。这个邮箱必须是已验证的。
 2. 打开 **设置 → Computer**。
 3. 在 **New computers run on** 里选 **Wuying**。
 4. 填写云电脑 ID、终端用户 ID、地域（默认 `cn-hangzhou`）、AccessKey ID 和 Secret、MCP 网关地址和 MCP Token，然后点 **Save**。
@@ -103,7 +103,7 @@ SDK 的本地模式在屏幕页内加载 `/computer-screen/sdk/ASP/container.htm
 | 画面连上后很快断开 | 有另一个查看端占用了会话，关掉另一个面板或无影客户端 |
 | 保存时提示 `Could not reach the Wuying desktop` | 检查 AccessKey 权限、地域和云电脑 ID；云电脑运行时，MCP 网关必须能响应 |
 | 中文输出是乱码 | 命令没有经过 PowerShell。BotCamp 会把 PowerShell 的输出切换成 UTF-8，其他 shell 仍使用系统代码页 |
-| 设置里没有切换沙箱的选项 | 当前账号不是管理员。检查 `RAKAZO_ADMIN_EMAILS`，并确认邮箱已验证 |
+| 设置里没有切换沙箱的选项 | 当前账号不是管理员。检查 `BOTCAMP_ADMIN_EMAILS`，并确认邮箱已验证 |
 | 连接 OpenAI 或 Anthropic 时返回 `unsupported_country_region_territory` | 这是模型提供方的地区限制，与无影无关：rakazo 后端所在网络的出口地区不受支持 |
 
 ## 升级现有部署
@@ -113,5 +113,5 @@ API 每次生成新的登录票据，客户端使用当前屏幕路径，不需�
 
 现有 Caddy 配置须将 `/wuying/sdk/ASP/container.html` 例外改为
 `/computer-screen/sdk/ASP/container.html`，并在升级时重新加载配置。默认 updater 不重建 Caddy；
-可在 `RAKAZO_UPDATE_SERVICES` 中加入 `caddy`，或手动重建。旧 matcher 会给新运行时添加
+可在 `BOTCAMP_UPDATE_SERVICES` 中加入 `caddy`，或手动重建。旧 matcher 会给新运行时添加
 X-Frame-Options，阻止不透明来源的嵌套页面。

@@ -1,10 +1,183 @@
 # Changelog
 
-Notable product changes in Rakazo. See GitHub Releases for tagged builds.
+Notable product changes in BotCamp. See GitHub Releases for tagged builds.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [2.0.71] - 2026-11-13
+
+### Fixed
+
+- In a shared group, each bot is given one name for the turn, the roster name. A name from outside the group is the same member, and it is not how anyone is mentioned there. Listing the group's bots uses those names ([groups](docs/groups.md)).
+
+## [2.0.70] - 2026-11-13
+
+### Fixed
+
+- Directory sign-in no longer asks for the attendance export, OKR, meeting-realtime, or offline-access permissions this app has not enabled. The access token is kept until it expires.
+
+## [2.0.69] - 2026-11-13
+
+### Changed
+
+- A shared group in the sidebar keeps its latest message and adds a shared mark.
+
+## [2.0.68] - 2026-11-13
+
+### Changed
+
+- Opening a shared group shows each member's avatar and name in the title, and messages use those names.
+
+## [2.0.67] - 2026-11-13
+
+### Changed
+
+- A shared group in the sidebar shows a shared mark and each member's avatar and name. The group picture uses that full member list.
+
+## [2.0.66] - 2026-11-13
+
+### Changed
+
+- Browser settings use the current product name as their storage prefix. A saved setting under the previous prefix is copied once and then removed.
+- Popup windows opened for sign-in and connector setup use the current product name.
+- The desktop shell exposes its page bridge under the current product name. A shell built earlier is still recognized.
+- The private database schema is renamed to `botcamp_private`. The database name and the owner login stay as the data directory was created.
+
+## [2.0.64] - 2026-11-13
+
+### Fixed
+
+- QQ邮箱 sign-in from 2.0.63 builds with this release. The desktop app finishes that sign-in. A browser pastes the callback address.
+
+## [2.0.63] - 2026-11-13
+
+### Changed
+
+- QQ邮箱 connects by signing in on the QQ Mail page. Choose 只读 or 可发信 first. The desktop app finishes that sign-in. A browser pastes the callback address. A mailbox saved earlier stays connected until you disconnect it ([integrations](docs/integrations.md)).
+
+## [2.0.62] - 2026-11-13
+
+### Changed
+
+- A connector that fails to start is no longer labeled with the previous product name. Mail, account exports, and audit downloads use the current name too.
+
+## [2.0.61] - 2026-11-13
+
+### Changed
+
+- In a shared group, @ lists the people and bots in the group. Scheduled routines are not in that list ([groups](docs/groups.md)).
+
+## [2.0.59] - 2026-11-13
+
+### Added
+
+- Signing in or linking the directory account requests the directory command line's user permissions. A linked account can then use those commands from the bot. A command that changes data asks for approval first ([accounts](docs/self-host-accounts.md), [integrations](docs/integrations.md)).
+
+### Self-host upgrade notes
+
+- Publish the directory app version with those user permissions before this release asks for them. People who already linked sign in or link again.
+- `LARK_LOGIN_SCOPES` adds scopes. It no longer replaces the default set. Leave it empty unless a deployment needs a scope outside that set.
+- Install the directory command line (`lark-cli` 1.0.99) on the API and worker `PATH`. The server image installs it. A source checkout does not.
+- Compose does not pass the login secret to the worker, so those commands stay off there. A worker that already has the login settings offers them. There is no new migration.
+
+## [2.0.58] - 2026-11-13
+
+### Changed
+
+- Shared group settings list the people and bots already in the group. The creator and admins search for an account to invite, or invite with an email, and search for a bot they own before adding it. The creator switches a person between member and admin from that list ([groups](docs/groups.md)).
+- In a shared group, @ lists the people and bots in the group. A bot starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
+
+### Fixed
+
+- A bot from another workspace posts the text of its finished reply back into the shared group.
+
+### Self-host upgrade notes
+
+- Update the API, the worker, and the console together. There is no new migration. A shared-group message that names no bot no longer starts a run.
+
+## [2.0.57] - 2026-11-12
+
+### Added
+
+- A group chat can include other people. The creator and admins invite them by email and can add bots they own. In the group, a bot's name is that person's name, a hyphen, and the bot's name. A bot from another space answers in its own chat, and only the finished text is posted back. A private group chat is still one person's bots ([groups](docs/groups.md)).
+
+### Self-host upgrade notes
+
+- Apply the database migration before restarting. It adds shared group membership. Private group chats keep working during the upgrade.
+
+## [2.0.56] - 2026-11-12
+
+### Changed
+
+- A chat reply goes back only on the channel the message arrived from. The bot can also deliver that reply on other linked channels when asked ([integrations](docs/self-host-integrations.md)).
+
+## [2.0.55] - 2026-11-12
+
+### Changed
+
+- The primary bot can keep one personal chat channel per app at the same time. Settings lists the channels already linked. Other bots still cannot link one ([integrations](docs/self-host-integrations.md)).
+
+## [2.0.54] - 2026-11-12
+
+### Removed
+
+- Passkeys are not a way to sign in, and settings does not add one. Clients hide both when the server reports no relying party ([accounts](docs/self-host-accounts.md#passkeys)).
+
+## [2.0.53] - 2026-11-11
+
+### Added
+
+- A directory account can set a password under sign-in methods, then remove the directory link. The account email and its verification stay as they are. After the link is removed, sign-in uses that same email and the password. Removing the link before a password exists asks for a password first and leaves the link in place ([accounts](docs/self-host-accounts.md#directory-login)).
+
+## [2.0.52] - 2026-11-11
+
+### Added
+
+- People can sign in with a directory account (Feishu or Lark). When that address already belongs to an account, sign-in joins it and leaves the account email and its verification unchanged. Settings shows this login method, and linking it there attaches the directory identity to the signed-in account even when the addresses differ. After linking, the row shows that person's name and picture ([accounts](docs/self-host-accounts.md#directory-login)).
+
+### Self-host upgrade notes
+
+- Directory login stays off until `LARK_LOGIN_APP_ID` and `LARK_LOGIN_APP_SECRET` are both set on the API. They are not the messaging app's credentials, and the secret is not passed to the worker. Register `{BETTER_AUTH_URL}/api/auth/callback/directory` on that app. The default scope is `contact:user.email:readonly`. Set `LARK_LOGIN_SCOPES` to also request the enterprise mailbox.
+
+## [2.0.51] - 2026-11-11
+
+### Fixed
+
+- A bot can still open a web page when that computer's screen did not start. The embedded screen and the terminal still report it ([computer runtime](docs/computer-runtime.md)).
+
+## [2.0.50] - 2026-11-11
+
+### Fixed
+
+- A picture sent in a linked WeChat chat arrives in the conversation.
+
+## [2.0.49] - 2026-11-11
+
+### Added
+
+- The primary bot can link a Feishu bot from its own settings, beside WeChat. Scanning confirms the bot. Direct text messages arrive in that chat, and replies go back as ordinary messages. A deployment-wide Feishu webhook is unchanged ([integrations](docs/self-host-integrations.md)).
+
+### Self-host upgrade notes
+
+- A linked Feishu bot needs outbound access from the API and the worker to the Feishu or Lark hosts named in the integrations doc. There is no new setting.
+
+## [2.0.48] - 2026-11-11
+
+### Added
+
+- On a linked chat app, one pending approval arrives as an ordinary message. Reply yes or 同意 to allow it once, or no or 拒绝 to deny it. An unclear reply, or one that also asks for something else, leaves the request waiting. Allowing it every time, a secret, and the user's own computer still have to be answered in the app.
+
+### Changed
+
+- On a linked chat app, the bot replies with ordinary messages. Choice cards, computer takeover, calls, and purchase requests stay in the app.
+
+## [2.0.47] - 2026-11-11
+
+### Fixed
+
+- Sending a picture in chat is no longer stopped because the text model has no image input. On a managed OpenAI-compatible deployment the separate vision model reads the picture ([models](docs/self-host-models.md)).
 
 ## [0.6.0] - 2026-11-04
 

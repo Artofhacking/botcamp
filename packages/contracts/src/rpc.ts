@@ -50,6 +50,7 @@ import {
   AccountItemSchema,
   ActionApprovalRuleSchema,
   ActionAutoReviewSettingsSchema,
+  AddSharedGroupBotInput,
   AgentSecretInputSchema,
   AgentSecretSchema,
   AgentSkillCatalogEntrySchema,
@@ -87,6 +88,7 @@ import {
   CreateGroupInput,
   CreateRoutineInput,
   CreateScratchpadItemInput,
+  CreateSharedGroupInput,
   DeploymentSettingsSchema,
   ExportManifestSchema,
   ExternalConversationPolicySchema,
@@ -94,6 +96,7 @@ import {
   GroupSchema,
   IncomingBotCallSchema,
   IntegrationCatalogResultSchema,
+  InviteSharedGroupInput,
   McpServerConfigInput,
   McpServerSchema,
   MemoryDocumentSchema,
@@ -123,15 +126,19 @@ import {
   PluginSubmissionSchema,
   PluginSubmissionStatusSchema,
   REPLY_QUOTE_MAX_LENGTH,
+  RemoveSharedGroupBotInput,
+  RemoveSharedGroupPersonInput,
   ReorderBotsInput,
   ROUTINE_MENTION_BATCH_MAX,
   RoutineSchema,
   ScratchpadItemSchema,
   ScratchpadItemStatusSchema,
+  SearchSharedGroupPeopleInput,
   ServerUpdateCheckSchema,
   ServerUpdateRequestSchema,
   ServerUpdateRunSchema,
   ServerUpdateStatusSchema,
+  SetSharedGroupRoleInput,
   SignupSurveySchema,
   SkillPlaybookSchema,
   SpaceAvailabilitySchema,
@@ -249,8 +256,9 @@ const threadSendInput = threadSendFields.superRefine((input, ctx) => {
 });
 
 const threadSendOutput = z.object({
-  taskId: Id,
-  runId: Id,
+  // Absent when a shared-group message names no bot, so nothing starts.
+  taskId: Id.optional(),
+  runId: Id.optional(),
   seq: z.number().int(),
   runIds: z.array(Id).optional(),
 });
@@ -553,6 +561,17 @@ export const appContract = {
     archive: oc.input(groupId).output(z.object({ ok: z.literal(true) })),
     restore: oc.input(groupId).output(z.object({ ok: z.literal(true) })),
     remove: oc.input(groupId).output(z.object({ ok: z.literal(true) })),
+    createShared: oc.input(CreateSharedGroupInput).output(GroupSchema),
+    invite: oc.input(InviteSharedGroupInput).output(GroupSchema),
+    searchPeople: oc.input(SearchSharedGroupPeopleInput).output(
+      z.object({
+        people: z.array(z.object({ userId: Id, name: z.string(), email: z.string() })).max(8),
+      }),
+    ),
+    setPersonRole: oc.input(SetSharedGroupRoleInput).output(GroupSchema),
+    removePerson: oc.input(RemoveSharedGroupPersonInput).output(GroupSchema),
+    addBot: oc.input(AddSharedGroupBotInput).output(GroupSchema),
+    removeBot: oc.input(RemoveSharedGroupBotInput).output(GroupSchema),
   },
   botSections: {
     list: oc.output(z.array(BotSectionSchema)),

@@ -6,16 +6,16 @@ import type {
   JobPublisher,
   SandboxProvider,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import { routineJobKey, runContinueJob, runJobKey } from "@rakazo/adapter-kit";
-import type { Actor, Bot, ComputerMode } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import { routineJobKey, runContinueJob, runJobKey } from "@botcamp/adapter-kit";
+import type { Actor, Bot, ComputerMode } from "@botcamp/contracts";
 import {
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_INSTRUCTIONS_MAX_LENGTH,
   GROUP_MEMBER_MIN,
-} from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
 import {
   cancelRunsInTransaction,
   clearEndedRunState,
@@ -27,8 +27,8 @@ import {
   legacyTeamHomeKey,
   recordComputerRunEnd,
   withTransactionRetry,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { BrowserStoppedReleaseError } from "./computer-screens.js";
 import { toComputerRef } from "./computer-support.js";
 import {

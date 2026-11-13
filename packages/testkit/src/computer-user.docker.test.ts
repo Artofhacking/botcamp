@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { ensureScreenCommand } from "@rakazo/core/node/desktop-runtime";
+import { ensureScreenCommand } from "@botcamp/core/node/desktop-runtime";
 import { describe, expect, it } from "vitest";
 
 describe.skipIf(process.env.RUN_COMPUTER_REPLAY_DOCKER !== "1")(
@@ -31,8 +31,8 @@ describe.skipIf(process.env.RUN_COMPUTER_REPLAY_DOCKER !== "1")(
               "--tmpfs",
               "/tmp:mode=1777,exec",
               "--tmpfs",
-              `/home/rakazo:uid=${uid},gid=${gid},mode=700`,
-              process.env.RAKAZO_COMPUTER_IMAGE ?? "rakazo/computer:local",
+              `/home/botcamp:uid=${uid},gid=${gid},mode=700`,
+              (process.env.BOTCAMP_COMPUTER_IMAGE ?? process.env.RAKAZO_COMPUTER_IMAGE) ?? "botcamp/computer:local",
             ],
             { stdio: "pipe", timeout: 30_000 },
           );
@@ -43,13 +43,13 @@ describe.skipIf(process.env.RUN_COMPUTER_REPLAY_DOCKER !== "1")(
               name,
               "bash",
               "-euc",
-              "for i in $(seq 1 200); do [ -s /tmp/rakazo/dbus-session ] && xdpyinfo -display :1 >/dev/null 2>&1 && break; sleep 0.05; done; " +
-                "test -s /tmp/rakazo/dbus-session; xdpyinfo -display :1 >/dev/null; " +
+              "for i in $(seq 1 200); do [ -s /tmp/botcamp/dbus-session ] && xdpyinfo -display :1 >/dev/null 2>&1 && break; sleep 0.05; done; " +
+                "test -s /tmp/botcamp/dbus-session; xdpyinfo -display :1 >/dev/null; " +
                 'getent passwd "$(id -u)"; getent group "$(id -g)"; ' +
                 'eval "$(dbus-launch --sh-syntax)"; test -n "$DBUS_SESSION_BUS_ADDRESS"; ' +
                 'kill "$DBUS_SESSION_BUS_PID"; ' +
                 'fc-list | grep -q "Noto Color Emoji"; ' +
-                'python3 -c \'import json; assert json.load(open("/etc/chromium/policies/managed/rakazo-browser.json"))["PasswordManagerEnabled"] is False\'',
+                'python3 -c \'import json; assert json.load(open("/etc/chromium/policies/managed/botcamp-browser.json"))["PasswordManagerEnabled"] is False\'',
             ],
             { encoding: "utf8", timeout: 15_000 },
           );

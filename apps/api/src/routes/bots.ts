@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { runContinueJob } from "@rakazo/adapter-kit";
+import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   archiveBot,
   checkpointAndStopComputer,
@@ -20,17 +20,17 @@ import {
   storeBotSecret,
   toComputerRef,
   validateBotModelChange,
-} from "@rakazo/adapters";
+} from "@botcamp/adapters";
 import type {
   Actor,
   Bot,
   BotSecretMetadata,
   SettingsScope,
   VaultPutInput,
-} from "@rakazo/contracts";
-import { BotSecretAuth, resolveBotAvatarSet } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, displayName } from "@rakazo/core";
-import type { Prisma, PrismaClient } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { BotSecretAuth, resolveBotAvatarSet } from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES, displayName } from "@botcamp/core";
+import type { Prisma, PrismaClient } from "@botcamp/db";
 import {
   BotSectionNameConflictError,
   botProfileLabelsChanged,
@@ -39,16 +39,18 @@ import {
   ensureComputerRecord,
   expireComputerExecutionLeases,
   InstructionConflictError,
+  createSharedGroupRepos,
   IsolationError,
   parseComputerMode,
   recordComputerRunEnd,
   recordSecurityEvent,
   restoreBotUnderComputerQuota,
   runAsSystem,
+  SharedGroupInputError,
   SpaceDeletionInProgressError,
   settingsTarget,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type { AgentImportServices } from "../agent-import.js";
 import { agentImportSetupState, createImportedBot, previewAgentImport } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";
@@ -294,9 +296,17 @@ export async function enqueueBotIntroRun(deps: RouterDeps, actor: Actor, bot: Bo
   if (run) await deps.jobs.enqueue(runContinueJob(run.id));
 }
 
+function mapSharedGroupError(error: unknown): unknown {
+  if (error instanceof SharedGroupInputError) {
+    return new ORPCError("BAD_REQUEST", { message: error.message });
+  }
+  return mapSpaceLifecycleError(error);
+}
+
 export function botsRoutes(ctx: RouterContext) {
   const { deps, repos, botModelValidation, removeBot, agentImportServices, groupRepos, authed } =
     ctx;
+  const sharedGroupRepos = createSharedGroupRepos(deps.prisma);
   return {
     bots: {
       list: authed.bots.list.handler(async ({ context }) => repos.listBots(context.actor)),
@@ -719,6 +729,7 @@ export function botsRoutes(ctx: RouterContext) {
       }),
       duplicate: authed.groups.duplicate.handler(async ({ context, input }) => {
         const source = await groupRepos.getGroup(context.actor, input.groupId);
+        if (source.shared) throw new IsolationError();
         try {
           return await groupRepos.createGroup(context.actor, {
             name: duplicateBotName(source.name),
@@ -782,6 +793,55 @@ export function botsRoutes(ctx: RouterContext) {
           await forgetPageShareSecrets(deps.secrets, removed.pageShareSecrets);
         }
         return { ok: true as const };
+      }),
+      createShared: authed.groups.createShared.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.createSharedGroup(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      invite: authed.groups.invite.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.invitePerson(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      searchPeople: authed.groups.searchPeople.handler(async ({ context, input }) => {
+        try {
+          return { people: await sharedGroupRepos.searchPeople(context.actor, input) };
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      setPersonRole: authed.groups.setPersonRole.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.setPersonRole(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      removePerson: authed.groups.removePerson.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.removePerson(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      addBot: authed.groups.addBot.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.addBot(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
+      removeBot: authed.groups.removeBot.handler(async ({ context, input }) => {
+        try {
+          return await sharedGroupRepos.removeBot(context.actor, input);
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
       }),
     },
     botSections: {

@@ -1,6 +1,6 @@
+import { desktopAppReturnUrl } from "@botcamp/contracts";
+import { Button } from "@botcamp/ui-web";
 import { Trans } from "@lingui/react/macro";
-import { desktopAppReturnUrl } from "@rakazo/contracts";
-import { Button } from "@rakazo/ui-web";
 import { useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 

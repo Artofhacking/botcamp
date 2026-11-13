@@ -5,14 +5,14 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import type { AdapterContext } from "@rakazo/adapter-kit";
-import { normalizeWorkspacePath, resolveBotWorkspacePath } from "@rakazo/adapters";
+import type { AdapterContext } from "@botcamp/adapter-kit";
+import { normalizeWorkspacePath, resolveBotWorkspacePath } from "@botcamp/adapters";
 import type {
   AccountExportManifest,
   AccountExportRecord,
   AccountImportResult,
   Actor,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   ACCOUNT_EXPORT_FORMAT,
   ACCOUNT_EXPORT_MANIFEST_PATH,
@@ -23,8 +23,8 @@ import {
   AccountExportRecordSchema,
   attachmentSizeLabel,
   resolveBotAvatarSet,
-} from "@rakazo/contracts";
-import { organicAvatarFamily } from "@rakazo/core";
+} from "@botcamp/contracts";
+import { organicAvatarFamily } from "@botcamp/core";
 import {
   createRepos,
   createSpaceForMember,
@@ -35,10 +35,10 @@ import {
   runAsSystem,
   runAsTenant,
   SpaceLimitError,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
-import { pageViewerCode } from "@rakazo/page-kit/compile";
-import { checkPageSource } from "@rakazo/page-kit/validate";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { pageViewerCode } from "@botcamp/page-kit/compile";
+import { checkPageSource } from "@botcamp/page-kit/validate";
 import { Unzip, UnzipInflate } from "fflate";
 import type { Hono } from "hono";
 import { cancelBody } from "./http-body.js";

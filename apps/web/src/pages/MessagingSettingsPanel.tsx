@@ -1,7 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { MessagingChannelMembership, MessagingInstallationsStatus } from "@rakazo/contracts";
-import { isRetryableError, messagingConnectOptions } from "@rakazo/core";
-import { fetchFresh, writeSaved } from "@rakazo/core/query";
+import type { MessagingChannelMembership, MessagingInstallationsStatus } from "@botcamp/contracts";
+import { isRetryableError, messagingConnectOptions } from "@botcamp/core";
+import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import {
   Button,
   DropdownMenu,
@@ -11,7 +10,8 @@ import {
   NativeSelect,
   NativeSelectOption,
   SectionHeading,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -234,7 +234,7 @@ export function MessagingSettingsPanel() {
 
   function installSlack() {
     const links = desktopBridge()?.links;
-    const popup = links?.open ? null : window.open("about:blank", "rakazo-slack-install");
+    const popup = links?.open ? null : window.open("about:blank", "botcamp-slack-install");
     if (popup) popup.opener = null;
     void act(async () => {
       try {

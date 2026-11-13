@@ -1,7 +1,7 @@
 /** @jsxRuntime automatic */
-import type { TransactionalEmail } from "@rakazo/adapter-kit";
-import { displayName, matchUiLocale, textDirectionForLocale, translate } from "@rakazo/core";
-import { webLightTokens as lightTokens, webDarkTokens } from "@rakazo/ui-tokens";
+import type { TransactionalEmail } from "@botcamp/adapter-kit";
+import { displayName, matchUiLocale, textDirectionForLocale, translate } from "@botcamp/core";
+import { webLightTokens as lightTokens, webDarkTokens } from "@botcamp/ui-tokens";
 import type { ReactNode } from "react";
 import {
   Body,
@@ -128,7 +128,7 @@ export async function message(
                 letterSpacing: "-0.5px",
               }}
             >
-              rakazo
+              BotCamp
             </Text>
             {content}
             {unsubscribeUrl ? (

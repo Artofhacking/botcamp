@@ -1,5 +1,6 @@
+import { DEFAULT_MODEL_MAX_TOKENS } from "@botcamp/contracts";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import type { Api, Model } from "@earendil-works/pi-ai";
-import { DEFAULT_MODEL_MAX_TOKENS } from "@rakazo/contracts";
 import { LOCAL_PROVIDER_ID } from "./pi-local-provider-id.js";
 
 /** Per-attempt wait for response headers; this does not cap active streaming duration. */
@@ -134,7 +135,8 @@ export function effectiveOutputReserve(contextWindow: number, maxTokens: number)
 export function operatorMaxTokens(
   model: Pick<Model<Api>, "provider" | "maxTokens">,
 ): number | undefined {
-  return model.provider === LOCAL_PROVIDER_ID && process.env.RAKAZO_LOCAL_MAX_TOKENS?.trim()
+  return model.provider === LOCAL_PROVIDER_ID &&
+    firstNonEmpty(process.env.BOTCAMP_LOCAL_MAX_TOKENS, process.env.RAKAZO_LOCAL_MAX_TOKENS)?.trim()
     ? model.maxTokens
     : undefined;
 }

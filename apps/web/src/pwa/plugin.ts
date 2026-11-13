@@ -1,14 +1,14 @@
 import { fileURLToPath } from "node:url";
-import { isBuildId } from "@rakazo/contracts/client-build";
-import { webDarkTokens } from "@rakazo/ui-tokens";
+import { isBuildId } from "@botcamp/contracts/client-build";
+import { webDarkTokens } from "@botcamp/ui-tokens";
 import type { Plugin, Rolldown } from "vite";
 import { CACHE_PREFIX } from "./service-worker.js";
 
 const SERVICE_WORKER_FILE = "sw.js";
-const BASE_PLACEHOLDER = "__RAKAZO_SW_BASE__";
+const BASE_PLACEHOLDER = "__BOTCAMP_SW_BASE__";
 const MANIFEST_FILE = "site.webmanifest";
-const PRECACHE_PLACEHOLDER = "__RAKAZO_SW_PRECACHE__";
-const CACHE_PLACEHOLDER = "__RAKAZO_SW_CACHE__";
+const PRECACHE_PLACEHOLDER = "__BOTCAMP_SW_PRECACHE__";
+const CACHE_PLACEHOLDER = "__BOTCAMP_SW_CACHE__";
 
 export function webManifest(base = "/") {
   const root = base.endsWith("/") ? base : `${base}/`;

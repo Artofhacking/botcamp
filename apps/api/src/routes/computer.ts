@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import type { AdapterContext, SandboxProvider } from "@rakazo/adapter-kit";
-import { computerControlExpireJobKey } from "@rakazo/adapter-kit";
-import type { ComputerExecutionLease } from "@rakazo/adapters";
+import type { AdapterContext, SandboxProvider } from "@botcamp/adapter-kit";
+import { computerControlExpireJobKey } from "@botcamp/adapter-kit";
+import type { ComputerExecutionLease } from "@botcamp/adapters";
 import {
   acquireComputerExecutionLease,
   applyTeachingDesktopInput,
@@ -37,26 +37,26 @@ import {
   takeoverLeaseMs,
   toComputerRef,
   touchRunningComputer,
-} from "@rakazo/adapters";
-import type { Actor, ComputerReleaseReason, ComputerStatus } from "@rakazo/contracts";
+} from "@botcamp/adapters";
+import type { Actor, ComputerReleaseReason, ComputerStatus } from "@botcamp/contracts";
 import {
   attachmentMaxBytes,
   attachmentSizeLabel,
   ComputerCommandSchema,
   foldComputerCommands,
-} from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, scrollDirection } from "@rakazo/core";
-import { addScreenProxyCapability } from "@rakazo/core/node/screen-capability";
-import type { ComputerRunEnd, PrismaClient } from "@rakazo/db";
-import { runAsSystem } from "@rakazo/db";
+} from "@botcamp/contracts";
+import { ACTIVE_RUN_STATUSES, scrollDirection } from "@botcamp/core";
+import { addScreenProxyCapability } from "@botcamp/core/node/screen-capability";
+import type { ComputerRunEnd, PrismaClient } from "@botcamp/db";
+import { runAsSystem } from "@botcamp/db";
 import {
   createRepos,
   expireComputerExecutionLeases,
   IsolationError,
   parseComputerMode,
   recordComputerRunEnd,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { scrollPoint } from "../computer-input.js";
 import {
   executionBlocksUserTakeover,
@@ -81,7 +81,7 @@ export function computerRoutes(ctx: RouterContext) {
         // 开屏幕会先清掉 provider，把同一台电脑留在 stopped 上等待开机；这里不能把它降回去。
         const seen = await repos.getBot(context.actor, input.botId);
         if (
-          seen.computer?.state === "stopped" &&
+          (seen.computer?.state === "stopped" || seen.computer?.state === "suspended") &&
           seen.computer.kind !== "docker" &&
           seen.computer.providerRef
         ) {

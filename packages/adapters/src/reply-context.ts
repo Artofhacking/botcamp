@@ -1,8 +1,8 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { truncateReplyQuote } from "@rakazo/contracts";
-import { blocksToAgentHistoryText, messageReaction } from "@rakazo/core";
-import { isPageCardMessage } from "@rakazo/core/message-quote";
-import type { PrismaClient } from "@rakazo/db";
+import type { MessageBlock } from "@botcamp/contracts";
+import { truncateReplyQuote } from "@botcamp/contracts";
+import { blocksToAgentHistoryText, messageReaction } from "@botcamp/core";
+import { isPageCardMessage } from "@botcamp/core/message-quote";
+import type { PrismaClient } from "@botcamp/db";
 
 type QuotedMessage = {
   id: string;

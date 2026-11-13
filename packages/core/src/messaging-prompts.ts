@@ -1,12 +1,60 @@
-import type { MessageBlock } from "@rakazo/contracts";
+import type { MessageBlock } from "@botcamp/contracts";
+import { messagingProviderName } from "./messaging-providers.js";
 
-/** Instruction-stack note for bots whose owner has a messaging identity. */
-export function messagingDmSurfaceNote(): string {
+const CHAT_CHANNEL_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+/**
+ * Channel ids from a sync_channels call that this bot has actually linked.
+ * Anything else is dropped. An empty request, or a request that matches nothing, is an error.
+ */
+export function resolveSyncChannels(
+  requested: unknown,
+  linked: readonly string[],
+): { ok: true; channels: string[] } | { ok: false; error: string } {
+  const raw = Array.isArray(requested) ? requested : [];
+  const ids: string[] = [];
+  for (const item of raw) {
+    const id = String(item ?? "")
+      .trim()
+      .toLowerCase();
+    if (!CHAT_CHANNEL_ID.test(id) || ids.includes(id)) continue;
+    ids.push(id);
+  }
+  if (ids.length === 0) return { ok: false, error: "Name at least one linked chat channel." };
+  const linkedSet = new Set(linked);
+  const channels = ids.filter((id) => linkedSet.has(id));
+  if (channels.length === 0) {
+    return {
+      ok: false,
+      error: linked.length
+        ? `None of those channels are linked. Linked channels: ${linked.join(", ")}.`
+        : "No chat channel is linked.",
+    };
+  }
+  return { ok: true, channels };
+}
+
+/** Instruction-stack note for a bot that has at least one linked chat channel. */
+export function messagingDmSurfaceNote(syncChannels = true): string {
   return [
-    "Chat surface: the owner also reaches you over a messaging app (iMessage/SMS, Slack, WhatsApp, or similar).",
-    "That conversation and this one are the same thread; anything you reply here is mirrored to their chat.",
+    "Chat channels: the owner may reach you from more than one linked chat app.",
+    "A reply goes back only on the channel that message arrived from. It is not copied to the other linked channels.",
+    syncChannels
+      ? "When the person asks for this reply on specific other linked channels, call sync_channels with those channel ids."
+      : undefined,
     "Keep replies concise. They arrive as chat messages.",
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Per-turn list of linked channel ids, so sync_channels is called with those ids. */
+export function formatLinkedChatChannels(providers: readonly string[]): string | undefined {
+  if (providers.length === 0) return undefined;
+  const list = providers
+    .map((provider) => `${messagingProviderName(provider)} (${provider})`)
+    .join(", ");
+  return `Linked chat channels: ${list}.`;
 }
 
 /** Hard privacy rules for bots posting into shared group channels. */

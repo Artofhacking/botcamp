@@ -12,6 +12,8 @@ import { LOCAL_PROVIDER_ID, localModelIds } from "./pi-local-provider-id.js";
  */
 export { LOCAL_PROVIDER_ID };
 
+import { firstNonEmpty } from "@botcamp/core/env-name";
+
 /** Model ids the local server serves with vision, declared by the operator. */
 export const LOCAL_VISION_MODELS_ENV = "RAKAZO_LOCAL_VISION_MODELS";
 
@@ -27,7 +29,11 @@ const DEFAULT_CONTEXT_WINDOW = 32_768;
 const DEFAULT_MAX_TOKENS = 4_096;
 
 export function localBaseUrl(): string {
-  const value = process.env.RAKAZO_LOCAL_MODELS_URL?.trim() || DEFAULT_BASE_URL;
+  const value =
+    firstNonEmpty(
+      process.env.BOTCAMP_LOCAL_MODELS_URL,
+      process.env.RAKAZO_LOCAL_MODELS_URL,
+    )?.trim() || DEFAULT_BASE_URL;
   let url: URL;
   try {
     url = new URL(value);
@@ -42,7 +48,12 @@ export function localBaseUrl(): string {
 
 /** Throws instead of `Number(x) || default`, which would swallow a typo or accept a negative window. */
 function tokenLimit(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
+  const suffix = name.replace(/^(?:BOTCAMP_|RAKAZO_)/, "");
+  const raw = (
+    name === suffix
+      ? process.env[name]
+      : firstNonEmpty(process.env[`BOTCAMP_${suffix}`], process.env[`RAKAZO_${suffix}`])
+  )?.trim();
   if (!raw) return fallback;
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0) {

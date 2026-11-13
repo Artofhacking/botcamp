@@ -1,4 +1,4 @@
-import { MAX_VOICE_AUDIO_BYTES, VOICE_RESPONSE_TIMEOUT_MS } from "@rakazo/core";
+import { MAX_VOICE_AUDIO_BYTES, VOICE_RESPONSE_TIMEOUT_MS } from "@botcamp/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiUrl } from "./api-origin.js";
 import { Speaker } from "./tts.js";
@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 function stubSelectedSpace(id: string) {
-  const store = new Map<string, string>([["rakazo:space-id", id]]);
+  const store = new Map<string, string>([["botcamp:space-id", id]]);
   const localStorage = {
     getItem: (key: string) => store.get(key) ?? null,
     setItem: (key: string, value: string) => {
@@ -22,7 +22,7 @@ function stubSelectedSpace(id: string) {
   };
   vi.stubGlobal("window", { localStorage });
   vi.stubGlobal("localStorage", localStorage);
-  return (next: string) => store.set("rakazo:space-id", next);
+  return (next: string) => store.set("botcamp:space-id", next);
 }
 
 describe("Speaker", () => {
@@ -117,7 +117,7 @@ describe("Speaker", () => {
       expect.objectContaining({ credentials: "include" }),
     );
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-    expect(headers.get("x-rakazo-space-id")).toBe(expectedSpaceId);
+    expect(headers.get("x-botcamp-space-id")).toBe(expectedSpaceId);
     expect(headers.get("content-type")).toBe("application/json");
     expect(prepare.mock.calls[0]?.[3]).toBe(expectedSpaceId);
   });

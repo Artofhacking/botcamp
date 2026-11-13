@@ -1,15 +1,16 @@
-import type { AgentToolExecutionObserver } from "@rakazo/adapter-kit";
-import { toolResultTaintsRun } from "@rakazo/core";
+import type { AgentToolExecutionObserver } from "@botcamp/adapter-kit";
+import { toolResultTaintsRun } from "@botcamp/core";
 import { isTerminatingReplyResult } from "./approval-effect.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS, MODEL_CANNOT_SEE_MESSAGE } from "./model-vision.js";
-import type { RunContext } from "./run-context.js";
 import { COMPUTER_START_RETRY_ERROR, modelRetriesComputerStart } from "./run-computer.js";
+import type { RunContext } from "./run-context.js";
 import { noteComputerTaskStep } from "./run-progress.js";
 import type { ToolHandler } from "./run-tool-gate.js";
 import { auditToolCall, gateToolCall } from "./run-tool-gate.js";
 import { prepareToolRequest, resolveToolRequest } from "./run-tool-request.js";
 import { PAGE_BROWSER_TOOL_NAMES } from "./run-tool-selection.js";
 import { computerTools, pageBrowserTool } from "./run-tools-computer.js";
+import { directoryTools } from "./run-tools-directory.js";
 import { feedbackTools } from "./run-tools-feedback.js";
 import { fileTools } from "./run-tools-files.js";
 import { fleetTools } from "./run-tools-fleet.js";
@@ -40,6 +41,7 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(memoryTools),
   ...Object.entries(integrationTools),
   ...Object.entries(mailboxTools),
+  ...Object.entries(directoryTools),
   ...Object.entries(taskTools),
   ...Object.entries(messagingTools),
   ...Object.entries(secretTools),

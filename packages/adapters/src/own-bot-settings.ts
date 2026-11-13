@@ -1,9 +1,9 @@
-import type { AdapterContext, SecretStore } from "@rakazo/adapter-kit";
-import { VoiceAccountError } from "@rakazo/adapter-kit";
-import type { Actor, BotSettingsValues, VoiceInfo } from "@rakazo/contracts";
-import { ThinkingLevelSchema } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { findDefaultVoiceCredential } from "@rakazo/db";
+import type { AdapterContext, SecretStore } from "@botcamp/adapter-kit";
+import { VoiceAccountError } from "@botcamp/adapter-kit";
+import type { Actor, BotSettingsValues, VoiceInfo } from "@botcamp/contracts";
+import { ThinkingLevelSchema } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { findDefaultVoiceCredential } from "@botcamp/db";
 import type { FleetPrepareDeps } from "./fleet-tools.js";
 import { modelLabel } from "./fleet-tools.js";
 import { connectedModelChoices, echoedQuery, resolveModelChoice, words } from "./model-choice.js";

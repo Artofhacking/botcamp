@@ -14,8 +14,8 @@ import type {
   MessagingSendRequest,
   MessagingSendResult,
   MessagingSurface,
-} from "@rakazo/adapter-kit";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { getLogger } from "@botcamp/logging";
 import type { Adapter, Message, PostableMarkdown, Root, Thread } from "chat";
 import { Chat, isLinkNode, paragraph, parseMarkdown, root, text, toPlainText, walkAst } from "chat";
 import { getLarkTextParts } from "./lark/text-parts.js";
@@ -161,7 +161,7 @@ export class ChatSdkMessagingSurface implements MessagingSurface {
       }
       const adapterName = platform.adapterName ?? platform.provider;
       const chat = new Chat({
-        userName: options.userName ?? "rakazo",
+        userName: options.userName ?? "botcamp",
         adapters: { [adapterName]: platform.adapter },
         state: createMemoryState(),
         // The SDK default ("drop") takes a per-conversation lock and discards

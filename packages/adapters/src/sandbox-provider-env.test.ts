@@ -158,7 +158,7 @@ describe("sandboxProviderOptionsFromEnv", () => {
   it("loads Kubernetes settings and parses labels, annotations and the ready timeout", () => {
     expect(
       sandboxProviderOptionsFromEnv({
-        KUBERNETES_SANDBOX_NAMESPACE: " rakazo-computers ",
+        KUBERNETES_SANDBOX_NAMESPACE: " botcamp-computers ",
         KUBERNETES_SANDBOX_RUNTIME_CLASS_NAME: "kata",
         KUBERNETES_SANDBOX_COMPUTER_IMAGE: "ghcr.io/artofhacking/botcamp/computer@sha256:abc",
         KUBERNETES_SANDBOX_CPU_LIMIT: "2",
@@ -168,7 +168,7 @@ describe("sandboxProviderOptionsFromEnv", () => {
         KUBERNETES_SANDBOX_READY_TIMEOUT_MS: "90000",
       }),
     ).toMatchObject({
-      kubernetesNamespace: "rakazo-computers",
+      kubernetesNamespace: "botcamp-computers",
       kubernetesRuntimeClassName: "kata",
       kubernetesComputerImage: "ghcr.io/artofhacking/botcamp/computer@sha256:abc",
       kubernetesCpuLimit: "2",
@@ -212,15 +212,15 @@ describe("sandboxProviderOptionsFromEnv", () => {
       sandboxProviderOptionsFromEnv({
         KUBERNETES_SANDBOX_HOME_CLAIM: "rakazo-data",
         KUBERNETES_SANDBOX_HOME_COLOCATE_NAMESPACE: "rakazo",
-        KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS: '{"app":"rakazo-api"}',
+        KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS: '{"app":"botcamp-api"}',
       }),
     ).toMatchObject({
       kubernetesHomeClaim: "rakazo-data",
       kubernetesHomeColocateNamespace: "rakazo",
-      kubernetesHomeColocateLabels: { app: "rakazo-api" },
+      kubernetesHomeColocateLabels: { app: "botcamp-api" },
     });
     expect(() =>
-      sandboxProviderOptionsFromEnv({ KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS: "rakazo-api" }),
+      sandboxProviderOptionsFromEnv({ KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS: "botcamp-api" }),
     ).toThrow("KUBERNETES_SANDBOX_HOME_COLOCATE_LABELS must be a JSON object of string values");
   });
 

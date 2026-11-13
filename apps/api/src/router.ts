@@ -9,7 +9,7 @@ import type {
   SandboxProvider,
   SecretStore,
   TransactionalEmailProvider,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import type {
   CloudAgentConnection,
   CodexLiveCatalog,
@@ -30,10 +30,10 @@ import type {
   RemoteConnectorDependencies,
   TicketChangeNotifier,
   verifyModelServesAgents,
-} from "@rakazo/adapters";
-import type { Auth } from "@rakazo/auth";
-import type { NavLink } from "@rakazo/contracts";
-import type { BoardEvents, PrismaClient, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/adapters";
+import type { Auth } from "@botcamp/auth";
+import type { NavLink } from "@botcamp/contracts";
+import type { BoardEvents, PrismaClient, ThreadEvents } from "@botcamp/db";
 import type { BillingService } from "./billing.js";
 import { accountRoutes } from "./routes/account.js";
 import { availabilityRoutes } from "./routes/availability.js";

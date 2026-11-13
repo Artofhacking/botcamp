@@ -21,8 +21,8 @@ trust; those sites are listed under **Trusted sites**, where you can remove them
 
 ## Sign-in and security
 
-Under **Security** you can **Change password** and **Add passkey** to sign in with your device
-instead of a password. Some actions, such as exporting data, ask you to confirm it's you first.
+Under **Security** you can **Change password**. Passkeys are not offered for sign-in or in
+settings. Some actions, such as exporting data, ask you to confirm it's you first.
 
 ## Credentials
 
@@ -57,6 +57,3 @@ plan:
 
 **Invite friends** in the account menu gives you a link. You get a free month for each friend who
 starts a trial.
-
-> [!NOTE]
-> A self-hosted server has no billing. See [Self-hosting](./self-host.md).

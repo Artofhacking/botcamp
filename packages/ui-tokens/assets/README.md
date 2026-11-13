@@ -5,7 +5,7 @@ with Xcode 26 or newer. The orange foreground keeps its original lighting, sits 
 below center, and uses the system dark background. It is not the Windows or Linux icon.
 
 The product mark is `apps/desktop/assets/icon.png`. Run
-`pnpm --filter @rakazo/ui-tokens export:brand` to rebuild `icon.ico` and the
+`pnpm --filter @botcamp/ui-tokens export:brand` to rebuild `icon.ico` and the
 unpackaged Mac Dock icon from that file.
 
 ## Animated vector avatars

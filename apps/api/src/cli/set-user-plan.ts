@@ -1,7 +1,7 @@
 // `tsx src/cli/set-user-plan.ts <email|userId> <free|pro|plus|max|max_plus> [--tokens N] [--core-hours N]`
 // Moves a user onto a plan, applying the plan's quotas unless explicit overrides are given.
-import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
-import { createDb, isPlanId, PLANS, runAsSystem } from "@rakazo/db";
+import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
+import { createDb, isPlanId, PLANS, runAsSystem } from "@botcamp/db";
 
 const args = process.argv.slice(2);
 const [target, planId] = args;

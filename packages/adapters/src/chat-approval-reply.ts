@@ -1,13 +1,13 @@
-import type { AgentRuntime, AgentRuntimeEvent } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import type { ChatApprovalChoice, ChatApprovalClassifyInput } from "@rakazo/core";
+import type { AgentRuntime, AgentRuntimeEvent } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import type { ChatApprovalChoice, ChatApprovalClassifyInput } from "@botcamp/core";
 import {
   buildChatApprovalReplyPrompt,
   CHAT_APPROVAL_REPLY_RUBRIC,
   chatApprovalNotice,
   parseChatApprovalReply,
   redactSecrets,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import { autoReviewTimeoutMs } from "./auto-review.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";

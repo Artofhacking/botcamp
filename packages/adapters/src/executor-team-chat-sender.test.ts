@@ -1,4 +1,4 @@
-import type { AgentRunRequest, MemoryReadRequest } from "@rakazo/adapter-kit";
+import type { AgentRunRequest, MemoryReadRequest } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";

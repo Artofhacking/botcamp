@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type {
   Bot,
   ComputerStatus,
@@ -7,16 +6,17 @@ import type {
   MessageReaction,
   ThreadMessage,
   ThreadSnapshot,
-} from "@rakazo/contracts";
-import { attachmentMaxBytes, attachmentMaxCount, attachmentSizeLabel } from "@rakazo/contracts";
-import type { ComposerMention } from "@rakazo/core";
+} from "@botcamp/contracts";
+import { attachmentMaxBytes, attachmentMaxCount, attachmentSizeLabel } from "@botcamp/contracts";
+import type { ComposerMention } from "@botcamp/core";
 import {
   attachmentsForThread,
   inferAttachmentMimeType,
   isImageInputConfirmation,
   newClientId,
   resolveComposerSendPlan,
-} from "@rakazo/core";
+} from "@botcamp/core";
+import { useLingui } from "@lingui/react/macro";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestBrowserNotificationPermission } from "../../lib/browser-notifications";
@@ -370,6 +370,7 @@ export function useComposerActions({
         const payload = {
           ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
           clientNonce,
+          origin,
           imageHandling: imageHandling ?? "confirm",
           text: trimmed || undefined,
           mentions: plan.mentionPayload.length ? plan.mentionPayload : undefined,
@@ -380,21 +381,22 @@ export function useComposerActions({
           replyQuote:
             reroutedToGroup || replyToMessageId ? undefined : (activeReplyQuote ?? undefined),
           fromPage: !reroutedToGroup && replyToMessageId ? true : undefined,
-          origin,
         } as const;
         // The routines run in the same server operation as the message: both or neither.
         const sent = plan.shouldRunRoutines
           ? (await rpc.threads.sendWithRoutines({ ...payload, routineIds: plan.routineIds })).send
           : await rpc.threads.send(payload);
         accepted = true;
-        if (sent && botTarget && activeBotId.current === botTarget) {
+        const runId = sent?.runId;
+        const taskId = sent?.taskId;
+        if (runId && taskId && botTarget && activeBotId.current === botTarget) {
           updateSnapshot((current) =>
             applyThreadSendReceipt(
               current,
               {
                 botId: botTarget,
-                runId: sent.runId,
-                taskId: sent.taskId,
+                runId,
+                taskId,
               },
               terminalRunReceipts.current,
             ),

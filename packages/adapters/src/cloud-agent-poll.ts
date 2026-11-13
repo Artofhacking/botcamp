@@ -3,17 +3,17 @@ import type {
   AdapterContext,
   BackgroundJobPayloads,
   CloudAgentSnapshot,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   CloudAgentRequestRejected,
   CloudAgentRetryLater,
   runContinueJob,
-} from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl } from "@rakazo/core";
-import type { CloudAgent } from "@rakazo/db";
-import { appendEventInTransaction, Prisma } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { cloudAgentHttpsUrl } from "@botcamp/core";
+import type { CloudAgent } from "@botcamp/db";
+import { appendEventInTransaction, Prisma } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import { cloudAgentBlock, enqueueCloudAgent } from "./cloud-agent-service.js";

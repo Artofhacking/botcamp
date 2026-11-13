@@ -1,8 +1,8 @@
 import { RPCHandler } from "@orpc/server/fetch";
-import * as adapters from "@rakazo/adapters";
-import { listPiCatalog, serializeModelSecret } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import * as adapters from "@botcamp/adapters";
+import { listPiCatalog, serializeModelSecret } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";

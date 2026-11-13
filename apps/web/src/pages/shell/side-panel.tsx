@@ -5,8 +5,8 @@ import type {
   ComputerStatus,
   Group,
   ThreadSnapshot,
-} from "@rakazo/contracts";
-import { Button } from "@rakazo/ui-web";
+} from "@botcamp/contracts";
+import { Button } from "@botcamp/ui-web";
 import { X } from "lucide-react";
 import type { ComponentProps, Dispatch, ReactNode, SetStateAction } from "react";
 import { ComputerMaintenanceActions } from "../../components/ComputerMaintenanceActions";
@@ -15,6 +15,7 @@ import type { Panel } from "../../lib/right-panel-state";
 import type { createSpaceRpc } from "../../lib/rpc";
 import { computerPanelNeedsMaintenance } from "../../lib/thread-events";
 import { CreateGroupForm, GroupSettings } from "../GroupPanel";
+import { CreateSharedGroupForm, SharedGroupSettings } from "../SharedGroupPanel";
 import { ResizableSidePanel } from "../ResizableSidePanel";
 import { RoutineEditor } from "../RoutineEditor";
 import type { SettingsSection } from "../shell-overlay";
@@ -51,6 +52,7 @@ export function ShellSidePanel({
   memoryProviderConfigured,
   setAgentSkills,
   onClearBot,
+  userId,
 }: {
   rpc: ReturnType<typeof createSpaceRpc>;
   panel: Panel;
@@ -78,9 +80,17 @@ export function ShellSidePanel({
   memoryProviderConfigured: boolean;
   setAgentSkills: (skills: AgentSkillCatalogEntry[]) => void;
   onClearBot: (bot: Bot) => void;
+  userId: string | undefined;
 }) {
   const { t } = useLingui();
-  const open = Boolean(panel && (active || activeGroup || panel === "import-agent"));
+  const open = Boolean(
+    panel &&
+      (active ||
+        activeGroup ||
+        panel === "import-agent" ||
+        panel === "create-group" ||
+        panel === "create-shared-group"),
+  );
   const botTab =
     panel === "computer" || panel === "routines" || panel === "pages" || panel === "settings"
       ? panel
@@ -96,12 +106,28 @@ export function ShellSidePanel({
     await refreshBots().catch(() => undefined);
   }
 
+  async function createSharedGroup(input: { name: string; emails?: string[]; botIds?: string[] }) {
+    const group = await rpc.groups.createShared(input);
+    setGroups((current) =>
+      current.some((item) => item.id === group.id) ? current : [group, ...current],
+    );
+    navigate(`/app/g/${group.id}`);
+    setPanel(null);
+    await refreshBots().catch(() => undefined);
+  }
+
+  function replaceGroup(updated: Group) {
+    setGroups((current) => current.map((group) => (group.id === updated.id ? updated : group)));
+    void refreshGroupThread(updated.id).catch(() => undefined);
+  }
+
   return (
     <ResizableSidePanel open={open} panel={panel ?? "closed"}>
       {open ? (
         <div className="rk-scroll h-full w-full overflow-y-auto px-5 py-[17px]">
           {panel !== "routine" &&
           panel !== "create-group" &&
+          panel !== "create-shared-group" &&
           panel !== "group-settings" &&
           panel !== "import-agent" ? (
             <div className="mb-4 flex items-center justify-between">
@@ -145,7 +171,40 @@ export function ShellSidePanel({
               }}
             />
           ) : null}
-          {panel === "group-settings" && activeGroup ? (
+          {panel === "create-shared-group" ? (
+            <CreateSharedGroupForm
+              bots={bots}
+              onCancel={() => setPanel(null)}
+              onCreate={createSharedGroup}
+            />
+          ) : null}
+          {panel === "group-settings" && activeGroup?.shared ? (
+            <SharedGroupSettings
+              key={activeGroup.id}
+              rpc={rpc}
+              group={activeGroup}
+              bots={bots}
+              userId={userId}
+              pages={<PagesList groupId={activeGroup.id} />}
+              onGroup={replaceGroup}
+              onLeft={() => {
+                const remaining = groups.filter((group) => group.id !== activeGroup.id);
+                setGroups(remaining);
+                setPanel(null);
+                navigate(firstThreadRoute(bots, remaining), { replace: true });
+              }}
+              onRemove={async () => {
+                await rpc.groups.remove({ groupId: activeGroup.id });
+                const remaining = groups.filter((group) => group.id !== activeGroup.id);
+                setGroups(remaining);
+                setPanel(null);
+                navigate(firstThreadRoute(bots, remaining), { replace: true });
+                await refreshBots().catch(() => undefined);
+              }}
+              onClose={() => setPanel(null)}
+            />
+          ) : null}
+          {panel === "group-settings" && activeGroup && !activeGroup.shared ? (
             <GroupSettings
               key={activeGroup.id}
               group={activeGroup}

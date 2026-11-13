@@ -15,8 +15,8 @@ import type {
   SandboxProvider,
   SecretStore,
   WebProvider,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient, RunLease, ThreadEvents } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient, RunLease, ThreadEvents } from "@botcamp/db";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
@@ -85,6 +85,20 @@ export interface ExecutorDeps {
   codexCatalog?: CodexLiveCatalog;
   /** The run starter's connected desktop; absent never offers user_computer_shell. */
   userDevices?: UserDeviceGateway;
+  /**
+   * The signed-in person's directory account. Present only on the API, which
+   * holds the login secret and can refresh the token. Absent means the tools
+   * are not offered.
+   */
+  directory?: {
+    linked(userId: string): Promise<boolean>;
+    openGrant(
+      userId: string,
+    ): Promise<
+      | { accessToken: string; appId: string; brand: "feishu" | "lark" }
+      | { error: "needs_consent" | "unavailable" }
+    >;
+  };
   /** Aborted when createApp stop() begins so in-flight continueRun boot waits exit promptly. */
   shutdownSignal?: AbortSignal;
   /** Set by withRunLease for one attempt; that run's history writes carry its lease. */

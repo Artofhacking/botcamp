@@ -1,9 +1,9 @@
-import type { ModelCallObserver } from "@rakazo/adapter-kit";
-import { creditAccount, organizationForMember, reserveModelCredits } from "@rakazo/db";
+import type { ModelCallObserver } from "@botcamp/adapter-kit";
+import { creditAccount, organizationForMember, reserveModelCredits } from "@botcamp/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hostedModelCreditObserver } from "./model-credit-observer.js";
 
-vi.mock("@rakazo/db", () => ({
+vi.mock("@botcamp/db", () => ({
   organizationForMember: vi.fn(),
   creditAccount: vi.fn(),
   reserveModelCredits: vi.fn(),

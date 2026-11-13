@@ -10,42 +10,60 @@
 set -Eeuo pipefail
 
 # A forced SSH command carries no environment, so read the checkout path from a root-owned file.
-if [[ -z "${RAKAZO_DEPLOY_DIR:-}" && -r /etc/rakazo/deploy.env ]]; then
+if [[ -z "${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-}}" && -r /etc/rakazo/deploy.env ]]; then
   # shellcheck disable=SC1091
   source /etc/rakazo/deploy.env
 fi
-APP_DIR="${RAKAZO_DEPLOY_DIR:-/srv/rakazo}"
+APP_DIR="${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}"
 [[ "${APP_DIR}" == /* ]] || { echo "RAKAZO_DEPLOY_DIR must be an absolute path" >&2; exit 1; }
 COMPOSE_FILE="infra/compose/docker-compose.prod.yml"
 # CI allows 140 minutes: 5m pull + 15m fallback build + 5m start + ~1m of health retries + 8m
 # rollback, which only pulls or builds when the previous image is gone, + up to 50m (the worker's
 # stop_grace_period) twice: for a worker an earlier deploy left draining, then for this one's.
-PULL_TIMEOUT="${RAKAZO_DEPLOY_PULL_TIMEOUT:-5m}"
-BUILD_TIMEOUT="${RAKAZO_DEPLOY_BUILD_TIMEOUT:-15m}"
-UP_TIMEOUT="${RAKAZO_DEPLOY_UP_TIMEOUT:-5m}"
-ROLLBACK_TIMEOUT="${RAKAZO_DEPLOY_ROLLBACK_TIMEOUT:-8m}"
+PULL_TIMEOUT="${BOTCAMP_DEPLOY_PULL_TIMEOUT:-${RAKAZO_DEPLOY_PULL_TIMEOUT:-5m}}"
+BUILD_TIMEOUT="${BOTCAMP_DEPLOY_BUILD_TIMEOUT:-${RAKAZO_DEPLOY_BUILD_TIMEOUT:-15m}}"
+UP_TIMEOUT="${BOTCAMP_DEPLOY_UP_TIMEOUT:-${RAKAZO_DEPLOY_UP_TIMEOUT:-5m}}"
+ROLLBACK_TIMEOUT="${BOTCAMP_DEPLOY_ROLLBACK_TIMEOUT:-${RAKAZO_DEPLOY_ROLLBACK_TIMEOUT:-8m}}"
 # Free disk a deploy needs before it pulls or builds.
-MIN_FREE_GB="${RAKAZO_DEPLOY_MIN_FREE_GB:-5}"
-BUILD_CACHE_GB="${RAKAZO_DEPLOY_BUILD_CACHE_GB:-8}"
+MIN_FREE_GB="${BOTCAMP_DEPLOY_MIN_FREE_GB:-${RAKAZO_DEPLOY_MIN_FREE_GB:-5}}"
+BUILD_CACHE_GB="${BOTCAMP_DEPLOY_BUILD_CACHE_GB:-${RAKAZO_DEPLOY_BUILD_CACHE_GB:-8}}"
 [[ "${BUILD_CACHE_GB}" =~ ^[0-9]+$ ]] || { echo "RAKAZO_DEPLOY_BUILD_CACHE_GB must be a whole number" >&2; exit 1; }
 [[ "${MIN_FREE_GB}" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "RAKAZO_DEPLOY_MIN_FREE_GB must be a whole number" >&2; exit 1; }
 
 cd "${APP_DIR}"
 # Where CI publishes the app image. Unset: the GHCR app image of the GitHub repository the checkout
-# tracks, which is where publish-server-image.yml pushes. Empty: always build on the host.
-if [[ -z "${RAKAZO_DEPLOY_IMAGE+set}" ]]; then
-  RAKAZO_DEPLOY_IMAGE=""
+# tracks, which is where publish-server-image.yml pushes. Empty, with no legacy value: always
+# build on the host. A non-empty BOTCAMP_DEPLOY_IMAGE wins; an empty one uses RAKAZO_DEPLOY_IMAGE.
+# The value that wins is copied to both names so an older script and the new interpolation agree.
+deploy_image="${BOTCAMP_DEPLOY_IMAGE:-}"
+if [[ -z "${deploy_image}" ]]; then
+  deploy_image="${RAKAZO_DEPLOY_IMAGE:-}"
+fi
+if [[ -z "${deploy_image}" && -z "${BOTCAMP_DEPLOY_IMAGE+set}" && -z "${RAKAZO_DEPLOY_IMAGE+set}" ]]; then
   origin_url="$(git config --get remote.origin.url || true)"
   if [[ "${origin_url}" =~ github\.com[:/]([^/]+/[^/]+)$ ]]; then
     repository="$(tr '[:upper:]' '[:lower:]' <<<"${BASH_REMATCH[1]%.git}")"
-    RAKAZO_DEPLOY_IMAGE="ghcr.io/${repository}/app"
+    deploy_image="ghcr.io/${repository}/app"
   fi
 fi
-if [[ -z "${RAKAZO_HEALTH_URL:-}" ]]; then
-  host="$(sed -n 's/^RAKAZO_HOST=//p' .env | tail -n 1)"
-  [[ -n "${host}" ]] || { echo "Set RAKAZO_HOST in .env or RAKAZO_HEALTH_URL" >&2; exit 1; }
-  RAKAZO_HEALTH_URL="https://${host}/health"
+BOTCAMP_DEPLOY_IMAGE="${deploy_image}"
+RAKAZO_DEPLOY_IMAGE="${deploy_image}"
+export BOTCAMP_DEPLOY_IMAGE RAKAZO_DEPLOY_IMAGE
+health_url="${BOTCAMP_HEALTH_URL:-}"
+if [[ -z "${health_url}" ]]; then
+  health_url="${RAKAZO_HEALTH_URL:-}"
 fi
+if [[ -z "${health_url}" ]]; then
+  host="$(sed -n 's/^BOTCAMP_HOST=//p' .env | tail -n 1)"
+  if [[ -z "${host}" ]]; then
+    host="$(sed -n 's/^RAKAZO_HOST=//p' .env | tail -n 1)"
+  fi
+  [[ -n "${host}" ]] || { echo "Set RAKAZO_HOST in .env or RAKAZO_HEALTH_URL" >&2; exit 1; }
+  health_url="https://${host}/health"
+fi
+BOTCAMP_HEALTH_URL="${health_url}"
+RAKAZO_HEALTH_URL="${health_url}"
+export BOTCAMP_HEALTH_URL RAKAZO_HEALTH_URL
 
 compose() {
   local limit="$1"
@@ -54,7 +72,7 @@ compose() {
 }
 
 healthy() {
-  curl --fail --silent --show-error --max-time 15 "${RAKAZO_HEALTH_URL}" >/dev/null
+  curl --fail --silent --show-error --max-time 15 "${BOTCAMP_HEALTH_URL:-${RAKAZO_HEALTH_URL}}" >/dev/null
 }
 
 # The image the api, web and worker share, as Compose resolves it from .env (by default
@@ -71,8 +89,8 @@ compose_app_image() {
 # image cannot be pulled, so a registry outage slows a deploy down instead of blocking it.
 use_revision_image() {
   local revision="$1" limit="$2" published
-  if [[ -n "${RAKAZO_DEPLOY_IMAGE}" ]]; then
-    published="${RAKAZO_DEPLOY_IMAGE}:sha-${revision}"
+  if [[ -n "${BOTCAMP_DEPLOY_IMAGE:-${RAKAZO_DEPLOY_IMAGE}}" ]]; then
+    published="${BOTCAMP_DEPLOY_IMAGE:-${RAKAZO_DEPLOY_IMAGE}}:sha-${revision}"
     if timeout --kill-after=30s "${PULL_TIMEOUT}" sudo docker pull --quiet "${published}" >/dev/null; then
       sudo docker tag "${published}" "${app_image}"
       # Drop the sha- tag; the image stays as the app image, so these tags never pile up.
@@ -99,7 +117,7 @@ container_healthy() {
       "running starting" | created*) ;;
       *) break ;;
     esac
-    sleep "${RAKAZO_DEPLOY_HEALTH_INTERVAL:-1}"
+    sleep "${BOTCAMP_DEPLOY_HEALTH_INTERVAL:-${RAKAZO_DEPLOY_HEALTH_INTERVAL:-1}}"
   done
   echo "Container ${container} did not become healthy (${state:-unknown})." >&2
   sudo docker rm --force "${container}" >/dev/null || true
@@ -181,7 +199,7 @@ roll_out() {
   # The old API keeps serving meanwhile, so each migration must work with the previous release.
   # On older releases the API migrates on start, so only start its database here.
   if compose 1m config --services | grep -qx migrate; then
-    compose "${UP_TIMEOUT}" run --rm -T -e "RAKAZO_DEPLOYED_MIGRATIONS=${deployed_migrations}" migrate
+    compose "${UP_TIMEOUT}" run --rm -T -e "RAKAZO_DEPLOYED_MIGRATIONS=${deployed_migrations}" -e "BOTCAMP_DEPLOYED_MIGRATIONS=${deployed_migrations}" migrate
   else
     compose "${UP_TIMEOUT}" up -d --wait postgres
   fi
@@ -235,7 +253,7 @@ done
 previous_revision="$(git rev-parse HEAD)"
 git fetch --quiet --prune origin main
 # The launcher pins the commit its copy of this script came from.
-target_revision="$(git rev-parse --verify "${RAKAZO_DEPLOY_REVISION:-origin/main}^{commit}")"
+target_revision="$(git rev-parse --verify "${BOTCAMP_DEPLOY_REVISION:-${RAKAZO_DEPLOY_REVISION:-origin/main}}^{commit}")"
 
 # Written only after a healthy rollout. A reset can make HEAD match before containers change.
 deployed_revision=""
@@ -350,7 +368,7 @@ for _ in {1..30}; do
     echo "Deployed ${target_revision} successfully."
     exit 0
   fi
-  sleep "${RAKAZO_DEPLOY_HEALTH_INTERVAL:-2}"
+  sleep "${BOTCAMP_DEPLOY_HEALTH_INTERVAL:-${RAKAZO_DEPLOY_HEALTH_INTERVAL:-2}}"
 done
 
 echo "Production health check did not recover in time." >&2

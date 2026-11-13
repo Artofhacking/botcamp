@@ -1,5 +1,5 @@
-import type { Actor, MessageBlock, SearchHit } from "@rakazo/contracts";
-import { GROUP_MEMBER_MIN } from "@rakazo/contracts";
+import type { Actor, MessageBlock, SearchHit } from "@botcamp/contracts";
+import { GROUP_MEMBER_MIN } from "@botcamp/contracts";
 import {
   displayName,
   escapeJsonSearchWildcards,
@@ -7,9 +7,9 @@ import {
   extractLinksFromText,
   matchesSearchQuery,
   snippetAroundMatch,
-} from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { contentEncryptionOf, INDEXED_MESSAGE, Prisma, UNINDEXED_MESSAGE } from "@rakazo/db";
+} from "@botcamp/core";
+import type { PrismaClient } from "@botcamp/db";
+import { contentEncryptionOf, INDEXED_MESSAGE, Prisma, UNINDEXED_MESSAGE } from "@botcamp/db";
 
 const SEARCH_LIMIT = 25;
 /** Cap name matches so content hits (messages/files/links/routines) keep most of the budget. */

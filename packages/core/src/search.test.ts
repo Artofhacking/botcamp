@@ -1,4 +1,4 @@
-import type { SearchHit } from "@rakazo/contracts";
+import type { SearchHit } from "@botcamp/contracts";
 import { describe, expect, it } from "vitest";
 import {
   dedupeSearchHits,

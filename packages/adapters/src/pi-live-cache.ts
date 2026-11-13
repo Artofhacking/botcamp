@@ -1,6 +1,11 @@
+import { firstNonEmpty } from "@botcamp/core/env-name";
 /** Deployment-wide catalog probing switch; tests opt in with injected transports. */
 export function liveModelCatalogEnabled(source: NodeJS.ProcessEnv = process.env): boolean {
-  return source.RAKAZO_LIVE_MODEL_CATALOG?.trim().toLowerCase() !== "off";
+  return (
+    firstNonEmpty(source.BOTCAMP_LIVE_MODEL_CATALOG, source.RAKAZO_LIVE_MODEL_CATALOG)
+      ?.trim()
+      .toLowerCase() !== "off"
+  );
 }
 
 export type CatalogFetch<T> = { attempted: false } | { attempted: true; models: T[] | undefined };

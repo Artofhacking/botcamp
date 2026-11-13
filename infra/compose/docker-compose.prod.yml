@@ -10,13 +10,15 @@ x-logging: &logging
 
 # What the api and worker both read. Each service adds the keys only it reads, so a process
 # only sees what it uses instead of the whole .env. A key with no value is passed through
-# when .env (or the shell) sets it and left unset otherwise. Keep in sync with the code:
+# when .env (or the shell) sets it and left unset otherwise. A BOTCAMP_* key falls back to
+# the previous RAKAZO_* name. An empty BOTCAMP_* value uses that legacy value.
+# When both are unset or empty, the container receives an empty string. Keep in sync with the code:
 # infra/updater/src/compose-env.test.ts fails when a read is missing here or a key is unused.
 x-app-environment: &app-environment
   # Runtime
   NODE_ENV: production
   # The app's own login, subject to row-level security (docs/self-host-configuration.md#database-roles).
-  DATABASE_URL: postgres://rakazo_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+  DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
   REALTIME_DATABASE_URL:
   DB_POOL_MAX:
   DATA_DIR: /data
@@ -42,21 +44,21 @@ x-app-environment: &app-environment
   CREDIT_YUAN:
   USD_TO_CNY:
   TOKEN_COST_DISCOUNT:
-  RAKAZO_QUOTA_TIME_ZONE:
-  RAKAZO_CROSS_SITE_COOKIES:
+  BOTCAMP_QUOTA_TIME_ZONE: ${BOTCAMP_QUOTA_TIME_ZONE:-${RAKAZO_QUOTA_TIME_ZONE-}}
+  BOTCAMP_CROSS_SITE_COOKIES: ${BOTCAMP_CROSS_SITE_COOKIES:-${RAKAZO_CROSS_SITE_COOKIES-}}
   API_URL:
   MAX_UPLOAD_SIZE_MB:
   MAX_ATTACHMENTS_PER_MESSAGE:
-  RAKAZO_UPDATE_RESTART_SUPERVISOR:
+  BOTCAMP_UPDATE_RESTART_SUPERVISOR: ${BOTCAMP_UPDATE_RESTART_SUPERVISOR:-${RAKAZO_UPDATE_RESTART_SUPERVISOR-}}
   TICKET_BOARD_ENABLED:
   USER_DEVICES_ENABLED:
   BOT_MESSAGE_MAX_HOPS:
-  RAKAZO_MESSAGE_USER_MAX_CHARS:
+  BOTCAMP_MESSAGE_USER_MAX_CHARS: ${BOTCAMP_MESSAGE_USER_MAX_CHARS:-${RAKAZO_MESSAGE_USER_MAX_CHARS-}}
   TEACH_RECORDING_TTL_MS:
   PHONE_CALLS_ENABLED:
   PHONE_CALL_RING_SECONDS:
   PHONE_CALL_COOLDOWN_MINUTES:
-  RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP:
+  BOTCAMP_SECRETS_ALLOW_PRIVATE_HTTP: ${BOTCAMP_SECRETS_ALLOW_PRIVATE_HTTP:-${RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP-}}
   EXPO_ACCESS_TOKEN:
   APNS_VOIP_KEY_ID:
   APNS_VOIP_TEAM_ID:
@@ -101,7 +103,7 @@ x-app-environment: &app-environment
   PI_DEFAULT_MODEL:
   PI_DEFAULT_CREDENTIALS:
   PI_SESSION_RECORDING:
-  RAKAZO_LIVE_MODEL_CATALOG:
+  BOTCAMP_LIVE_MODEL_CATALOG: ${BOTCAMP_LIVE_MODEL_CATALOG:-${RAKAZO_LIVE_MODEL_CATALOG-}}
   OPENROUTER_API_KEY:
   ANTHROPIC_API_KEY:
   TYPESAFE_API_KEY:
@@ -110,19 +112,19 @@ x-app-environment: &app-environment
   MODEL_STREAM_TIMEOUT_MS:
   MODEL_CONNECT_TIMEOUT_MS:
   MODEL_STREAM_IDLE_TIMEOUT_MS:
-  RAKAZO_LOCAL_MODELS:
-  RAKAZO_LOCAL_MODELS_URL:
-  RAKAZO_LOCAL_VISION_MODELS:
-  RAKAZO_LOCAL_REASONING_MODELS:
-  RAKAZO_LOCAL_CONTEXT_WINDOW:
-  RAKAZO_LOCAL_MAX_TOKENS:
-  RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS:
-  RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC:
-  RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS:
-  RAKAZO_AUTO_REVIEW_PROVIDER:
-  RAKAZO_AUTO_REVIEW_MODEL:
-  RAKAZO_AUTO_REVIEW_MIN_CONFIDENCE:
-  RAKAZO_AUTO_REVIEW_TIMEOUT_MS:
+  BOTCAMP_LOCAL_MODELS: ${BOTCAMP_LOCAL_MODELS:-${RAKAZO_LOCAL_MODELS-}}
+  BOTCAMP_LOCAL_MODELS_URL: ${BOTCAMP_LOCAL_MODELS_URL:-${RAKAZO_LOCAL_MODELS_URL-}}
+  BOTCAMP_LOCAL_VISION_MODELS: ${BOTCAMP_LOCAL_VISION_MODELS:-${RAKAZO_LOCAL_VISION_MODELS-}}
+  BOTCAMP_LOCAL_REASONING_MODELS: ${BOTCAMP_LOCAL_REASONING_MODELS:-${RAKAZO_LOCAL_REASONING_MODELS-}}
+  BOTCAMP_LOCAL_CONTEXT_WINDOW: ${BOTCAMP_LOCAL_CONTEXT_WINDOW:-${RAKAZO_LOCAL_CONTEXT_WINDOW-}}
+  BOTCAMP_LOCAL_MAX_TOKENS: ${BOTCAMP_LOCAL_MAX_TOKENS:-${RAKAZO_LOCAL_MAX_TOKENS-}}
+  BOTCAMP_OPENAI_COMPATIBLE_VISION_MODELS: ${BOTCAMP_OPENAI_COMPATIBLE_VISION_MODELS:-${RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS-}}
+  BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC: ${BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC:-${RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC-}}
+  BOTCAMP_OPENAI_COMPAT_PRIVATE_HOSTS: ${BOTCAMP_OPENAI_COMPAT_PRIVATE_HOSTS:-${RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS-}}
+  BOTCAMP_AUTO_REVIEW_PROVIDER: ${BOTCAMP_AUTO_REVIEW_PROVIDER:-${RAKAZO_AUTO_REVIEW_PROVIDER-}}
+  BOTCAMP_AUTO_REVIEW_MODEL: ${BOTCAMP_AUTO_REVIEW_MODEL:-${RAKAZO_AUTO_REVIEW_MODEL-}}
+  BOTCAMP_AUTO_REVIEW_MIN_CONFIDENCE: ${BOTCAMP_AUTO_REVIEW_MIN_CONFIDENCE:-${RAKAZO_AUTO_REVIEW_MIN_CONFIDENCE-}}
+  BOTCAMP_AUTO_REVIEW_TIMEOUT_MS: ${BOTCAMP_AUTO_REVIEW_TIMEOUT_MS:-${RAKAZO_AUTO_REVIEW_TIMEOUT_MS-}}
   RELEASE_WATCH_EVAL_MODEL:
   FISH_TTS_MODEL:
   FISH_ASR_MODEL:
@@ -399,10 +401,10 @@ services:
       start_period: 2m
 
   # Applies migrations as the database owner, creates the runtime login, and exits. Only this
-  # container gets the owner login: the API and worker connect as rakazo_app, which row-level
+  # container gets the owner login: the API and worker connect as botcamp_app, which row-level
   # security binds, so code running in either cannot find a login that bypasses it.
   migrate:
-    image: ${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}:${RAKAZO_IMAGE_TAG:-local}
+    image: ${BOTCAMP_IMAGE:-${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}}:${BOTCAMP_IMAGE_TAG:-${RAKAZO_IMAGE_TAG:-local}}
     build:
       context: ../..
       dockerfile: infra/compose/Dockerfile
@@ -419,7 +421,7 @@ services:
     pids_limit: 256
     mem_limit: 1536m
     environment:
-      DATABASE_URL: postgres://rakazo_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+      DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
       DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
     networks:
       - data
@@ -434,7 +436,7 @@ services:
     # The default tag is `local`, which no registry serves, so a fresh install builds from the
     # checkout via `up -d --build` instead of failing on a `pull` of an image that does not exist
     # yet. Once a release is published, pin RAKAZO_IMAGE_TAG to it and the pull path takes over.
-    image: ${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}:${RAKAZO_IMAGE_TAG:-local}
+    image: ${BOTCAMP_IMAGE:-${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}}:${BOTCAMP_IMAGE_TAG:-${RAKAZO_IMAGE_TAG:-local}}
     build:
       context: ../..
       dockerfile: infra/compose/Dockerfile
@@ -453,7 +455,7 @@ services:
       - ALL
     # Chat runs execute in the API that receives them, so it gets the worker's headroom.
     pids_limit: 512
-    mem_limit: ${RAKAZO_API_MEMORY_LIMIT:-2g}
+    mem_limit: ${BOTCAMP_API_MEMORY_LIMIT:-${RAKAZO_API_MEMORY_LIMIT:-2g}}
     environment:
       <<: *app-environment
       # Sign-in, sessions, billing and inbound webhooks: API only.
@@ -475,11 +477,18 @@ services:
       OIDC_NAME: ${OIDC_NAME:-SSO}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
       OIDC_ALLOW_SIGNUP_BYPASS: ${OIDC_ALLOW_SIGNUP_BYPASS:-false}
+      # Directory login is separate from the messaging app. The secret stays on the API.
+      LARK_LOGIN_APP_ID: ${LARK_LOGIN_APP_ID:-}
+      LARK_LOGIN_APP_SECRET: ${LARK_LOGIN_APP_SECRET:-}
+      LARK_LOGIN_NAME: ${LARK_LOGIN_NAME:-}
+      LARK_LOGIN_SCOPES: ${LARK_LOGIN_SCOPES:-}
+      LARK_LOGIN_TENANT: ${LARK_LOGIN_TENANT:-}
+      LARK_LOGIN_ALLOW_SIGNUP_BYPASS: ${LARK_LOGIN_ALLOW_SIGNUP_BYPASS:-false}
       SIGNUPS_ENABLED:
       SIGNUP_ALLOWLIST:
       SCREEN_PROXY_SECRET: ${SCREEN_PROXY_SECRET:?Set SCREEN_PROXY_SECRET in .env}
-      RAKAZO_DESKTOP_STACK_TOKEN:
-      RAKAZO_GIT_SHA:
+      BOTCAMP_DESKTOP_STACK_TOKEN: ${BOTCAMP_DESKTOP_STACK_TOKEN:-${RAKAZO_DESKTOP_STACK_TOKEN-}}
+      BOTCAMP_GIT_SHA: ${BOTCAMP_GIT_SHA:-${RAKAZO_GIT_SHA-}}
       SENTRY_BROWSER_DSN: ${SENTRY_BROWSER_DSN:-}
       PRIVACY_POLICY_URL:
       EMAIL_PROVIDER:
@@ -498,12 +507,12 @@ services:
       TEAM_CHAT_JUDGE_PROVIDER:
       TEAM_CHAT_JUDGE_MODEL:
       SPACE_TEARDOWN_TIMEOUT_MS:
-      RAKAZO_MIN_CLIENT_BUILD:
-      RAKAZO_NAV_LINKS:
-      RAKAZO_ADMIN_EMAILS:
-      RAKAZO_ADMIN_USER_IDS:
+      BOTCAMP_MIN_CLIENT_BUILD: ${BOTCAMP_MIN_CLIENT_BUILD:-${RAKAZO_MIN_CLIENT_BUILD-}}
+      BOTCAMP_NAV_LINKS: ${BOTCAMP_NAV_LINKS:-${RAKAZO_NAV_LINKS-}}
+      BOTCAMP_ADMIN_EMAILS: ${BOTCAMP_ADMIN_EMAILS:-${RAKAZO_ADMIN_EMAILS-}}
+      BOTCAMP_ADMIN_USER_IDS: ${BOTCAMP_ADMIN_USER_IDS:-${RAKAZO_ADMIN_USER_IDS-}}
       MANAGED_MODELS_ONLY:
-      BOTCAMP_FIXED_MONTHLY_YUAN:
+      BOTCAMP_FIXED_MONTHLY_YUAN: ${BOTCAMP_FIXED_MONTHLY_YUAN:-${RAKAZO_FIXED_MONTHLY_YUAN-}}
       TKE_CPU_YUAN_PER_CORE_HOUR:
       TKE_MEMORY_YUAN_PER_GIB_HOUR:
       VOICE_SUMMARY_MIN_CHARS:
@@ -534,7 +543,7 @@ services:
       start_interval: 1s
 
   worker:
-    image: ${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}:${RAKAZO_IMAGE_TAG:-local}
+    image: ${BOTCAMP_IMAGE:-${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}}:${BOTCAMP_IMAGE_TAG:-${RAKAZO_IMAGE_TAG:-local}}
     build:
       context: ../..
       dockerfile: infra/compose/Dockerfile
@@ -562,7 +571,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 512
-    mem_limit: ${RAKAZO_WORKER_MEMORY_LIMIT:-2g}
+    mem_limit: ${BOTCAMP_WORKER_MEMORY_LIMIT:-${RAKAZO_WORKER_MEMORY_LIMIT:-2g}}
     environment:
       <<: *app-environment
       GRAPHILE_WORKER_CONCURRENCY:
@@ -579,7 +588,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}:${RAKAZO_IMAGE_TAG:-local}
+    image: ${BOTCAMP_IMAGE:-${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}}:${BOTCAMP_IMAGE_TAG:-${RAKAZO_IMAGE_TAG:-local}}
     build:
       context: ../..
       dockerfile: infra/compose/Dockerfile
@@ -606,10 +615,10 @@ services:
       # Keep that fixed so pids_limit holds on many-core hosts (#2430).
       RAYON_NUM_THREADS: "4"
       API_PROXY_TARGET: http://api:3100
-      RAKAZO_HOST: ${RAKAZO_HOST:-app.example.com}
+      BOTCAMP_HOST: ${BOTCAMP_HOST:-${RAKAZO_HOST:-app.example.com}}
       SCREEN_PROXY_SECRET: ${SCREEN_PROXY_SECRET:?Set SCREEN_PROXY_SECRET in .env}
-      RAKAZO_CSP_SCRIPT_SRC: ${RAKAZO_CSP_SCRIPT_SRC:-}
-      RAKAZO_CSP_CONNECT_SRC: ${RAKAZO_CSP_CONNECT_SRC:-}
+      BOTCAMP_CSP_SCRIPT_SRC: ${BOTCAMP_CSP_SCRIPT_SRC:-${RAKAZO_CSP_SCRIPT_SRC:-}}
+      BOTCAMP_CSP_CONNECT_SRC: ${BOTCAMP_CSP_CONNECT_SRC:-${RAKAZO_CSP_CONNECT_SRC:-}}
       CRISP_WEBSITE_ID:
     expose:
       - "5173"
@@ -641,7 +650,7 @@ services:
     profiles: [updater]
     # Pinned separately from the application image: the updater does not recreate itself, so moving
     # its own version is an operator action, not something an update can do underneath itself.
-    image: ${RAKAZO_UPDATER_IMAGE:-ghcr.io/artofhacking/botcamp/updater}:${RAKAZO_UPDATER_IMAGE_TAG:-local}
+    image: ${BOTCAMP_UPDATER_IMAGE:-${RAKAZO_UPDATER_IMAGE:-ghcr.io/artofhacking/botcamp/updater}}:${BOTCAMP_UPDATER_IMAGE_TAG:-${RAKAZO_UPDATER_IMAGE_TAG:-local}}
     build:
       context: ../..
       dockerfile: infra/updater/Dockerfile
@@ -659,21 +668,21 @@ services:
       NODE_ENV: production
       # Keep interpolation optional so deployments that do not enable this profile need no token.
       # resolveUpdaterConfig still refuses to start the sidecar without a dedicated secure value.
-      RAKAZO_UPDATER_TOKEN: ${RAKAZO_UPDATER_TOKEN:-}
-      RAKAZO_UPDATER_HOST: "0.0.0.0"
-      RAKAZO_UPDATER_PORT: "7092"
-      RAKAZO_IMAGE: ${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}
+      BOTCAMP_UPDATER_TOKEN: ${BOTCAMP_UPDATER_TOKEN:-${RAKAZO_UPDATER_TOKEN:-}}
+      BOTCAMP_UPDATER_HOST: "0.0.0.0"
+      BOTCAMP_UPDATER_PORT: "7092"
+      BOTCAMP_IMAGE: ${BOTCAMP_IMAGE:-${RAKAZO_IMAGE:-ghcr.io/artofhacking/botcamp/app}}
       # `-p` is available to Compose interpolation but is not injected into containers unless it is
       # declared here. The sidecar must target the project the operator actually started.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-rakazo-prod}
       # Must equal the host path it is mounted from, or every relative bind mount in this file would
       # resolve somewhere else. /srv/rakazo is the supported Linux production layout.
-      RAKAZO_DEPLOY_DIR: ${RAKAZO_DEPLOY_DIR:-/srv/rakazo}
+      BOTCAMP_DEPLOY_DIR: ${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}
       # A deployment that layers an overlay has to be reconciled with the same file list and the
       # same services the operator runs by hand, so these are read from the environment rather
       # than pinned to the base stack. Defaults reproduce the previous behaviour exactly.
-      RAKAZO_COMPOSE_FILE: ${RAKAZO_COMPOSE_FILE:-infra/compose/docker-compose.prod.yml}
-      RAKAZO_UPDATE_SERVICES: ${RAKAZO_UPDATE_SERVICES:-}
+      BOTCAMP_COMPOSE_FILE: ${BOTCAMP_COMPOSE_FILE:-${RAKAZO_COMPOSE_FILE:-infra/compose/docker-compose.prod.yml}}
+      BOTCAMP_UPDATE_SERVICES: ${BOTCAMP_UPDATE_SERVICES:-${RAKAZO_UPDATE_SERVICES:-}}
       COMPOSE_PATH_SEPARATOR: ${COMPOSE_PATH_SEPARATOR:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-}
@@ -686,7 +695,7 @@ services:
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${RAKAZO_DEPLOY_DIR:-/srv/rakazo}:${RAKAZO_DEPLOY_DIR:-/srv/rakazo}
+      - ${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}:${BOTCAMP_DEPLOY_DIR:-${RAKAZO_DEPLOY_DIR:-/srv/rakazo}}
     networks:
       - control
     healthcheck:
@@ -713,7 +722,7 @@ services:
     pids_limit: 128
     mem_limit: 256m
     environment:
-      RAKAZO_HOST: ${RAKAZO_HOST:-app.example.com}
+      BOTCAMP_HOST: ${BOTCAMP_HOST:-${RAKAZO_HOST:-app.example.com}}
       # Go listens with multipath TCP by default, which widens the kernel attack surface.
       GODEBUG: multipathtcp=0
     ports:

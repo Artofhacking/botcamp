@@ -4,9 +4,9 @@ import type {
   ArtifactStore,
   SandboxProvider,
   SecretStore,
-} from "@rakazo/adapter-kit";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { createDb, runAsSystem, runAsTenant } from "@rakazo/db";
+} from "@botcamp/adapter-kit";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { createDb, runAsSystem, runAsTenant } from "@botcamp/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createBackgroundJobHandlers } from "./background-job-handlers.js";
 import type { createRunExecutor } from "./executor.js";

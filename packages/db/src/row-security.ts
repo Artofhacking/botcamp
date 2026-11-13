@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHmac } from "node:crypto";
-import { getLogger } from "@rakazo/logging";
+import { getLogger } from "@botcamp/logging";
 import type { Pool, PoolClient } from "pg";
 import type { PrismaClient } from "./generated/prisma/client.js";
 import { Prisma } from "./generated/prisma/client.js";
@@ -103,6 +103,8 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "BillingAuditEvent",
   "PushToken",
   "CallPushDevice",
+  "ChatGroupParticipant",
+  "SharedGroupWake",
   "EmailSend",
   "Thread",
   "Message",

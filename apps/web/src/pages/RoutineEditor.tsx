@@ -6,9 +6,9 @@ import type {
   Routine,
   RoutineWatch,
   RoutineWatchInput,
-} from "@rakazo/contracts";
-import { ROUTINE_WATCH_DEFAULT_MINUTES, ROUTINE_WATCH_MIN_MINUTES } from "@rakazo/contracts";
-import type { CronFreq, CronLabels, CronPreset } from "@rakazo/core";
+} from "@botcamp/contracts";
+import { ROUTINE_WATCH_DEFAULT_MINUTES, ROUTINE_WATCH_MIN_MINUTES } from "@botcamp/contracts";
+import type { CronFreq, CronLabels, CronPreset } from "@botcamp/core";
 import {
   credentialForModel,
   cronFromPreset,
@@ -17,7 +17,7 @@ import {
   formatCron,
   isOneShotRoutineCrons,
   presetFromCron,
-} from "@rakazo/core";
+} from "@botcamp/core";
 import {
   Button,
   DropdownMenu,
@@ -35,7 +35,7 @@ import {
   PopoverTrigger,
   Switch,
   Textarea,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,

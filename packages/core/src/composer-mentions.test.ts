@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendConnectorIntent,
   buildComposerMentionOptions,
+  composerMentionSources,
   connectorIntentLine,
   filterComposerMentionTargets,
   mentionChipKey,
@@ -97,6 +98,70 @@ describe("buildComposerMentionOptions", () => {
     expect(options.map((option) => option.name)).toEqual(["Gmail"]);
   });
 
+  it("lists other people in a shared group and only the bots who are in it", () => {
+    const sources = composerMentionSources({
+      userId: "me",
+      bots: [
+        { id: "mine", name: "Helper" },
+        { id: "outsider", name: "Outsider" },
+      ],
+      routines: [
+        { id: "r-out", name: "Outside", crons: [], botId: "outsider", botName: "Outsider" },
+        { id: "r-in", name: "Inside", crons: ["0 9 * * *"], botId: "mine", botName: "Helper" },
+      ],
+      group: {
+        shared: true,
+        members: [
+          { botId: "mine", name: "Ada-Helper" },
+          { botId: "theirs", name: "Bea-Scout" },
+        ],
+        people: [
+          { userId: "me", name: "Ada" },
+          { userId: "bea", name: "Bea" },
+          { userId: "blank", name: "  " },
+        ],
+      },
+    });
+    expect(sources.bots.map((bot) => bot.name)).toEqual(["Ada-Helper", "Bea-Scout"]);
+    expect(sources.routines).toEqual([]);
+    expect(sources.people).toEqual([{ id: "bea", name: "Bea" }]);
+    const options = buildComposerMentionOptions({
+      query: "",
+      includeEveryone: true,
+      bots: sources.bots,
+      people: sources.people,
+      groups: [{ id: "here", name: "Here" }],
+      currentGroupId: "here",
+      routines: sources.routines,
+      connectors: [],
+    });
+    expect(options.map((option) => `${option.kind}:${option.name}`)).toEqual([
+      "everyone:everyone",
+      "person:Bea",
+      "bot:Ada-Helper",
+      "bot:Bea-Scout",
+    ]);
+    expect(options.find((option) => option.kind === "person")?.subtitle).toBeUndefined();
+  });
+
+  it("keeps a private group's mention list as the caller's bots", () => {
+    const sources = composerMentionSources({
+      userId: "me",
+      bots: [
+        { id: "a", name: "A" },
+        { id: "b", name: "B" },
+      ],
+      routines: [{ id: "r", name: "Daily", crons: [], botId: "b" }],
+      group: {
+        members: [{ botId: "a", name: "A" }],
+        people: [{ userId: "x", name: "X" }],
+      },
+    });
+    expect(sources.bots.map((bot) => bot.id)).toEqual(["a", "b"]);
+    expect(sources.routines).toHaveLength(1);
+    expect(sources.people).toEqual([]);
+  });
+
   it("returns the full catalog when limit is omitted", () => {
     const bots = Array.from({ length: 80 }, (_, index) => ({
       id: `b${index}`,
@@ -155,6 +220,18 @@ describe("resolveComposerSendPlan", () => {
     expect(plan.isNoOp).toBe(false);
   });
 
+  it("keeps a person mention in the message and out of the bot payload", () => {
+    const plan = resolveComposerSendPlan({
+      text: "@Ada hello",
+      mentions: [{ kind: "person", id: "u1", name: "Ada" }],
+      hasAttachments: false,
+    });
+    expect(plan.trimmed).toBe("@Ada hello");
+    expect(plan.mentionPayload).toEqual([]);
+    expect(plan.shouldSend).toBe(true);
+    expect(plan.shouldOpenGroup).toBe(false);
+  });
+
   it("opens another group from inside a group thread", () => {
     const plan = resolveComposerSendPlan({
       text: "@Other",
@@ -176,6 +253,7 @@ describe("partition and payload", () => {
       { kind: "routine", id: "r1", name: "Digest" },
       { kind: "connector", id: "c1", name: "Gmail", authStatus: "connected", connectionId: "c1" },
       { kind: "everyone", id: "everyone", name: "everyone" },
+      { kind: "person", id: "u1", name: "Ada" },
     ]);
     expect(parts.bots).toHaveLength(1);
     expect(parts.groups).toHaveLength(1);
@@ -184,9 +262,10 @@ describe("partition and payload", () => {
     expect(parts.everyone).toBe(true);
   });
 
-  it("omits needs-auth catalog connectors from API payload", () => {
+  it("omits people and needs-auth catalog connectors from the API payload", () => {
     expect(
       toThreadMentionPayload([
+        { kind: "person", id: "u1", name: "Ada" },
         { kind: "bot", id: "b1", name: "Chief" },
         {
           kind: "connector",

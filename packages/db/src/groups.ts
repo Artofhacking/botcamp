@@ -1,13 +1,15 @@
-import type { Actor, Group, GroupMember, SpaceGroup } from "@rakazo/contracts";
-import { GROUP_MEMBER_MAX, GROUP_MEMBER_MIN, resolveBotAvatarSet } from "@rakazo/contracts";
-import { displayName } from "@rakazo/core";
+import type { Actor, Group, GroupMember, SharedGroupRole, SpaceGroup } from "@botcamp/contracts";
+import { GROUP_MEMBER_MAX, GROUP_MEMBER_MIN, resolveBotAvatarSet } from "@botcamp/contracts";
+import { displayName } from "@botcamp/core";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases, restoreBotUnderComputerQuota } from "./computers.js";
 import { transientRunEventsWhere } from "./events.js";
 import { deletePageShareSecrets } from "./page-shares.js";
 import { withNewestThreadMessages } from "./preview-messages.js";
+import { runAsSystem } from "./row-security.js";
 import { IsolationError } from "./scope.js";
+import { loadSharedGroupRosters } from "./shared-group-roster.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
 import {
   activeRunSelection,
@@ -27,6 +29,9 @@ type GroupRecord = {
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  shared?: boolean;
+  myRole?: SharedGroupRole;
+  people?: Group["people"];
   thread: {
     id: string;
     unread: boolean;
@@ -38,6 +43,8 @@ type GroupRecord = {
       name: string;
       color: string;
       avatarSet?: string;
+      userId?: string;
+      spaceId?: string;
       runs: Array<{ status: string }>;
     };
   }>;
@@ -79,6 +86,9 @@ function mapGroup(group: GroupRecord): Group {
     unread: group.thread.unread,
     updatedAt: group.updatedAt.toISOString(),
     createdAt: group.createdAt.toISOString(),
+    ...(group.shared
+      ? { shared: true as const, myRole: group.myRole, people: group.people ?? [] }
+      : {}),
   };
 }
 
@@ -141,7 +151,7 @@ async function assertOwnedBots(
  * timestamp, so ties would come back in whatever order Postgres happens to return them:
  * one millisecond per member keeps the caller's order authoritative.
  */
-function memberRowsInOrder(groupId: string, botIds: string[], base = Date.now()) {
+export function memberRowsInOrder(groupId: string, botIds: string[], base = Date.now()) {
   return botIds.map((botId, index) => ({
     groupId,
     botId,
@@ -162,6 +172,8 @@ const groupInclude = {
           name: true,
           color: true,
           avatarSet: true,
+          userId: true,
+          spaceId: true,
           runs: activeRunSelection,
         },
       },
@@ -192,6 +204,8 @@ const groupTargetInclude = {
           name: true,
           color: true,
           avatarSet: true,
+          userId: true,
+          spaceId: true,
           runs: activeRunSelection,
         },
       },
@@ -296,10 +310,56 @@ async function attachNewestGroupMessage<T extends { thread: { id: string } | nul
   return { ...group, thread: { ...group.thread, messages } };
 }
 
+function readableGroupWhere(actor: Actor): Prisma.ChatGroupWhereInput {
+  return {
+    OR: [
+      { spaceId: actor.spaceId, userId: actor.userId },
+      { shared: true, participants: { some: { userId: actor.userId } } },
+    ],
+  };
+}
+
+/** Replace a shared group's members with labeled bots from every account in it. */
+async function applySharedRosters<T extends { id: string; shared?: boolean }>(
+  prisma: PrismaClient,
+  actorUserId: string,
+  groups: T[],
+): Promise<T[]> {
+  const ids = groups.flatMap((group) => (group.shared ? [group.id] : []));
+  if (ids.length === 0) return groups;
+  const rosters = await runAsSystem("read shared group member names", () =>
+    loadSharedGroupRosters(prisma, ids, actorUserId),
+  );
+  return groups.map((group) => {
+    if (!group.shared) return group;
+    const roster = rosters.get(group.id);
+    if (!roster) return group;
+    return {
+      ...group,
+      myRole: roster.myRole,
+      people: roster.people,
+      members: roster.members.map((member) => ({
+        bot: {
+          id: member.botId,
+          name: member.name,
+          color: member.color,
+          avatarSet: member.avatarSet,
+          userId: member.userId,
+          spaceId: member.spaceId,
+          runs: member.runs,
+        },
+      })),
+    };
+  });
+}
+
 export function createGroupRepos(prisma: PrismaClient) {
   async function listSpaceGroupsForSpaces(actor: Actor, spaceIds: string[]): Promise<SpaceGroup[]> {
     if (spaceIds.length === 0) return [];
-    const groups = await withNewestThreadMessages(
+    const groups = await applySharedRosters(
+      prisma,
+      actor.userId,
+      await withNewestThreadMessages(
       prisma,
       await prisma.chatGroup.findMany({
         where: {
@@ -313,6 +373,7 @@ export function createGroupRepos(prisma: PrismaClient) {
           name: true,
           pinned: true,
           sectionId: true,
+          shared: true,
           updatedAt: true,
           thread: {
             select: {
@@ -325,9 +386,10 @@ export function createGroupRepos(prisma: PrismaClient) {
         orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
       }),
       1,
+      ),
     );
     return groups
-      .filter((group) => hasMinimumActiveMembers(group.members))
+      .filter((group) => group.shared || hasMinimumActiveMembers(group.members))
       .map((group) => mapSpaceGroup(group));
   }
 
@@ -364,21 +426,21 @@ export function createGroupRepos(prisma: PrismaClient) {
   return {
     async listGroups(actor: Actor, options: { archived?: boolean } = {}): Promise<Group[]> {
       if (options.archived) return listArchivedGroups(actor);
-      const groups = await withNewestThreadMessages(
+      const groups = await applySharedRosters(
         prisma,
-        await prisma.chatGroup.findMany({
-          where: {
-            spaceId: actor.spaceId,
-            userId: actor.userId,
-            archivedAt: null,
-          },
-          include: groupInclude,
-          orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
-        }),
-        1,
+        actor.userId,
+        await withNewestThreadMessages(
+          prisma,
+          await prisma.chatGroup.findMany({
+            where: { archivedAt: null, ...readableGroupWhere(actor) },
+            include: groupInclude,
+            orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
+          }),
+          1,
+        ),
       );
       return groups
-        .filter((group) => hasMinimumActiveMembers(group.members))
+        .filter((group) => group.shared || hasMinimumActiveMembers(group.members))
         .map((group) => mapGroup(group as GroupRecord));
     },
 
@@ -388,28 +450,35 @@ export function createGroupRepos(prisma: PrismaClient) {
       const group = await prisma.chatGroup.findFirst({
         where: {
           id: groupId,
-          spaceId: actor.spaceId,
-          userId: actor.userId,
-          ...(options.includeArchived ? {} : { archivedAt: null }),
+          ...(options.includeArchived
+            ? { spaceId: actor.spaceId, userId: actor.userId }
+            : { archivedAt: null, ...readableGroupWhere(actor) }),
         },
         include: groupInclude,
       });
-      if (!group || !hasMinimumActiveMembers(group.members)) throw new IsolationError();
-      return (await attachNewestGroupMessage(prisma, group)) as GroupRecord;
+      if (!group) throw new IsolationError();
+      const [labeled] = await applySharedRosters(prisma, actor.userId, [group]);
+      if (!labeled || (!labeled.shared && !hasMinimumActiveMembers(labeled.members))) {
+        throw new IsolationError();
+      }
+      return (await attachNewestGroupMessage(prisma, labeled)) as GroupRecord;
     },
 
     async getGroupTarget(actor: Actor, groupId: string) {
       const group = await prisma.chatGroup.findFirst({
         where: {
           id: groupId,
-          spaceId: actor.spaceId,
-          userId: actor.userId,
           archivedAt: null,
+          ...readableGroupWhere(actor),
         },
         include: groupTargetInclude,
       });
-      if (!group || !hasMinimumActiveMembers(group.members)) throw new IsolationError();
-      return group;
+      if (!group) throw new IsolationError();
+      const [labeled] = await applySharedRosters(prisma, actor.userId, [group]);
+      if (!labeled || (!labeled.shared && !hasMinimumActiveMembers(labeled.members))) {
+        throw new IsolationError();
+      }
+      return labeled;
     },
 
     async createGroup(actor: Actor, input: { name: string; botIds: string[] }): Promise<Group> {
@@ -459,15 +528,34 @@ export function createGroupRepos(prisma: PrismaClient) {
         sectionId?: string | null;
       },
     ): Promise<{ group: Group; cancelledRunIds: string[]; computers: RunTeardownTarget[] }> {
+      if (input.botIds) {
+        const existing = await prisma.chatGroup.findFirst({
+          where: { id: input.groupId, ...readableGroupWhere(actor) },
+          select: { shared: true },
+        });
+        if (!existing || existing.shared) throw new IsolationError();
+      }
       const members = input.botIds ? await assertOwnedBots(prisma, actor, input.botIds) : undefined;
       const updated = await prisma.$transaction(async (tx) => {
-        await lockOwnedGroup(tx, actor, input.groupId);
+        const locked = await lockReadableGroup(tx, actor, input.groupId);
+        if (locked.shared && input.botIds) throw new IsolationError();
+        const owner = locked.userId === actor.userId && locked.spaceId === actor.spaceId;
+        if (!locked.shared && !owner) throw new IsolationError();
+        if (locked.shared && !owner) {
+          if (input.pinned !== undefined || input.sectionId !== undefined || input.name === undefined) {
+            throw new IsolationError();
+          }
+          const participant = await tx.chatGroupParticipant.findUnique({
+            where: { groupId_userId: { groupId: input.groupId, userId: actor.userId } },
+            select: { role: true },
+          });
+          if (participant?.role !== "admin") throw new IsolationError();
+        }
         const current = await tx.chatGroup.findFirst({
           where: {
             id: input.groupId,
-            spaceId: actor.spaceId,
-            userId: actor.userId,
             archivedAt: null,
+            ...(locked.shared ? {} : { spaceId: actor.spaceId, userId: actor.userId }),
           },
           include: {
             members: { select: { botId: true, bot: { select: { archivedAt: true } } } },
@@ -486,6 +574,7 @@ export function createGroupRepos(prisma: PrismaClient) {
           }
         }
         if (
+          !locked.shared &&
           !members &&
           !hasMinimumActiveMembers(
             current.members.filter((member) => member.bot.archivedAt === null),
@@ -524,6 +613,7 @@ export function createGroupRepos(prisma: PrismaClient) {
           });
         }
         if (members) {
+          if (locked.shared) throw new IsolationError();
           await tx.chatGroupMember.deleteMany({ where: { groupId: input.groupId } });
           await tx.chatGroupMember.createMany({
             data: memberRowsInOrder(
@@ -551,8 +641,9 @@ export function createGroupRepos(prisma: PrismaClient) {
         };
       });
       if (!updated.group.thread) throw new IsolationError();
+      const [labeled] = await applySharedRosters(prisma, actor.userId, [updated.group]);
       return {
-        group: mapGroup(updated.group as GroupRecord),
+        group: mapGroup((labeled ?? updated.group) as GroupRecord),
         cancelledRunIds: updated.cancelledRunIds,
         computers: updated.computers,
       };
@@ -653,8 +744,10 @@ export function createGroupRepos(prisma: PrismaClient) {
             thread: { select: { id: true } },
           },
         });
-        const contextBotId = group?.members[0]?.botId;
-        if (!contextBotId) throw new IsolationError();
+        if (!group) throw new IsolationError();
+        const contextBotId = group.members[0]?.botId;
+        const artifactStorageKeys = group.artifacts.map((artifact) => artifact.storageKey);
+        if (!contextBotId && artifactStorageKeys.length > 0) throw new IsolationError();
         // The thread's runs cascade away with the group, but their computer leases don't:
         // cancel them first so the route can stop their work and release the leases.
         const activeRuns = group.thread
@@ -670,8 +763,8 @@ export function createGroupRepos(prisma: PrismaClient) {
         const pageShareSecrets = await deletePageShareSecrets(tx, { groupId });
         await tx.chatGroup.delete({ where: { id: groupId } });
         return {
-          contextBotId,
-          artifactStorageKeys: group.artifacts.map((artifact) => artifact.storageKey),
+          contextBotId: contextBotId ?? groupId,
+          artifactStorageKeys,
           cancelledRunIds: runIds,
           computers: targets,
           pageShareSecrets,
@@ -697,6 +790,35 @@ export async function lockOwnedGroup(
     FOR UPDATE
   `;
   if (locked.length !== 1) throw new IsolationError();
+}
+
+/** Owner, or anyone in a shared group. Does not loosen archive, delete, or a private update. */
+export async function lockReadableGroup(
+  prisma: Pick<Prisma.TransactionClient, "$queryRaw">,
+  actor: Pick<Actor, "spaceId" | "userId">,
+  groupId: string,
+) {
+  const locked = await prisma.$queryRaw<
+    Array<{ id: string; spaceId: string; userId: string; shared: boolean }>
+  >`
+    SELECT g.id, g."spaceId", g."userId", g.shared
+    FROM chat_groups g
+    WHERE g.id = ${groupId}
+      AND (
+        (g."spaceId" = ${actor.spaceId} AND g."userId" = ${actor.userId})
+        OR (
+          g.shared = true
+          AND EXISTS (
+            SELECT 1 FROM chat_group_participants p
+            WHERE p."groupId" = g.id AND p."userId" = ${actor.userId}
+          )
+        )
+      )
+    FOR UPDATE OF g
+  `;
+  const row = locked[0];
+  if (!row || locked.length !== 1) throw new IsolationError();
+  return row;
 }
 
 export async function touchGroupUpdatedAt(

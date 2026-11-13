@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { RPCHandler } from "@orpc/server/fetch";
-import type { SecretStore } from "@rakazo/adapter-kit";
-import type { Actor, MessageBlock } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
-import { asSystem, createDb, runAsSystem, runAsTenant } from "@rakazo/db";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import type { Actor, MessageBlock } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
+import { asSystem, createDb, runAsSystem, runAsTenant } from "@botcamp/db";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { queueMcpConnectedRun } from "./mcp-approval.js";

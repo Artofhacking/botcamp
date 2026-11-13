@@ -78,6 +78,7 @@ model User {
   pushToken                   PushToken?
   callPushDevices             CallPushDevice[]
   trustedLinkSites            TrustedLinkSite[]
+  chatGroupParticipants       ChatGroupParticipant[]
   feedbackReports             FeedbackReport[]
   emailSends                  EmailSend[]
   signupSurvey                SignupSurvey?
@@ -868,13 +869,17 @@ model ChatGroup {
   pinned     Boolean           @default(false)
   sectionId  String?
   section    BotSection?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  archivedAt DateTime?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  members    ChatGroupMember[]
-  thread     Thread?
-  artifacts  Artifact[]
-  pages      Page[]
+  archivedAt   DateTime?
+  /// A shared group invites other accounts. Private groups stay false and keep one owner's bots.
+  shared       Boolean                 @default(false)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  members      ChatGroupMember[]
+  participants ChatGroupParticipant[]
+  wakes        SharedGroupWake[]
+  thread       Thread?
+  artifacts    Artifact[]
+  pages        Page[]
 
   @@index([spaceId, userId, archivedAt, pinned, updatedAt])
   @@index([sectionId])
@@ -892,6 +897,38 @@ model ChatGroupMember {
   @@unique([groupId, botId])
   @@index([botId])
   @@map("chat_group_members")
+}
+
+/// People in a shared group. Private groups have no rows here.
+model ChatGroupParticipant {
+  id        String    @id @default(cuid())
+  groupId   String
+  group     ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// owner | admin | member. The creator is the only owner.
+  role      String
+  createdAt DateTime  @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@map("chat_group_participants")
+}
+
+/// A foreign bot woken on its own thread, so its reply can be copied back to the group.
+model SharedGroupWake {
+  id              String    @id @default(cuid())
+  groupId         String
+  group           ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupThreadId   String
+  sourceMessageId String
+  botId           String
+  runId           String    @unique
+  mirroredAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([groupId])
+  @@map("shared_group_wakes")
 }
 
 model Thread {
@@ -943,6 +980,8 @@ model Message {
   clientNonce      String?
   /// App (`web`, `mac`, `windows`, `linux`, `android`) or chat channel (`chat:<provider>`) this message arrived on.
   origin           String?
+  /// Set on a person's message in a shared group, so the chat can tell people apart.
+  senderUserId     String?
   /// Blind-index search tokens for the encrypted blocks; NULL until the row is encrypted.
   searchTokens     Int[]
   sourceRuns            Run[]             @relation("RunSourceMessage")

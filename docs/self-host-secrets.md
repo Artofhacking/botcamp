@@ -5,26 +5,23 @@ Required and optional credentials for published-images and Compose deploys.
 **Never commit `.env`, never paste secret values into issues/PRs, and never
 overwrite an existing `.env` without an explicit backup and operator consent.**
 
-## Published images: what the installer fills
+## Required keys
 
-`bash install-images.sh` (without a pre-existing `.env`) copies
-`.env.images.example` and fills empty required keys with `openssl`:
+A published-images `.env` needs these keys. Generate each one with `openssl` and do not rotate an
+existing value on a running server:
 
-| Key | Installer fill | Role |
+| Key | Generate | Role |
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 16` | Postgres owner password inside Compose (migrations) |
-| `POSTGRES_APP_PASSWORD` | `openssl rand -hex 16` | Password of the app's `rakazo_app` login, which row-level security applies to |
+| `POSTGRES_APP_PASSWORD` | `openssl rand -hex 16` | Password of the app's `botcamp_app` login, which row-level security applies to |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | Auth/session signing |
 | `ENCRYPTION_KEY` | `openssl rand -hex 32` | Encrypts stored credentials at rest |
 | `SCREEN_PROXY_SECRET` | `openssl rand -hex 32` | Signs short-lived `/novnc/*` screen capabilities |
 | `SANDBOX_SUPERVISOR_TOKEN` | `openssl rand -hex 32` | API ↔ sandbox supervisor auth |
 
-Re-runs **preserve** an existing `.env` (they do not rotate secrets); they only append
-`POSTGRES_APP_PASSWORD` when an older `.env` lacks it. Empty
-required keys still fail closed at Compose validate time
-(`${VAR:?Set … in .env}`).
+Empty required keys fail closed at Compose validate time (`${VAR:?Set … in .env}`).
 
-Manual generation (same shapes the installer uses):
+Generate them with:
 
 ```bash
 openssl rand -hex 16   # POSTGRES_PASSWORD, POSTGRES_APP_PASSWORD
@@ -58,7 +55,7 @@ secret into multiple keys):
 - `ENCRYPTION_KEY`
 - `SCREEN_PROXY_SECRET`
 - `SANDBOX_SUPERVISOR_TOKEN`
-- `RAKAZO_UPDATER_TOKEN` (only if the updater profile is enabled; ≥32 chars,
+- `BOTCAMP_UPDATER_TOKEN` (only if the updater profile is enabled; ≥32 chars,
   also distinct from the four above)
 
 Rotating `ENCRYPTION_KEY` after credentials were stored makes old ciphertext
@@ -78,12 +75,12 @@ plaintext ([wrapped settings](content-encryption.md#wrapped-settings)).
 
 ## Optional keys (leave blank if unused)
 
-From `.env.images.example` (images installer). Leave blank if unused:
+Leave blank if unused:
 
 | Key(s) | When needed |
 | --- | --- |
 | `OPENROUTER_API_KEY` | Deployment-wide OpenRouter models |
-| `TYPESAFE_API_KEY` | Optional TypeSafe Jev Auto Review verifier (`RAKAZO_AUTO_REVIEW_PROVIDER=jev`) |
+| `TYPESAFE_API_KEY` | Optional TypeSafe Jev Auto Review verifier (`BOTCAMP_AUTO_REVIEW_PROVIDER=jev`) |
 | `COMPOSIO_API_KEY` | Composio managed catalog |
 | `E2B_API_KEY` / `DAYTONA_API_KEY` / `BOAT_API_KEY` | Remote computers when `SANDBOX_PROVIDER` is not `docker` |
 | `EMAIL_PROVIDER` / `EMAIL_API_KEY` / `SMTP_URL` / `EMAIL_FROM` | Optional account email via Resend API or SMTP |
@@ -100,9 +97,6 @@ example.
 ## Operator workflow
 
 ```bash
-bash install-images.sh --prepare-only   # creates .env + fills empties
-# inspect key NAMES only if debugging; never log values
-bash install-images.sh                  # pull + up; preserves .env
 curl -fsS http://127.0.0.1:3100/internal/health
 ```
 

@@ -1,22 +1,23 @@
-import type { AgentRunRequest, ComputerRef, SemanticMemoryProvider } from "@rakazo/adapter-kit";
+import type { AgentRunRequest, ComputerRef, SemanticMemoryProvider } from "@botcamp/adapter-kit";
 import {
   DEFAULT_CONTEXT_STRATEGY,
   isModelCredentialRejected,
   runContinueJob,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
-} from "@rakazo/adapter-kit";
-import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
+} from "@botcamp/adapter-kit";
+import type { MessageBlock, ModelRoleChoice, RunStatus } from "@botcamp/contracts";
 import {
   BOT_MANAGEMENT_TOOL_NAMES,
   disabledBuiltinToolSet,
   usableModelId,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   appendMessageOrigin,
   assertTransition,
   botMessageAllowsSilence,
   expandSkillReferencesInPrompt,
+  formatLinkedChatChannels,
   formatMessageOriginInstruction,
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
@@ -38,8 +39,8 @@ import {
   renderBotDirectory,
   userRunError,
   userTurnMessageForRun,
-} from "@rakazo/core";
-import type { ThreadEvents } from "@rakazo/db";
+} from "@botcamp/core";
+import type { ThreadEvents } from "@botcamp/db";
 import {
   availableInSpace,
   effectiveMemoryScope,
@@ -54,9 +55,9 @@ import {
   settleReleasedTakeoverCards,
   spaceHasModelAccess,
   teamChatRunFromOwner,
-} from "@rakazo/db";
-import { enrichLogContext, getLogger } from "@rakazo/logging";
-import { sanitizedError } from "@rakazo/logging/monitoring";
+} from "@botcamp/db";
+import { enrichLogContext, getLogger } from "@botcamp/logging";
+import { sanitizedError } from "@botcamp/logging/monitoring";
 import { formatAgentEnvironmentInstruction } from "./agent-environment.js";
 import { createApprovedEffectReplayQueue } from "./approval-effect.js";
 import { PARTIAL_REPLY_NOTE } from "./automated-messages.js";
@@ -98,7 +99,11 @@ import { resolveDeploymentModel } from "./deployment-model.js";
 import { DEPLOYMENT_IMAGE_MODEL, runnableDeploymentModels } from "./deployment-model-chain.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetRun } from "./fleet-tools.js";
-import { loadBotGroupDirectory, loadGroupContext } from "./group-handoff.js";
+import {
+  loadBotGroupDirectory,
+  loadGroupContext,
+  loadSharedWakePresentedName,
+} from "./group-handoff.js";
 import {
   formatCompactedSummary,
   formatRecalledMemory,
@@ -624,6 +629,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
               }))
             : false);
         let mailboxMode: "read" | "send" | undefined;
+        let directoryLinked = false;
         if (!nonOwnerChatRun) {
           const connectedMailbox = await loadSavedMailbox(deps.prisma, deps.secretStore, {
             userId: run.userId,
@@ -632,6 +638,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           if (connectedMailbox) {
             runSecrets.push(connectedMailbox.authCode);
             mailboxMode = mailboxCanSend(connectedMailbox.scope) ? "send" : "read";
+          }
+          if (deps.directory) {
+            directoryLinked = await deps.directory.linked(run.userId).catch(() => false);
           }
         }
         const historySearchBeforeSeq =
@@ -1300,15 +1309,29 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // Screenshot tools stay available when a separate model reads the images.
         const acceptsImages =
           deps.runtime.describe().capabilities.scripted || modelSeesImages || Boolean(imageModel);
-        const groupContext = thread.groupId
+        const groupTurn = thread.groupId
           ? await loadGroupContext(deps.prisma, thread.groupId, {
               id: bot.id,
               name: bot.name,
             })
           : undefined;
-        const hasMessagingIdentity = deps.messaging
-          ? await deps.messaging.hasIdentity(bot.id)
-          : false;
+        const groupContext = groupTurn?.text;
+        const presentedName = groupTurn
+          ? groupTurn.presentedName
+          : await loadSharedWakePresentedName(deps.prisma, run.id, bot.id);
+        const linkedChatProviders = deps.messaging
+          ? (
+              await deps.prisma.messagingIdentity.findMany({
+                where: { botId: bot.id },
+                select: { provider: true },
+                orderBy: { createdAt: "asc" },
+              })
+            ).map((row) => row.provider)
+          : [];
+        const hasMessagingIdentity = linkedChatProviders.length > 0;
+        const chatSyncOffered =
+          hasMessagingIdentity &&
+          !disabledBuiltinToolSet(bot.disabledBuiltinTools).has("sync_channels");
         const paymentWallet = deps.paymentWallet;
         const paymentWalletEnabled = paymentWallet
           ? await paymentWalletConnected(
@@ -1318,7 +1341,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           : false;
         const messagingContext =
           [
-            hasMessagingIdentity ? messagingDmSurfaceNote() : null,
+            hasMessagingIdentity ? messagingDmSurfaceNote(chatSyncOffered) : null,
             messagingChannelRun
               ? messagingChannelPrivacyBlock()
               : nonOwnerChatRun
@@ -1425,6 +1448,8 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             userComputer: userComputer === "connected",
             userComputerScreen,
             mailbox: mailboxMode,
+            directory: directoryLinked,
+            chatSync: chatSyncOffered,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
@@ -1737,6 +1762,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt. The next message can arrive from somewhere else,
           // and the clock changes every call; either one would break the cacheable prefix.
+          chatSyncOffered ? formatLinkedChatChannels(linkedChatProviders) : undefined,
           formatMessageOriginInstruction(sourceMessage?.origin ?? messagingSource?.origin),
           formatCurrentTimeInstruction(new Date(), userTimeZone),
           lateRoutineNote,
@@ -1896,6 +1922,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 botInstructions: runIdentityInstruction(
                   { ...bot, isPrimary: (bot as { isPrimary?: boolean }).isPrimary },
                   run.trigger,
+                  presentedName,
                 ),
                 groupContext,
                 messagingContext,

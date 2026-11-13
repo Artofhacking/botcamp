@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag its merge commit on main. Production runs that one commit. Use when asked to cut, prepare, or ship a release or a new version.
+description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag its merge commit on main. Production runs that one commit. The API host may run only that tag, as docs/ci.md requires. Use when asked to cut, prepare, or ship a release or a new version.
 ---
 
 # Release
@@ -44,4 +44,10 @@ git merge-base --is-ancestor "$sha" origin/main || {
 git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
 ```
 
-The tag records that one commit. Pushing it does not update a host. Production runs that commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. `deploy-main` refuses such a commit before it changes the host. The console is published from that same commit. Build the desktop installers separately with the `desktop-unsigned` workflow.
+The tag records that one commit. It may point only at a commit already on `main`. Pushing it does not update a host. Production runs that commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. `deploy-main` refuses such a commit before it changes the host. The console is published from that same commit.
+
+## 5. Where the tag runs
+
+Every agent working in this repository follows `docs/ci.md`. The API host may run this tag and no other revision. Update it with `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`, then build, migrate, and `seal`. `require` must pass before the API, the worker, and the supervisor restart.
+
+Do not copy files onto that host. Do not check out `main` or a commit there. Desktop installers stay the `desktop-unsigned` workflow. `node scripts/ship-plan.mjs` names the other places this tag still has to reach.

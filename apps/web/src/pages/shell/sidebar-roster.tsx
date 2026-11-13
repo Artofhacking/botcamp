@@ -1,7 +1,4 @@
-import { i18n } from "@lingui/core";
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@rakazo/contracts";
+import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@botcamp/contracts";
 import {
   BotAvatar,
   Button,
@@ -13,7 +10,10 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   GroupAvatar,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
+import { i18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDown, CircleAlert, Lock, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { Suspense } from "react";
@@ -25,8 +25,14 @@ import {
   rosterWorkStatusLabel,
 } from "../../lib/roster-status";
 import type { RosterDropAction, RosterDropTarget } from "./roster-drop";
+import { SharedMark } from "./shared-mark";
 import type { sidebarGroupsForSpaces } from "./space-sidebar";
 import { useRedrawAtMidnight } from "./use-redraw-at-midnight";
+
+/** The current space's groups carry `shared` at runtime; the sidebar type does not. */
+function isSharedGroup(item: { kind: string; chat: object }): boolean {
+  return item.kind === "group" && (item.chat as { shared?: boolean }).shared === true;
+}
 
 export function SidebarRoster({
   sidebarGroups,
@@ -277,6 +283,7 @@ export function SidebarRoster({
                       ? t`Error`
                       : compactRosterStatusLabel(item.chat.status)
                     : null;
+                const sharedGroup = isSharedGroup(item);
                 const rosterLine = compact
                   ? compactStatusLabel
                   : (workStatusLabel ??
@@ -326,7 +333,13 @@ export function SidebarRoster({
                     data-roster-unread={item.chat.unread ? "true" : undefined}
                     data-roster-error={rowError && (compact || mini) ? "true" : undefined}
                     aria-current={selected ? "page" : undefined}
-                    aria-label={mini ? item.chat.name : undefined}
+                    aria-label={
+                      mini
+                        ? sharedGroup
+                          ? `${item.chat.name}, ${t`Shared`}`
+                          : item.chat.name
+                        : undefined
+                    }
                     aria-describedby={
                       mini
                         ? [
@@ -446,12 +459,13 @@ export function SidebarRoster({
                             <span
                               dir="auto"
                               data-roster-bot-name={item.kind === "bot" ? "" : undefined}
-                              className={`max-w-full shrink-0 truncate text-body2 text-foreground ${
-                                item.chat.unread ? "font-semibold" : "font-medium"
-                              }`}
+                              className={`truncate text-body2 text-foreground ${
+                                sharedGroup ? "min-w-0" : "max-w-full shrink-0"
+                              } ${item.chat.unread ? "font-semibold" : "font-medium"}`}
                             >
                               {item.chat.name}
                             </span>
+                            {sharedGroup ? <SharedMark /> : null}
                             {item.chat.unread ? (
                               <span className="sr-only">
                                 <Trans> (unread)</Trans>

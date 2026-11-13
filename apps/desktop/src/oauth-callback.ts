@@ -1,4 +1,4 @@
-import type { BotCampDesktopOAuthCallback } from "@rakazo/contracts";
+import type { BotCampDesktopOAuthCallback } from "@botcamp/contracts";
 
 export type OAuthCallbackFromOptions = {
   /** SSO callbacks must reach the API, including a loopback API on a separate port. */
@@ -18,7 +18,9 @@ export function oauthCallbackFrom(
   url: string,
   options: OAuthCallbackFromOptions = {},
 ): BotCampDesktopOAuthCallback | undefined {
-  if (options.frameName === "rakazo-sso-oauth") return undefined;
+  if (options.frameName === "rakazo-sso-oauth" || options.frameName === "botcamp-sso-oauth") {
+    return undefined;
+  }
   let target: URL;
   try {
     target = new URL(url);

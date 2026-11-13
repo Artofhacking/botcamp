@@ -1,4 +1,4 @@
-import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
+import { FLEET_TOOL_NAMES } from "@botcamp/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { builtinAgentTools } from "./builtin-tools.js";
 

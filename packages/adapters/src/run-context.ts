@@ -7,13 +7,13 @@ import type {
   SandboxProvider,
   SemanticMemoryProvider,
   WebProvider,
-} from "@rakazo/adapter-kit";
-import type { ComputerMode, MessageBlock } from "@rakazo/contracts";
-import { createStreamingRedactor } from "@rakazo/core";
-import { toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import type { Bot, Computer, effectiveMemoryScope, Run, Task, Thread } from "@rakazo/db";
-import { dropRunTurnCheckpoint, saveRunTurnCheckpoint } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import type { ComputerMode, MessageBlock } from "@botcamp/contracts";
+import { createStreamingRedactor } from "@botcamp/core";
+import { toolEffectIdempotencyKey } from "@botcamp/core/node/approval-effect-key";
+import type { Bot, Computer, effectiveMemoryScope, Run, Task, Thread } from "@botcamp/db";
+import { dropRunTurnCheckpoint, saveRunTurnCheckpoint } from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
 import type {
   ApprovalPausedToolResult,
   ApprovedEffectReplayQueue,

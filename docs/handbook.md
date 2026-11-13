@@ -8,7 +8,7 @@ The repository is public. Do not add secrets, private URLs, host inventory, acco
 
 BotCamp is one product: a web console, an Electron desktop app, and an Android WebView shell. Shared behavior lives in `packages/`. The server is `apps/api` and `apps/worker`. Bot computers are sandbox images under `infra/sandboxes/`, not a process inside the API.
 
-Product behavior for readers of the app is under `docs/` (`computer.md`, `run-execution.md`, `self-host.md`, and the pages those link). Contributor facts are here, in `docs/architecture.md`, `docs/ci.md`, and `docs/legacy.md`.
+Product behavior for readers of the app is under `docs/` (`computer.md`, `run-execution.md`, and the pages those link). Contributor facts are here, in `docs/architecture.md`, `docs/ci.md`, and `docs/legacy.md`.
 
 ## Where to change things
 
@@ -39,9 +39,9 @@ pnpm db:generate
 pnpm dev
 ```
 
-`scripts/dev.mjs` starts the API, worker, web app, and sandbox supervisor. It uses `DATABASE_URL` from `.env` when that server accepts a connection. Otherwise it starts the `rakazo-dev-postgres` container and reuses it. Copy `.env.example` to `.env` before Compose or whenever you need real secrets. Compose is `pnpm compose:up` (`infra/compose/docker-compose.yml`). Self-host details are `docs/self-host.md`.
+`scripts/dev.mjs` starts the API, worker, web app, and sandbox supervisor. It uses `DATABASE_URL` from `.env` when that server accepts a connection. Otherwise it starts the `rakazo-dev-postgres` container and reuses it. Copy `.env.example` to `.env` before Compose or whenever you need real secrets. Compose is `pnpm compose:up` (`infra/compose/docker-compose.yml`).
 
-`pnpm dev` prints the web origin. The desktop app against that stack is `pnpm --filter @rakazo/desktop dev`.
+`pnpm dev` prints the web origin. `pnpm --filter @botcamp/desktop dev` opens the hosted console. Point that shell at the local origin with `RAKAZO_WEB_URL`.
 
 ## Tests
 
@@ -51,8 +51,8 @@ pnpm dev
 | `pnpm check` | Typecheck. | `pnpm db:generate` first. |
 | `pnpm lint` | Biome. | Nothing beyond the install. |
 | `pnpm test:integration` | Postgres journeys. The harness starts Postgres. | Docker. |
-| `pnpm --filter @rakazo/web exec playwright test` | Web end-to-end tests. | CI is the usual place. |
-| `pnpm --filter @rakazo/desktop test:e2e` | Electron windows. | Do not run this on a maintainer machine. It steals focus. CI runs it. |
+| `pnpm --filter @botcamp/web exec playwright test` | Web end-to-end tests. | CI is the usual place. |
+| `pnpm --filter @botcamp/desktop test:e2e` | Electron windows. | Do not run this on a maintainer machine. It steals focus. CI runs it. |
 
 Judge-style checks that call a model are opt-in. Do not turn them on to make a unit test pass.
 
@@ -60,21 +60,22 @@ Judge-style checks that call a model are opt-in. Do not turn them on to make a u
 
 A static host can serve the web app from one origin and the API from another.
 
-- `apps/web/public/config.js` sets `window.__RAKAZO_API_ORIGIN__` and `window.__RAKAZO_ADMIN_API__`. Empty means the page's own origin. `window.__RAKAZO_UI__` hides settings sections. The comments in that file are the contract.
+- `apps/web/public/config.js` sets `window.__BOTCAMP_API_ORIGIN__` and `window.__BOTCAMP_ADMIN_API__`. Empty means the page's own origin. `window.__BOTCAMP_UI__` hides sections and can list integration apps. The comments in that file are the contract. An empty `__BOTCAMP_API_ORIGIN__`, `__BOTCAMP_ADMIN_API__`, or `__BOTCAMP_UI__` still uses `__RAKAZO_API_ORIGIN__`, `__RAKAZO_ADMIN_API__`, or `__RAKAZO_UI__`. An unset or empty `BOTCAMP_*` setting still reads a non-empty matching `RAKAZO_*` setting. A non-empty `BOTCAMP_*` value wins.
 - A published `config.js` is filled in on the host. A fresh build ships the empty file. Do not overwrite a host's `config.js` with the copy from `public/`.
-- `RAKAZO_WEB_BASE` is the URL path the console is served from, with a trailing slash. Unset, `apps/web/vite.config.ts` uses `/`. Set it when the console is not the site root. Do not guess a path; read it from the host that already serves the console.
+- `BOTCAMP_WEB_BASE` is the URL path the console is served from, with a trailing slash. Unset, `apps/web/vite.config.ts` uses `/`. Set it when the console is not the site root. Do not guess a path; read it from the host that already serves the console.
 - Liveness is `GET /health` on the API (`apps/api/src/health.ts`). It returns `{"ok":true}`. `/rpc/health` is not that route.
 - The API listens on the host and port in its environment (`apps/api/src/index.ts`). The dev default is in `scripts/dev.mjs`.
-- Build the API with `pnpm --filter @rakazo/api build` and start `node --enable-source-maps` on `apps/api/dist/index.js`. The worker is the same pattern on `@rakazo/worker`. Apply migrations with `pnpm --filter @rakazo/api db:migrate` (source) or `db:deploy` (the built CLI) before restarting. The previous release keeps running through that migration. The drop and rename rule is in `AGENTS.md`.
-- The default computer image tag is `edge` (`infra/compose/docker-compose.images.yml`, `KUBERNETES_SANDBOX_COMPUTER_IMAGE`, `INCUS_SANDBOX_COMPUTER_IMAGE`). CI moves `edge` only after the server checks pass (`docs/ci.md`).
+- Build the API with `pnpm --filter @botcamp/api build` and start `node --enable-source-maps` on `apps/api/dist/index.js`. The worker is the same pattern on `@botcamp/worker`. Apply migrations with `pnpm --filter @botcamp/api db:migrate` (source) or `db:deploy` (the built CLI) before restarting. The previous release keeps running through that migration. The drop and rename rule is in `AGENTS.md`. Migration `20261210000000_rename_runtime_role` creates role `botcamp_app` beside `rakazo_app` and grants `rakazo_app` to `botcamp_app`, so the new login has the same grants while the previous release stays connected as `rakazo_app`. New API and worker containers connect as `botcamp_app`. The owner login stays the data-directory user (`POSTGRES_USER`, default `rakazo`). The database name stays the one `DATABASE_URL` already uses. Migration `20261214000000_rename_private_schema` renames schema `rakazo_private` to `botcamp_private`. The computer-identity replacement below is a separate stop.
+- The default computer image tag is `edge` (`KUBERNETES_SANDBOX_COMPUTER_IMAGE`, `INCUS_SANDBOX_COMPUTER_IMAGE`). CI moves `edge` only after the server checks pass (`docs/ci.md`).
+- A computer from the previous identity is replaced when this supervisor and API start. Publish the image first, stop the API and worker, start the supervisor and wait until it listens, run `infra/compose/restrict-computer-egress.sh`, then start the API and worker. The order and what it keeps are in `docs/self-host-docker-computers.md`. A rolling start that leaves the previous API serving still reuses an old computer until that process stops.
 
 The computer screen page loads `WuyingWebSDK.js` next to `packages/adapters/src/wuying-screen/screen.html`. Generate a missing SDK with `node scripts/wuying-web-sdk.mjs`. Do not delete a host's existing copy as part of an unrelated publish.
 
 ## Shipping
 
-`docs/ci.md` is the workflow map and the list of secret names. Every agent working in this repository follows its release rules. A release tag may point only at a commit already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The release skill refuses to tag any other commit, and `deploy-main` refuses it before it changes the host. The console is published from that same commit. Merging to `main` does not by itself update a host. Automatic production deploy is off until the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`, and it only targets a host installed as `docs/self-host-production.md` describes. This repo does not list hosts. Do not add a second deploy path in a feature change. If a host does not match that installer, say so and change `docs/ci.md` in the same PR.
+`docs/ci.md` is the workflow map and the list of secret names. Every agent working in this repository follows its release rules. A release tag may point only at a commit already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The API host runs one `vX.Y.Z` tag checked out by `infra/compose/release-tag.sh`, and nothing else. The release skill refuses to tag any other commit, and `deploy-main` refuses it before it changes the host. The console is published from that same commit. Merging to `main` does not by itself update a host. Automatic production deploy is off until the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`, and it only targets a host installed as `docs/self-host-production.md` describes. `node scripts/ship-plan.mjs` prints where the current diff has to go. The README lists the places. Do not add another deploy path in a feature change. If a host does not match either description, say so and change `docs/ci.md` in the same PR.
 
-Desktop installers are the `desktop-unsigned` workflow, not a side effect of merging. It publishes to the update feed only from `main`. Android packages are `android/build-apk.sh`. The version that script writes is `VERSION_NAME` and `VERSION_CODE` at the top of that file. `android/app/build.gradle.kts` is the optional Gradle path and can lag; bump both when you cut a shell release. Keystores and `keystore.properties` are gitignored.
+Desktop installers are the `desktop-unsigned` workflow, not a side effect of merging. It publishes to the update feed only from `main`. The download page reads `/downloads/latest.json` for each button's version and file, so that catalog is a separate write. Android packages are `android/build-apk.sh`. The version that script writes is `VERSION_NAME` and `VERSION_CODE` at the top of that file. `android/app/build.gradle.kts` is the optional Gradle path and can lag; bump both when you cut a shell release. Keystores and `keystore.properties` are gitignored.
 
 Feature pull requests do not edit `CHANGELOG.md`. Cutting a version is `.agents/skills/release/SKILL.md`. After opening a PR, stay with it as `.agents/skills/pr-watch/SKILL.md` describes.
 

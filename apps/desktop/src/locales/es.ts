@@ -83,44 +83,6 @@ export const ES_MESSAGES: Record<string, string> = {
   "You can close this tab and return to BotCamp.": "Puedes cerrar esta pestaña y volver a BotCamp.",
 
   // Setup window
-  "Set up BotCamp": "Configurar BotCamp",
-  "Quit BotCamp": "Salir de BotCamp",
-  "Welcome to BotCamp": "Te damos la bienvenida a BotCamp",
-  "Choose which server this app should use.": "Elige qué servidor debe usar esta app.",
-  Instance: "Instancia",
-  "This computer": "Esta computadora",
-  "Existing instance": "Instancia existente",
-  "Technical details": "Detalles técnicos",
-  "Setup progress": "Progreso de la configuración",
-  "Server address": "Dirección del servidor",
-  Headers: "Encabezados",
-  "Name: value": "Nombre: valor",
-  "Check connection": "Comprobar conexión",
-  Continue: "Continuar",
-  "Check again": "Volver a comprobar",
-  Retry: "Reintentar",
-  "Getting ready…": "Preparando…",
-  "Downloading BotCamp…": "Descargando BotCamp…",
-  "Starting BotCamp…": "Iniciando BotCamp…",
-  "Almost ready…": "Casi listo…",
-  "BotCamp is ready.": "BotCamp está listo.",
-  "{size} downloaded": "{size} descargados",
-  "Connecting…": "Conectando…",
-  "Checking…": "Comprobando…",
-  "BotCamp answered at {url}.": "BotCamp respondió en {url}.",
-  "Enter a server address first.": "Primero introduce la dirección de un servidor.",
-  "Could not save that address.": "No se pudo guardar esa dirección.",
-  "Could not save that address. Try again.":
-    "No se pudo guardar esa dirección. Inténtalo de nuevo.",
-  "Could not follow the local stack. Try again.":
-    "No se pudo seguir el stack local. Inténtalo de nuevo.",
-  "Could not start the local stack. Try again.":
-    "No se pudo iniciar el stack local. Inténtalo de nuevo.",
-  "Could not run the connection check. Try again.":
-    "No se pudo comprobar la conexión. Inténtalo de nuevo.",
-  "Setup bridge unavailable.": "El puente de configuración no está disponible.",
-  "Setup could not start. Quit BotCamp and try again.":
-    "No se pudo iniciar la configuración. Sal de BotCamp e inténtalo de nuevo.",
 
   // Connecting to a server
   "Enter a server address.": "Introduce la dirección de un servidor.",
@@ -140,9 +102,6 @@ export const ES_MESSAGES: Record<string, string> = {
   "The server's HTTPS certificate was rejected.": "Se rechazó el certificado HTTPS del servidor.",
   "Could not reach that address.": "No se pudo acceder a esa dirección.",
   "A connection attempt is already running.": "Ya hay un intento de conexión en curso.",
-  "Could not open that server. {detail}": "No se pudo abrir ese servidor. {detail}",
-  "Could not reconnect to the saved server. {detail}":
-    "No se pudo volver a conectar con el servidor guardado. {detail}",
   "The server page did not become ready.": "La página del servidor no llegó a estar lista.",
   "Page failed to load.": "No se pudo cargar la página.",
   "Renderer stopped ({reason}).": "El renderizador se detuvo ({reason}).",

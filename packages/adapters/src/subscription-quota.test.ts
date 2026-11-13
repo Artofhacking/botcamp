@@ -1,5 +1,5 @@
-import type { SecretStore } from "@rakazo/adapter-kit";
-import type { PrismaClient } from "@rakazo/db";
+import type { SecretStore } from "@botcamp/adapter-kit";
+import type { PrismaClient } from "@botcamp/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   chooseSubscriptionFallback,

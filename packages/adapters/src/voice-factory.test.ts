@@ -1,5 +1,5 @@
-import { VoiceAccountError } from "@rakazo/adapter-kit";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+import { VoiceAccountError } from "@botcamp/adapter-kit";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CartesiaVoiceProvider } from "./cartesia-voice.js";
 import { ElevenLabsVoiceProvider } from "./elevenlabs-voice.js";
@@ -609,7 +609,7 @@ describe("FishAudioVoiceProvider", () => {
   it("logs the upstream Fish status and message without the API key", async () => {
     const apiKey = "sk-fishaudiokey12345";
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     vi.stubEnv("FISH_TTS_MODEL", "s1");
     vi.stubGlobal(
       "fetch",
@@ -653,7 +653,7 @@ describe("FishAudioVoiceProvider", () => {
     "raises Fish %i as a voice account error logged as a warning",
     async (status, code, message) => {
       const sink = createTestSink();
-      installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+      installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue(
@@ -692,7 +692,7 @@ describe("FishAudioVoiceProvider", () => {
     ["listing voices", (provider: FishAudioVoiceProvider) => provider.listVoices("sk-test", ctx)],
   ])("logs Fish %s status when the error body cannot be read", async (operation, call) => {
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     const cancel = vi.fn(() => new Promise<void>(() => undefined));
     vi.stubGlobal(
       "fetch",
@@ -721,7 +721,7 @@ describe("FishAudioVoiceProvider", () => {
   it("logs a non-JSON Fish body when speaking fails", async () => {
     const apiKey = "sk-fishaudiokey12345";
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink] }));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response(`gateway down ${apiKey}`, { status: 502 })),

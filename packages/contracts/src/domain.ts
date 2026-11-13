@@ -218,6 +218,16 @@ export function defaultGroupName(names: readonly string[]): string {
   return (last >= 0xd800 && last <= 0xdbff ? value.slice(0, -1) : value).trim();
 }
 
+export const SharedGroupRoleSchema = z.enum(["owner", "admin", "member"]);
+export type SharedGroupRole = z.infer<typeof SharedGroupRoleSchema>;
+
+export const SharedGroupPersonSchema = z.object({
+  userId: Id,
+  name: z.string(),
+  role: SharedGroupRoleSchema,
+});
+export type SharedGroupPerson = z.infer<typeof SharedGroupPersonSchema>;
+
 export const GroupSchema = z.object({
   id: Id,
   spaceId: Id,
@@ -231,6 +241,10 @@ export const GroupSchema = z.object({
   unread: z.boolean(),
   updatedAt: z.string(),
   createdAt: z.string(),
+  /** Present only for a shared group. Private groups omit it. */
+  shared: z.boolean().optional(),
+  myRole: SharedGroupRoleSchema.optional(),
+  people: z.array(SharedGroupPersonSchema).optional(),
 });
 export type Group = z.infer<typeof GroupSchema>;
 
@@ -256,6 +270,55 @@ export const UpdateGroupInput = z.object({
   sectionId: Id.nullable().optional(),
 });
 export type UpdateGroupInput = z.infer<typeof UpdateGroupInput>;
+
+const SharedGroupBotIds = z
+  .array(Id)
+  .max(GROUP_MEMBER_MAX)
+  .refine((ids) => new Set(ids).size === ids.length, { error: "botIds must be distinct" });
+
+export const CreateSharedGroupInput = z.object({
+  name: z.string().trim().min(1).max(GROUP_NAME_MAX_LENGTH),
+  emails: z.array(z.string().trim().email()).max(20).optional(),
+  botIds: SharedGroupBotIds.optional(),
+});
+export type CreateSharedGroupInput = z.infer<typeof CreateSharedGroupInput>;
+
+export const InviteSharedGroupInput = z.object({
+  groupId: Id,
+  email: z.string().trim().email(),
+});
+export type InviteSharedGroupInput = z.infer<typeof InviteSharedGroupInput>;
+
+export const SearchSharedGroupPeopleInput = z.object({
+  groupId: Id,
+  query: z.string().trim().min(1).max(80),
+});
+export type SearchSharedGroupPeopleInput = z.infer<typeof SearchSharedGroupPeopleInput>;
+
+export const SetSharedGroupRoleInput = z.object({
+  groupId: Id,
+  userId: Id,
+  role: z.enum(["admin", "member"]),
+});
+export type SetSharedGroupRoleInput = z.infer<typeof SetSharedGroupRoleInput>;
+
+export const RemoveSharedGroupPersonInput = z.object({
+  groupId: Id,
+  userId: Id,
+});
+export type RemoveSharedGroupPersonInput = z.infer<typeof RemoveSharedGroupPersonInput>;
+
+export const AddSharedGroupBotInput = z.object({
+  groupId: Id,
+  botId: Id,
+});
+export type AddSharedGroupBotInput = z.infer<typeof AddSharedGroupBotInput>;
+
+export const RemoveSharedGroupBotInput = z.object({
+  groupId: Id,
+  botId: Id,
+});
+export type RemoveSharedGroupBotInput = z.infer<typeof RemoveSharedGroupBotInput>;
 
 export const GroupDetailSchema = GroupSchema.extend({
   messages: z.array(ThreadMessageSchema).optional(),

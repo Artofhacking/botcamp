@@ -18,10 +18,11 @@ Pick a vision-capable model so screenshot computer tools stay available.
 When `MANAGED_MODELS_ONLY` is set and the deployment provider is OpenAI-compatible, a call
 whose context contains an image uses a separate vision model on that same endpoint
 (`deepseek/deepseek-v4-flash-vision-exp`). The deployment list stays on text, including a
-listed model that could read images. A failure of the vision call does not move those
-images to a listed model. Text calls keep the list and can still move to a text backup.
-The vision call waits four minutes for the response to start. Text calls keep the shorter
-header budget.
+listed model that could read images. A picture sent in chat is read by that vision model, so
+the text model does not need image input turned on and the send is not held back for it.
+A failure of the vision call does not move those images to a listed model. Text calls keep
+the list and can still move to a text backup. The vision call waits four minutes for the
+response to start. Text calls keep the shorter header budget.
 
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
@@ -37,7 +38,7 @@ The Compose files also pass the standard provider key variables the agent runtim
 (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY` and others) to
 the API and worker, for models that have no stored credential.
 
-`RAKAZO_LIVE_MODEL_CATALOG=off` disables provider and Codex live catalog probing; the default is on.
+`BOTCAMP_LIVE_MODEL_CATALOG=off` disables provider and Codex live catalog probing; the default is on.
 
 ## Approvals
 
@@ -53,14 +54,14 @@ Backups are tried only when a checker fails. An explicit ask, including an uncer
 still requires a person.
 
 The deployment checker remains the default when no approval model is selected. For OpenRouter
-Jev, set `RAKAZO_AUTO_REVIEW_PROVIDER=openrouter` and
-`RAKAZO_AUTO_REVIEW_MODEL=typesafe/jev-1.14`; it uses `OPENROUTER_API_KEY` and the Decisions API.
-TypeSafe direct remains available through `RAKAZO_AUTO_REVIEW_PROVIDER=jev` and
+Jev, set `BOTCAMP_AUTO_REVIEW_PROVIDER=openrouter` and
+`BOTCAMP_AUTO_REVIEW_MODEL=typesafe/jev-1.14`; it uses `OPENROUTER_API_KEY` and the Decisions API.
+TypeSafe direct remains available through `BOTCAMP_AUTO_REVIEW_PROVIDER=jev` and
 `TYPESAFE_API_KEY`. Core runs without either hosted service.
 
-With TypeSafe, `RAKAZO_AUTO_REVIEW_MODEL` defaults to `jev-latest`, and
-`RAKAZO_AUTO_REVIEW_MIN_CONFIDENCE` (0 to 1, default `0.5`) is the confidence below which Auto asks
-the person instead. `RAKAZO_AUTO_REVIEW_TIMEOUT_MS` (200 to 30000, default `10000`) bounds each
+With TypeSafe, `BOTCAMP_AUTO_REVIEW_MODEL` defaults to `jev-latest`, and
+`BOTCAMP_AUTO_REVIEW_MIN_CONFIDENCE` (0 to 1, default `0.5`) is the confidence below which Auto asks
+the person instead. `BOTCAMP_AUTO_REVIEW_TIMEOUT_MS` (200 to 30000, default `10000`) bounds each
 check.
 
 ## Local models
@@ -69,23 +70,23 @@ To use an operator-controlled OpenAI-compatible server such as Ollama, LM Studio
 MLX, list its model IDs and an endpoint that both the API and worker processes can reach:
 
 ```env
-RAKAZO_LOCAL_MODELS=qwen3:4b,llama3.1:8b,qwen3-vl
-RAKAZO_LOCAL_MODELS_URL=http://127.0.0.1:11434/v1
-RAKAZO_LOCAL_CONTEXT_WINDOW=32768
-RAKAZO_LOCAL_MAX_TOKENS=4096
+BOTCAMP_LOCAL_MODELS=qwen3:4b,llama3.1:8b,qwen3-vl
+BOTCAMP_LOCAL_MODELS_URL=http://127.0.0.1:11434/v1
+BOTCAMP_LOCAL_CONTEXT_WINDOW=32768
+BOTCAMP_LOCAL_MAX_TOKENS=4096
 # Optional: model ids on this endpoint that accept images (screenshot computer tools).
-RAKAZO_LOCAL_VISION_MODELS=qwen3-vl
+BOTCAMP_LOCAL_VISION_MODELS=qwen3-vl
 # Optional: model ids on this endpoint that accept OpenAI-style reasoning_effort.
-RAKAZO_LOCAL_REASONING_MODELS=qwen3:4b
+BOTCAMP_LOCAL_REASONING_MODELS=qwen3:4b
 ```
 
-A model in `RAKAZO_LOCAL_REASONING_MODELS` offers thinking levels and sends the chosen level as
+A model in `BOTCAMP_LOCAL_REASONING_MODELS` offers thinking levels and sends the chosen level as
 `reasoning_effort` (`medium` by default, `none` when thinking is off). Other local models never
 receive the field.
 
-`RAKAZO_LOCAL_MAX_TOKENS` is the output limit sent with every request to a local model, unless the
+`BOTCAMP_LOCAL_MAX_TOKENS` is the output limit sent with every request to a local model, unless the
 connection sets its own max-tokens value. It never exceeds a quarter of
-`RAKAZO_LOCAL_CONTEXT_WINDOW`, so the prompt keeps the rest; a higher limit leaves less room for the
+`BOTCAMP_LOCAL_CONTEXT_WINDOW`, so the prompt keeps the rest; a higher limit leaves less room for the
 prompt, so long chats are compacted sooner.
 
 The loopback default is suitable when running BotCamp from a source checkout. From containers,
@@ -96,11 +97,11 @@ through that same hostname. Do not run sensitive unauthenticated services on loo
 bots run, or firewall / block that path. Linux does not get `host.docker.internal` the same
 way by default.
 Only configure an endpoint you control: prompts, attachments, and tool results sent to that model
-leave BotCamp through this URL. Leave `RAKAZO_LOCAL_MODELS` blank to disable the provider.
+leave BotCamp through this URL. Leave `BOTCAMP_LOCAL_MODELS` blank to disable the provider.
 
 ## Ollama Cloud
 
-In **Settings → Models**, choose **Ollama Cloud**, paste an API key from ollama.com, then **Find models**. This uses an OpenAI-compatible connection with no environment configuration, and stays available when `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=0`.
+In **Settings → Models**, choose **Ollama Cloud**, paste an API key from ollama.com, then **Find models**. This uses an OpenAI-compatible connection with no environment configuration, and stays available when `BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC=0`.
 
 ## OpenAI-compatible connections
 
@@ -110,16 +111,16 @@ Each user can also connect their own OpenAI-compatible endpoint from **Connect a
 Add optional request headers under **Advanced**; values are stored encrypted, and only their names
 are shown afterwards.
 Public hosts and ordinary hostnames need HTTPS when they receive an API key or custom headers,
-and must resolve only to public addresses. Set `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=0` on the API
+and must resolve only to public addresses. Set `BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC=0` on the API
 and worker to block them.
 Literal private IP, loopback, and `host.docker.internal` targets do not, but only the deployment
 owner can use them, checked on save, on model discovery, and on every run. Set
 `MCP_ALLOW_PRIVATE_ENDPOINT=true` on the API and worker to allow them for every user.
 For a self-hosted endpoint whose hostname resolves to private IPs, set
-`RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS=models.example.test,other.example.test` in the deployment
+`BOTCAMP_OPENAI_COMPAT_PRIVATE_HOSTS=models.example.test,other.example.test` in the deployment
 environment for both API and worker, then recreate those containers. Entries are exact hostnames
 (case-insensitive, optional trailing dot), not URLs, suffixes, or wildcards. These hosts ignore
-`RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC`; every DNS answer must be private, and metadata and
+`BOTCAMP_OPENAI_COMPAT_ALLOW_PUBLIC`; every DNS answer must be private, and metadata and
 link-local destinations remain blocked. This applies to discovery and model requests.
 HTTPS still validates the hostname's certificate. Like private IP endpoints, trusted hostnames
 also permit HTTP with API keys; use HTTPS unless the network is trusted. Only allow hosts you
@@ -128,7 +129,7 @@ If that endpoint's model
 accepts images, enable **Supports images** under **Advanced** when connecting so attachments and
 screenshot computer tools stay available. Existing connections default to disabled. For centrally
 managed endpoints, the deployment-wide fallback remains
-`RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
+`BOTCAMP_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
 ## Thinking
 

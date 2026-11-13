@@ -1,6 +1,6 @@
-import type { NotificationMessage } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { isToolActivityBlock } from "@rakazo/core";
+import type { NotificationMessage } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { isToolActivityBlock } from "@botcamp/core";
 import type { Criterion, EvalCase, Evidence } from "./cases.js";
 import type { ServiceCall } from "./services.js";
 

@@ -1,5 +1,5 @@
-import { AppLocaleSchema } from "@rakazo/contracts";
-import { matchUiLocale } from "@rakazo/core";
+import { AppLocaleSchema } from "@botcamp/contracts";
+import { matchUiLocale } from "@botcamp/core";
 
 export const UI_LOCALES = AppLocaleSchema.options;
 
@@ -8,7 +8,7 @@ export type UiLocale = (typeof UI_LOCALES)[number];
 /** The settings switch offers only these. Other tags resolve to one of them. */
 export const UI_LOCALE_CHOICES = ["zh-CN", "en"] as const satisfies readonly UiLocale[];
 
-export const UI_LOCALE_STORAGE_KEY = "rakazo.uiLocale";
+export const UI_LOCALE_STORAGE_KEY = "botcamp.uiLocale";
 
 export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
   en: "English",

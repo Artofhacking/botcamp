@@ -55,7 +55,7 @@ describe("source-checkout compose postgres hardening", () => {
     expect(postgres?.environment?.POSTGRES_DB).toBe("${POSTGRES_DB:-rakazo}");
     for (const name of ["api", "worker"] as const) {
       expect(compose.services[name]?.environment?.DATABASE_URL).toBe(
-        "postgres://rakazo_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}",
+        "postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}",
       );
     }
     // Only the migrate container gets the owner login; the API starts once it has finished.

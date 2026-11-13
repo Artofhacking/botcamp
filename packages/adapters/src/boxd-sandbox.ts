@@ -17,14 +17,14 @@ import type {
   ScreenRequest,
   TerminalRequest,
   WorkspaceExportLimits,
-} from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
 import {
   SandboxRateLimitError,
   SandboxUnavailableError,
   WorkspaceTooLargeError,
-} from "@rakazo/adapter-kit";
-import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/adapter-kit";
+import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
+import { getLogger } from "@botcamp/logging";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import { PORTABLE_TRANSFER_BATCH_BYTES } from "./computer-workspace.js";
 import {
@@ -814,12 +814,12 @@ function commandFailure(result: BoxdCommandResult): string {
 }
 
 function boxdCwd(cwd: string | undefined): string {
-  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/rakazo" || cwd === HOME)
+  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/botcamp" || cwd === HOME)
     return WORKSPACE;
   const relative = cwd.startsWith(`${WORKSPACE}/`)
     ? cwd.slice(WORKSPACE.length + 1)
-    : cwd.startsWith("/home/rakazo/")
-      ? cwd.slice("/home/rakazo/".length)
+    : cwd.startsWith("/home/botcamp/")
+      ? cwd.slice("/home/botcamp/".length)
       : cwd;
   return workspacePath(WORKSPACE, relative);
 }
@@ -863,7 +863,7 @@ const BOXD_COMPUTER_SETUP = [
 ] as const;
 
 /** A snapshot name that changes with the setup it captures, so older computers keep theirs. */
-export const BOXD_COMPUTER_SNAPSHOT = `rakazo-computer-${createHash("sha256")
+export const BOXD_COMPUTER_SNAPSHOT = `botcamp-computer-${createHash("sha256")
   .update(BOXD_COMPUTER_SETUP.join("\0"))
   .digest("hex")
   .slice(0, 12)}`;

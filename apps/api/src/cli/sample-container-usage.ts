@@ -2,8 +2,8 @@
 // Runs from a timer: core-seconds are integrated from observations, so a stopped
 // sampler under-counts rather than double-counts.
 import { execFileSync } from "node:child_process";
-import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
-import { createDb, runAsSystem } from "@rakazo/db";
+import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
+import { createDb, runAsSystem } from "@botcamp/db";
 
 const NAMESPACE = process.env.KUBERNETES_SANDBOX_NAMESPACE ?? "botcamp";
 const K8S_API = process.env.K8S_API ?? "https://10.0.1.13";
@@ -39,7 +39,8 @@ async function kubernetesSandboxCores(): Promise<
   for (const pod of list.items ?? []) {
     const phase = pod.status?.phase;
     if (phase !== "Running") continue;
-    const botId = pod.metadata?.labels?.["rakazo-bot-id"];
+    const labels = pod.metadata?.labels ?? {};
+    const botId = labels["botcamp-bot-id"] ?? labels["rakazo-bot-id"];
     const container = (pod.spec?.containers ?? [])[0];
     if (!botId || !container) continue;
     out.push({
@@ -53,22 +54,30 @@ async function kubernetesSandboxCores(): Promise<
   return out;
 }
 
-function dockerSandboxCores(): Array<{ botId: string; tier: string; cores: number }> {
-  const names = execFileSync(
-    "docker",
-    ["ps", "--filter", "label=rakazo.managed=true", "--format", "{{.ID}}"],
-    { encoding: "utf8" },
-  )
+function dockerContainerIds(label: string): string[] {
+  return execFileSync("docker", ["ps", "--filter", label, "--format", "{{.ID}}"], {
+    encoding: "utf8",
+  })
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function dockerSandboxCores(): Array<{ botId: string; tier: string; cores: number }> {
+  const names = [
+    ...new Set([
+      ...dockerContainerIds("label=botcamp.managed=true"),
+      ...dockerContainerIds("label=rakazo.managed=true"),
+    ]),
+  ];
   const out: Array<{ botId: string; tier: string; cores: number }> = [];
   for (const id of names) {
     try {
       const info = JSON.parse(
         execFileSync("docker", ["inspect", id], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }),
       )[0];
-      const botId = info?.Config?.Labels?.["rakazo.botId"];
+      const labels = info?.Config?.Labels ?? {};
+      const botId = labels["botcamp.botId"] ?? labels["rakazo.botId"];
       const nanoCpus = Number(info?.HostConfig?.NanoCpus ?? 0);
       if (!botId || !nanoCpus) continue;
       out.push({ botId, tier: "small", cores: nanoCpus / 1e9 });

@@ -10,6 +10,14 @@ export const authCapabilitiesSchema = z.object({
       availability: z.enum(["available", "unavailable", "checking"]),
     })
     .nullable(),
+  /** Directory login. Omitted by older servers, which means it is not offered. */
+  directory: z
+    .object({
+      name: z.string().min(1),
+      availability: z.enum(["available", "unavailable", "checking"]),
+    })
+    .nullable()
+    .optional(),
   passwordAuth: z.boolean(),
   passwordReset: z.boolean(),
   resetUrl: z.string().url().nullable(),
@@ -33,6 +41,22 @@ export const accountSecuritySchema = z.object({
   ssoLinked: z.boolean(),
   emailDeletion: z.boolean(),
   sso: z.object({ name: z.string().min(1) }).nullable(),
+  /** Omitted by older servers, which means directory login is not offered. */
+  directoryLinked: z.boolean().optional(),
+  directory: z
+    .object({
+      name: z.string().min(1),
+      /** The linked directory person. Null when unlinked; omitted by older servers. */
+      profile: z
+        .object({
+          name: z.string().min(1),
+          image: z.string().url().optional(),
+        })
+        .nullable()
+        .optional(),
+    })
+    .nullable()
+    .optional(),
 });
 export type AccountSecurity = z.infer<typeof accountSecuritySchema>;
 

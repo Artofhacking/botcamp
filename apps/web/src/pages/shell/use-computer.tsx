@@ -6,15 +6,15 @@ import type {
   Me,
   Run,
   ThreadSnapshot,
-} from "@rakazo/contracts";
+} from "@botcamp/contracts";
 import {
   createScreenReconnects,
   isRetryableError,
   SCREEN_RECONNECT_DELAY_MS,
   screenProbeUrl,
   waitForScreenPage,
-} from "@rakazo/core";
-import { Button, Spinner } from "@rakazo/ui-web";
+} from "@botcamp/core";
+import { Button, Spinner } from "@botcamp/ui-web";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ComputerMaintenanceActions } from "../../components/ComputerMaintenanceActions";

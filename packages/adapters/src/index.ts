@@ -170,6 +170,7 @@ export * from "./purchase-poll.js";
 export * from "./purchase-service.js";
 export * from "./push-token-store.js";
 export * from "./qq-imap.js";
+export * from "./qq-mail-oauth.js";
 export * from "./railway-sandbox.js";
 export * from "./realtime.js";
 export * from "./release-watch.js";

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { AccountSecurity } from "@rakazo/contracts";
+import type { AccountSecurity } from "@botcamp/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -15,7 +15,7 @@ vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({ t: (strings: TemplateStringsArray) => strings.join("") }),
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("@rakazo/ui-web", () => ({
+vi.mock("@botcamp/ui-web", () => ({
   Button: ({ variant: _variant, ...props }: ComponentProps<"button"> & { variant?: string }) => (
     <button {...props} />
   ),
@@ -26,7 +26,8 @@ vi.mock("@rakazo/ui-web", () => ({
     </label>
   ),
 }));
-vi.mock("../lib/account-security", () => ({
+vi.mock("../lib/account-security", async (importActual) => ({
+  ...(await importActual()),
   fetchAccountSecurity: vi.fn(),
   requestAccountDeletionCode: vi.fn(),
 }));
@@ -81,6 +82,42 @@ async function click(label: string) {
   expect(button).toBeDefined();
   await act(async () => button!.click());
 }
+it("shows the linked directory person instead of a link button", async () => {
+  await act(async () =>
+    root.render(
+      <LinkSsoRow
+        provider="directory"
+        label="Directory"
+        linked={{ name: "Feishu Person", image: "https://cdn.example.test/person.png" }}
+        attached
+      />,
+    ),
+  );
+  expect(host.textContent).toContain("Directory");
+  expect(host.textContent).toContain("Feishu Person");
+  const image = host.querySelector("img");
+  expect(image?.getAttribute("src")).toBe("https://cdn.example.test/person.png");
+  expect(image?.getAttribute("alt")).toBe("");
+  expect(image?.getAttribute("referrerpolicy")).toBe("no-referrer");
+  expect(host.querySelector("button")).toBeNull();
+});
+
+it("keeps a linked directory row without a stored name from offering another link", async () => {
+  await act(async () =>
+    root.render(<LinkSsoRow provider="directory" label="Directory" attached />),
+  );
+  expect(host.textContent).toContain("Directory");
+  expect(host.querySelector("button")).toBeNull();
+});
+
+it("starts a directory link for the current account", async () => {
+  await act(async () => root.render(<LinkSsoRow provider="directory" label="Directory" />));
+  await click("Link SSO");
+  expect(authClient.linkSocial).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "directory" }),
+  );
+});
+
 it("uses the shared desktop flow for linking", async () => {
   await render();
   await click("Link SSO");

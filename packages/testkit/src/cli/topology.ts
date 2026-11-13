@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
-import type { RunsListOutput, ThreadSnapshot } from "@rakazo/contracts";
-import { isTerminal } from "@rakazo/core";
-import { computerNetworkNameFor } from "@rakazo/sandbox-supervisor/computer-spec";
+import type { RunsListOutput, ThreadSnapshot } from "@botcamp/contracts";
+import { isTerminal } from "@botcamp/core";
+import { computerNetworkNameFor } from "@botcamp/sandbox-supervisor/computer-spec";
 
 const composeFile = path.resolve("infra/compose/docker-compose.topology.yml");
 const keep = process.argv.includes("--keep");
@@ -18,7 +18,7 @@ async function main() {
     ...process.env,
     TOPOLOGY_API_PORT: String(port),
     TOPOLOGY_APP_IMAGE: process.env.TOPOLOGY_APP_IMAGE ?? "rakazo/app:topology",
-    TOPOLOGY_COMPUTER_IMAGE: process.env.TOPOLOGY_COMPUTER_IMAGE ?? "rakazo/computer:topology",
+    TOPOLOGY_COMPUTER_IMAGE: process.env.TOPOLOGY_COMPUTER_IMAGE ?? "botcamp/computer:topology",
   };
   const compose = (args: string[], capture = false) =>
     command(
@@ -283,7 +283,7 @@ function assertComputerNetworkIsolation(
     "inspect",
     computerId,
     "--format",
-    '{{index .Config.Labels "rakazo.managed"}}',
+    '{{index .Config.Labels "botcamp.managed"}}',
   ]).trim();
   if (managed !== "true") throw new Error("isolated peer is not a managed computer");
   const [spec] = JSON.parse(docker(["inspect", computerId])) as Array<{
@@ -354,7 +354,7 @@ function removeManagedComputers(
         "--filter",
         `network=${networkName}`,
         "--filter",
-        "label=rakazo.managed=true",
+        "label=botcamp.managed=true",
       ])
         .split("\n")
         .map((id) => id.trim())

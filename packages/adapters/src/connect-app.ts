@@ -1,8 +1,8 @@
-import type { AdapterContext, ManagedConnectorProvider } from "@rakazo/adapter-kit";
-import type { ConnectionCatalogItem, MessageBlock } from "@rakazo/contracts";
-import { appConnectCard, matchAppCatalog, matchesAppConnection } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
+import type { AdapterContext, ManagedConnectorProvider } from "@botcamp/adapter-kit";
+import type { ConnectionCatalogItem, MessageBlock } from "@botcamp/contracts";
+import { appConnectCard, matchAppCatalog, matchesAppConnection } from "@botcamp/core";
+import type { PrismaClient, ThreadEvents } from "@botcamp/db";
+import { appendEventInTransaction, createThreadMessageInTransaction } from "@botcamp/db";
 import {
   isMailboxAppName,
   MAILBOX_APP_NAME,

@@ -1,5 +1,5 @@
 import { connect as tlsConnect } from "node:tls";
-import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE } from "@rakazo/contracts";
+import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE } from "@botcamp/contracts";
 
 const HOST = "imap.qq.com";
 const PORT = 993;

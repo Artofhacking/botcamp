@@ -1,8 +1,8 @@
+import { PersonalChatError } from "@botcamp/adapters";
+import type { Actor } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
 import type { InferRouterInitialContext } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import { PersonalChatError } from "@rakazo/adapters";
-import type { Actor } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
@@ -358,6 +358,39 @@ describe("messaging.status", () => {
         identities: [],
       },
     });
+  });
+});
+
+describe("messaging.chatTools", () => {
+  it("lists nothing when the bridge is absent", async () => {
+    const { handler, actor } = messagingDeps();
+    const response = await call(handler, actor, "messaging/chatTools/list", { botId: "bot-1" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ json: [] });
+  });
+
+  it("refuses a bot that is not primary", async () => {
+    const { deps, actor } = messagingDeps();
+    const handler = new RPCHandler(
+      createRouter({
+        ...deps,
+        chatTools: {
+          list: async () => [],
+          start: async () => {
+            throw new PersonalChatError("not_primary");
+          },
+          poll: async () => ({ status: "wait" as const }),
+          unlink: async () => undefined,
+        },
+      }),
+    );
+    const response = await call(handler, actor, "messaging/chatTools/start", {
+      botId: "bot-1",
+      provider: "weixin",
+    });
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { json?: { message?: string } };
+    expect(body.json?.message).toBe("Only the primary bot can link a chat app.");
   });
 });
 

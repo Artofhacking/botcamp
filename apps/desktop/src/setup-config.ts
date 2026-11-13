@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import type { DesktopSetup, DesktopStackProbeResponse } from "@rakazo/contracts";
-import { parseServerHeaders } from "@rakazo/contracts";
-import { isLoopbackHost, isPrivateNetworkHost } from "@rakazo/contracts/network-host";
+import type { DesktopSetup, DesktopStackProbeResponse } from "@botcamp/contracts";
+import { parseServerHeaders } from "@botcamp/contracts";
+import { isLoopbackHost, isPrivateNetworkHost } from "@botcamp/contracts/network-host";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { t } from "./i18n.js";
 
 /** Managed desktop origin; development keeps its usual web/API ports. */
@@ -16,9 +17,7 @@ export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 export const SETUP_FILE_NAME = "setup.json";
 
-export type StartupTarget =
-  | { kind: "app"; url: string; source: "env" | "saved" | "cloud" }
-  | { kind: "setup" };
+export type StartupTarget = { kind: "app"; url: string; source: "env" | "cloud" };
 
 /** The hosted instance a fresh install opens, stored like a chosen existing server. */
 export function botcampCloudSetup(): DesktopSetup {
@@ -198,22 +197,20 @@ export function serializeSetup(setup: DesktopSetup): string {
 /**
  * Replaces the hosted console when set. `RAKAZO_WEB_URL` still wins over it.
  */
-export const DEFAULT_SERVER_URL = (process.env.RAKAZO_DEFAULT_SERVER_URL ?? "").trim();
+export const DEFAULT_SERVER_URL = (
+  firstNonEmpty(process.env.BOTCAMP_DEFAULT_SERVER_URL, process.env.RAKAZO_DEFAULT_SERVER_URL) ?? ""
+).trim();
 
 /**
  * Decides which page the desktop window opens.
- * `RAKAZO_WEB_URL` still wins so test and performance harnesses can point the
- * shell anywhere. `RAKAZO_FORCE_SETUP` is the only way to the old server
- * chooser, and only for those harnesses. A person opening the app goes to the
- * hosted console, including when an older install saved another server.
+ * `RAKAZO_WEB_URL` still wins so a development shell can point at a local checkout.
+ * A person opening the app goes to the hosted console, including when an older
+ * install saved another server. There is no server chooser.
  */
 export function resolveStartupTarget(input: {
   envUrl?: string;
   saved?: DesktopSetup | null;
-  forceSetup?: boolean;
 }): StartupTarget {
-  if (input.forceSetup === true) return { kind: "setup" };
-
   const envUrl = input.envUrl?.trim();
   if (envUrl !== undefined && envUrl !== "") return { kind: "app", url: envUrl, source: "env" };
 

@@ -1,13 +1,13 @@
 import { RPCHandler } from "@orpc/server/fetch";
-import type { Actor } from "@rakazo/contracts";
-import { encodeLoginSecret } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import type { Actor } from "@botcamp/contracts";
+import { encodeLoginSecret } from "@botcamp/contracts";
+import type { PrismaClient } from "@botcamp/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
 
 const events = vi.hoisted(() => ({ record: vi.fn() }));
-vi.mock("@rakazo/db", async (original) => ({
+vi.mock("@botcamp/db", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   recordSecurityEvent: events.record,
 }));

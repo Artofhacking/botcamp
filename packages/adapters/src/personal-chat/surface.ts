@@ -4,8 +4,8 @@ import type {
   MessagingSendRequest,
   MessagingSendResult,
   MessagingSurface,
-} from "@rakazo/adapter-kit";
-import { linkableChatApps } from "@rakazo/core";
+} from "@botcamp/adapter-kit";
+import { linkableChatApps } from "@botcamp/core";
 import type { PersonalChatBridge } from "./bridge.js";
 import { parsePersonalChatThreadId } from "./bridge.js";
 

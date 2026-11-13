@@ -1,8 +1,10 @@
-import type { AdapterContext, ComputerRef } from "@rakazo/adapter-kit";
+import type { AdapterContext, ComputerRef } from "@botcamp/adapter-kit";
 import {
   BROWSER_STILL_RUNNING_EXIT,
   PAGE_BROWSER_DETACHED,
-} from "@rakazo/core/node/desktop-runtime";
+  SCREEN_VIEWER_MISSING,
+  SCREEN_VIEWER_MISSING_MARKER,
+} from "@botcamp/core/node/desktop-runtime";
 import { describe, expect, it } from "vitest";
 import { BrowserStillRunningError, BrowserStoppedReleaseError } from "./computer-screens.js";
 import { LinuxDesktop } from "./linux-desktop.js";
@@ -29,9 +31,9 @@ type Result = { code: number; stdout: string; stderr?: string };
 function host(result: Result | ((command: string) => Result), commands: string[] = []) {
   return {
     environment: async () => ({
-      homeDir: "/home/rakazo",
-      workspaceDir: "/home/rakazo",
-      browserProfilesDir: "/home/rakazo/.browser-profiles",
+      homeDir: "/home/botcamp",
+      workspaceDir: "/home/botcamp",
+      browserProfilesDir: "/home/botcamp/.browser-profiles",
       displayStart: 1,
     }),
     run: async (_computer: ComputerRef, command: string) => {
@@ -118,6 +120,25 @@ describe("LinuxDesktop.connectScreen", () => {
     expect(error.message).toBe("computer desktop operation failed");
     expect(error.cause.message).toBe("exit 137");
   });
+
+  it("reports a missing screen viewer without asking for a screen url", async () => {
+    let asked = false;
+    const desktop = new LinuxDesktop({
+      ...host({
+        code: 0,
+        stdout: `RAKAZO_DESKTOP=0:viewtoken\n${SCREEN_VIEWER_MISSING_MARKER}\n`,
+      }),
+      screenUrl: async () => {
+        asked = true;
+        return "http://screen.example";
+      },
+    });
+
+    await expect(desktop.connectScreen(computer, { view: "stream" }, context)).rejects.toThrow(
+      SCREEN_VIEWER_MISSING,
+    );
+    expect(asked).toBe(false);
+  });
 });
 
 describe("LinuxDesktop.pageBrowser", () => {
@@ -152,10 +173,26 @@ describe("LinuxDesktop.pageBrowser", () => {
     elements: [],
   });
 
+  it("opens a page when setup left the browser up without a screen viewer", async () => {
+    const desktop = new LinuxDesktop({
+      ...host({
+        code: 0,
+        stdout: `RAKAZO_DESKTOP=0:viewtoken\n${SCREEN_VIEWER_MISSING_MARKER}\n`,
+      }),
+      runWithInput: async () => ({ code: 0, stdout: attached }),
+    });
+
+    await expect(
+      desktop.pageBrowser(computer, { command: "navigate", url: "https://example.com/" }, context),
+    ).resolves.toMatchObject({ ok: true, url: "https://example.com/" });
+  });
+
   it("drops the helper daemon and attaches to the screen Chrome once", async () => {
     const { desktop, commands, calls } = pageHost([detached, attached]);
 
-    await expect(desktop.pageBrowser(computer, { command: "snapshot" }, context)).resolves.toMatchObject({
+    await expect(
+      desktop.pageBrowser(computer, { command: "snapshot" }, context),
+    ).resolves.toMatchObject({
       ok: true,
       url: "https://example.com/",
     });
@@ -167,7 +204,9 @@ describe("LinuxDesktop.pageBrowser", () => {
   it("returns the refusal when a second attach still opens another browser", async () => {
     const { desktop, calls } = pageHost([detached]);
 
-    await expect(desktop.pageBrowser(computer, { command: "navigate", url: "https://example.com" }, context)).resolves.toMatchObject({
+    await expect(
+      desktop.pageBrowser(computer, { command: "navigate", url: "https://example.com" }, context),
+    ).resolves.toMatchObject({
       ok: false,
       error: PAGE_BROWSER_DETACHED,
     });

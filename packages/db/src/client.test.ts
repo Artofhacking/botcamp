@@ -1,4 +1,4 @@
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import type { Pool, PoolClient } from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -134,7 +134,7 @@ describe("retryOnTooManyConnections", () => {
 describe("installSaturationReport", () => {
   it("warns once per interval when a checkout waited for a connection", async () => {
     const sink = createTestSink();
-    installLogger(createLogger({ service: "rakazo-api", sinks: [sink], level: "debug" }));
+    installLogger(createLogger({ service: "botcamp-api", sinks: [sink], level: "debug" }));
     let clock = 0;
     const waits = [1_500, 10, 2_000, 10_000];
     const pool = {
@@ -149,7 +149,7 @@ describe("installSaturationReport", () => {
         callback(undefined, client, () => undefined);
       },
     } as unknown as Pool;
-    installSaturationReport(pool, "rakazo-api", () => clock);
+    installSaturationReport(pool, "botcamp-api", () => clock);
 
     await pool.connect();
     pool.connect(() => undefined);
@@ -159,7 +159,7 @@ describe("installSaturationReport", () => {
     const warnings = sink.events.filter((event) => event.message === "db.pool.saturated");
     expect(warnings).toMatchObject([
       {
-        "db.pool.name": "rakazo-api",
+        "db.pool.name": "botcamp-api",
         "db.pool.max": 4,
         "db.pool.waiting": 3,
         "db.pool.wait_ms": 1_500,

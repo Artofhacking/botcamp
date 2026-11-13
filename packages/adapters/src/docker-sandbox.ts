@@ -16,15 +16,15 @@ import type {
   ScreenRequest,
   ScreenSession,
   TerminalRequest,
-} from "@rakazo/adapter-kit";
-import { INVALID_BROWSER_REQUEST, SandboxRequestRejectedError } from "@rakazo/adapter-kit";
+} from "@botcamp/adapter-kit";
+import { INVALID_BROWSER_REQUEST, SandboxRequestRejectedError } from "@botcamp/adapter-kit";
 import {
   boundedSandboxCommandTimeoutMs,
   cancelResponseBody,
   requestDeadline,
   resolveSupervisorToken,
-} from "@rakazo/core";
-import { outgoingCorrelationHeaders } from "@rakazo/logging";
+} from "@botcamp/core";
+import { outgoingCorrelationHeaders } from "@botcamp/logging";
 import {
   boundedComputerActions,
   clampRounded,
@@ -132,12 +132,12 @@ export class DockerSandboxProvider implements SandboxProvider {
   private headers(context: AdapterContext, botId?: string) {
     return {
       authorization: `Bearer ${this.supervisorToken}`,
-      "x-rakazo-space-id": context.spaceId,
+      "x-botcamp-space-id": context.spaceId,
       ...outgoingCorrelationHeaders(),
-      ...(botId ? { "x-rakazo-bot-id": botId } : {}),
-      ...(context.botId ? { "x-rakazo-screen-id": context.botId } : {}),
-      ...(context.screenLeaseId ? { "x-rakazo-screen-lease-id": context.screenLeaseId } : {}),
-      ...(context.cancelRunWork ? { "x-rakazo-cancel-run-work": "1" } : {}),
+      ...(botId ? { "x-botcamp-bot-id": botId } : {}),
+      ...(context.botId ? { "x-botcamp-screen-id": context.botId } : {}),
+      ...(context.screenLeaseId ? { "x-botcamp-screen-lease-id": context.screenLeaseId } : {}),
+      ...(context.cancelRunWork ? { "x-botcamp-cancel-run-work": "1" } : {}),
     };
   }
 
@@ -181,6 +181,23 @@ export class DockerSandboxProvider implements SandboxProvider {
   async isRunning(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
     if (computer.kind !== "docker") return false;
     return (await this.containerRunning(computer, context)) === true;
+  }
+
+  async acceptsRunningComputer(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    if (computer.kind !== "docker") return true;
+    const res = await fetch(this.url(`/computers/${computer.id}`), {
+      method: "GET",
+      headers: this.headers(context, computer.botId),
+      signal: context.signal,
+    });
+    if (!res.ok) {
+      cancelResponseBody(res);
+      throw new Error(`computer identity check failed: ${res.status}`);
+    }
+    const body = await readSandboxJson<{ current?: boolean }>(res, context.signal);
+    // A supervisor from before this check omits the field. Keep the computer rather than
+    // replace it against a process that cannot say.
+    return body.current !== false;
   }
 
   async prepare(_computer: ComputerRef, _context: AdapterContext): Promise<void> {}
@@ -544,7 +561,7 @@ export class DockerSandboxProvider implements SandboxProvider {
           headers: {
             ...this.headers(context, computer.botId),
             ...(context.keepScreenWarm && !context.cancelRunWork && !context.signal.aborted
-              ? { "x-rakazo-preserve-screen": "1" }
+              ? { "x-botcamp-preserve-screen": "1" }
               : {}),
           },
           signal: deadline.signal,
@@ -704,9 +721,9 @@ function parseProcessLine(line: string): ProcessEvent | undefined {
 }
 
 function dockerCwd(cwd: string | undefined) {
-  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/rakazo") return "/home/rakazo";
-  const relative = cwd.startsWith("/home/rakazo/")
-    ? cwd.slice("/home/rakazo/".length)
+  if (!cwd || cwd === "." || cwd === "/" || cwd === "/home/botcamp") return "/home/botcamp";
+  const relative = cwd.startsWith("/home/botcamp/")
+    ? cwd.slice("/home/botcamp/".length)
     : normalizeWorkspacePath(cwd);
-  return path.posix.join("/home/rakazo", relative);
+  return path.posix.join("/home/botcamp", relative);
 }

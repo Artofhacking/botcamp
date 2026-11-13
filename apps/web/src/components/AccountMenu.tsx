@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@rakazo/ui-web";
+} from "@botcamp/ui-web";
 import { CircleUserRound } from "lucide-react";
 import { useState } from "react";
 import { authClient } from "../lib/auth";

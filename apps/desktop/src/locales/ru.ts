@@ -130,9 +130,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "The server's HTTPS certificate was rejected.": "HTTPS-сертификат сервера отклонён.",
   "Could not reach that address.": "Не удалось связаться с этим адресом.",
   "A connection attempt is already running.": "Попытка подключения уже выполняется.",
-  "Could not open that server. {detail}": "Не удалось открыть этот сервер. {detail}",
-  "Could not reconnect to the saved server. {detail}":
-    "Не удалось снова подключиться к сохранённому серверу. {detail}",
   "The server page did not become ready.": "Страница сервера так и не стала готова.",
   "Page failed to load.": "Не удалось загрузить страницу.",
   "Renderer stopped ({reason}).": "Процесс отрисовки остановился ({reason}).",

@@ -1,5 +1,5 @@
-import { FLEET_WRITE_TOOL_NAMES } from "@rakazo/contracts";
-import { runReadsThreadHistory, toolRequiresExplicitApproval } from "@rakazo/core";
+import { FLEET_WRITE_TOOL_NAMES } from "@botcamp/contracts";
+import { runReadsThreadHistory, toolRequiresExplicitApproval } from "@botcamp/core";
 import { MODEL_CANNOT_SEE_MESSAGE } from "./model-vision.js";
 import { replyGuidanceForOfferedTools } from "./run-replies.js";
 import type { UserComputerState } from "./run-tools-user-computer.js";
@@ -299,7 +299,7 @@ function toolUsageLine(parts: {
     webLookupClause(disabled),
     ...secretGuidance(disabled),
     builtinOffered(disabled, "connect_app")
-      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱, then wait for them. When mailbox_list is available, use it to read the connected mailbox."
+      ? "Use connect_app when an app needs connecting or the user asks to connect one, including QQ邮箱, Notion, and GitHub, then wait for them. When mailbox_list is available, use it to read the connected mailbox. When QQ邮箱 tools are available, use those."
       : undefined,
     builtinOffered(disabled, "remember") ? "Use remember for durable facts." : undefined,
     scratchpadClause(disabled),
@@ -459,13 +459,16 @@ export function runIdentityInstruction(
     isPrimary?: boolean | null;
   },
   trigger: string,
+  presentedName?: string,
 ): string {
   const duties = bot.isPrimary ? PRIMARY_BOT_DUTIES : "";
   const description = bot.description?.trim() ?? "";
   const rawInstructions = bot.instructions ?? "";
   const instructions = rawInstructions.trim();
+  // A shared group presents owner-bot. The private bot name is not a second identity.
+  const name = presentedName?.trim() || bot.name;
   if (trigger !== "created") {
-    const identity = description ? `${bot.name}\n${description}` : bot.name;
+    const identity = description ? `${name}\n${description}` : name;
     // Older bots saved one text as both fields; do not repeat it.
     if (!instructions || instructions === description) {
       return duties ? [identity, duties].join("\n\n") : identity;
@@ -478,7 +481,7 @@ export function runIdentityInstruction(
     ].join("\n");
   }
   return [
-    `Name: ${bot.name.trim() || "(none)"}`,
+    `Name: ${name.trim() || "(none)"}`,
     `Description: ${description || "(none)"}`,
     instructions ? `Instructions:\n${instructions}` : "Instructions: (none)",
   ].join("\n");

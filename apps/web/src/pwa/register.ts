@@ -1,4 +1,7 @@
-type ServiceWorkerHost = Pick<Window, "addEventListener" | "navigator" | "rakazoDesktop">;
+type ServiceWorkerHost = Pick<Window, "addEventListener" | "navigator"> & {
+  botcampDesktop?: unknown;
+  rakazoDesktop?: unknown;
+};
 
 /**
  * Production browsers only. Dev must always reach Vite, and Electron serves the
@@ -8,7 +11,13 @@ export function registerServiceWorker(
   target: ServiceWorkerHost = window,
   production: boolean = import.meta.env.PROD,
 ): void {
-  if (!production || target.rakazoDesktop || !("serviceWorker" in target.navigator)) return;
+  if (
+    !production ||
+    target.botcampDesktop ||
+    target.rakazoDesktop ||
+    !("serviceWorker" in target.navigator)
+  )
+    return;
   target.addEventListener(
     "load",
     () => {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@rakazo/core";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@botcamp/core";
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 
@@ -9,6 +9,7 @@ const NEW_PASSWORD_FIELDS = new Map([
   ["/change-password", "newPassword"],
   ["/reset-password", "newPassword"],
   ["/set-password", "newPassword"],
+  ["/initial-password", "newPassword"],
 ]);
 
 const CHECK_TIMEOUT_MS = 3_000;

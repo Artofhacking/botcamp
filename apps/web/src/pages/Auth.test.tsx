@@ -19,7 +19,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("@rakazo/ui-web", () => ({
+vi.mock("@botcamp/ui-web", () => ({
   Button: ({
     children,
     variant,
@@ -185,6 +185,24 @@ it("selects a non-redirecting SSO request on desktop", async () => {
   await act(async () => button!.click());
   expect(authClient.signIn.social).toHaveBeenCalledWith(
     expect.objectContaining({ provider: "oidc", disableRedirect: true }),
+  );
+});
+
+it("starts directory login from the password form", async () => {
+  vi.mocked(fetchAuthCapabilities).mockResolvedValue({
+    ...capabilities,
+    passwordAuth: true,
+    directory: { name: "Directory", availability: "available" },
+  });
+  vi.mocked(authClient.signIn.social).mockResolvedValue({ data: null, error: null });
+  await render();
+  const button = Array.from(host.querySelectorAll("button")).find((item) =>
+    item.textContent?.includes("Continue with Directory"),
+  );
+  expect(button).toBeDefined();
+  await act(async () => button!.click());
+  expect(authClient.signIn.social).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "directory" }),
   );
 });
 

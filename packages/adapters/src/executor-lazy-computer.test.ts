@@ -1,7 +1,7 @@
-import type { AgentRunRequest, ComputerRef } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
-import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
+import type { AgentRunRequest, ComputerRef } from "@botcamp/adapter-kit";
+import { SandboxRateLimitError, SandboxUnresponsiveError } from "@botcamp/adapter-kit";
+import type { MessageBlock } from "@botcamp/contracts";
+import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";
@@ -613,7 +613,7 @@ describe("run computer provisioning", () => {
 
   it("lets the model retry when the computer pod fails while starting", async () => {
     provisionComputer.mockRejectedValueOnce(
-      new Error("Kubernetes pod rakazo-bot-example entered phase Failed"),
+      new Error("Kubernetes pod botcamp-bot-example entered phase Failed"),
     );
 
     const { finalizeRun, toolResults } = await runRoutine([

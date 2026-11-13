@@ -3,9 +3,9 @@ import { link, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Exec, V1Pod } from "@kubernetes/client-node";
-import type { AdapterContext, ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
-import { SandboxUnavailableError } from "@rakazo/adapter-kit";
-import { shellQuote } from "@rakazo/core/node/desktop-runtime";
+import type { AdapterContext, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
+import { SandboxUnavailableError } from "@botcamp/adapter-kit";
+import { shellQuote } from "@botcamp/core/node/desktop-runtime";
 import { describe, expect, it, vi } from "vitest";
 import { encodeTarEntry, TarReader } from "./exec-computer.js";
 import type { KubernetesSandboxSdk } from "./kubernetes-sandbox.js";
@@ -22,8 +22,17 @@ const context: AdapterContext = {
   signal: new AbortController().signal,
 };
 
+const COMPUTER_IMAGE = "ghcr.io/artofhacking/botcamp/computer:edge";
+
 const readyPod: V1Pod = {
-  metadata: { name: "pod", labels: { "rakazo-bot-id": "bot-a" } },
+  metadata: {
+    name: "pod",
+    labels: { "botcamp-bot-id": "bot-a" },
+    annotations: { "botcamp.computer-identity": "botcamp" },
+  },
+  spec: {
+    containers: [{ name: "computer", image: COMPUTER_IMAGE }],
+  },
   status: {
     phase: "Running",
     podIP: "10.0.0.8",
@@ -112,7 +121,7 @@ describe("KubernetesSandboxProvider", () => {
           ) {
             const directory = command.includes("find")
               ? command[command.indexOf("find") + 1]!
-              : "/home/rakazo";
+              : "/home/botcamp";
             for (const [name, file] of files) {
               const relative = name.slice(directory.length + 1);
               if (!name.startsWith(`${directory}/`)) continue;
@@ -125,7 +134,7 @@ describe("KubernetesSandboxProvider", () => {
             }
           } else if (command.includes("tar")) {
             for (const name of exportedNames) {
-              const file = files.get(`/home/rakazo/${name}`)!;
+              const file = files.get(`/home/botcamp/${name}`)!;
               for (const chunk of encodeTarEntry(name, file.content, file.executable))
                 stdout?.write(chunk);
             }
@@ -206,11 +215,14 @@ describe("KubernetesSandboxProvider", () => {
     expect(request?.namespace).toBe("sandboxes");
     expect(request?.body).toMatchObject({
       metadata: {
-        annotations: { "example.test/policy": "sandbox" },
+        annotations: {
+          "example.test/policy": "sandbox",
+          "botcamp.computer-identity": "botcamp",
+        },
         labels: {
-          "app.kubernetes.io/name": "rakazo-computer",
+          "app.kubernetes.io/name": "botcamp-computer",
           "example.test/tier": "computer",
-          "rakazo-bot-id": "bot-a",
+          "botcamp-bot-id": "bot-a",
         },
       },
       spec: {
@@ -308,6 +320,105 @@ describe("KubernetesSandboxProvider", () => {
     expect(commands).not.toContain("run-id:7");
   });
 
+  it("replaces a mounted pod labelled by the previous release", async () => {
+    const previous: V1Pod = {
+      ...readyPod,
+      metadata: { name: "pod", labels: { "rakazo-bot-id": "bot-a" } },
+      spec: {
+        volumes: [{ name: "home", nfs: { server: "nfs.example.test", path: "/export" } }],
+        containers: [
+          {
+            name: "computer",
+            image: COMPUTER_IMAGE,
+            volumeMounts: [{ name: "home", mountPath: "/home/botcamp", subPath: "bot-a" }],
+          },
+        ],
+      },
+    };
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce(previous)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue(readyPod);
+    const create = vi.fn().mockResolvedValue(readyPod);
+    const del = vi.fn().mockResolvedValue({ status: "Success" });
+    const provider = providerFor({
+      readNamespacedPod: read,
+      createNamespacedPod: create,
+      deleteNamespacedPod: del,
+    });
+    const result = await provider.provision(
+      { botId: "bot-a", homePath: "/unused", providerKind: "kubernetes", providerRef: "pod" },
+      context,
+    );
+    expect(result.fresh).toBe(true);
+    expect(del).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an unmounted running pod from the previous release", async () => {
+    const previous: V1Pod = {
+      ...readyPod,
+      metadata: { name: "pod", labels: { "rakazo-bot-id": "bot-a" } },
+      spec: { containers: [{ name: "computer", image: COMPUTER_IMAGE }] },
+    };
+    const create = vi.fn();
+    const del = vi.fn();
+    const provider = providerFor({
+      readNamespacedPod: vi.fn().mockResolvedValue(previous),
+      createNamespacedPod: create,
+      deleteNamespacedPod: del,
+    });
+    const result = await provider.provision(
+      { botId: "bot-a", homePath: "/unused", providerKind: "kubernetes", providerRef: "pod" },
+      context,
+    );
+    expect(result.fresh).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("removes mounted pods from the previous identity at startup and leaves the rest", async () => {
+    const mountedPrevious: V1Pod = {
+      metadata: { name: "old", labels: { "rakazo-bot-id": "bot-a" } },
+      spec: {
+        volumes: [{ name: "home", nfs: { server: "nfs.example.test", path: "/export" } }],
+        containers: [
+          {
+            name: "computer",
+            image: COMPUTER_IMAGE,
+            volumeMounts: [{ name: "home", mountPath: "/home/botcamp", subPath: "bot-a" }],
+          },
+        ],
+      },
+      status: { phase: "Running" },
+    };
+    const unmountedPrevious: V1Pod = {
+      metadata: { name: "unsaved", labels: { "rakazo-bot-id": "bot-b" } },
+      spec: { containers: [{ name: "computer", image: COMPUTER_IMAGE }] },
+      status: { phase: "Running" },
+    };
+    const otherTier: V1Pod = {
+      ...readyPod,
+      metadata: {
+        name: "desktop",
+        labels: { "botcamp-bot-id": "bot-c" },
+        annotations: { "botcamp.computer-identity": "botcamp" },
+      },
+      spec: { containers: [{ name: "computer", image: "registry.example.test/computer:desktop" }] },
+    };
+    const del = vi.fn().mockResolvedValue({ status: "Success" });
+    const provider = providerFor({
+      listNamespacedPod: vi.fn().mockResolvedValue({
+        items: [mountedPrevious, unmountedPrevious, otherTier],
+      }),
+      deleteNamespacedPod: del,
+    });
+    await provider.retirePreviousComputers();
+    expect(del).toHaveBeenCalledOnce();
+    expect(del).toHaveBeenCalledWith(expect.objectContaining({ name: "old" }));
+  });
+
   it("reconnects to an existing ready pod without creating it", async () => {
     const create = vi.fn();
     const provider = providerFor({
@@ -316,7 +427,7 @@ describe("KubernetesSandboxProvider", () => {
     });
     const result = await provider.provision({ botId: "bot-a", homePath: "/unused" }, context);
     expect(result.fresh).toBe(false);
-    expect(result.providerRef).toMatch(/^rakazo-bot-a-/);
+    expect(result.providerRef).toMatch(/^botcamp-bot-a-/);
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -336,7 +447,7 @@ describe("KubernetesSandboxProvider", () => {
     const read = vi
       .fn()
       .mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 404 }))
-      .mockResolvedValue({ ...readyPod, metadata: { labels: { "rakazo-bot-id": "bot-b" } } });
+      .mockResolvedValue({ ...readyPod, metadata: { labels: { "botcamp-bot-id": "bot-b" } } });
     const create = vi.fn().mockRejectedValue(Object.assign(new Error("conflict"), { code: 409 }));
     const provider = providerFor({ readNamespacedPod: read, createNamespacedPod: create });
     await expect(
@@ -348,7 +459,7 @@ describe("KubernetesSandboxProvider", () => {
     const home = {
       homeClaim: "data-claim",
       homeColocateNamespace: "rakazo",
-      homeColocateLabels: { app: "rakazo-api" },
+      homeColocateLabels: { app: "botcamp-api" },
     };
 
     it("mounts only the bot's home directory and pins the pod beside the volume", async () => {
@@ -373,7 +484,7 @@ describe("KubernetesSandboxProvider", () => {
             requiredDuringSchedulingIgnoredDuringExecution: [
               {
                 namespaces: ["rakazo"],
-                labelSelector: { matchLabels: { app: "rakazo-api" } },
+                labelSelector: { matchLabels: { app: "botcamp-api" } },
                 topologyKey: "kubernetes.io/hostname",
               },
             ],
@@ -381,7 +492,7 @@ describe("KubernetesSandboxProvider", () => {
         },
         containers: [
           {
-            volumeMounts: [{ name: "home", mountPath: "/home/rakazo", subPath: "team-ab12" }],
+            volumeMounts: [{ name: "home", mountPath: "/home/botcamp", subPath: "team-ab12" }],
           },
         ],
       });
@@ -444,7 +555,7 @@ describe("KubernetesSandboxProvider", () => {
                     : [
                         {
                           name: "home",
-                          mountPath: kind === "wrong-path" ? "/other" : "/home/rakazo",
+                          mountPath: kind === "wrong-path" ? "/other" : "/home/botcamp",
                           subPath:
                             kind === "wrong-home"
                               ? "homes/other"
@@ -480,10 +591,7 @@ describe("KubernetesSandboxProvider", () => {
         vi.fn(),
         { nfsHomeServer: "files.internal", nfsHomePath: "/export" },
       );
-      await spawning.provision(
-        { botId: "team-ab12", homePath: "/data/homes/team-ab12" },
-        context,
-      );
+      await spawning.provision({ botId: "team-ab12", homePath: "/data/homes/team-ab12" }, context);
       const body = create.mock.calls[0]?.[0]?.body as V1Pod;
       expect(body.spec?.volumes?.[0]?.nfs).toEqual({
         server: "files.internal",
@@ -491,7 +599,7 @@ describe("KubernetesSandboxProvider", () => {
         readOnly: false,
       });
       expect(body.spec?.containers?.[0]?.volumeMounts).toEqual([
-        { name: "home", mountPath: "/home/rakazo", subPath: "team-ab12" },
+        { name: "home", mountPath: "/home/botcamp", subPath: "team-ab12" },
       ]);
       const mounted = { ...readyPod, spec: body.spec } as V1Pod;
       const reading = providerFor(
@@ -510,7 +618,7 @@ describe("KubernetesSandboxProvider", () => {
           containers: [
             {
               name: "computer",
-              volumeMounts: [{ name: "other", mountPath: "/home/rakazo", subPath: "team-ab12" }],
+              volumeMounts: [{ name: "other", mountPath: "/home/botcamp", subPath: "team-ab12" }],
             },
           ],
         },
@@ -531,7 +639,7 @@ describe("KubernetesSandboxProvider", () => {
           containers: [
             {
               name: "computer",
-              volumeMounts: [{ name: "home", mountPath: "/home/rakazo", subPath: "homes/bot-a" }],
+              volumeMounts: [{ name: "home", mountPath: "/home/botcamp", subPath: "homes/bot-a" }],
             },
           ],
         },
@@ -553,7 +661,7 @@ describe("KubernetesSandboxProvider", () => {
           containers: [
             {
               name: "computer",
-              volumeMounts: [{ name: "home", mountPath: "/home/rakazo", subPath: "homes/bot-a" }],
+              volumeMounts: [{ name: "home", mountPath: "/home/botcamp", subPath: "homes/bot-a" }],
             },
           ],
         },
@@ -601,7 +709,7 @@ describe("KubernetesSandboxProvider", () => {
     const provider = providerFor({
       readNamespacedPod: vi
         .fn()
-        .mockResolvedValue({ ...readyPod, metadata: { labels: { "rakazo-bot-id": "bot-b" } } }),
+        .mockResolvedValue({ ...readyPod, metadata: { labels: { "botcamp-bot-id": "bot-b" } } }),
     });
     await expect(
       provider.provision(
@@ -685,7 +793,7 @@ describe("KubernetesSandboxProvider", () => {
     expect(error).toBeInstanceOf(SandboxUnavailableError);
     expect(error).toMatchObject({ message: "The computer did not start. Try again." });
     expect((error as Error).cause).toMatchObject({
-      message: "Kubernetes pod rakazo-bot-a-53ca8050b9fd entered phase Failed",
+      message: "Kubernetes pod botcamp-bot-a-53ca8050b9fd entered phase Failed",
     });
     expect(del).toHaveBeenCalledOnce();
   });
@@ -812,7 +920,7 @@ describe("KubernetesSandboxProvider", () => {
       /* consume */
     }
     const command = exec.mock.calls[0]?.[3];
-    expect(command).toContain("/home/rakazo/nested/dir");
+    expect(command).toContain("/home/botcamp/nested/dir");
     expect(command).toContain("OK_1=yes");
     expect(command).toContain("2s");
     const invalid = provider
@@ -1110,7 +1218,7 @@ describe("KubernetesSandboxProvider", () => {
       providerFor({}, exec).pageBrowser(computer, { command: "snapshot" }, context),
     ).resolves.toMatchObject({ ok: true, url: "https://example.com/" });
     expect(commands.some((command) => command.includes("RAKAZO_CDP_PORT=9241"))).toBe(true);
-    expect(commands.some((command) => command.includes(".local/bin/rakazo-page-browser"))).toBe(
+    expect(commands.some((command) => command.includes(".local/bin/botcamp-page-browser"))).toBe(
       true,
     );
     expect(JSON.parse(request)).toMatchObject({ command: "snapshot" });
@@ -1260,7 +1368,7 @@ describe("KubernetesSandboxProvider", () => {
               args[4]?.write(
                 execFileSync("bash", [
                   "-c",
-                  script.replace(`cd ${shellQuote("/home/rakazo")}`, `cd ${shellQuote(root)}`),
+                  script.replace(`cd ${shellQuote("/home/botcamp")}`, `cd ${shellQuote(root)}`),
                 ]),
               );
             } else if (args[6]) {

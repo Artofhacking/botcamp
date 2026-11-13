@@ -1,7 +1,7 @@
 # Sign-in and accounts
 
 Choose who can create an account and how people sign in: allowlists, email verification, SSO,
-passkeys and password rules.
+directory login, and password rules.
 
 ## Who can sign up
 
@@ -17,7 +17,7 @@ server integration credentials, or deployment updates, and cannot read deploymen
 
 There is no app-admin role, first-user privilege, or `ADMINS` list. Workspace owners manage only their own workspace.
 
-`RAKAZO_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions, add stdio
+`BOTCAMP_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions, add stdio
 MCP servers ([integrations](self-host-integrations.md)), and, on deployments that sell model
 credits, give free access at `/admin/access`. An account counts only once its email is verified.
 It grants nothing else.
@@ -53,11 +53,11 @@ Create the intended account privately (the password stays in the shell environme
 read -r -p "Account email: " OWNER_EMAIL
 read -r -s -p "Account password (at least 16 characters): " OWNER_PASSWORD
 export OWNER_EMAIL OWNER_PASSWORD
-docker compose --env-file .env -f docker-compose.images.yml exec -e OWNER_EMAIL -e OWNER_PASSWORD api node dist/cli/bootstrap-owner.js
+docker compose -f infra/compose/docker-compose.yml exec -e OWNER_EMAIL -e OWNER_PASSWORD api node dist/cli/bootstrap-owner.js
 unset OWNER_EMAIL OWNER_PASSWORD
 ```
 
-For a source checkout, use `-f infra/compose/docker-compose.yml` instead. This creates an ordinary verified account and a personal workspace, with no server privileges. For an existing unverified account, its password must match before it can be verified; an existing verified account is left unchanged.
+This creates an ordinary verified account and a personal workspace, with no server privileges. For an existing unverified account, its password must match before it can be verified; an existing verified account is left unchanged.
 Keep an installation without email on a trusted local network.
 
 ## Verification and password recovery email
@@ -196,9 +196,9 @@ when the IdP controls who may join this deployment. It does **not** reopen close
 and does not change email verification claims or linking rules. Existing admitted accounts can
 sign in while registration is closed.
 
-Set `AUTH_PASSWORD_ENABLED=false` for SSO-only operation. Password sign-in, signup, password
+Set `AUTH_PASSWORD_ENABLED=false` to leave password sign-in off. Password sign-in, signup, password
 reset and password mutation endpoints are disabled server-side, and sign-in forms are hidden.
-The API refuses to start in this mode unless all OIDC credentials are configured. It can still
+The API refuses to start in this mode unless OIDC or directory login is configured. With OIDC, it can still
 start while discovery is temporarily unavailable: the provider remains registered, sign-in
 returns a temporary error, and background retries recover without restarting. Discovery is lazy
 on first use, refreshed in the background, and failures back off up to one minute. Availability
@@ -212,37 +212,94 @@ email configured, **Send deletion code** sends a single-use code to the account 
 minutes. Enter it in account settings to confirm deletion. Email-code requests are rate-limited;
 invalid, expired or wrong-account codes fail. No password needs to be created for deletion.
 
-## Passkeys
+## Directory login
 
-Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
-relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
-stays on the same domain. They are off when password sign-in is disabled for SSO-only
-deployments. On web, a browser offers them where it has a platform authenticator. The macOS
-desktop app uses the system passkey sheet, which only serves the domain the release is
-associated with (`botcamp.demox.site`), so it hides passkeys for other servers.
+Directory login is a second sign-in method beside passwords and OpenID Connect. It uses the
+Feishu or Lark authorization-code flow. Leave it unset to keep the other methods alone. It is
+not the Feishu messaging app: `LARK_APP_ID` does not turn this login on, and linking a bot does
+not sign anyone in. Configure both login credentials together on the API:
 
-Native apps can use a domain's passkeys only when the domain vouches for them and the app was
-built for that domain. A macOS desktop build takes it from `RAKAZO_PASSKEY_RP_ID` (default
-`botcamp.demox.site`): set it to the same domain for `pnpm build` and for
-`apps/desktop/scripts/passkey-entitlements.ts`, then package with electron-builder's
-`-c.mac.entitlements` set to that script's output and `-c.mac.provisioningProfile` set to a
-profile for your App ID with the Associated Domains capability. Without both, macOS ignores the
-association and the app hides passkeys. When Apple's CDN cannot reach the server (a private
-network or a VPN such as Tailscale), also set `RAKAZO_PASSKEY_DEVELOPER_MODE=1`: a
-development-signed app then fetches the association file itself, once associated-domains
-developer mode is on (`sudo swcutil developer-mode -e true` on macOS, where the app must also
-live in
-`/Applications`). To let a build use this server's passkeys, set:
-
-```bash
-# iOS and the macOS desktop app (dev.botcamp.desktop): <Apple Team ID>.<bundle id>, comma-separated.
-# Served as /.well-known/apple-app-site-association.
-PASSKEY_APPLE_APP_IDS=ABCDE12345.com.example.botcamp,ABCDE12345.dev.botcamp.desktop
-# Android: SHA-256 fingerprints of the app signing certificates, comma-separated.
-# Served as /.well-known/assetlinks.json and accepted as passkey origins.
-PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
+```env
+LARK_LOGIN_APP_ID=replace-with-app-id
+LARK_LOGIN_APP_SECRET=replace-with-app-secret
+LARK_LOGIN_NAME=
+LARK_LOGIN_SCOPES=
+LARK_LOGIN_TENANT=
+LARK_LOGIN_ALLOW_SIGNUP_BYPASS=false
+LARK_DOMAIN=feishu
 ```
 
-Until a platform's setting is set, the native app on that platform hides passkeys for this
-server. Both files are served through the web origin, so a reverse proxy in front of the web container
-must pass `/.well-known/` through to it.
+`LARK_DOMAIN` is the same setting messaging uses (`feishu`, the default, or `lark`). It selects
+the accounts and OpenAPI hosts. An unknown value refuses to start when these credentials are set.
+The button label is `LARK_LOGIN_NAME`. When that is empty, the label is 飞书 for `feishu` and Lark
+for `lark`. The app secret stays on the API. Compose does not pass it to the worker.
+
+Register this redirect URI on the Feishu or Lark app, using the public `BETTER_AUTH_URL` origin:
+
+```text
+https://app.example.com/api/auth/callback/directory
+```
+
+Web, Electron and mobile use that same redirect. Sign-in and linking request the directory
+command line's user scopes (catalog 1.0.99), plus the contact email
+(`contact:user.email:readonly`) and employment (`contact:user.employee:readonly`). They do not
+request `offline_access`, `attendance:task:readonly`, the OKR content, comment, period, progress,
+and settings scopes, or `vc:meeting.realtime:read`. Enable every requested scope as a user
+permission on the app and publish a version before this login asks for them. Requesting a scope
+the app has not enabled makes the authorization page fail. `LARK_LOGIN_SCOPES` adds more scopes.
+It does not replace that set. `im:message.send_as_user` is not requested: a bulk consent that
+includes it waits on a review and blocks the rest. Authorization uses PKCE. The token exchange
+is the v2 endpoint, which is the one that accepts that PKCE verifier. This login does not receive
+a refresh token. The access token is stored encrypted and used until it expires; signing in or
+linking again replaces it. The app secret stays on the API and is not given to the command. A
+worker that has the same login settings can open the grant. Compose does not pass the secret to
+the worker, so those commands stay off there. A person who linked before this set was published
+signs in or links again so the new consent is stored. Until then, directory commands ask them to
+sign in again.
+
+When the profile includes an enterprise mailbox, that address is used. Otherwise the contact
+email is used. Feishu says both are imported by an administrator and are not proof that the
+person controls the mailbox. BotCamp stores the address as unverified and does not mark it
+verified from this login. A later directory sign-in does not change the account email or its
+verification. A profile with no email cannot sign in.
+
+The identity is that application's `open_id`, bound to the accounts host
+(`https://accounts.feishu.cn` or `https://accounts.larksuite.com`). Replacing the Feishu app
+changes `open_id`, so old links no longer match. Link the new identity from the existing
+signed-in account. `LARK_LOGIN_TENANT`, when set, must equal the profile's `tenant_key`. A
+different organization cannot sign in.
+
+Sign-in attaches this directory identity to an existing account when the addresses match. The
+existing account keeps its email and whether that email is verified. The directory address is an
+imported contact, not proof that the person controls the mailbox, so the merge trusts the
+directory for that address. A directory identity that is already linked stays on its account. Account settings shows this
+login method whenever it is configured. The row's label is the configured name. Before it is
+linked, the row offers a link. After linking, the row shows that person's name and picture.
+Linking uses the signed-in browser session and does not require the addresses to match. It does
+not change the account email or its verification.
+
+A signed-in account can set a password from that same sign-in list. Setting it does not change
+the account email or whether that email is verified. The directory link can be removed only after
+a password exists. Until then, the row asks for a password first and the link stays. After the
+link is removed, sign-in uses that same email and the password. Password sign-in still follows
+the allowlist rule above: a nonempty allowlist requires a verified mailbox, including this one.
+
+Signup follows closed registration and the deployment allowlist. A directory address does not
+satisfy an allowlist that also requires a verified mailbox. An account that already exists is
+signed in anyway, including when registration is closed or the address is outside the allowlist.
+`LARK_LOGIN_ALLOW_SIGNUP_BYPASS=true`
+admits these identities without applying the allowlist. Enable it only when the directory
+controls who may join this deployment. It does not reopen closed registration, and it does not
+mark the mailbox verified. Password-disabled mode can use this login instead of OIDC.
+
+Account deletion can ask the directory to show its consent screen again. The directory has no
+authentication-time claim, so the proof is that completed consent round-trip, bound to the same
+`open_id` and the session that started it. The proof expires five minutes after the callback.
+That is weaker than OpenID Connect, whose proof requires a fresh `auth_time`: a directory
+session that is still signed in can consent without a new password. Password verification and
+emailed deletion codes remain available. Callbacks are single-use.
+
+## Passkeys
+
+Passkeys are not offered. Settings does not add one, and sign-in does not accept one. `WEB_ORIGIN`
+does not turn them on. Deleting an account still removes any passkey rows stored earlier.

@@ -1,5 +1,5 @@
-import type { ConnectorTool } from "@rakazo/adapter-kit";
-import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
+import type { ConnectorTool } from "@botcamp/adapter-kit";
+import { FLEET_TOOL_NAMES } from "@botcamp/contracts";
 import type { CatalogEntry } from "./lazy-tool-catalog.js";
 import {
   catalogEntries,
@@ -34,6 +34,7 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "browser_act",
   "ask_user",
   "message_user",
+  "sync_channels",
   "request_takeover",
   "request_secret",
   "connect_app",
@@ -41,6 +42,8 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "mailbox_get",
   "mailbox_search",
   "mailbox_send",
+  "directory_read",
+  "directory_write",
   "run_subagent",
   "skill_read",
   "update_bot",

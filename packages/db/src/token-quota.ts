@@ -1,11 +1,14 @@
-import type { PrismaClient } from "./generated/prisma/client.js";
+import { firstNonEmpty } from "@botcamp/core/env-name";
 import { containerCostYuan, toCredits, tokenCostYuan, tokenListCostYuan } from "./credits.js";
+import type { PrismaClient } from "./generated/prisma/client.js";
 
 /** What a free account gets before an admin assigns a plan: ¥3 a week. */
 export const DEFAULT_WEEKLY_TOKEN_QUOTA = 10_000_000n;
 
 /** Weeks roll over at Monday 00:00 in this zone; China has no DST, so a fixed offset is exact. */
-const QUOTA_TIME_ZONE = process.env.RAKAZO_QUOTA_TIME_ZONE?.trim() || "Asia/Shanghai";
+const QUOTA_TIME_ZONE =
+  firstNonEmpty(process.env.BOTCAMP_QUOTA_TIME_ZONE, process.env.RAKAZO_QUOTA_TIME_ZONE)?.trim() ||
+  "Asia/Shanghai";
 const ZONE_OFFSET_MINUTES: Record<string, number> = { "Asia/Shanghai": 480, UTC: 0 };
 
 export function quotaTimeZone(): string {
@@ -130,9 +133,7 @@ export class WeeklyQuotaExceededError extends Error {
     readonly resetsAt: Date,
   ) {
     // Users never see the underlying points, only how much of the week is gone.
-    super(
-      `本周额度已用完（已用 100%），将在 ${resetsAt.toISOString().slice(0, 10)} 恢复。`,
-    );
+    super(`本周额度已用完（已用 100%），将在 ${resetsAt.toISOString().slice(0, 10)} 恢复。`);
     this.name = "WeeklyQuotaExceededError";
   }
 }

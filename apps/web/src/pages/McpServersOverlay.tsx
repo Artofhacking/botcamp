@@ -1,9 +1,9 @@
 import { t } from "@lingui/core/macro";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { BotMcpServer, McpServer, McpTransport } from "@rakazo/contracts";
-import { MCP_OAUTH_CLIENT_REQUIRED } from "@rakazo/contracts";
-import { deriveMcpSlug, isRetryableError } from "@rakazo/core";
-import { fetchFresh, writeSaved } from "@rakazo/core/query";
+import type { BotMcpServer, McpServer, McpTransport } from "@botcamp/contracts";
+import { MCP_OAUTH_CLIENT_REQUIRED } from "@botcamp/contracts";
+import { deriveMcpSlug, isRetryableError } from "@botcamp/core";
+import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,8 +36,8 @@ import {
   Textarea,
   Toggle,
   toast,
-} from "@rakazo/ui-web";
-import { Disclosure } from "@rakazo/ui-web/components/ui/disclosure";
+} from "@botcamp/ui-web";
+import { Disclosure } from "@botcamp/ui-web/components/ui/disclosure";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Ellipsis, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";

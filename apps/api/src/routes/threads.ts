@@ -1,7 +1,6 @@
-import { ORPCError } from "@orpc/server";
-import { runContinueJob, runJobKey } from "@rakazo/adapter-kit";
-import { settleCallRequest } from "@rakazo/adapters";
-import type { Actor, ProductEvent } from "@rakazo/contracts";
+import { runContinueJob, runJobKey } from "@botcamp/adapter-kit";
+import { settleCallRequest } from "@botcamp/adapters";
+import type { Actor, ProductEvent } from "@botcamp/contracts";
 import {
   AttachmentValidationError,
   CALL_CLIENT_NONCE_PREFIX,
@@ -9,21 +8,25 @@ import {
   expandSkillReferencesInPrompt,
   MODEL_REQUIRED_SEND_ERROR,
   QUEUE_HOLDING_RUN_STATUSES,
-} from "@rakazo/core";
-import type { Prisma } from "@rakazo/db";
+} from "@botcamp/core";
+import type { Prisma } from "@botcamp/db";
 import {
   AnswerTooLongError,
   appendEventInTransaction,
   createExternalConversationRepos,
   createThreadMessageInTransaction,
   IsolationError,
-  lockOwnedGroup,
+  loadSharedGroupRosters,
+  lockReadableGroup,
+  runAsSystemInTransaction,
   touchGroupUpdatedAt,
-} from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+} from "@botcamp/db";
+import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import type { RouterDeps } from "../router.js";
 import { createRoutineTestRun, routineTestRunNonce, routineTestTarget } from "../routines.js";
 import { withSerializableRetry } from "../serializable-retry.js";
+import { wakeSharedGroupBots } from "../shared-group-wake.js";
 import { assertTeachingSendAllowed } from "../taught-skills.js";
 import {
   isBackgroundRun,
@@ -54,6 +57,7 @@ import {
   computerContext,
   HEARTBEAT_MS,
   isUniqueViolation,
+  managedModelsOnly,
   modelSetup,
   SESSION_RECHECK_MS,
   THREAD_MESSAGE_PAGE_SIZE,
@@ -133,6 +137,11 @@ export function threadsRoutes(ctx: RouterContext) {
               deployment,
               hostedProvider: setup.creditsAvailable ? deployment?.provider : undefined,
               codexCatalog,
+              imageChannel: {
+                provider: deps.env.deploymentModelConfigured ? deps.env.defaultProvider : null,
+                scripted: deps.env.agentRuntime === "scripted",
+                seedWhenEmpty: managedModelsOnly(),
+              },
             }
           : undefined,
       },
@@ -410,17 +419,54 @@ export function threadsRoutes(ctx: RouterContext) {
             });
             if (existing) return null;
           }
-          await lockOwnedGroup(tx, context.actor, target.groupId);
-          const group = await tx.chatGroup.findFirst({
+          const locked = await lockReadableGroup(tx, context.actor, target.groupId);
+          const visible = await tx.chatGroup.findFirst({
             where: {
               id: target.groupId,
               archivedAt: null,
               thread: { id: target.threadId },
+              ...(locked.shared
+                ? {}
+                : { spaceId: context.actor.spaceId, userId: context.actor.userId }),
             },
-            include: { members: { orderBy: [{ createdAt: "asc" }, { botId: "asc" }] } },
+            select: { id: true },
           });
-          const botId = group?.members[0]?.botId;
-          if (!botId) throw new IsolationError();
+          if (!visible) throw new IsolationError();
+          let bot: { botId: string; userId: string; spaceId: string; name: string } | undefined;
+          if (locked.shared) {
+            const rosters = await runAsSystemInTransaction(
+              tx,
+              "read shared group member names",
+              () => loadSharedGroupRosters(tx, [target.groupId], context.actor.userId),
+            );
+            const roster = rosters.get(target.groupId);
+            const mentioned = sendTargetBotIds(
+              { kind: "group", members: roster?.members ?? [], shared: true },
+              { text: input.text },
+            );
+            const member = roster?.members.find((item) => item.botId === mentioned[0]);
+            if (member) {
+              bot = {
+                botId: member.botId,
+                userId: member.userId,
+                spaceId: member.spaceId,
+                name: member.name,
+              };
+            }
+          } else {
+            const group = await tx.chatGroup.findFirst({
+              where: { id: target.groupId },
+              include: { members: { orderBy: [{ createdAt: "asc" }, { botId: "asc" }] } },
+            });
+            const botId = group?.members[0]?.botId;
+            if (!botId) throw new IsolationError();
+            bot = {
+              botId,
+              userId: context.actor.userId,
+              spaceId: context.actor.spaceId,
+              name: "",
+            };
+          }
           const blocks = [{ kind: "text" as const, text: input.text }];
           const message = await createThreadMessageInTransaction(tx, {
             threadId: target.threadId,
@@ -428,34 +474,40 @@ export function threadsRoutes(ctx: RouterContext) {
             blocks,
             clientNonce: input.clientNonce,
             origin: input.origin,
+            ...(locked.shared ? { senderUserId: context.actor.userId } : {}),
           });
-          const active = await tx.run.findFirst({
-            where: {
-              threadId: target.threadId,
-              botId,
-              status: { in: [...QUEUE_HOLDING_RUN_STATUSES] },
-            },
-            select: { id: true },
-          });
+          const foreign = Boolean(bot && locked.shared && bot.spaceId !== locked.spaceId);
+          const writeSpaceId = locked.shared ? locked.spaceId : context.actor.spaceId;
+          const active =
+            bot && !foreign
+              ? await tx.run.findFirst({
+                  where: {
+                    threadId: target.threadId,
+                    botId: bot.botId,
+                    status: { in: [...QUEUE_HOLDING_RUN_STATUSES] },
+                  },
+                  select: { id: true },
+                })
+              : null;
           let run: { id: string } | null = null;
-          if (!active) {
+          if (bot && !foreign && !active) {
             const task = await tx.task.create({
               data: {
-                spaceId: context.actor.spaceId,
-                botId,
+                spaceId: writeSpaceId,
+                botId: bot.botId,
                 threadId: target.threadId,
-                userId: context.actor.userId,
+                userId: bot.userId,
                 prompt: input.text,
                 status: "queued",
               },
             });
             run = await tx.run.create({
               data: {
-                spaceId: context.actor.spaceId,
-                botId,
+                spaceId: writeSpaceId,
+                botId: bot.botId,
                 threadId: target.threadId,
                 taskId: task.id,
-                userId: context.actor.userId,
+                userId: bot.userId,
                 status: "queued",
                 trigger: "follow_up",
                 sourceMessageId: message.id,
@@ -463,27 +515,51 @@ export function threadsRoutes(ctx: RouterContext) {
               select: { id: true },
             });
             await tx.message.update({ where: { id: message.id }, data: { runId: run.id } });
-          } else {
+          } else if (bot && !foreign && active) {
             await tx.steeringMessage.create({
               data: {
                 messageId: message.id,
-                botId,
+                botId: bot.botId,
                 userId: context.actor.userId,
                 runId: active.id,
               },
             });
             await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });
           }
+          const eventBotId =
+            bot && !foreign ? bot.botId : locked.shared ? target.groupId : undefined;
+          if (!eventBotId) throw new IsolationError();
           const event = await appendEventInTransaction(tx, {
-            spaceId: context.actor.spaceId,
+            spaceId: writeSpaceId,
             threadId: target.threadId,
-            botId,
+            botId: eventBotId,
             type: "thread.message.created",
             runId: run?.id ?? active?.id,
-            payload: { messageId: message.id, role: "user", blocks },
+            payload: {
+              messageId: message.id,
+              role: "user",
+              blocks,
+              ...(locked.shared ? { senderUserId: context.actor.userId } : {}),
+            },
           });
           await touchGroupUpdatedAt(tx, target.groupId);
-          return { runId: run?.id, eventSeq: event.seq, message };
+          return {
+            runId: run?.id,
+            eventSeq: event.seq,
+            message,
+            wake:
+              foreign && bot
+                ? {
+                    groupId: target.groupId,
+                    groupName: target.groupName,
+                    groupThreadId: target.threadId,
+                    sourceMessageId: message.id,
+                    senderUserId: context.actor.userId,
+                    senderText: input.text,
+                    bots: [bot],
+                  }
+                : undefined,
+          };
         });
         if (committed) {
           deps.analytics?.capture(
@@ -494,6 +570,11 @@ export function threadsRoutes(ctx: RouterContext) {
           await deps.events.notify(target.threadId, committed.eventSeq).catch((error) => {
             getLogger().error("group follow-up realtime notification", error);
           });
+          if (committed.wake) {
+            await wakeSharedGroupBots(deps, committed.wake).catch((error) => {
+              getLogger().error("shared group wake", error);
+            });
+          }
           if (committed.runId) {
             await deps.jobs.enqueue(runContinueJob(committed.runId)).catch((error) => {
               getLogger().error("group follow-up enqueue", error);

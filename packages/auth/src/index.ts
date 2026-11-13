@@ -1,6 +1,5 @@
 import { expo } from "@better-auth/expo";
-import { passkey } from "@better-auth/passkey";
-import type { ProductAnalytics, TransactionalEmailProvider } from "@rakazo/adapter-kit";
+import type { ProductAnalytics, TransactionalEmailProvider } from "@botcamp/adapter-kit";
 import {
   displayName,
   emailAllowed,
@@ -9,10 +8,10 @@ import {
   MESSAGING_EMAIL_SUFFIX,
   MIN_PASSWORD_LENGTH,
   signupPolicyFromEnv,
-} from "@rakazo/core";
-import type { PrismaClient, SecurityEventType } from "@rakazo/db";
-import { bootstrapUserSpace, personalOrganizationIds, recordSecurityEvent } from "@rakazo/db";
-import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
+} from "@botcamp/core";
+import type { PrismaClient, SecurityEventType } from "@botcamp/db";
+import { bootstrapUserSpace, personalOrganizationIds, recordSecurityEvent } from "@botcamp/db";
+import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
@@ -35,15 +34,25 @@ import {
   signedBearer,
 } from "./account-security.js";
 import { breachedPasswordCheck } from "./breached-password.js";
+import type { DirectoryLoginConfig } from "./directory-login.js";
+import {
+  DIRECTORY_PROVIDER_ID,
+  directoryLogin,
+  isCurrentDirectoryAccount,
+} from "./directory-login.js";
 import type { EmailLocaleOf } from "./email.js";
 import { emailLocale, passwordResetEmail, signInCodeEmail, verificationEmail } from "./email.js";
 import { hasRecentIdentityConfirmation, identityConfirmation } from "./identity-confirmation.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
-import { passkeyRelyingParty } from "./passkey.js";
 import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
+export type { TokenKey } from "./token-storage.js";
+export { openStoredOAuthToken, sealStoredOAuthToken } from "./token-storage.js";
+
+export type { DirectoryLoginConfig } from "./directory-login.js";
+export { DIRECTORY_PROVIDER_ID } from "./directory-login.js";
 export {
   emailLocale,
   passwordResetEmail,
@@ -63,12 +72,16 @@ export {
 export { referralEmail } from "./referral-email.js";
 export { welcomeEmail } from "./welcome-email.js";
 
+import { firstNonEmpty } from "@botcamp/core/env-name";
+
 export interface AuthEnv {
   analytics?: ProductAnalytics;
   passwordAuth?: boolean;
   /** Opt-in: rejects new passwords found in Have I Been Pwned. Calls an outside service. */
   breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
+  /** Authorization-code directory login. The label is its configured name. */
+  directory?: DirectoryLoginConfig;
   secret: string;
   baseURL: string;
   webOrigin: string;
@@ -77,7 +90,10 @@ export interface AuthEnv {
   /** Admits a new account only while there is none, for a deployment that serves one person. */
   singleAccount?: boolean;
   extraOrigins?: string[];
-  /** SHA-256 signing certificate fingerprints of Android apps allowed to use this server's passkeys. */
+  /**
+   * SHA-256 signing certificate fingerprints of Android apps. Passkeys are not
+   * offered, so this list does not enable them.
+   */
   androidAppCertFingerprints?: string[];
   email?: TransactionalEmailProvider;
   logger?: BetterAuthOptions["logger"];
@@ -129,6 +145,7 @@ const REVOCATION_PATHS = new Set(["/revoke-session", "/revoke-sessions", "/revok
 const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
   "/change-password": "auth.password.changed",
   "/set-password": "auth.password.changed",
+  "/initial-password": "auth.password.changed",
   "/passkey/verify-registration": "auth.passkey.added",
   "/passkey/update-passkey": "auth.passkey.changed",
   "/passkey/delete-passkey": "auth.passkey.removed",
@@ -147,6 +164,8 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
       "/confirm-identity": rule,
       "/passkey/verify-authentication": rule,
       "/passkey/verify-registration": rule,
+      "/initial-password": rule,
+      "/unlink-directory": rule,
       // Sign-in pages request a challenge on load for passkey autofill.
       "/passkey/generate-authenticate-options": { window: 60, max: 30 },
     },
@@ -154,8 +173,8 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
 }
 
 export function createAuth(prisma: PrismaClient, env: AuthEnv) {
-  if (env.passwordAuth === false && !env.oidc)
-    throw new Error("Password auth requires OIDC when disabled");
+  if (env.passwordAuth === false && !env.oidc && !env.directory)
+    throw new Error("Password auth requires OIDC or directory login when disabled");
   // A failed lookup still sends the email, in the asking browser's language.
   const emailLocaleOf: EmailLocaleOf = async (account, headers) => {
     try {
@@ -166,6 +185,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     }
   };
   const discovery = env.oidc ? oidcDiscovery(env.oidc) : undefined;
+  const directory = env.directory ? directoryLogin(env.directory) : undefined;
   /** Whether another account with email sign-in already has a workspace. */
   const hasAdmittedAccount = async (
     client: Pick<PrismaClient, "user" | "spaceMember">,
@@ -205,11 +225,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     });
   // SSO-only deployments keep every email credential closed, codes included.
   const emailCodeSignIn = Boolean(env.email) && env.passwordAuth !== false;
-  // SSO-only deployments keep the identity provider as the only way in.
-  const relyingParty =
-    env.passwordAuth === false
-      ? null
-      : passkeyRelyingParty(env.webOrigin, env.androidAppCertFingerprints);
+  // Passkeys are not registered and are not a sign-in method. Clients read
+  // passkeyRpId and hide both adding one and signing in with one.
   // Better Auth's own token key, so every stored token shares one cipher and key.
   let authContext: Promise<{ secretConfig: TokenKey }> | undefined;
   const tokenKey = async () => (await authContext!).secretConfig;
@@ -220,7 +237,17 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     baseURL: env.baseURL,
     trustedOrigins: [...buildTrustedOrigins(env), "rakazo://"],
     account: {
-      accountLinking: { enabled: true, disableImplicitLinking: true, trustedProviders: [] },
+      accountLinking: {
+        enabled: true,
+        // Directory sign-in attaches its identity when the address already
+        // exists, including an unverified mailbox. OpenID Connect sign-in still
+        // refuses that path in validateUserInfo. An explicit directory link may
+        // use a different address; OpenID Connect still requires the same one.
+        disableImplicitLinking: false,
+        requireLocalEmailVerified: false,
+        allowDifferentEmails: true,
+        trustedProviders: env.directory ? [DIRECTORY_PROVIDER_ID] : [],
+      },
       encryptOAuthTokens: true,
     },
     // Store only a hash of identifiers that carry an emailed token. Other
@@ -240,7 +267,10 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
       // When the web client is served from another site, the session cookie has to survive a
       // cross-site request: SameSite=None is required, and browsers only honour it over HTTPS.
-      ...(process.env.RAKAZO_CROSS_SITE_COOKIES === "1"
+      ...(firstNonEmpty(
+        process.env.BOTCAMP_CROSS_SITE_COOKIES,
+        process.env.RAKAZO_CROSS_SITE_COOKIES,
+      ) === "1"
         ? { defaultCookieAttributes: { sameSite: "none" as const, secure: true } }
         : {}),
     },
@@ -292,23 +322,65 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     },
     user: {
       validateUserInfo: async ({ user, source }, ctx) => {
-        if (source.method !== "oauth" || source.oauth?.providerId !== "oidc") return;
+        const providerId = source.oauth?.providerId;
+        if (
+          source.method !== "oauth" ||
+          (providerId !== "oidc" && providerId !== DIRECTORY_PROVIDER_ID)
+        )
+          return;
         const expectedUser = (await getOAuthState())?.serverContext?.reauthUserId;
         if (typeof expectedUser === "string" && user.id !== expectedUser)
           return { error: "REAUTHENTICATION_REQUIRED" };
         const verified = user.emailVerified === true;
         const email = String(user.email ?? "").toLowerCase();
         if (isMessagingEmail(email)) return { error: "EMAIL_NOT_AVAILABLE" };
+        // The directory asserts an imported contact address, not a verified mailbox.
+        if (providerId === DIRECTORY_PROVIDER_ID) {
+          if (source.action === "link-account") {
+            const target = await ctx.context.internalAdapter.findUserById(String(user.id));
+            if (!target) return { error: "unable_to_link_account" };
+            // A signed-in link names its account in OAuth state and may use a
+            // different address. Sign-in has no such record and merges only
+            // when the addresses match.
+            const explicit = (await getOAuthState())?.link;
+            if (explicit) {
+              const session = await sessionForAuthHook(ctx);
+              if (explicit.userId !== target.id || session?.user.id !== target.id)
+                return { error: "unable_to_link_account" };
+              return;
+            }
+            if (target.email.toLowerCase() !== email) return { error: "unable_to_link_account" };
+            return;
+          }
+          if (source.action === "create-user") {
+            const policy = await admission();
+            if (!policy.enabled) return { error: "REGISTRATION_CLOSED" };
+            if (!env.directory?.allowSignupBypass && !emailAllowed(email, policy.allowlist))
+              return { error: "EMAIL_NOT_ALLOWED" };
+            const collision = await ctx.context.internalAdapter.findUserByEmail(email);
+            if (collision) return { error: "account_not_linked" };
+            return;
+          }
+          if (source.action === "sign-in" && user.id) {
+            const collision = await ctx.context.internalAdapter.findUserByEmail(email);
+            if (collision && collision.user.id !== user.id) return { error: "account_not_linked" };
+          }
+          return;
+        }
         if (source.action === "link-account") {
+          // Sign-in reaches this action only when the address already exists.
+          // That merge is directory-only. An explicit link stores its target.
+          if (!(await getOAuthState())?.link) return { error: "account_not_linked" };
           if (!verified) return { error: "unable_to_link_account" };
           // Anyone can register an address, so linking waits for verification. Without email
           // nothing can verify; then only the account's own browser may link, since the
           // native authorization proxy can plant a link state in any other.
           const target = await ctx.context.internalAdapter.findUserById(String(user.id));
+          if (!target || target.email.toLowerCase() !== email)
+            return { error: "email_does_not_match" };
           if (
-            !target ||
-            (!target.emailVerified &&
-              (env.email || (await sessionForAuthHook(ctx))?.user.id !== target.id))
+            !target.emailVerified &&
+            (env.email || (await sessionForAuthHook(ctx))?.user.id !== target.id)
           )
             return { error: "unable_to_link_account" };
           return;
@@ -371,9 +443,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         env.oidc?.name,
         env.oidc?.issuer,
         env.passwordAuth !== false,
+        env.directory ? { name: env.directory.name, issuer: env.directory.issuer } : undefined,
       ),
       identityConfirmation(env.email, emailLocaleOf),
       ...(discovery ? [discovery.plugin] : []),
+      ...(directory ? [directory.plugin] : []),
       ...(emailCodeSignIn
         ? [
             emailOTP({
@@ -394,17 +468,6 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           ]
         : []),
       ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
-      // Registration keeps the plugin default: a fresh session of the signed-in user.
-      // Sign-in creates its session through the session hooks below like every other method.
-      ...(relyingParty
-        ? [
-            passkey({
-              rpID: relyingParty.rpID,
-              rpName: "BotCamp",
-              origin: relyingParty.origins,
-            }) as BetterAuthPlugin,
-          ]
-        : []),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
@@ -415,7 +478,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       before: createAuthMiddleware(async (ctx) => {
         if (
           ctx.path === "/sign-in/social" &&
-          ctx.body?.provider === "oidc" &&
+          (ctx.body?.provider === "oidc" || ctx.body?.provider === DIRECTORY_PROVIDER_ID) &&
           ctx.body?.additionalData?.reauthenticate === true
         ) {
           const session = await sessionForAuthHook(ctx);
@@ -423,7 +486,13 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           const accounts = await ctx.context.internalAdapter.findAccounts(session.user.id);
           const current = await Promise.all(
             accounts.map((account) =>
-              isCurrentOidcAccount(account, env.oidc?.issuer, ctx.context.secretConfig),
+              ctx.body?.provider === DIRECTORY_PROVIDER_ID
+                ? isCurrentDirectoryAccount(
+                    account,
+                    env.directory?.issuer,
+                    ctx.context.secretConfig,
+                  )
+                : isCurrentOidcAccount(account, env.oidc?.issuer, ctx.context.secretConfig),
             ),
           );
           const accountIds = accounts
@@ -437,11 +506,12 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             reauthStartedAt: Math.floor(Date.now() / 1_000),
           });
         }
-        if (
-          ctx.path === "/expo-authorization-proxy" &&
-          !(await discovery?.isAuthorizationURL(String(ctx.query?.authorizationURL ?? "")))
-        ) {
-          throw new APIError("BAD_REQUEST", { message: "Invalid authorizationURL" });
+        if (ctx.path === "/expo-authorization-proxy") {
+          const authorizationURL = String(ctx.query?.authorizationURL ?? "");
+          const allowed =
+            (await discovery?.isAuthorizationURL(authorizationURL)) ||
+            directory?.isAuthorizationURL(authorizationURL);
+          if (!allowed) throw new APIError("BAD_REQUEST", { message: "Invalid authorizationURL" });
         }
         for (const value of [ctx.body?.email, ctx.body?.newEmail]) {
           if (typeof value === "string" && isMessagingEmail(value)) {
@@ -450,9 +520,14 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         }
         if (
           env.passwordAuth === false &&
-          [...CREDENTIAL_PATHS, "/reset-password", "/change-password", "/set-password"].includes(
-            ctx.path,
-          )
+          [
+            ...CREDENTIAL_PATHS,
+            "/reset-password",
+            "/change-password",
+            "/set-password",
+            "/initial-password",
+            "/unlink-directory",
+          ].includes(ctx.path)
         ) {
           throw new APIError("FORBIDDEN", {
             code: "PASSWORD_AUTH_DISABLED",
@@ -551,11 +626,17 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
                   const session = await findSession(token);
                   if (!session || isMessagingEmail(session.user.email)) return null;
                   if (session.user.emailVerified) return session;
-                  if (env.oidc?.allowSignupBypass) {
+                  if (env.oidc?.allowSignupBypass || env.directory?.allowSignupBypass) {
                     const accounts = await ctx.context.internalAdapter.findAccounts(
                       session.user.id,
                     );
-                    if (accounts.some((account) => account.providerId === "oidc")) return session;
+                    if (
+                      (env.oidc?.allowSignupBypass &&
+                        accounts.some((account) => account.providerId === "oidc")) ||
+                      (env.directory?.allowSignupBypass &&
+                        accounts.some((account) => account.providerId === DIRECTORY_PROVIDER_ID))
+                    )
+                      return session;
                   }
                   policy ??= signupPolicyFromEnv(env);
                   return policy.allowlist.length === 0 ? session : null;
@@ -616,14 +697,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             const user = await ctx?.context.internalAdapter.findUserById(session.userId);
             const policy = signupPolicyFromEnv(env);
             const oidcSignIn = isOidcCallback(ctx);
-            const bypassAllowlist = oidcSignIn && env.oidc?.allowSignupBypass;
+            const directorySignIn = isDirectoryCallback(ctx);
+            const bypassAllowlist =
+              (oidcSignIn && env.oidc?.allowSignupBypass) ||
+              (directorySignIn && env.directory?.allowSignupBypass);
             if (!user || isMessagingEmail(user.email)) {
-              throw new APIError("FORBIDDEN", {
-                code: "EMAIL_VERIFICATION_REQUIRED",
-                message: "Email verification required",
-              });
-            }
-            if (!user.emailVerified && policy.allowlist.length > 0 && !bypassAllowlist) {
               throw new APIError("FORBIDDEN", {
                 code: "EMAIL_VERIFICATION_REQUIRED",
                 message: "Email verification required",
@@ -631,6 +709,19 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             }
             // Only admitted sessions provision a workspace; never assign administration.
             const membership = await prisma.spaceMember.findFirst({ where: { userId: user.id } });
+            // A directory sign-in that finds an existing account is not a new signup.
+            // The allowlist still blocks a new unverified directory account.
+            if (
+              !(directorySignIn && membership) &&
+              !user.emailVerified &&
+              policy.allowlist.length > 0 &&
+              !bypassAllowlist
+            ) {
+              throw new APIError("FORBIDDEN", {
+                code: "EMAIL_VERIFICATION_REQUIRED",
+                message: "Email verification required",
+              });
+            }
             if (!membership) {
               if (
                 !policy.enabled ||
@@ -666,7 +757,9 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
               });
             }
             const context =
-              ctx && isOidcCallback(ctx) ? (await getOAuthState())?.serverContext : undefined;
+              ctx && (isOidcCallback(ctx) || isDirectoryCallback(ctx))
+                ? (await getOAuthState())?.serverContext
+                : undefined;
             // Set only after ID-token verification and exact linked-account binding.
             if (
               ctx &&
@@ -752,14 +845,17 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     /** Encrypts OAuth tokens stored before encryption was enabled. Safe to rerun. */
     encryptStoredOAuthTokens: async () => encryptStoredOAuthTokens(prisma, await tokenKey()),
     ssoAvailability: () => discovery?.availability(),
-    passkeyRpId: relyingParty?.rpID ?? null,
+    passkeyRpId: null,
     hasRecentIdentityConfirmation: async (session: { sessionId: string; userId: string }) =>
       hasRecentIdentityConfirmation((await auth.$context).internalAdapter, session),
     issueAccountExportToken: async (userId: string) =>
       issueAccountExportToken((await auth.$context).internalAdapter, userId),
     consumeAccountExportToken: async (token: string) =>
       consumeAccountExportToken((await auth.$context).internalAdapter, token),
-    disposeOidcDiscovery: () => discovery?.dispose(),
+    disposeOidcDiscovery: () => {
+      discovery?.dispose();
+      directory?.dispose();
+    },
   });
 }
 
@@ -891,4 +987,10 @@ function isOidcCallback(
   ctx: { path?: string; params?: Record<string, unknown> } | null | undefined,
 ): boolean {
   return ctx?.path === "/callback/:id" && ctx.params?.id === "oidc";
+}
+
+function isDirectoryCallback(
+  ctx: { path?: string; params?: Record<string, unknown> } | null | undefined,
+): boolean {
+  return ctx?.path === "/callback/:id" && ctx.params?.id === DIRECTORY_PROVIDER_ID;
 }

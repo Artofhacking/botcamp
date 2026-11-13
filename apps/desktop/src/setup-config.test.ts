@@ -235,7 +235,6 @@ describe("startup target", () => {
       url: BOTCAMP_CLOUD_PAGE_URL,
       source: "cloud",
     });
-    expect(resolveStartupTarget({ forceSetup: true })).toEqual({ kind: "setup" });
   });
 
   it("opens the hosted console even when an older install saved another server", () => {
@@ -246,7 +245,7 @@ describe("startup target", () => {
     });
   });
 
-  it("reopens the hosted console instead of a saved page", () => {
+  it("opens the hosted console instead of a saved page", () => {
     expect(
       resolveStartupTarget({
         saved: {
@@ -277,10 +276,6 @@ describe("startup target", () => {
       url: BOTCAMP_CLOUD_PAGE_URL,
       source: "cloud",
     });
-  });
-
-  it("re-runs setup when forced, even with saved configuration", () => {
-    expect(resolveStartupTarget({ saved, forceSetup: true })).toEqual({ kind: "setup" });
   });
 
   it("opens the hosted console when the saved address is unusable", () => {

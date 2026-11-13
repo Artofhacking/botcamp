@@ -1,5 +1,5 @@
 import type { Api, Model, MutableModels, OAuthAuth, OAuthCredential } from "@earendil-works/pi-ai";
-import { canonicalPiProviderId } from "@rakazo/contracts";
+import { canonicalPiProviderId } from "@botcamp/contracts";
 
 /** Apply provider protocol capabilities before catalog and runtime selection. */
 export function applyPiModelCompatibility(models: MutableModels): MutableModels {
