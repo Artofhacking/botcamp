@@ -58,12 +58,10 @@ CONTENT_TYPES = {
 IMMUTABLE = "public, max-age=31536000, immutable"
 REVALIDATE = "no-cache"
 
-# The bucket is in Guangzhou and the runners are not: a 150 MB installer is many parts, and a
-# part that times out fails the whole upload. Large parts over few connections, a retry of the
-# whole file, and a single request for the small files are what makes that survivable.
-PART_SIZE_MB = 32
-MAX_THREAD = 4
-SIMPLE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+# The bucket is in Guangzhou and the runners are not. A multipart upload of a 150 MB
+# installer fails part by part there, so send each file in one request: one failure is
+# then one retry of that file instead of sixteen minutes of stalled parts.
+UPLOAD_TIMEOUT_SECONDS = 900
 UPLOAD_ATTEMPTS = 4
 
 
@@ -122,11 +120,21 @@ def upload(files: list[Path], prefix: str) -> None:
             SecretId=secret_id,
             SecretKey=secret_key,
             Scheme="https",
-            Timeout=120,
+            Timeout=UPLOAD_TIMEOUT_SECONDS,
         )
     except TypeError:  # Older SDKs do not take a timeout; the rest still applies.
         config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Scheme="https")
     client = CosS3Client(config)
+    # A small object first: when the runner cannot reach the bucket at all, say so in
+    # seconds instead of after a dozen parts have timed out.
+    put(
+        client,
+        bucket=bucket,
+        key=f"{prefix}/.publish-probe",
+        path=None,
+        headers={"ContentType": "text/plain", "CacheControl": REVALIDATE},
+        body=b"ok",
+    )
     # The manifest goes last: until it lands, the feed still describes the previous release.
     ordered = sorted(files, key=lambda path: path.suffix in (".yml",))
     for path in ordered:
@@ -137,26 +145,27 @@ def upload(files: list[Path], prefix: str) -> None:
         print(f"uploaded {key} ({path.stat().st_size} bytes)")
 
 
-def put(client, *, bucket: str, key: str, path: Path, headers: dict[str, str]) -> None:
-    """Uploads one file, retrying the whole object when a part or a request fails."""
+def put(
+    client,
+    *,
+    bucket: str,
+    key: str,
+    path: Path | None,
+    headers: dict[str, str],
+    body: bytes | None = None,
+) -> None:
+    """Uploads one object in a single request, retrying the whole object when it fails."""
     from qcloud_cos.cos_exception import CosClientError, CosServiceError
 
     delay = 5
     for attempt in range(1, UPLOAD_ATTEMPTS + 1):
         try:
-            if path.stat().st_size <= SIMPLE_UPLOAD_MAX_BYTES:
-                # One request: multipart adds parts that can each fail on their own.
-                with path.open("rb") as body:
-                    client.put_object(Bucket=bucket, Key=key, Body=body, **headers)
+            if path is None:
+                client.put_object(Bucket=bucket, Key=key, Body=body, **headers)
             else:
-                client.upload_file(
-                    Bucket=bucket,
-                    Key=key,
-                    LocalFilePath=str(path),
-                    PartSize=PART_SIZE_MB,
-                    MAXThread=MAX_THREAD,
-                    **headers,
-                )
+                # One request: a multipart part that times out fails the whole upload.
+                with path.open("rb") as source:
+                    client.put_object(Bucket=bucket, Key=key, Body=source, **headers)
             return
         except (CosClientError, CosServiceError) as error:
             if attempt == UPLOAD_ATTEMPTS:
