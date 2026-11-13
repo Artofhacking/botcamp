@@ -14,6 +14,7 @@ window.__BOTCAMP_ADMIN_API__ = "";
 //       {
 //         name: "Mail",
 //         endpoint: "https://mail.example.com/mcp",
+//         // oauthClientRequired: true,
 //         scopes: [
 //           { label: "Read only", scope: "mail.read" },
 //           { label: "Read and send", scope: "mail.read mail.send" },

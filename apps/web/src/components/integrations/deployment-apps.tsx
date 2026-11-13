@@ -15,8 +15,12 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type { FormEvent } from "react";
 import { useId, useRef, useState } from "react";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
-import { mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
+import { mcpOAuthRedirectUri, mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
+
+/** A client the user registered with the provider. GitHub cannot register one for us. */
+export type DeploymentOAuthClient = { clientId: string; clientSecret?: string };
+
 import { errorText } from "../../lib/user-error";
 
 function AppIcon({ name }: { name: string }) {
@@ -59,6 +63,7 @@ export function DeploymentApps({
     scope?: string,
     paste?: McpOauthPaste,
     signal?: AbortSignal,
+    client?: DeploymentOAuthClient,
   ) => void | Promise<void>;
   onDisconnect: (app: DeploymentApp) => void;
   /**
@@ -76,6 +81,12 @@ export function DeploymentApps({
   const callbackId = useId();
   const permissionId = useId();
   const [draft, setDraft] = useState<DeploymentApp | null>(null);
+  const [clientDraft, setClientDraft] = useState<DeploymentApp | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const clientIdField = useId();
+  const clientSecretField = useId();
+  const redirectField = useId();
   const [scope, setScope] = useState("");
   const [callback, setCallback] = useState("");
   const [pasteSession, setPasteSession] = useState<{
@@ -93,6 +104,9 @@ export function DeploymentApps({
     pasteDone.current?.(undefined);
     pasteDone.current = null;
     setDraft(null);
+    setClientDraft(null);
+    setClientId("");
+    setClientSecret("");
     setPasteSession(null);
     setCallback("");
     setFormError(null);
@@ -103,6 +117,7 @@ export function DeploymentApps({
     attempt.current = null;
     pasteDone.current?.(undefined);
     pasteDone.current = null;
+    setClientDraft(null);
     setDraft(app);
     setScope(app.scopes[0]?.scope ?? "");
     setCallback("");
@@ -110,8 +125,47 @@ export function DeploymentApps({
     setFormError(null);
   }
 
+  function openClient(app: DeploymentApp) {
+    attempt.current?.abort();
+    attempt.current = null;
+    pasteDone.current?.(undefined);
+    pasteDone.current = null;
+    setDraft(null);
+    setPasteSession(null);
+    setClientDraft(app);
+    setClientId("");
+    setClientSecret("");
+    setFormError(null);
+  }
+
+  async function submitClient(event: FormEvent) {
+    event.preventDefault();
+    if (!clientDraft || saving) return;
+    const id = clientId.trim();
+    if (!id) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      await onConnect?.(clientDraft, undefined, undefined, undefined, {
+        clientId: id,
+        clientSecret: clientSecret.trim() || undefined,
+      });
+      setClientDraft(null);
+      setClientId("");
+      setClientSecret("");
+    } catch (err) {
+      setFormError(errorText(err, t`Could not sign in`));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (clientDraft) {
+      await submitClient(event);
+      return;
+    }
     if (!draft || saving) return;
     if (pasteSession) {
       if (!mcpOauthCodeFromPaste(callback, pasteSession.sessionId)) {
@@ -200,7 +254,13 @@ export function DeploymentApps({
                   variant="secondary"
                   size="sm"
                   disabled={busy}
-                  onClick={() => (mailbox ? open(app) : onConnect?.(app))}
+                  onClick={() =>
+                    mailbox
+                      ? open(app)
+                      : app.oauthClientRequired && !server?.oauthClientId
+                        ? openClient(app)
+                        : onConnect?.(app)
+                  }
                 >
                   {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
                 </Button>
@@ -236,7 +296,7 @@ export function DeploymentApps({
         ) : null}
       </div>
       <Dialog
-        open={draft !== null}
+        open={draft !== null || clientDraft !== null}
         onOpenChange={(next) => {
           if (!next) close();
         }}
@@ -244,8 +304,50 @@ export function DeploymentApps({
         <DialogContent>
           <form onSubmit={(event) => void submit(event)} className="grid gap-4">
             <DialogHeader>
-              <DialogTitle>{draft?.name}</DialogTitle>
+              <DialogTitle>{(clientDraft ?? draft)?.name}</DialogTitle>
             </DialogHeader>
+            {clientDraft ? (
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor={clientIdField}>
+                    <Trans>OAuth client ID</Trans>
+                  </Label>
+                  <Input
+                    id={clientIdField}
+                    autoComplete="off"
+                    autoFocus
+                    disabled={saving}
+                    value={clientId}
+                    onChange={(event) => setClientId(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={clientSecretField}>
+                    <Trans>OAuth client secret</Trans>
+                  </Label>
+                  <Input
+                    id={clientSecretField}
+                    type="password"
+                    autoComplete="new-password"
+                    disabled={saving}
+                    value={clientSecret}
+                    placeholder={t`Stored encrypted`}
+                    onChange={(event) => setClientSecret(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={redirectField}>
+                    <Trans>Redirect URI</Trans>
+                  </Label>
+                  <Input
+                    id={redirectField}
+                    readOnly
+                    value={mcpOAuthRedirectUri()}
+                    onFocus={(event) => event.target.select()}
+                  />
+                </div>
+              </div>
+            ) : null}
             {pasteSession ? (
               <div className="grid gap-2">
                 <p className="text-sm text-muted-foreground">
@@ -298,7 +400,13 @@ export function DeploymentApps({
               </p>
             ) : null}
             <DialogFooter>
-              <Button type="submit" disabled={saving || (pasteSession ? !callback.trim() : !scope)}>
+              <Button
+                type="submit"
+                disabled={
+                  saving ||
+                  (clientDraft ? !clientId.trim() : pasteSession ? !callback.trim() : !scope)
+                }
+              >
                 {saving ? (
                   <Trans>Waiting…</Trans>
                 ) : pasteSession ? (

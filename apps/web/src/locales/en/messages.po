@@ -4467,9 +4467,17 @@ msgstr "Number from your phone"
 msgid "OAuth authorization was cancelled."
 msgstr "OAuth authorization was cancelled."
 
+#: src/components/integrations/deployment-apps.tsx
+msgid "OAuth client ID"
+msgstr "OAuth client ID"
+
 #: src/pages/McpServersOverlay.tsx
 msgid "OAuth client ID (optional)"
 msgstr "OAuth client ID (optional)"
+
+#: src/components/integrations/deployment-apps.tsx
+msgid "OAuth client secret"
+msgstr "OAuth client secret"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "OAuth client secret (optional)"
