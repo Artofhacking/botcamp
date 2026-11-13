@@ -12,8 +12,8 @@ on:
   push:
     tags: ["v*"]
   workflow_call:
-  # Only what the computer image consumes directly. A source change that breaks the app's build
-  # fails ci.yml's production builds first. Main publishes the computer image.
+  # Only what the image definitions consume directly. A source change that breaks the app's build
+  # fails ci.yml's production builds first, and main still builds every image before it deploys.
   pull_request:
     paths:
       - ".dockerignore"
@@ -65,6 +65,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: app
+            dockerfile: infra/compose/Dockerfile
+            context: .
+          - name: updater
+            dockerfile: infra/updater/Dockerfile
+            context: .
           - name: computer
             dockerfile: infra/sandboxes/computer/Dockerfile
             context: infra/sandboxes/computer
@@ -87,6 +93,7 @@ jobs:
           push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.name == 'app' && format('GIT_SHA={0}', github.sha) || '' }}
           cache-from: |
             type=gha,scope=pr-${{ github.event.pull_request.number }}-${{ matrix.name }}
             type=gha,scope=${{ matrix.name }}
@@ -112,9 +119,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [computer]
+        name: [app, updater, computer]
         arch: [amd64, arm64]
         include:
+          # Only the updater image contains the Docker CLI; the application image stays unprivileged.
+          # The supervisor is not a separate published image: it runs from `app` on the internal network.
+          - name: app
+            dockerfile: infra/compose/Dockerfile
+            context: .
+          - name: updater
+            dockerfile: infra/updater/Dockerfile
+            context: .
           - name: computer
             dockerfile: infra/sandboxes/computer/Dockerfile
             context: infra/sandboxes/computer
@@ -149,12 +164,20 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           # A fork can publish only to its own namespace; no credential can redirect this value.
-          outputs: type=image,name=${{ steps.registry.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          # The app's filesystem is also written locally so the credential scan needs no registry pull.
+          outputs: |
+            type=image,name=${{ steps.registry.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+            ${{ matrix.name == 'app' && 'type=tar,dest=/tmp/rootfs.tar' || '' }}
+          # GET /health can report the exact source commit without a deployment-supplied override.
+          build-args: ${{ matrix.name == 'app' && format('GIT_SHA={0}', github.sha) || '' }}
           cache-from: type=gha,scope=${{ matrix.name }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}-${{ matrix.arch }}
           provenance: mode=max
           sbom: true
       # Before any tag points at it: the untagged digest is unreachable without this run's output.
+      - name: Check the app image ships no credentials
+        if: matrix.name == 'app'
+        run: bash infra/compose/check-image.sh /tmp/rootfs.tar
       - name: Record the architecture digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
@@ -184,6 +207,8 @@ jobs:
       attestations: write
     # Each image reports its own key; the fallback build reads them all.
     outputs:
+      app: ${{ steps.depot.outputs.app }}
+      updater: ${{ steps.depot.outputs.updater }}
       computer: ${{ steps.depot.outputs.computer }}
     concurrency:
       group: publish-image-${{ github.ref }}-${{ matrix.name }}
@@ -193,6 +218,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: app
+            dockerfile: infra/compose/Dockerfile
+            context: .
+          - name: updater
+            dockerfile: infra/updater/Dockerfile
+            context: .
           - name: computer
             dockerfile: infra/sandboxes/computer/Dockerfile
             context: infra/sandboxes/computer
@@ -226,6 +257,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           # A fork can publish only to its own namespace; no credential can redirect this value.
           outputs: type=image,name=${{ steps.registry.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          build-args: ${{ matrix.name == 'app' && format('GIT_SHA={0}', github.sha) || '' }}
           provenance: mode=max
           sbom: true
       - id: depot
@@ -235,6 +267,16 @@ jobs:
         run: |
           [[ "$OUTCOME" == success ]] || echo "::warning::Depot could not build ${IMAGE}; building on GitHub's runners instead."
           echo "${IMAGE}=$([[ "$OUTCOME" == success ]] && echo built || echo failed)" >> "$GITHUB_OUTPUT"
+      - name: Check the app image ships no credentials
+        if: matrix.name == 'app' && steps.build.outcome == 'success'
+        env:
+          IMAGE: ${{ steps.registry.outputs.image }}@${{ steps.build.outputs.digest }}
+        # Exporting a filesystem needs no emulation, so one runner checks both platforms.
+        run: |
+          set -euo pipefail
+          for platform in linux/amd64 linux/arm64; do
+            bash infra/compose/check-image.sh "$IMAGE" "$platform"
+          done
       - name: Record the image digest
         if: steps.build.outcome == 'success'
         env:
@@ -274,6 +316,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: app
+          - name: updater
           - name: computer
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
