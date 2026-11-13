@@ -931,7 +931,9 @@ export function mcpRoutes(ctx: RouterContext) {
             // provider that cannot register one still connects without asking.
             const deploymentClient = await deps.prisma.mcpServer
               .findFirst({ where: { id: input.serverId }, select: { endpoint: true } })
-              .then((row) => (row?.endpoint ? deps.env.mcpOAuthClients?.[row.endpoint] : undefined));
+              .then((row) =>
+                row?.endpoint ? deps.env.mcpOAuthClients?.[row.endpoint] : undefined,
+              );
             return await mcpOAuth.begin({
               ...input,
               ...(deploymentClient ? { oauthClient: deploymentClient } : {}),
