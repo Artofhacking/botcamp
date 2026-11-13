@@ -126,6 +126,14 @@ export interface ReplyState {
   assistantTurnBreakPending: boolean;
   /** Replaced whenever a secret is added, so streamed progress hides it too. */
   redactor: ReturnType<typeof createStreamingRedactor>;
+  /**
+   * Where the text a later assistant message replaced starts. Set when a finished
+   * background command hands its result back: the earlier answer was already shown,
+   * and repeating it in the final bubble reads as the bot replying twice.
+   */
+  supersedeAt?: number;
+  /** Characters of text flushed before that boundary, so the replaced part can be dropped. */
+  supersedeTextChars?: number;
 }
 
 export interface ApprovalState {

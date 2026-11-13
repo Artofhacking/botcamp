@@ -483,7 +483,7 @@ export class PiAgentRuntime implements AgentRuntime {
             ? async () => activeStreamTarget.credentials?.accessToken ?? activeStreamTarget.apiKey
             : async () => apiKey,
           finishTurn: async (turn, turnSignal) => {
-            await deliverFinishedShells(
+            const delivered = await deliverFinishedShells(
               (text) => {
                 agent.followUp({
                   role: "user",
@@ -495,6 +495,7 @@ export class PiAgentRuntime implements AgentRuntime {
               turn,
               turnSignal,
             );
+            if (delivered) shellFollowUpPending = true;
           },
           prepareNextTurnWithContext: async () => {
             if (!request.claimSteering) return undefined;
@@ -601,6 +602,8 @@ export class PiAgentRuntime implements AgentRuntime {
         signal.addEventListener("abort", onAbort);
 
         let streamed = "";
+        /** A background command's result was handed back, so the next message answers later. */
+        let shellFollowUpPending = false;
         let currentMessageStreamed = "";
         let toolCalls = 0;
         let toolActivityShowing = false;
@@ -669,7 +672,10 @@ export class PiAgentRuntime implements AgentRuntime {
             if (!joinCutReply) joinDropped = "";
             // A later message (after a finished shell or steering, not only a tool call)
             // must not run its text straight on from the previous one.
-            if (streamed && !joinCutReply) queue.push({ type: "turn" });
+            if (streamed && !joinCutReply) {
+              queue.push({ type: "turn", ...(shellFollowUpPending ? { supersede: true } : {}) });
+            }
+            shellFollowUpPending = false;
           }
           if (
             event.type === "message_update" &&

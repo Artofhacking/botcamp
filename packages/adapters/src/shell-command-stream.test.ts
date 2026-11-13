@@ -246,7 +246,7 @@ describe("deliverFinishedShells", () => {
     expect(pending).toEqual([]);
 
     release({ stdout: "logged in\n", stderr: "", code: 0 });
-    await delivering;
+    expect(await delivering).toBe(true);
     expect(followUps).toEqual([
       formatFinishedShellCommand({ stdout: "logged in\n", stderr: "", code: 0 }),
     ]);
@@ -274,7 +274,7 @@ describe("deliverFinishedShells", () => {
     });
     const pending = [completion];
     const followUps: string[] = [];
-    await deliverFinishedShells((text) => followUps.push(text), pending, {
+    const skipped = await deliverFinishedShells((text) => followUps.push(text), pending, {
       toolResults: [
         {
           toolName: "shell",
@@ -289,10 +289,13 @@ describe("deliverFinishedShells", () => {
       ],
     });
 
+    expect(skipped).toBe(false);
     expect(followUps).toEqual([]);
     expect(pending).toHaveLength(1);
     release({ stdout: "ok\n", stderr: "", code: 0 });
-    await deliverFinishedShells((text) => followUps.push(text), pending, { toolResults: [] });
+    expect(
+      await deliverFinishedShells((text) => followUps.push(text), pending, { toolResults: [] }),
+    ).toBe(true);
     expect(followUps).toHaveLength(1);
     expect(followUps[0]).toContain("exit code: 0");
   });

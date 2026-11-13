@@ -66,13 +66,14 @@ export async function deliverFinishedShells(
   pending: Array<Promise<FinishedShellCommand>>,
   turn: { toolResults: Array<{ toolName?: string; details?: unknown }> },
   signal?: AbortSignal,
-): Promise<void> {
-  if (pending.length === 0 || turnReturnedRunningShell(turn)) return;
+): Promise<boolean> {
+  if (pending.length === 0 || turnReturnedRunningShell(turn)) return false;
   const batch = pending.splice(0, pending.length);
   const results = await Promise.all(batch.map((completion) => finishOrAbort(completion, signal)));
   const texts = results.filter((result): result is FinishedShellCommand => result !== undefined);
-  if (texts.length === 0) return;
+  if (texts.length === 0) return false;
   followUp(texts.map((result) => formatFinishedShellCommand(result)).join("\n\n"));
+  return true;
 }
 
 function turnReturnedRunningShell(turn: {
