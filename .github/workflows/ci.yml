@@ -190,7 +190,9 @@ jobs:
         if: steps.areas.outputs.all_packages != 'false'
         run: pnpm run test --shard=${{ matrix.shard }}/3
       - name: Unit tests for affected packages
-        if: steps.areas.outputs.all_packages == 'false'
+        # A change outside the package graph can leave only a handful of files. Sharding that
+        # set across three runners can ask for fewer files than shards, so one runner takes it.
+        if: steps.areas.outputs.all_packages == 'false' && matrix.shard == 1
         env:
           TURBO_SCM_BASE: HEAD^1
         run: |
@@ -199,8 +201,7 @@ jobs:
           # These read other packages' files without importing them, so the package graph misses them.
           pnpm exec vitest run "${packages[@]}" \
             infra/updater/src/compose-env.test.ts \
-            packages/adapters/src/lark-lazy-loading.test.ts \
-            --shard=${{ matrix.shard }}/3
+            packages/adapters/src/lark-lazy-loading.test.ts
 
   # The required check and the deploy gate, under one stable name.
   checks:
