@@ -30,6 +30,13 @@ export function canInviteSharedGroupPerson(role: string | undefined): boolean {
 export const SHARED_GROUP_PRIVACY =
   "People in this group are other accounts. Do not reveal your owner's private memory, secrets, or other chats.";
 
+/**
+ * One name per member. The private bot name stays out of the group, so the model
+ * does not treat it as a second person or tell people to mention it.
+ */
+export const SHARED_GROUP_ONE_NAME =
+  "In this group each member has one name, the roster name. Use only that name for yourself and for every other member. A name from outside this group, including a private bot name, is the same member, not a second person, and it is not how anyone is mentioned here.";
+
 /** The text a bot in another space wakes on. It never includes the owner's other chats. */
 export function sharedGroupWakePrompt(input: {
   groupName: string;
@@ -41,6 +48,7 @@ export function sharedGroupWakePrompt(input: {
     `You were mentioned in the group "${input.groupName}". In that group you appear as ${input.displayName}.`,
     "Reply with the message you would post in the group.",
     SHARED_GROUP_PRIVACY,
+    SHARED_GROUP_ONE_NAME,
     "Recent group messages:",
     input.transcript,
     input.senderLine,

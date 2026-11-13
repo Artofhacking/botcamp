@@ -6,6 +6,7 @@ import {
   createChildRoutine,
   instructionsVersionOf,
   listFleet,
+  namedFleetMembers,
   organizeBot,
   prepareFleetRequest,
   setChildBotModel,
@@ -137,8 +138,11 @@ function fakeFleet(input: {
             section: group.section,
             thread: { id: `thread-${group.id}` },
             members: group.memberIds.map((botId) => {
-              const bot = bots.find((candidate) => candidate.id === botId)!;
-              return { botId, bot: { name: bot.name, archivedAt: bot.archivedAt } };
+              const bot = bots.find((candidate) => candidate.id === botId);
+              return {
+                botId,
+                bot: bot ? { name: bot.name, archivedAt: bot.archivedAt ?? null } : null,
+              };
             }),
           })),
       ),
@@ -903,6 +907,39 @@ describe("prepareFleetRequest keeps the card whole and honest", () => {
 });
 
 describe("listFleet", () => {
+  it("uses the shared-group roster name and skips a hidden bot row", () => {
+    expect(
+      namedFleetMembers(
+        [{ botId: "bot-chief", bot: { name: "Chief", archivedAt: null } }],
+        [
+          { botId: "bot-chief", name: "phosa-Chief" },
+          { botId: "bot-mini", name: "hanqian-MacMini 管家" },
+        ],
+      ),
+    ).toEqual([
+      { id: "bot-chief", name: "phosa-Chief" },
+      { id: "bot-mini", name: "hanqian-MacMini 管家" },
+    ]);
+    expect(
+      namedFleetMembers([
+        { botId: "bot-chief", bot: { name: "Chief", archivedAt: null } },
+        { botId: "bot-hidden", bot: null },
+      ]),
+    ).toEqual([{ id: "bot-chief", name: "Chief" }]);
+  });
+
+  it("does not throw when a group member's bot row is hidden", async () => {
+    const { deps } = fakeFleet({
+      ...fleet,
+      groups: [{ id: "group-hidden", name: "Hidden", memberIds: ["bot-self", "bot-missing"] }],
+    });
+    const listed = await listFleet(deps, run, {});
+    expect(listed).not.toHaveProperty("error");
+    if ("groups" in listed) {
+      expect(listed.groups.map((group) => group.id)).not.toContain("group-hidden");
+    }
+  });
+
   it("returns full requested instructions and version separately from a large roster", async () => {
     const instructions = "x".repeat(20_000);
     const { deps } = fakeFleet({

@@ -8,6 +8,7 @@ import {
   renderBotGroupDirectory,
   renderGroupMembersContext,
   resolveBotAddress,
+  SHARED_GROUP_ONE_NAME,
   SHARED_GROUP_PRIVACY,
   sharedGroupBotName,
 } from "@botcamp/core";
@@ -17,6 +18,7 @@ import {
   createThreadMessageInTransaction,
   IsolationError,
   lockOwnedGroup,
+  runAsSystem,
   touchGroupUpdatedAt,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
@@ -243,17 +245,52 @@ export async function handoffToGroupBot(
   };
 }
 
+export type GroupTurnContext = {
+  text: string;
+  /** Set in a shared group: the only name this bot uses for that turn. */
+  presentedName?: string;
+};
+
+type SharedTurnBot = {
+  id: string;
+  name: string;
+  description: string;
+  ownerName: string | null;
+};
+
+/**
+ * Member rows for a shared group, read as system. A tenant cannot see another
+ * account's bot, so the roster name would otherwise be missing or null.
+ */
+async function sharedTurnBots(prisma: PrismaClient, groupId: string): Promise<SharedTurnBot[]> {
+  return runAsSystem(
+    "shared group turn roster",
+    () =>
+      prisma.$queryRaw<SharedTurnBot[]>`
+      SELECT b.id, b.name, b.description, u.name AS "ownerName"
+      FROM chat_group_members m
+      JOIN bots b ON b.id = m."botId"
+      LEFT JOIN "user" u ON u.id = b."userId"
+      WHERE m."groupId" = ${groupId}
+        AND b."archivedAt" IS NULL
+      ORDER BY m."createdAt" ASC, m."botId" ASC
+    `,
+  );
+}
+
 export async function loadGroupContext(
   prisma: PrismaClient,
   groupId: string,
   self: { id: string; name: string },
-): Promise<string | undefined> {
+): Promise<GroupTurnContext | undefined> {
   const group = await prisma.chatGroup.findUnique({
     where: { id: groupId },
-    include: {
+    select: {
+      name: true,
+      shared: true,
       members: {
         where: { bot: { archivedAt: null } },
-        include: {
+        select: {
           bot: { select: { id: true, name: true, description: true, userId: true } },
         },
         orderBy: { createdAt: "asc" },
@@ -262,31 +299,48 @@ export async function loadGroupContext(
   });
   if (!group) return undefined;
   if (!group.shared) {
-    return renderGroupMembersContext(
-      group.name,
-      group.members.map((member) => member.bot),
-      self,
-    );
+    return {
+      text: renderGroupMembersContext(
+        group.name,
+        group.members.map((member) => member.bot),
+        self,
+      ),
+    };
   }
-  const userIds = [...new Set(group.members.map((member) => member.bot.userId))];
-  const users = userIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, name: true },
-      })
-    : [];
-  const names = new Map(users.map((user) => [user.id, user.name]));
-  const members = group.members.map((member) => ({
-    ...member.bot,
-    name: sharedGroupBotName(names.get(member.bot.userId) ?? "User", member.bot.name),
+  const rows = await sharedTurnBots(prisma, groupId);
+  const members = rows.map((row) => ({
+    id: row.id,
+    name: sharedGroupBotName(row.ownerName?.trim() || "User", row.name),
+    description: row.description,
   }));
   const mine = members.find((member) => member.id === self.id);
-  return renderGroupMembersContext(
-    group.name,
-    members,
-    { id: self.id, name: mine?.name ?? self.name },
-    SHARED_GROUP_PRIVACY,
-  );
+  const presentedName = mine?.name;
+  return {
+    text: renderGroupMembersContext(
+      group.name,
+      members,
+      { id: self.id, name: presentedName ?? self.name },
+      `${SHARED_GROUP_PRIVACY}\n${SHARED_GROUP_ONE_NAME}`,
+    ),
+    presentedName,
+  };
+}
+
+/** The in-group name for a foreign bot woken on its own thread, when this run is that wake. */
+export async function loadSharedWakePresentedName(
+  prisma: PrismaClient,
+  runId: string,
+  botId: string,
+): Promise<string | undefined> {
+  const wakes = prisma.sharedGroupWake;
+  if (!wakes?.findUnique) return undefined;
+  const wake = await wakes.findUnique({
+    where: { runId },
+    select: { groupId: true },
+  });
+  if (!wake) return undefined;
+  const turn = await loadGroupContext(prisma, wake.groupId, { id: botId, name: "" });
+  return turn?.presentedName;
 }
 
 /** Only the current bot's active groups in the same owner/space are discoverable. */

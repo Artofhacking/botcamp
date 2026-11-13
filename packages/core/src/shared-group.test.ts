@@ -40,5 +40,7 @@ describe("shared group names", () => {
     expect(prompt).toContain("Ada: hi");
     expect(prompt).toContain("Bo: status?");
     expect(prompt).toContain("private memory");
+    expect(prompt).toContain("one name, the roster name");
+    expect(prompt).toContain("Ada-Helper");
   });
 });

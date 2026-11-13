@@ -459,13 +459,16 @@ export function runIdentityInstruction(
     isPrimary?: boolean | null;
   },
   trigger: string,
+  presentedName?: string,
 ): string {
   const duties = bot.isPrimary ? PRIMARY_BOT_DUTIES : "";
   const description = bot.description?.trim() ?? "";
   const rawInstructions = bot.instructions ?? "";
   const instructions = rawInstructions.trim();
+  // A shared group presents owner-bot. The private bot name is not a second identity.
+  const name = presentedName?.trim() || bot.name;
   if (trigger !== "created") {
-    const identity = description ? `${bot.name}\n${description}` : bot.name;
+    const identity = description ? `${name}\n${description}` : name;
     // Older bots saved one text as both fields; do not repeat it.
     if (!instructions || instructions === description) {
       return duties ? [identity, duties].join("\n\n") : identity;
@@ -478,7 +481,7 @@ export function runIdentityInstruction(
     ].join("\n");
   }
   return [
-    `Name: ${bot.name.trim() || "(none)"}`,
+    `Name: ${name.trim() || "(none)"}`,
     `Description: ${description || "(none)"}`,
     instructions ? `Instructions:\n${instructions}` : "Instructions: (none)",
   ].join("\n");

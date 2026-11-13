@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.71] - 2026-11-13
+
+### Fixed
+
+- In a shared group, each bot is given one name for the turn, the roster name. A name from outside the group is the same member, and it is not how anyone is mentioned there. Listing the group's bots uses those names ([groups](docs/groups.md)).
+
 ## [2.0.70] - 2026-11-13
 
 ### Fixed

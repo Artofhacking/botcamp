@@ -573,6 +573,16 @@ describe("runReplyGuidance", () => {
     expect(runIdentityInstruction({ name: "Ada" }, "routine")).toBe("Ada");
   });
 
+  it("uses the shared-group name and leaves the private name out", () => {
+    const prompt = runIdentityInstruction(
+      { name: "Chief", description: "Routes work." },
+      "user",
+      "phosa-Chief",
+    );
+    expect(prompt.split("\n")[0]).toBe("phosa-Chief");
+    expect(prompt).not.toMatch(/(^|\n)Chief(\n|$)/);
+  });
+
   it("does not send a finish notification for the creation intro", () => {
     expect(runSendsFinishNotification("created")).toBe(false);
     expect(runSendsFinishNotification("user")).toBe(true);

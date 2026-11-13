@@ -99,7 +99,11 @@ import { resolveDeploymentModel } from "./deployment-model.js";
 import { DEPLOYMENT_IMAGE_MODEL, runnableDeploymentModels } from "./deployment-model-chain.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetRun } from "./fleet-tools.js";
-import { loadBotGroupDirectory, loadGroupContext } from "./group-handoff.js";
+import {
+  loadBotGroupDirectory,
+  loadGroupContext,
+  loadSharedWakePresentedName,
+} from "./group-handoff.js";
 import {
   formatCompactedSummary,
   formatRecalledMemory,
@@ -1305,12 +1309,16 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // Screenshot tools stay available when a separate model reads the images.
         const acceptsImages =
           deps.runtime.describe().capabilities.scripted || modelSeesImages || Boolean(imageModel);
-        const groupContext = thread.groupId
+        const groupTurn = thread.groupId
           ? await loadGroupContext(deps.prisma, thread.groupId, {
               id: bot.id,
               name: bot.name,
             })
           : undefined;
+        const groupContext = groupTurn?.text;
+        const presentedName = groupTurn
+          ? groupTurn.presentedName
+          : await loadSharedWakePresentedName(deps.prisma, run.id, bot.id);
         const linkedChatProviders = deps.messaging
           ? (
               await deps.prisma.messagingIdentity.findMany({
@@ -1914,6 +1922,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 botInstructions: runIdentityInstruction(
                   { ...bot, isPrimary: (bot as { isPrimary?: boolean }).isPrimary },
                   run.trigger,
+                  presentedName,
                 ),
                 groupContext,
                 messagingContext,
