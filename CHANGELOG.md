@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.78] - 2026-11-13
+
+### Fixed
+
+- The images install pulls the `app` and `updater` images again. A published release ships both beside the computer image, so `docker-compose.images.yml` starts from the registry instead of asking for a tag that was never pushed.
+
 ## [2.0.77] - 2026-11-13
 
 ### Fixed
