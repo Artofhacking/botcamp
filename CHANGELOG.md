@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-11-13
+
+### Fixed
+
+- **Route traffic through this computer** now works on a self-hosted source checkout: the supervisor finds the relay at the computer network's gateway when the web runs on the host, so a bot's commands get the proxy as soon as the switch is on. Before, no command ever received it, and a bot could resolve an intranet name while still failing to connect.
+
 ## [2.1.4] - 2026-11-13
 
 ### Fixed
