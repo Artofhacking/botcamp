@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag it once merged. The API host may run only that tag, as docs/ci.md requires. Use when asked to cut, prepare, or ship a release or a new version.
+description: Prepare a BotCamp release - draft the CHANGELOG section from the pull requests merged since the last tag, bump the desktop version, open the release PR, and tag its merge commit on main. Production runs that one commit. The API host may run only that tag, as docs/ci.md requires. Use when asked to cut, prepare, or ship a release or a new version.
 ---
 
 # Release
@@ -32,17 +32,22 @@ Bump `apps/desktop/package.json` to the new version in the same branch and open 
 
 ## 4. Tag
 
-After the PR merges, tag its merge commit and push the tag:
+After the PR merges, tag its merge commit and push the tag. Refuse unless that commit is already on `main`:
 
 ```sh
 sha="$(gh pr view <release PR> --json mergeCommit -q .mergeCommit.oid)"
-git fetch origin main && git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
+git fetch origin main
+git merge-base --is-ancestor "$sha" origin/main || {
+  echo "Refusing the tag. A release tag must point at a commit on main." >&2
+  exit 1
+}
+git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
 ```
 
-The tag records the release. Pushing it does not update a host.
+The tag records that one commit. Pushing it does not update a host. Production does not follow the moving tip of `main`.
 
 ## 5. Where the tag runs
 
-Every agent working in this repository follows `docs/ci.md`. The API host may run this tag and no other revision. Update it with `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`, then build, migrate, and `seal`. `require` must pass before the API, the worker, and the supervisor restart.
+Every agent working in this repository follows `docs/ci.md`. The API host may run this tag and no other revision. The tag's commit must be on `main`. `infra/compose/release-tag.sh deploy` refuses the tag before it replaces the checkout when that commit is not on `main`. Update the host with `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`, then build, migrate, and `seal`. `require` must pass before the API, the worker, and the supervisor restart.
 
-Do not copy files onto that host. Do not check out `main` or a commit there. Desktop installers stay the `desktop-unsigned` workflow. `node scripts/ship-plan.mjs` names the other places this tag still has to reach.
+Do not copy files onto that host. Do not check out `main` or a commit there. The host checks out the tag, not the branch. Production does not follow the moving tip of `main`. The console, the homepage, and the operator page are published from that same commit. Desktop installers stay the `desktop-unsigned` workflow. `node scripts/ship-plan.mjs` names the other places this tag still has to reach.

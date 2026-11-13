@@ -36,7 +36,7 @@ pnpm dev
 | `ghcr.io/<owner>/<repo>/computer` | Computer image. `edge` moves on a green `main`. |
 | Update feed, `publish` in `apps/desktop/package.json` | In-app desktop updates |
 
-The download page reads `/downloads/latest.json` for the version and the file. The installer, that catalog, and the update feed are three writes. The console and the Android shell load `/console/` from Demox, so a console publish reaches them on the next load. `config.js` and `computer-screen/WuyingWebSDK.js` stay on Demox across a console overlay. A full site zip replaces every object. The API checkout is replaced only from a `vX.Y.Z` tag. `infra/compose/release-tag.sh` refuses a branch, a commit, and a file copied onto the host. Every agent working in this repository follows that rule (`AGENTS.md`, `docs/ci.md`).
+The download page reads `/downloads/latest.json` for the version and the file. The installer, that catalog, and the update feed are three writes. The console and the Android shell load `/console/` from Demox, so a console publish reaches them on the next load. `config.js` and `computer-screen/WuyingWebSDK.js` stay on Demox across a console overlay. A full site zip replaces every object. The API checkout is replaced only from a `vX.Y.Z` tag whose commit is already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The console, the homepage, and the operator page are published from that same commit. `infra/compose/release-tag.sh` refuses a branch, a commit, a file copied onto the host, and a tag whose commit is not on `main`, before it replaces the checkout. Every agent working in this repository follows that rule (`AGENTS.md`, `docs/ci.md`).
 
 ## Desktop
 

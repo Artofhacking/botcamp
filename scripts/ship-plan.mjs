@@ -10,6 +10,7 @@ const PLACES = [
     title: "Demox  /   botcamp.demox.site",
     match: (file) => file.startsWith("web/site/"),
     steps: [
+      "When this page ships with a release, publish the same tagged commit the API runs.",
       "The page source is the publish. Upload web/site/index.html to /.",
       "The buttons read /downloads/latest.json, so a new installer does not need a new page.",
       "A full site zip replaces every object, so it also has to contain /console/ and /admin/.",
@@ -27,6 +28,7 @@ const PLACES = [
       file.startsWith("packages/core/") ||
       file.startsWith("packages/logging/"),
     steps: [
+      "Build from the same tagged commit the API runs. That commit must already be on main.",
       "BOTCAMP_WEB_BASE=/console/ pnpm --filter @botcamp/web build",
       "Overlay apps/web/dist onto /console/.",
       "Leave config.js, source maps, and computer-screen/WuyingWebSDK.js in place.",
@@ -36,7 +38,11 @@ const PLACES = [
     id: "demox-admin",
     title: "Demox  /admin/",
     match: (file) => file.startsWith("web/admin/"),
-    steps: ["Upload web/admin/index.html to /admin/.", "Leave admin/config.js in place."],
+    steps: [
+      "When this page ships with a release, publish the same tagged commit the API runs.",
+      "Upload web/admin/index.html to /admin/.",
+      "Leave admin/config.js in place.",
+    ],
   },
   {
     id: "cvm",
@@ -55,7 +61,7 @@ const PLACES = [
       file.startsWith("packages/page-kit/"),
     steps: [
       "infra/compose/release-tag.sh deploy <checkout> vX.Y.Z",
-      "Only a vX.Y.Z tag from GitHub. A branch, a commit, and a copied file are refused.",
+      "Only a vX.Y.Z tag from GitHub. Its commit must be on main. A branch, a commit, a copied file, and a tag that main does not contain are refused before the checkout changes.",
       "Leave .env, node_modules, data, and apps/web/public/config.js.",
       "pnpm --filter @botcamp/api build && pnpm --filter @botcamp/worker build",
       "pnpm --filter @botcamp/api db:migrate",

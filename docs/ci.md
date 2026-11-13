@@ -67,18 +67,18 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 
 Every agent working in this repository follows this section. `AGENTS.md` is the rule. `node scripts/ship-plan.mjs` prints which places the current diff has to reach. A merge to `main` does not update the API host.
 
-A release tag is `vX.Y.Z`. Cut it with `.agents/skills/release/SKILL.md` on the merge commit of the release pull request, then push that tag. Do not move a tag that already exists.
+A release tag is `vX.Y.Z`, and it may point only at a commit already on `main`. Production runs that one commit. It does not follow the moving tip of `main`, and it does not run a commit that `main` does not contain. The API checkout, the console, the homepage, and the operator page of that release are published from that same commit. Cut the tag with `.agents/skills/release/SKILL.md` on the merge commit of the release pull request, then push that tag. Do not move a tag that already exists.
 
 The API host runs only that tag:
 
-1. `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`. The tag must already exist on the GitHub remote. A branch, a commit, and a file copied onto the host are refused. Leave `.env`, `node_modules`, `data`, and `apps/web/public/config.js` in place.
+1. `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`. The tag must already exist on the GitHub remote, and its commit must be on `main`. The script refuses the tag before it replaces the checkout. A branch, a commit, and a file copied onto the host are refused. Leave `.env`, `node_modules`, `data`, and `apps/web/public/config.js` in place.
 2. Build the API and the worker, then apply migrations.
 3. `infra/compose/release-tag.sh seal <checkout>`.
 4. Restart the API, the worker, and the supervisor only after `infra/compose/release-tag.sh require <checkout>` passes. Install that command as `ExecStartPre`. They start only when the checkout still matches the tag and the build still matches the seal.
 
 Do not edit the checkout. Do not extract an archive over it, and do not copy a single file onto it. A computer that is already running keeps the image it started with. `edge` moves only after Checks and Postgres journeys on `main`.
 
-The console, the homepage, and the operator page are separate publishes. A full site zip replaces every object. Desktop and Android are below, and they are not a side effect of the tag.
+The console, the homepage, and the operator page are separate publishes of that same commit. A full site zip replaces every object. Desktop and Android are below, and they are not a side effect of the tag.
 
 ## Desktop and Android
 

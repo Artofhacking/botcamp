@@ -45,6 +45,13 @@ test("the plan names the command and an empty diff says so", () => {
   assert.match(text, /pnpm --filter @botcamp\/api build/);
   assert.match(text, /release-tag\.sh deploy/);
   assert.match(text, /Only a vX\.Y\.Z tag/);
+  assert.match(text, /Its commit must be on main/);
   assert.match(text, /Leave \.env/);
   assert.equal(formatPlan([]), "ship-plan\nnothing to publish\n");
+});
+
+test("the console plan is the same tagged commit on main", () => {
+  const text = formatPlan(shipPlaces(["apps/web/src/pages/Shell.tsx"]));
+  assert.match(text, /same tagged commit/);
+  assert.match(text, /must already be on main/);
 });
