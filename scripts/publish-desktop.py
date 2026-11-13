@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -56,6 +57,14 @@ CONTENT_TYPES = {
 # change, and a cached copy is exactly how a release appears not to exist.
 IMMUTABLE = "public, max-age=31536000, immutable"
 REVALIDATE = "no-cache"
+
+# The bucket is in Guangzhou and the runners are not: a 150 MB installer is many parts, and a
+# part that times out fails the whole upload. Large parts over few connections, a retry of the
+# whole file, and a single request for the small files are what makes that survivable.
+PART_SIZE_MB = 32
+MAX_THREAD = 4
+SIMPLE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+UPLOAD_ATTEMPTS = 4
 
 
 def fail(message: str) -> None:
@@ -107,39 +116,80 @@ def upload(files: list[Path], prefix: str) -> None:
         if not value:
             fail(f"{name} is not set")
 
-    client = CosS3Client(
-        CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Scheme="https")
-    )
+    try:
+        config = CosConfig(
+            Region=region,
+            SecretId=secret_id,
+            SecretKey=secret_key,
+            Scheme="https",
+            Timeout=120,
+        )
+    except TypeError:  # Older SDKs do not take a timeout; the rest still applies.
+        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Scheme="https")
+    client = CosS3Client(config)
     # The manifest goes last: until it lands, the feed still describes the previous release.
     ordered = sorted(files, key=lambda path: path.suffix in (".yml",))
     for path in ordered:
         key = f"{prefix}/{path.name}"
         cache = REVALIDATE if path.suffix == ".yml" else IMMUTABLE
-        # Chunked and parallel: a single-request upload of a 150 MB installer crawls
-        # across the Pacific and can outlast the step's own timeout.
-        client.upload_file(
-            Bucket=bucket,
-            Key=key,
-            LocalFilePath=str(path),
-            PartSize=10,
-            MAXThread=8,
-            ContentType=content_type(path.name),
-            CacheControl=cache,
-        )
+        headers = {"ContentType": content_type(path.name), "CacheControl": cache}
+        put(client, bucket=bucket, key=key, path=path, headers=headers)
         print(f"uploaded {key} ({path.stat().st_size} bytes)")
+
+
+def put(client, *, bucket: str, key: str, path: Path, headers: dict[str, str]) -> None:
+    """Uploads one file, retrying the whole object when a part or a request fails."""
+    from qcloud_cos.cos_exception import CosClientError, CosServiceError
+
+    delay = 5
+    for attempt in range(1, UPLOAD_ATTEMPTS + 1):
+        try:
+            if path.stat().st_size <= SIMPLE_UPLOAD_MAX_BYTES:
+                # One request: multipart adds parts that can each fail on their own.
+                with path.open("rb") as body:
+                    client.put_object(Bucket=bucket, Key=key, Body=body, **headers)
+            else:
+                client.upload_file(
+                    Bucket=bucket,
+                    Key=key,
+                    LocalFilePath=str(path),
+                    PartSize=PART_SIZE_MB,
+                    MAXThread=MAX_THREAD,
+                    **headers,
+                )
+            return
+        except (CosClientError, CosServiceError) as error:
+            if attempt == UPLOAD_ATTEMPTS:
+                raise
+            print(
+                f"{key}: attempt {attempt} of {UPLOAD_ATTEMPTS} failed ({error}); "
+                f"retrying in {delay}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            delay *= 2
 
 
 def verify(base: str, files: list[Path]) -> None:
     for path in files:
         url = f"{base}{path.name}"
-        request = urllib.request.Request(url, method="HEAD")
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                served = int(response.headers.get("content-length") or 0)
-        except urllib.error.HTTPError as error:
-            fail(f"{url} returned {error.code} after upload")
-        except urllib.error.URLError as error:
-            fail(f"{url} is unreachable: {error.reason}")
+        served = None
+        for attempt in range(1, 4):
+            request = urllib.request.Request(url, method="HEAD")
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    served = int(response.headers.get("content-length") or 0)
+                break
+            except urllib.error.HTTPError as error:
+                if error.code >= 500 and attempt < 3:
+                    time.sleep(5 * attempt)
+                    continue
+                fail(f"{url} returned {error.code} after upload")
+            except urllib.error.URLError as error:
+                if attempt < 3:
+                    time.sleep(5 * attempt)
+                    continue
+                fail(f"{url} is unreachable: {error.reason}")
         if served != path.stat().st_size:
             fail(f"{url} is {served} bytes, expected {path.stat().st_size}")
     print(f"verified {len(files)} files at {base}")
