@@ -33,6 +33,15 @@ A release tag is `vX.Y.Z`, and it may point only at a commit already on `main`. 
 
 The deploy job uses the GitHub environment `production`. It joins a tailnet with OIDC, then SSH runs `deploy-main <sha>`. The host setup, the forced command, and the rollback are [Deploying from CI](./self-host-production.md#deploying-from-ci). That host is a Compose install. The public pages go to Demox. The API host is a source checkout; its rule is [Releases](#releases). The README lists those places.
 
+A job that is skipped is not a deploy. Without `PRODUCTION_DEPLOY_ENABLED` the job never starts, and without `TAILSCALE_CLIENT_ID` and `TAILSCALE_AUDIENCE` it stops at its first step, so a green merge and a pushed tag change nothing on a host. Read the settings rather than the history:
+
+```sh
+gh variable list
+gh api repos/{owner}/{repo}/environments/production/secrets --jq '.secrets[].name'
+```
+
+Neither command needs a value to be written down. An empty answer means no host is updated by CI, and the host and the console have to be updated by hand on a machine that can reach them.
+
 Secret and variable names the workflow reads. Values are set in GitHub, not in git.
 
 | Name | Kind |
@@ -78,9 +87,12 @@ The API host runs only that tag:
 3. `infra/compose/release-tag.sh seal <checkout>`.
 4. Restart the API, the worker, and the supervisor only after `infra/compose/release-tag.sh require <checkout>` passes. Install that command as `ExecStartPre`. They start only when the checkout still matches the tag and the build still matches the seal.
 
+On the host the command is installed as `/usr/local/sbin/botcamp-release-tag`, and the checkout is `/opt/botcamp/src`; `/opt/rakazo` is a symlink it must keep, because running computers still mount that path. The four steps are the same: deploy the tag, build the API and the worker, apply migrations, seal, `require`, then restart `botcamp-api` and `botcamp-worker`. Restart only after `require` passes. The supervisor, the console's units, and the computer image keep running unless the release changes them. The host reaches GitHub through a proxy, so the deploy exports `BOTCAMP_REMOTE` for that one command rather than changing the checkout's remote. Readiness is `GET http://127.0.0.1:3100/health` on the host, which returns `{"ok":true}`; on the public hostname `/rpc/health` answers `405` and `GET /health` is a `404` from nginx, so neither tells you whether the API is up.
+
+
 Do not edit the checkout. Do not extract an archive over it, and do not copy a single file onto it. A computer that is already running keeps the image it started with. `edge` moves only after Checks and Postgres journeys on `main`.
 
-The console, the homepage, and the operator page are separate publishes. A full site zip replaces every object. Desktop and Android are below, and they are not a side effect of the tag.
+The console, the homepage, and the operator page are separate publishes, and no workflow in this tree performs them: publish each from the tag commit with the hosting CLI, in place of the site that serves it. A publish replaces every object of that site, so leaving a file out removes it. Desktop and Android are below, and they are not a side effect of the tag.
 
 ## Desktop and Android
 
