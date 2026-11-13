@@ -126,24 +126,17 @@ function renderRoster(shared: boolean) {
   );
 }
 
-it("marks a shared group and shows every member avatar", () => {
+it("marks a shared group and still shows its latest message", () => {
   renderRoster(true);
   expect(container.querySelector("[data-shared-mark]")?.textContent).toBe("Shared");
-  expect(container.textContent).toContain("Ada-Helper");
-  expect(container.textContent).toContain("Bea-Scout");
-  expect(container.querySelector("[data-group-avatars]")?.getAttribute("data-group-avatars")).toBe(
-    "mine theirs",
-  );
-  expect(
-    [...container.querySelectorAll("[data-roster-members] [data-bot-avatar]")].map((node) =>
-      node.getAttribute("data-bot-avatar"),
-    ),
-  ).toEqual(["mine", "theirs"]);
+  expect(container.querySelector("[data-roster-preview]")?.textContent).toBe("hello");
+  expect(container.querySelector("[data-roster-members]")).toBeNull();
+  expect(container.textContent).not.toContain("Ada-Helper");
 });
 
-it("leaves a private group unmarked and does not list member avatars", () => {
+it("leaves a private group unmarked and shows its latest message", () => {
   renderRoster(false);
   expect(container.querySelector("[data-shared-mark]")).toBeNull();
-  expect(container.querySelector("[data-roster-members]")).toBeNull();
+  expect(container.querySelector("[data-roster-preview]")?.textContent).toBe("hello");
   expect(container.textContent).toContain("Standup");
 });

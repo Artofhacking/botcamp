@@ -1,13 +1,4 @@
-import type {
-  Bot,
-  BotSection,
-  Group,
-  GroupMember,
-  Me,
-  Space,
-  ThreadSnapshot,
-} from "@botcamp/contracts";
-import { sharedGroupFaces } from "@botcamp/core";
+import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@botcamp/contracts";
 import {
   BotAvatar,
   Button,
@@ -39,29 +30,8 @@ import type { sidebarGroupsForSpaces } from "./space-sidebar";
 import { useRedrawAtMidnight } from "./use-redraw-at-midnight";
 
 /** The current space's groups carry `shared` at runtime; the sidebar type does not. */
-function sharedRoster(item: { kind: string; chat: object }): GroupMember[] | null {
-  if (item.kind !== "group") return null;
-  const chat = item.chat as { shared?: boolean; members?: GroupMember[] };
-  if (chat.shared !== true) return null;
-  return chat.members ?? [];
-}
-
-function groupFaces(
-  item: { kind: string; chat: { id: string; members: GroupMember[] } },
-  snapshot: ThreadSnapshot | null,
-): GroupMember[] {
-  const roster = sharedRoster(item);
-  if (roster) {
-    return [
-      ...sharedGroupFaces(
-        true,
-        roster,
-        snapshot?.groupId === item.chat.id ? snapshot.members : undefined,
-      ),
-    ];
-  }
-  if (snapshot?.groupId === item.chat.id) return snapshot.members ?? item.chat.members;
-  return item.chat.members;
+function isSharedGroup(item: { kind: string; chat: object }): boolean {
+  return item.kind === "group" && (item.chat as { shared?: boolean }).shared === true;
 }
 
 export function SidebarRoster({
@@ -313,8 +283,7 @@ export function SidebarRoster({
                       ? t`Error`
                       : compactRosterStatusLabel(item.chat.status)
                     : null;
-                const sharedMembers = sharedRoster(item);
-                const sharedGroup = sharedMembers !== null;
+                const sharedGroup = isSharedGroup(item);
                 const rosterLine = compact
                   ? compactStatusLabel
                   : (workStatusLabel ??
@@ -348,7 +317,11 @@ export function SidebarRoster({
                     />
                   ) : (
                     <GroupAvatar
-                      members={groupFaces(item, activeSnapshot)}
+                      members={
+                        item.chat.id === activeSnapshot?.groupId
+                          ? (activeSnapshot.members ?? item.chat.members)
+                          : item.chat.members
+                      }
                       size={mini ? 40 : compact ? 28 : 38}
                     />
                   );
@@ -517,25 +490,7 @@ export function SidebarRoster({
                             ) : null}
                           </div>
                         </div>
-                        {sharedMembers && sharedMembers.length > 0 ? (
-                          <div
-                            dir="auto"
-                            data-roster-members
-                            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-muted-foreground"
-                          >
-                            {sharedMembers.map((member) => (
-                              <span key={member.botId} className="flex min-w-0 items-center gap-1">
-                                <BotAvatar
-                                  avatarSet={member.avatarSet}
-                                  color={member.color}
-                                  identity={member.botId}
-                                  size={18}
-                                />
-                                <span className="truncate">{member.name}</span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : compact ? (
+                        {compact ? (
                           compactStatusLabel ? (
                             <div
                               dir="auto"

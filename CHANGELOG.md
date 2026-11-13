@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.69] - 2026-11-13
+
+### Changed
+
+- A shared group in the sidebar keeps its latest message and adds a shared mark.
+
 ## [2.0.68] - 2026-11-13
 
 ### Changed
