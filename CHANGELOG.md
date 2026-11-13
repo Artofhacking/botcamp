@@ -1,10 +1,16 @@
 # Changelog
 
-Notable product changes in Rakazo. See GitHub Releases for tagged builds.
+Notable product changes in BotCamp. See GitHub Releases for tagged builds.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [2.0.62] - 2026-11-13
+
+### Changed
+
+- A connector that fails to start is no longer labeled with the previous product name. Mail, account exports, and audit downloads use the current name too.
 
 ## [2.0.61] - 2026-11-13
 

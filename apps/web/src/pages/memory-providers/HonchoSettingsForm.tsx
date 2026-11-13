@@ -84,7 +84,7 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
           aria-invalid={workspaceValid ? undefined : true}
           aria-describedby={workspaceValid ? undefined : workspaceErrorId}
           onChange={(event) => setWorkspace(event.target.value)}
-          placeholder="rakazo-<space>"
+          placeholder="botcamp-<space>"
           maxLength={512}
           autoComplete="off"
         />

@@ -278,7 +278,7 @@ describePostgres("account export (PostgreSQL)", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/zip");
     expect(response.headers.get("content-disposition")).toMatch(
-      /^attachment; filename="rakazo-export-\d{4}-\d{2}-\d{2}\.zip"$/,
+      /^attachment; filename="botcamp-export-\d{4}-\d{2}-\d{2}\.zip"$/,
     );
     const entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
     const decode = (path: string) => new TextDecoder().decode(entries[path]);

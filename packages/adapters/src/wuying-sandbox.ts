@@ -188,7 +188,7 @@ export class WuyingMcpTools implements WuyingDesktopTools {
 
   private connect(signal: AbortSignal) {
     this.session ??= (async () => {
-      const session = new McpSession({ name: "rakazo-wuying" });
+      const session = new McpSession({ name: "botcamp-wuying" });
       await session.connectRemote({
         url: this.options.url,
         headerPolicy: { headers: { Authorization: `Bearer ${this.options.token}` } },

@@ -42,7 +42,7 @@ describe("optional Keenable web provider", () => {
     expect(peer.requests.length).toBeGreaterThan(1);
     for (const request of peer.requests) {
       expect(request.url).toBe("https://api.keenable.ai/mcp");
-      expect(request.headers.get("x-keenable-title")).toBe("rakazo");
+      expect(request.headers.get("x-keenable-title")).toBe("BotCamp");
       expect(request.headers.get("user-agent")).toBe(
         "BotCamp/0.1 (+https://github.com/artofhacking/botcamp; web tools)",
       );
@@ -60,7 +60,7 @@ describe("optional Keenable web provider", () => {
     for (const request of peer.requests) {
       expect(request.url).toBe("https://api.keenable.ai/mcp");
       expect(request.headers.get("x-api-key")).toBe("synthetic-key");
-      expect(request.headers.get("x-keenable-title")).toBe("rakazo");
+      expect(request.headers.get("x-keenable-title")).toBe("BotCamp");
     }
   });
 

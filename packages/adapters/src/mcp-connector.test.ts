@@ -35,7 +35,7 @@ afterEach(() => vi.unstubAllGlobals());
 const unavailableOnly = (slug = "demo") => [
   expect.objectContaining({
     name: `mcp__${slug}__unavailable`,
-    route: expect.objectContaining({ toolName: "__rakazo_unavailable" }),
+    route: expect.objectContaining({ toolName: "__unavailable" }),
   }),
 ];
 
