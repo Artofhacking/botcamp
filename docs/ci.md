@@ -82,7 +82,16 @@ A release tag is `vX.Y.Z`. Cut it with `.agents/skills/release/SKILL.md` on the 
 
 The API host runs that one tag and nothing else. It is a source checkout kept at `/opt/botcamp/src`; `/opt/rakazo` is a symlink to it that must stay, because running computers still mount that path. The command this repository ships as `infra/compose/release-tag.sh` is installed on the host as `/usr/local/sbin/botcamp-release-tag`.
 
-Log in as `root`. The host refuses public keys and asks for the operator's password, and it does not read a command from standard input, so put the command in the argument to `ssh`. Run these steps in order:
+Log in as `root`. The host refuses public keys and accepts only a password, and it does not read a command from standard input, so put the command in the argument to `ssh`. The credential is never in this repository: the operator keeps it in the `server-mgmt` skill's inventory, which is outside git, as `BOTCAMP_HOST`, `BOTCAMP_USER`, and `BOTCAMP_PASSWORD`. Read it from there; do not copy it into a file the repository tracks.
+
+```sh
+# Pass the password in the environment, not on the command line, so it stays out of `ps`.
+SSHPASS="$BOTCAMP_PASSWORD" sshpass -e ssh -o PreferredAuthentications=password \
+  -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+  "$BOTCAMP_USER@$BOTCAMP_HOST" '<command>'
+```
+
+Then run these steps in order:
 
 ```sh
 # 1. Deploy the tag. It must already exist on the GitHub remote: a branch, a commit, and
