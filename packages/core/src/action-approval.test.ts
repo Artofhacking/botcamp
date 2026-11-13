@@ -81,6 +81,10 @@ describe("toolRequiresApproval", () => {
     expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_list", false)).toBe(false);
     expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_get", false)).toBe(false);
     expect(unattendedTriggerToolRequiresApproval("webhook", "mailbox_search", false)).toBe(false);
+    expect(toolRequiresApproval("directory_write", false)).toBe(true);
+    expect(toolRequiresApproval("directory_read", false)).toBe(false);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "directory_write", false)).toBe(true);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "directory_read", false)).toBe(false);
   });
 
   it("does not gate read-only or local work", () => {

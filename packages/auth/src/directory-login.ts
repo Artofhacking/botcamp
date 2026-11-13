@@ -27,11 +27,13 @@ export interface DirectoryLoginConfig {
   tokenUrl: string;
   scopes: string[];
   allowSignupBypass: boolean;
-  exchange: (input: {
-    code: string;
-    redirectURI: string;
-    codeVerifier?: string;
-  }) => Promise<{ accessToken: string; expiresIn?: number } | null>;
+  exchange: (input: { code: string; redirectURI: string; codeVerifier?: string }) => Promise<{
+    accessToken: string;
+    expiresIn?: number;
+    refreshToken?: string;
+    refreshExpiresIn?: number;
+    scopes?: string[];
+  } | null>;
   profile: (accessToken: string) => Promise<DirectoryLoginProfile | null>;
 }
 
@@ -77,11 +79,11 @@ export function directoryLogin(config: DirectoryLoginConfig) {
           remember(tokens.accessToken, profile);
           return {
             accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
             idToken: directoryIdentityToken(config.issuer, profile.sub, profile),
-            accessTokenExpiresAt:
-              tokens.expiresIn !== undefined
-                ? new Date(Date.now() + tokens.expiresIn * 1000)
-                : undefined,
+            accessTokenExpiresAt: expiresAt(tokens.expiresIn),
+            refreshTokenExpiresAt: expiresAt(tokens.refreshExpiresIn),
+            scopes: tokens.scopes ?? config.scopes,
             tokenType: "bearer",
           };
         },
@@ -201,6 +203,10 @@ export function directoryLogin(config: DirectoryLoginConfig) {
       profiles.clear();
     },
   };
+}
+
+function expiresAt(seconds: number | undefined): Date | undefined {
+  return seconds !== undefined ? new Date(Date.now() + seconds * 1000) : undefined;
 }
 
 /** Sealed with the other ID tokens because the value contains a dot. */

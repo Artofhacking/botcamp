@@ -60,6 +60,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MailboxConnectInput } from "../components/integrations/deployment-apps";
+import { beginDirectoryLink } from "../components/AccountAccess";
 import { DeploymentApps } from "../components/integrations/deployment-apps";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import type {
@@ -80,6 +81,7 @@ import {
   reachesOtherSpaces,
   useOwnSpaces,
 } from "../components/integrations/space-availability";
+import { fetchAccountSecurity } from "../lib/account-security";
 import { connectedAppMarks } from "../lib/connected-apps";
 import { connectMcpOauth } from "../lib/mcp-connect";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
@@ -198,6 +200,19 @@ export function PluginsOverlay({
     enabled: pinnedApps,
   });
   const mailbox = mailboxQuery.data;
+  const directoryQuery = useQuery({
+    queryKey: ["account-security", "directory-connector"],
+    queryFn: fetchAccountSecurity,
+    enabled: pinnedApps,
+  });
+  const [directoryPending, setDirectoryPending] = useState(false);
+  async function connectDirectory() {
+    setDirectoryPending(true);
+    setAppError(null);
+    const failure = await beginDirectoryLink();
+    setDirectoryPending(false);
+    if (failure) setAppError(failure);
+  }
   async function loadIntegrations() {
     // The catalog call reconciles connection rows, so list them after it settles.
     const catalog = rpc.connections.catalog({});
@@ -1128,6 +1143,10 @@ export function PluginsOverlay({
 
   function renderDeploymentApps() {
     const needle = query.trim().toLowerCase();
+    const directory = directoryQuery.data?.directory;
+    const showDirectory = Boolean(
+      directory && (!needle || directory.name.toLowerCase().includes(needle)),
+    );
     return (
       <DeploymentApps
         apps={
@@ -1145,6 +1164,16 @@ export function PluginsOverlay({
         onSave={saveDeploymentApp}
         onConnect={(app) => void connectDeploymentApp(app)}
         onDisconnect={(app) => void disconnectDeploymentApp(app)}
+        directory={
+          showDirectory && directory
+            ? {
+                name: directory.name,
+                linked: directoryQuery.data?.directoryLinked === true,
+                pending: directoryPending,
+                onConnect: () => void connectDirectory(),
+              }
+            : null
+        }
       />
     );
   }

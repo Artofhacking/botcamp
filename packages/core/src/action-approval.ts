@@ -49,6 +49,7 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "create_child_routine",
   "feedback",
   "mailbox_send",
+  "directory_write",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
   "respond_agent_connection",
@@ -78,6 +79,7 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "mailbox_list",
   "mailbox_get",
   "mailbox_search",
+  "directory_read",
 ]);
 
 const READ_ONLY_CONNECTOR_PATTERN = /(^|[_-])(get|list|search|find|read)([_-]|$)/i;

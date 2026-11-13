@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.59] - 2026-11-13
+
+### Added
+
+- Signing in or linking the directory account requests the directory command line's user permissions. A linked account can then use those commands from the bot. A command that changes data asks for approval first ([accounts](docs/self-host-accounts.md), [integrations](docs/integrations.md)).
+
+### Self-host upgrade notes
+
+- Publish the directory app version with those user permissions before this release asks for them. People who already linked sign in or link again.
+- `LARK_LOGIN_SCOPES` adds scopes. It no longer replaces the default set. Leave it empty unless a deployment needs a scope outside that set.
+- Install the directory command line (`lark-cli` 1.0.99) on the API and worker `PATH`. The server image installs it. A source checkout does not.
+- Compose does not pass the login secret to the worker, so those commands stay off there. A worker that already has the login settings offers them. There is no new migration.
+
 ## [2.0.58] - 2026-11-13
 
 ### Changed

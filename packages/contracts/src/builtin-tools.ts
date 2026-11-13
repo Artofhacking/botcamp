@@ -54,6 +54,8 @@ export const BUILTIN_TOOL_NAMES = [
   "mailbox_get",
   "mailbox_search",
   "mailbox_send",
+  "directory_read",
+  "directory_write",
   "message_user",
   "sync_channels",
   "request_secret",

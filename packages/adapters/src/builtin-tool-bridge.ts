@@ -42,6 +42,8 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "mailbox_get",
   "mailbox_search",
   "mailbox_send",
+  "directory_read",
+  "directory_write",
   "run_subagent",
   "skill_read",
   "update_bot",

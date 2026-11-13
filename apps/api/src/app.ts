@@ -176,6 +176,7 @@ import {
   withClientIp,
 } from "./client-ip.js";
 import { cspReportRoutes } from "./csp-report.js";
+import { createDirectoryGrant } from "./directory-grant.js";
 import { configuredEmailProvider } from "./email.js";
 import type { AppEnv } from "./env.js";
 import { loadEnv } from "./env.js";
@@ -768,6 +769,18 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     userDevices: userDevicesOverride ?? userDevices,
     paymentWallet,
     shutdownSignal: shutdown.signal,
+    directory: env.directory
+      ? createDirectoryGrant({
+          prisma,
+          key: env.authSecret,
+          directory: {
+            clientId: env.directory.clientId,
+            clientSecret: env.directory.clientSecret,
+            tokenUrl: env.directory.tokenUrl,
+            brand: env.directory.issuer.includes("larksuite.com") ? "lark" : "feishu",
+          },
+        })
+      : undefined,
   });
 
   const jobHandlers = createBackgroundJobHandlers({

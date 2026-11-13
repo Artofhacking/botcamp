@@ -408,8 +408,23 @@ describe("OIDC environment", () => {
       issuer: "https://accounts.larksuite.com",
       clientId: "cli-test",
       allowSignupBypass: false,
-      scopes: ["contact:user.email:readonly"],
     });
+    expect(env.directory?.scopes).toEqual(
+      expect.arrayContaining([
+        "contact:user.email:readonly",
+        "contact:user.employee:readonly",
+        "offline_access",
+        "calendar:calendar:read",
+      ]),
+    );
+    expect(env.directory?.scopes).not.toContain("im:message.send_as_user");
+    expect(
+      loadEnv({
+        ...base,
+        ...login,
+        LARK_LOGIN_SCOPES: "contact:user.email:readonly extra:scope",
+      }).directory?.scopes,
+    ).toEqual(expect.arrayContaining(["extra:scope", "calendar:calendar:read", "offline_access"]));
     expect(loadEnv({ ...base, ...login, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
     expect(
       loadEnv({ ...base, ...login, LARK_LOGIN_ALLOW_SIGNUP_BYPASS: "true" }).directory

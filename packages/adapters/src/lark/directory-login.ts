@@ -14,6 +14,11 @@ const LARK_OPEN = "https://open.larksuite.com";
 /** Permission that returns the contact email on the user-info response. */
 export const DIRECTORY_LOGIN_EMAIL_SCOPE = "contact:user.email:readonly";
 
+export {
+  DIRECTORY_CLI_SCOPE_CATALOG_VERSION,
+  directoryLoginScopes,
+} from "./directory-cli-scopes.js";
+
 export interface DirectoryLoginEndpoints {
   /** Identity authority. Included in the stored account subject. */
   issuer: string;
@@ -49,6 +54,16 @@ export function directoryLoginEndpoints(
   };
 }
 
+export interface DirectoryTokenSet {
+  accessToken: string;
+  expiresIn?: number;
+  /** Present when the consent included offline access. The provider rotates it. */
+  refreshToken?: string;
+  refreshExpiresIn?: number;
+  /** Scopes the provider says this token holds. Omitted when the response has none. */
+  scopes?: string[];
+}
+
 export async function exchangeDirectoryAuthorizationCode(input: {
   tokenUrl: string;
   clientId: string;
@@ -56,7 +71,7 @@ export async function exchangeDirectoryAuthorizationCode(input: {
   code: string;
   redirectURI: string;
   codeVerifier?: string;
-}): Promise<{ accessToken: string; expiresIn?: number } | null> {
+}): Promise<DirectoryTokenSet | null> {
   const body = await postJson(input.tokenUrl, {
     grant_type: "authorization_code",
     client_id: input.clientId,
@@ -65,14 +80,60 @@ export async function exchangeDirectoryAuthorizationCode(input: {
     redirect_uri: input.redirectURI,
     ...(input.codeVerifier ? { code_verifier: input.codeVerifier } : {}),
   });
-  if (body?.code !== 0 || !singleLine(body.access_token)) return null;
-  const expiresIn = body.expires_in;
+  return body ? tokenSet(body) : null;
+}
+
+/**
+ * Exchanges a refresh token. The provider returns a new refresh token; callers
+ * must store that one or the next refresh fails. A null body is a transport
+ * failure. A body with a non-zero code is a rejected grant.
+ */
+export async function refreshDirectoryAccessToken(input: {
+  tokenUrl: string;
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}): Promise<{ tokens: DirectoryTokenSet } | { rejected: true } | null> {
+  if (!singleLine(input.refreshToken)) return { rejected: true };
+  const body = await postJson(input.tokenUrl, {
+    grant_type: "refresh_token",
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    refresh_token: input.refreshToken,
+  });
+  if (!body) return null;
+  const tokens = tokenSet(body);
+  return tokens ? { tokens } : { rejected: true };
+}
+
+function tokenSet(body: JsonRecord): DirectoryTokenSet | null {
+  if (body.code !== 0 || !singleLine(body.access_token)) return null;
+  const refreshToken = singleLine(body.refresh_token) ? body.refresh_token : undefined;
+  const scopes = scopeList(body.scope);
   return {
     accessToken: body.access_token,
-    ...(typeof expiresIn === "number" && Number.isFinite(expiresIn) && expiresIn > 0
-      ? { expiresIn }
-      : {}),
+    ...positiveSeconds(body.expires_in, "expiresIn"),
+    ...(refreshToken ? { refreshToken } : {}),
+    ...positiveSeconds(body.refresh_token_expires_in, "refreshExpiresIn"),
+    ...(scopes ? { scopes } : {}),
   };
+}
+
+function positiveSeconds(
+  value: unknown,
+  key: "expiresIn" | "refreshExpiresIn",
+): { expiresIn: number } | { refreshExpiresIn: number } | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+  return { [key]: value } as { expiresIn: number } | { refreshExpiresIn: number };
+}
+
+function scopeList(value: unknown): string[] | undefined {
+  if (typeof value !== "string") return undefined;
+  const scopes = value
+    .split(/[\s,]+/)
+    .map((scope) => scope.trim())
+    .filter((scope) => scope.length > 0 && scope.length <= 200 && !/[\r\n]/.test(scope));
+  return scopes.length > 0 ? scopes : undefined;
 }
 
 /**

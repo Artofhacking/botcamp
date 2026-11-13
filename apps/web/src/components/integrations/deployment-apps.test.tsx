@@ -145,6 +145,43 @@ async function fill(container: HTMLElement, email: string, code: string) {
   });
 }
 
+it("shows a linked directory account as connected without a second disconnect", async () => {
+  const onConnect = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[]}
+      servers={[]}
+      pending={null}
+      error={null}
+      onSave={vi.fn()}
+      onDisconnect={vi.fn()}
+      directory={{ name: "飞书", linked: true, onConnect }}
+    />,
+  );
+  const row = container.querySelector('[data-testid="directory-app"]');
+  expect(row?.textContent).toContain("飞书");
+  expect(row?.textContent).toContain("Connected");
+  expect(row?.querySelector("button")).toBeNull();
+});
+
+it("links a directory account from the connect button", async () => {
+  const onConnect = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[]}
+      servers={[]}
+      pending={null}
+      error={null}
+      onSave={vi.fn()}
+      onDisconnect={vi.fn()}
+      directory={{ name: "飞书", linked: false, onConnect }}
+    />,
+  );
+  const connect = container.querySelector('[data-testid="directory-app"] button');
+  await act(async () => (connect as HTMLButtonElement).click());
+  expect(onConnect).toHaveBeenCalledOnce();
+});
+
 it("lists only the apps the deployment offers", async () => {
   const container = await render(
     <DeploymentApps

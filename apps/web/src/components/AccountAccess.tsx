@@ -1,5 +1,6 @@
 import type { AccountSecurity } from "@botcamp/contracts";
 import { Button, Input, Label } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import {
@@ -291,6 +292,28 @@ export function LinkSsoRow({
       ) : null}
     </SettingsRow>
   );
+}
+
+/** Starts the directory link for the signed-in account. Returns an error message, or null. */
+export async function beginDirectoryLink(): Promise<string | null> {
+  const returnTo = ssoReturnURL(false);
+  const failed = ssoReturnURL(true);
+  try {
+    const result = await runSsoFlow(
+      (disableRedirect, callbackURL) =>
+        authClient.linkSocial({
+          disableRedirect,
+          provider: "directory",
+          callbackURL: callbackURL(returnTo),
+          errorCallbackURL: callbackURL(failed),
+        }),
+      [returnTo, failed],
+    );
+    if (result.error) return authErrorText(result.error, t`Could not continue`);
+    return null;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : t`Could not continue`;
+  }
 }
 
 const LINK_RETURN = "sso-link";

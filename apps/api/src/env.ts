@@ -16,9 +16,9 @@ import {
   telegramBotsFromEnv,
 } from "@botcamp/adapters";
 import {
-  DIRECTORY_LOGIN_EMAIL_SCOPE,
   directoryLoginEndpoints,
   directoryLoginProfile,
+  directoryLoginScopes,
   exchangeDirectoryAuthorizationCode,
 } from "@botcamp/adapters/lark-directory-login";
 import type { DirectoryLoginConfig, OidcConfig } from "@botcamp/auth";
@@ -241,7 +241,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
           clientSecret: directoryAppSecret,
           authorizationUrl: directoryEndpoints.authorizationUrl,
           tokenUrl: directoryEndpoints.tokenUrl,
-          scopes: directoryScopes.length > 0 ? directoryScopes : [DIRECTORY_LOGIN_EMAIL_SCOPE],
+          // Extra names are added to the command-line set. They cannot replace it.
+          scopes: directoryLoginScopes(directoryScopes),
           allowSignupBypass: source.LARK_LOGIN_ALLOW_SIGNUP_BYPASS === "true",
           exchange: (input) =>
             exchangeDirectoryAuthorizationCode({

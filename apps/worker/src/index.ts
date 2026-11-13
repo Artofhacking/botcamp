@@ -90,7 +90,13 @@ import {
   withRunWorker,
   withSecretPersistence,
 } from "@botcamp/adapters";
-import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@botcamp/core";
+import {
+  resolveAuthSecret,
+  resolveEncryptionKey,
+  resolveSupervisorToken,
+  uploadSizeFromEnv,
+} from "@botcamp/core";
+import { createDirectoryGrant, directoryRuntime } from "../../api/src/directory-grant.js";
 import {
   createBoardEvents,
   createDb,
@@ -373,6 +379,15 @@ async function main() {
           }),
     paymentWallet,
     shutdownSignal: shutdown.signal,
+    directory: (() => {
+      const directory = directoryRuntime(process.env);
+      if (!directory) return undefined;
+      return createDirectoryGrant({
+        prisma,
+        key: resolveAuthSecret(process.env),
+        directory,
+      });
+    })(),
   });
 
   const jobHost: JobWorkerHost =

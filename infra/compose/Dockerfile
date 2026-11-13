@@ -37,6 +37,8 @@ RUN pnpm --filter @botcamp/db generate
 RUN pnpm --filter @botcamp/api --filter @botcamp/worker build
 RUN RAKAZO_ALLOW_DEV_SECRETS=1 pnpm --filter @botcamp/web build
 RUN install -d -m 750 -o node -g node /data /app/apps/web/node_modules/.vite-temp /app/apps/web/asset-archive
+# Directory commands. The login secret is not baked into this image.
+RUN npm install -g @larksuite/cli@1.0.99 && lark-cli --version
 ARG GIT_SHA
 ENV NODE_ENV=production
 ENV GIT_SHA=$GIT_SHA

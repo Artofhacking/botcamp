@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { McpServer } from "@botcamp/contracts";
 import { MAILBOX_AUTH_REJECTED, MAILBOX_UNREACHABLE, mailboxAuthCode } from "@botcamp/contracts";
 import {
@@ -13,6 +12,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { FormEvent } from "react";
 import { useId, useState } from "react";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
@@ -53,6 +53,7 @@ export function DeploymentApps({
   onSave,
   onConnect,
   onDisconnect,
+  directory = null,
 }: {
   apps: readonly DeploymentApp[];
   /** The user's MCP servers, so a row knows what is already connected. */
@@ -65,6 +66,16 @@ export function DeploymentApps({
   onSave: (app: DeploymentApp, input: MailboxConnectInput) => Promise<void>;
   onConnect?: (app: DeploymentApp) => void;
   onDisconnect: (app: DeploymentApp) => void;
+  /**
+   * Directory sign-in, when this deployment offers it. A linked account is
+   * already connected. Unlinking stays on the sign-in settings row.
+   */
+  directory?: {
+    name: string;
+    linked: boolean;
+    pending?: boolean;
+    onConnect: () => void;
+  } | null;
 }) {
   const { t } = useLingui();
   const emailId = useId();
@@ -171,6 +182,32 @@ export function DeploymentApps({
             </div>
           );
         })}
+        {directory ? (
+          <div
+            data-testid="directory-app"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+          >
+            <AppIcon name={directory.name} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-medium">{directory.name}</span>
+              {directory.linked ? (
+                <span className="block truncate text-[13px] text-muted-foreground">
+                  <Trans>Connected</Trans>
+                </span>
+              ) : null}
+            </span>
+            {directory.linked ? null : (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={directory.pending}
+                onClick={directory.onConnect}
+              >
+                <Trans>Connect</Trans>
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
       <Dialog
         open={draft !== null}

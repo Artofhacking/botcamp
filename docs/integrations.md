@@ -1,6 +1,6 @@
 # Connect apps
 
-Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱** and **Notion**.
+Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. The list there is **QQ邮箱**, **Notion**, and the directory sign-in when that sign-in is configured.
 
 ## Connect QQ邮箱
 
@@ -13,6 +13,10 @@ Choose **Connect apps** at the bottom of the sidebar to open **Integrations**. T
 A saved mailbox shows **Connected**. Choose **Disconnect** to remove it. To replace the code, disconnect, then connect again with the new one. You can also revoke the code in QQ Mail's authorization-code settings.
 
 Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a card. After that card is saved, the bot can list, open, and search the mailbox. It can send only when **可发信** was the permission you saved. Those tools show up on the bot's next turn.
+
+## Directory
+
+When directory sign-in is configured, its row uses the same name as the sign-in button. Signing in with it, or linking it from account settings, connects it. There is no separate switch. The bot can then use that person's directory commands: calendar, docs, drive, messages, mail, and the other command groups from that sign-in. A command that changes data asks for approval first. **Disconnect** is not on this row. Unlinking stays in account settings and still requires a password. A linked account from before the wider consent has to sign in or link again before those commands work.
 
 ## Connect Notion
 

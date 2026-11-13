@@ -104,6 +104,25 @@ describe("bot tool permissions", () => {
     expect(names({ mailbox: "send", messagingChannelRun: true })).not.toContain("mailbox_send");
   });
 
+  it("offers directory commands only when this process can open a linked account", () => {
+    const options = {
+      historyRetrievalEnabled: true,
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+    };
+    const names = (patch: { directory?: boolean; messagingChannelRun?: boolean }) =>
+      selectBuiltinToolsForRun({ ...options, ...patch }).map((tool) => tool.name);
+    expect(names({})).not.toContain("directory_read");
+    expect(names({ directory: true })).toEqual(
+      expect.arrayContaining(["directory_read", "directory_write"]),
+    );
+    expect(names({ directory: true, messagingChannelRun: true })).not.toContain("directory_read");
+    expect(names({ directory: true, messagingChannelRun: true })).not.toContain("directory_write");
+  });
+
   it("never lets self-edit change disabled tools alongside an allowed field", () => {
     expect(parseUpdateBotPatch({ name: "Scout", disabledBuiltinTools: [] })).toEqual({
       patch: { name: "Scout" },

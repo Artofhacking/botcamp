@@ -41,6 +41,7 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "mailbox_list",
   "mailbox_get",
   "mailbox_search",
+  "directory_read",
 ]);
 
 /** Offered only to a user who connected a wallet. */
@@ -89,6 +90,15 @@ function mailboxToolAllowed(
   return true;
 }
 
+function directoryToolAllowed(
+  name: string,
+  enabled: boolean | undefined,
+  messagingChannelRun: boolean,
+): boolean {
+  if (name !== "directory_read" && name !== "directory_write") return true;
+  return Boolean(enabled) && !messagingChannelRun;
+}
+
 export function selectBuiltinToolsForRun(options: {
   ticketBoardEnabled?: boolean;
   phoneCallsEnabled?: boolean;
@@ -122,6 +132,8 @@ export function selectBuiltinToolsForRun(options: {
   userComputerScreen?: boolean;
   /** A mailbox saved for this run's user. Sending is offered only when the connection includes it. */
   mailbox?: "read" | "send";
+  /** The run's user has a linked directory account, and this process can open it. */
+  directory?: boolean;
   /** The bot has a linked chat channel and has not turned sync_channels off. */
   chatSync?: boolean;
 }) {
@@ -182,6 +194,7 @@ export function selectBuiltinToolsForRun(options: {
         !["search_history", "read_history"].includes(tool.name)) &&
       (options.chatSync === true || tool.name !== "sync_channels") &&
       mailboxToolAllowed(tool.name, mailboxMode, options.messagingChannelRun) &&
+      directoryToolAllowed(tool.name, options.directory, options.messagingChannelRun) &&
       (!options.messagingChannelRun ||
         (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
           !SKILL_TOOL_NAMES.has(tool.name) &&

@@ -641,6 +641,44 @@ export const builtinAgentTools: ConnectorTool[] = [
     readOnly: false,
   },
   {
+    name: "directory_read",
+    description:
+      'Read the signed-in person\'s directory: calendar, docs, drive, messenger, mail, base, sheets, slides, wiki, tasks, approval, contacts, and minutes. argv is the command, for example ["calendar", "+agenda"]. A read uses a +command that gets, lists, searches, or reads, or api with GET. Anything that changes data is rejected.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        argv: {
+          type: "array",
+          items: { type: "string", minLength: 1, maxLength: 4000 },
+          minItems: 1,
+          maxItems: 16,
+        },
+      },
+      required: ["argv"],
+      additionalProperties: false,
+    },
+    readOnly: true,
+  },
+  {
+    name: "directory_write",
+    description:
+      'Change the signed-in person\'s directory data. The person approves each call. argv is the command, for example ["calendar", "+create"]. The call always runs as that person. A command the directory still marks as needing its own confirmation is not confirmed for you.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        argv: {
+          type: "array",
+          items: { type: "string", minLength: 1, maxLength: 4000 },
+          minItems: 1,
+          maxItems: 16,
+        },
+      },
+      required: ["argv"],
+      additionalProperties: false,
+    },
+    readOnly: false,
+  },
+  {
     name: "ask_user",
     description:
       "Ask the user one short multiple-choice question with tappable options, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough.",

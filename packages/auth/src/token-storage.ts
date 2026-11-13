@@ -18,6 +18,22 @@ export async function sealIdToken(
   return value?.includes(".") ? symmetricEncrypt({ key, data: value }) : value;
 }
 
+/** Opens an access or refresh token, including one stored before encryption. */
+export async function openStoredOAuthToken(
+  key: TokenKey,
+  value: string | null | undefined,
+): Promise<string | null> {
+  if (!value) return null;
+  const opened = await symmetricDecrypt({ key, data: value }).catch(() => null);
+  return opened ?? value;
+}
+
+/** Seals an access or refresh token. A value this key already sealed is unchanged. */
+export async function sealStoredOAuthToken(key: TokenKey, value: string): Promise<string> {
+  if (await isEncrypted(key, value)) return value;
+  return symmetricEncrypt({ key, data: value });
+}
+
 /** Reads a sealed ID token, or one stored before sealing. Unreadable values are null. */
 export async function openIdToken(
   key: TokenKey,

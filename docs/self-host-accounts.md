@@ -222,7 +222,7 @@ not sign anyone in. Configure both login credentials together on the API:
 LARK_LOGIN_APP_ID=replace-with-app-id
 LARK_LOGIN_APP_SECRET=replace-with-app-secret
 LARK_LOGIN_NAME=
-LARK_LOGIN_SCOPES=contact:user.email:readonly
+LARK_LOGIN_SCOPES=
 LARK_LOGIN_TENANT=
 LARK_LOGIN_ALLOW_SIGNUP_BYPASS=false
 LARK_DOMAIN=feishu
@@ -239,11 +239,20 @@ Register this redirect URI on the Feishu or Lark app, using the public `BETTER_A
 https://app.example.com/api/auth/callback/directory
 ```
 
-Web, Electron and mobile use that same redirect. Enable the permission that returns the user's
-email (获取用户邮箱信息, scope `contact:user.email:readonly`). Requesting a scope the app has not
-enabled makes the authorization page fail, so the default asks only for that permission. Extra
-scopes may be space- or comma-separated. Authorization uses PKCE. The token exchange is the v2
-endpoint, which is the one that accepts that PKCE verifier. Refresh tokens are not stored.
+Web, Electron and mobile use that same redirect. Sign-in and linking request the directory
+command line's user scopes (catalog 1.0.99), plus the contact email
+(`contact:user.email:readonly`), employment (`contact:user.employee:readonly`), and
+`offline_access` so the token can be refreshed. Enable each of those as a user permission on the
+app and publish a version before this login asks for them. Requesting a scope the app has not
+enabled makes the authorization page fail. `LARK_LOGIN_SCOPES` adds more scopes. It does not
+replace that set. `im:message.send_as_user` is not requested: a bulk consent that includes it
+waits on a review and blocks the rest. Authorization uses PKCE. The token exchange is the v2
+endpoint, which is the one that accepts that PKCE verifier. The refresh token is stored encrypted
+on the account and rotated when it is used. The app secret stays on the API and is not given to
+the command. A worker that has the same login settings can open the grant. Compose does not pass
+the secret to the worker, so those commands stay off there. A person who linked before this set
+was published signs in or links again so the new consent is stored. Until then, directory
+commands ask them to sign in again.
 
 When the profile includes an enterprise mailbox, that address is used. Otherwise the contact
 email is used. Feishu says both are imported by an administrator and are not proof that the

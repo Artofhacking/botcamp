@@ -625,6 +625,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
               }))
             : false);
         let mailboxMode: "read" | "send" | undefined;
+        let directoryLinked = false;
         if (!nonOwnerChatRun) {
           const connectedMailbox = await loadSavedMailbox(deps.prisma, deps.secretStore, {
             userId: run.userId,
@@ -633,6 +634,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           if (connectedMailbox) {
             runSecrets.push(connectedMailbox.authCode);
             mailboxMode = mailboxCanSend(connectedMailbox.scope) ? "send" : "read";
+          }
+          if (deps.directory) {
+            directoryLinked = await deps.directory.linked(run.userId).catch(() => false);
           }
         }
         const historySearchBeforeSeq =
@@ -1436,6 +1440,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             userComputer: userComputer === "connected",
             userComputerScreen,
             mailbox: mailboxMode,
+            directory: directoryLinked,
             chatSync: chatSyncOffered,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.

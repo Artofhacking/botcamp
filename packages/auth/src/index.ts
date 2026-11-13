@@ -48,6 +48,9 @@ import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
+export type { TokenKey } from "./token-storage.js";
+export { openStoredOAuthToken, sealStoredOAuthToken } from "./token-storage.js";
+
 export type { DirectoryLoginConfig } from "./directory-login.js";
 export { DIRECTORY_PROVIDER_ID } from "./directory-login.js";
 export {
