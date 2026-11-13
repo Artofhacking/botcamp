@@ -3,6 +3,7 @@ import { directoryLoginScopes } from "./directory-cli-scopes.js";
 import {
   directoryLoginEndpoints,
   directoryLoginProfile,
+  enabledDirectoryUserScopes,
   exchangeDirectoryAuthorizationCode,
   refreshDirectoryAccessToken,
 } from "./directory-login.js";
@@ -201,6 +202,55 @@ describe("directory login profile", () => {
     ).resolves.toBeNull();
     await expect(
       directoryLoginProfile("https://open.feishu.cn/user", "bad\ntoken"),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("enabled directory user scopes", () => {
+  it("keeps only scopes the app enables for the user identity", async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(String(url));
+      if (String(url).includes("tenant_access_token")) {
+        return Response.json({ code: 0, tenant_access_token: "tenant-token" });
+      }
+      return Response.json({
+        code: 0,
+        data: {
+          app: {
+            scopes: [
+              { scope: "docs:document:read", token_types: ["user"] },
+              { scope: "im:message", token_types: ["tenant"] },
+              { scope: "calendar:calendar:read", token_types: ["tenant", "user"] },
+            ],
+          },
+        },
+      });
+    }) as unknown as typeof fetch;
+    const enabled = await enabledDirectoryUserScopes({
+      appId: "cli_test",
+      appSecret: "secret",
+      domain: "feishu",
+      fetchImpl,
+    });
+    expect(enabled ? [...enabled].sort() : null).toEqual([
+      "calendar:calendar:read",
+      "docs:document:read",
+    ]);
+    expect(calls[0]).toContain("open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal");
+    expect(calls[1]).toContain("/open-apis/application/v6/applications/cli_test?lang=zh_cn");
+  });
+
+  it("returns null when the app cannot be read", async () => {
+    const fetchImpl = (async () =>
+      Response.json({ code: 99991663, msg: "invalid app" })) as unknown as typeof fetch;
+    await expect(
+      enabledDirectoryUserScopes({
+        appId: "cli_test",
+        appSecret: "secret",
+        domain: "feishu",
+        fetchImpl,
+      }),
     ).resolves.toBeNull();
   });
 });

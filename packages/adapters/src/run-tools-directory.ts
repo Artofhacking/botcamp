@@ -4,8 +4,6 @@ import type { RunContext } from "./run-context.js";
 import type { ToolHandlers } from "./run-tool-gate.js";
 
 const UNAVAILABLE = "The directory connector is not available for this run.";
-const NEEDS_CONSENT =
-  "Sign in with the directory account again so this connector can act as that person.";
 const NOT_READ = "This command can change data. Use directory_write.";
 const CONFIRMATION =
   "The directory refused to run this until it is confirmed. This connector does not confirm it.";
@@ -25,13 +23,14 @@ async function runDirectoryCommand(
   const prepared = prepareDirectoryCliArgs(args.argv);
   if ("error" in prepared) return prepared;
   if (effect === "read" && prepared.effect !== "read") return { error: NOT_READ };
+  const appName = ctx.deps.directory.name;
   const grant = await ctx.deps.directory.openGrant(ctx.run.userId);
   if ("error" in grant) {
     return {
       error:
         grant.error === "needs_consent"
-          ? NEEDS_CONSENT
-          : "The directory connector could not refresh its sign-in. Try again.",
+          ? `The ${appName} connection needs to be signed in again. Ask the person to connect ${appName} under Connect apps.`
+          : `The ${appName} connection could not refresh its sign-in. Try again.`,
     };
   }
   if (prepared.argv.some((arg) => arg.includes(grant.accessToken))) {

@@ -10,12 +10,28 @@ import { SERVICE_NAMES } from "@botcamp/logging";
 import { createRootLogger } from "@botcamp/logging/axiom";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
+import { narrowDirectoryScopes } from "./directory-grant.js";
 import { loadEnv } from "./env.js";
 
 const logger = createRootLogger(SERVICE_NAMES.api);
 
 try {
   const env = loadEnv();
+  // The authorization page rejects every scope the app has not enabled, so ask only for the
+  // ones it has. A failed lookup keeps the configured list and the login fails visibly.
+  if (env.directory) {
+    const scopes = await narrowDirectoryScopes({
+      requested: env.directory.scopes,
+      appId: env.directory.clientId,
+      appSecret: env.directory.clientSecret,
+      domain: env.directory.issuer.includes("larksuite.com") ? "lark" : "feishu",
+    });
+    if (scopes) env.directory.scopes = scopes;
+    else
+      logger.warn("directory login scopes were not narrowed; using the configured list", {
+        "directory.name": env.directory.name,
+      });
+  }
   const { app, stop, handleUpgrade } = await createApp({ ...env, logger });
   const server = serve({ fetch: app.fetch, port: env.port, hostname: env.apiHost }, () => {
     logger.info("api listening", { "http.host": env.apiHost, "http.port": env.port });

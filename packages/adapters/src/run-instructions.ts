@@ -287,6 +287,21 @@ function userComputerInstruction(state: UserComputerState): string | undefined {
   return undefined;
 }
 
+/**
+ * The directory is the person's work account. Naming it in the instructions is
+ * what lets the model answer a request about messages or documents with the
+ * directory tools instead of saying that app is unavailable.
+ */
+export function directoryClause(
+  directory: { name: string; connected: boolean } | undefined,
+): string | undefined {
+  if (!directory) return undefined;
+  if (!directory.connected) {
+    return `A ${directory.name} account is configured but not connected. When the person asks for their ${directory.name} messages, documents, calendar, mail, or tasks, ask them to connect ${directory.name} under Connect apps. Do not say ${directory.name} is unsupported.`;
+  }
+  return `The ${directory.name} account is connected. Read it with directory_read and change it with directory_write, which asks the person first. For messages, use {"argv":["im","+chat-list"]} to find a chat and {"argv":["im","+chat-messages-list"]} with its chat id; for documents, use {"argv":["docs","+search"]} then {"argv":["docs","+fetch"]}. Calendar, drive, mail, tasks, approvals, bases, sheets, slides, wiki, minutes, and contacts work the same way. When the person asks about their ${directory.name} data, use these tools instead of saying ${directory.name} is unavailable.`;
+}
+
 function toolUsageLine(parts: {
   computerInstruction: string;
   pageBrowserAllowed: boolean;
@@ -338,6 +353,8 @@ export function userTurnInstructions(parts: {
   /** The run can set its own follow-ups (see followUpsOffered). */
   followUpsOffered?: boolean;
   userComputer?: UserComputerState;
+  /** The person's directory account, when this deployment has one configured. */
+  directory?: { name: string; connected: boolean };
 }): (string | undefined)[] {
   return [
     parts.botInstructions,
@@ -370,6 +387,7 @@ export function userTurnInstructions(parts: {
     ),
     fleetClause(parts.offeredFleetTools),
     parts.pluginLine,
+    directoryClause(parts.directory),
     parts.agentSkillsLine,
     parts.agentSkillsLine &&
       offeredBuiltinClause(

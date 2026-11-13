@@ -15,7 +15,7 @@ Ask the bot to connect **QQ邮箱** in chat when you want the same sign-in on a 
 
 ## Directory
 
-When directory sign-in is configured, its row uses the same name as the sign-in button. Signing in with it, or linking it from account settings, connects it. There is no separate switch. The bot can then use that person's directory commands: calendar, docs, drive, messages, mail, and the other command groups from that sign-in. A command that changes data asks for approval first. **Disconnect** is not on this row. Unlinking stays in account settings and still requires a password. A linked account from before the wider consent has to sign in or link again before those commands work.
+When directory sign-in is configured, its row uses the same name as the sign-in button. Signing in with it, or linking it from account settings, connects it. There is no separate switch. The bot can then use that person's directory commands: calendar, docs, drive, messages, mail, and the other command groups from that sign-in. A command that changes data asks for approval first. The bot is told that app's configured name and reaches it with `directory_read` and `directory_write`, so asking for its messages or documents does not require naming a command. The consent asks only for permissions the app has enabled; enable another one and link again to use it. **Disconnect** is not on this row. Unlinking stays in account settings and still requires a password. A linked account from before the wider consent has to sign in or link again before those commands work.
 
 ## Connect Notion
 

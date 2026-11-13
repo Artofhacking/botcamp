@@ -91,6 +91,8 @@ export interface ExecutorDeps {
    * are not offered.
    */
   directory?: {
+    /** The sign-in label, so instructions can name the app the person connected. */
+    name: string;
     linked(userId: string): Promise<boolean>;
     openGrant(
       userId: string,

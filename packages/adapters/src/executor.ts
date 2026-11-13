@@ -275,6 +275,22 @@ async function subscriptionChoice(
   }
 }
 
+/**
+ * What the instructions say about the person's directory. A connected account is named only
+ * when the tools are offered; a configured but unlinked one still gets a "connect it" line.
+ * A shared chat never learns whether the owner's account is connected.
+ */
+function directoryInstructionState(input: {
+  name: string | undefined;
+  linked: boolean;
+  offered: boolean;
+  shared: boolean;
+}): { name: string; connected: boolean } | undefined {
+  if (!input.name || input.shared) return undefined;
+  if (!input.linked) return { name: input.name, connected: false };
+  return input.offered ? { name: input.name, connected: true } : undefined;
+}
+
 export function createRunExecutor(executorDeps: ExecutorDeps) {
   const contextStrategy = executorDeps.contextStrategy ?? DEFAULT_CONTEXT_STRATEGY;
   const web = executorDeps.web ?? createWebProvider();
@@ -1944,6 +1960,12 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 agentEnvironmentInstruction,
                 botDirectory,
                 pluginLine,
+                directory: directoryInstructionState({
+                  name: deps.directory?.name,
+                  linked: directoryLinked,
+                  offered: strategicBuiltins.some((tool) => tool.name === "directory_read"),
+                  shared: nonOwnerChatRun,
+                }),
                 agentSkillsLine,
                 taughtSkillsLine,
                 replyGuidance: runReplyGuidance(run.trigger),
