@@ -27,7 +27,7 @@ Choose **Connect** on **Notion** and sign in to the workspace. After that sign-i
 
 ## Connect GitHub
 
-Choose **Connect** on **GitHub** and sign in. After that sign-in, the bot can work with the repositories, issues, and pull requests you can open. Ask the bot to connect **GitHub** in chat when you want the same sign-in on a card.
+Choose **Connect** on **GitHub**. Enter the client ID and secret of an OAuth app, and set that app's callback to the redirect address shown there, then sign in. After that sign-in, the bot can work with the repositories, issues, and pull requests you can open. Ask the bot to connect **GitHub** in chat when you want the same sign-in on a card. GitHub does not register a client for this sign-in, so the client ID is required.
 
 ## APIs without an integration
 

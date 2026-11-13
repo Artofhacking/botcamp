@@ -20,6 +20,8 @@ export type DeploymentApp = {
   endpoint: string;
   /** Empty when the app takes no OAuth scope choice; the first entry is the default. */
   scopes: DeploymentAppScope[];
+  /** The provider cannot register a client, so Connect asks for one first. */
+  oauthClientRequired?: boolean;
 };
 
 declare global {
@@ -85,7 +87,12 @@ export function parseDeploymentApps(value: unknown): DeploymentApp[] {
     const name = stringField(record.name);
     const endpoint = parseEndpoint(record.endpoint);
     if (!name || !endpoint) continue;
-    apps.push({ name, endpoint, scopes: parseScopes(record.scopes) });
+    apps.push({
+      name,
+      endpoint,
+      scopes: parseScopes(record.scopes),
+      ...(record.oauthClientRequired === true ? { oauthClientRequired: true } : {}),
+    });
   }
   return apps;
 }
@@ -111,6 +118,12 @@ export const BUILTIN_APPS: readonly DeploymentApp[] = [
     name: "Notion",
     endpoint: "https://mcp.notion.com/mcp",
     scopes: [],
+  },
+  {
+    name: "GitHub",
+    endpoint: "https://api.githubcopilot.com/mcp",
+    scopes: [],
+    oauthClientRequired: true,
   },
 ];
 

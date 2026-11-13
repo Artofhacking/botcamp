@@ -314,19 +314,42 @@ export function PluginsOverlay({
     scope?: string,
     paste?: McpOauthPaste,
     signal?: AbortSignal,
+    client?: { clientId: string; clientSecret?: string },
   ) {
     setAppError(null);
     setAppPending(app.endpoint);
     try {
       const existing = appServer(app);
-      const server =
-        existing ??
-        (await rpc.mcp.servers.create({
-          slug: `integration-${newClientId().slice(0, 8)}`,
-          name: app.name,
-          transport: "streamable_http",
-          endpoint: app.endpoint,
-        }));
+      const oauthClient = client
+        ? {
+            clientId: client.clientId,
+            ...(client.clientSecret ? { clientSecret: client.clientSecret } : {}),
+          }
+        : undefined;
+      const server = existing
+        ? oauthClient && (existing.transport === "streamable_http" || existing.transport === "sse")
+          ? await rpc.mcp.servers.update({
+              id: existing.id,
+              config: {
+                slug: existing.slug,
+                name: existing.name,
+                description: existing.description,
+                enabled: existing.enabled,
+                verbatimResults: existing.verbatimResults,
+                transport: existing.transport,
+                endpoint: existing.endpoint ?? app.endpoint,
+                headers: Object.fromEntries(existing.headerKeys.map((key) => [key, ""])),
+                oauthClient,
+              },
+            })
+          : existing
+        : await rpc.mcp.servers.create({
+            slug: `integration-${newClientId().slice(0, 8)}`,
+            name: app.name,
+            transport: "streamable_http",
+            endpoint: app.endpoint,
+            ...(oauthClient ? { oauthClient } : {}),
+          });
       const result = await connectMcpOauth(server.id, scope, paste, signal);
       if (signal?.aborted || (result !== "connected" && result !== "already_connected")) return;
       if (activeBotId) {
@@ -335,6 +358,8 @@ export function PluginsOverlay({
       await fetchFresh(queryClient, mcpOptions);
     } catch (err) {
       setAppError(errorText(err, t`Could not connect`));
+      // The client dialog stays open and shows this. A direct connect has no dialog.
+      if (client) throw err;
     } finally {
       setAppPending(null);
     }
@@ -1156,7 +1181,9 @@ export function PluginsOverlay({
           (mailboxQuery.error ? errorText(mailboxQuery.error, t`Could not load the mailbox`) : null)
         }
         linked={mailbox?.connected === true}
-        onConnect={(app, scope, paste, signal) => connectDeploymentApp(app, scope, paste, signal)}
+        onConnect={(app, scope, paste, signal, client) =>
+          connectDeploymentApp(app, scope, paste, signal, client)
+        }
         onDisconnect={(app) => void disconnectDeploymentApp(app)}
         directory={
           showDirectory && directory

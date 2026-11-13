@@ -55,6 +55,21 @@ describe("parseDeploymentApps", () => {
     expect(app?.scopes).toEqual([{ label: "Read", scope: "mail.read mail.list" }]);
   });
 
+  it("asks for an OAuth client only when the deployment says the provider needs one", () => {
+    const [app] = parseDeploymentApps([
+      {
+        name: "GitHub",
+        endpoint: "https://api.githubcopilot.com/mcp",
+        oauthClientRequired: true,
+      },
+    ]);
+    expect(app?.oauthClientRequired).toBe(true);
+    const [plain] = parseDeploymentApps([
+      { name: "Notion", endpoint: "https://mcp.notion.com/mcp", oauthClientRequired: "yes" },
+    ]);
+    expect(plain?.oauthClientRequired).toBeUndefined();
+  });
+
   it("takes no apps from anything but a list", () => {
     expect(parseDeploymentApps(undefined)).toEqual([]);
     expect(parseDeploymentApps({ name: "Mail" })).toEqual([]);
@@ -110,6 +125,12 @@ describe("offeredApps", () => {
         name: "Notion",
         endpoint: "https://mcp.notion.com/mcp",
         scopes: [],
+      },
+      {
+        name: "GitHub",
+        endpoint: "https://api.githubcopilot.com/mcp",
+        scopes: [],
+        oauthClientRequired: true,
       },
     ]);
   });

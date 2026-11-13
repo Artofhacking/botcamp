@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp } from "../../lib/ui-flags";
+import type { DeploymentOAuthClient } from "./deployment-apps";
 import { DeploymentApps } from "./deployment-apps";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -283,6 +284,75 @@ it("starts Notion sign-in without the mailbox form, and a saved mailbox does not
   );
   await act(async () => connect?.click());
   expect(onConnect).toHaveBeenCalledWith(notion);
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
+});
+
+it("asks for an OAuth client before GitHub sign-in, then sends that client", async () => {
+  const github: DeploymentApp = {
+    name: "GitHub",
+    endpoint: "https://api.githubcopilot.com/mcp",
+    scopes: [],
+    oauthClientRequired: true,
+  };
+  const onConnect = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[github]}
+      servers={[]}
+      pending={null}
+      error={null}
+      onConnect={onConnect}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  const connect = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  );
+  await act(async () => connect?.click());
+  expect(onConnect).not.toHaveBeenCalled();
+  const dialog = container.querySelector('[data-testid="mailbox-dialog"]');
+  expect(dialog?.textContent).toContain("OAuth client ID");
+  expect(dialog?.textContent).toContain("Redirect URI");
+  const [id, secret] = [...dialog!.querySelectorAll("input")];
+  await act(async () => {
+    typeInto(id as HTMLInputElement, "github-client");
+    typeInto(secret as HTMLInputElement, "github-secret");
+  });
+  await act(async () => {
+    dialog?.querySelector("form")?.requestSubmit();
+    await Promise.resolve();
+  });
+  expect(onConnect).toHaveBeenCalledWith(github, undefined, undefined, undefined, {
+    clientId: "github-client",
+    clientSecret: "github-secret",
+  } satisfies DeploymentOAuthClient);
+});
+
+it("starts GitHub sign-in directly once a client is saved", async () => {
+  const github: DeploymentApp = {
+    name: "GitHub",
+    endpoint: "https://api.githubcopilot.com/mcp",
+    scopes: [],
+    oauthClientRequired: true,
+  };
+  const onConnect = vi.fn();
+  const container = await render(
+    <DeploymentApps
+      apps={[github]}
+      servers={[
+        server({ endpoint: github.endpoint, oauthStatus: "none", oauthClientId: "client-1" }),
+      ]}
+      pending={null}
+      error={null}
+      onConnect={onConnect}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  const connect = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  );
+  await act(async () => connect?.click());
+  expect(onConnect).toHaveBeenCalledWith(github);
   expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
