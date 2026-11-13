@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.75] - 2026-11-13
+
+### Fixed
+
+- Connecting GitHub asks for the OAuth client ID and secret, and shows the redirect address to register, before sign-in.
+
 ## [2.0.74] - 2026-11-13
 
 ### Changed
