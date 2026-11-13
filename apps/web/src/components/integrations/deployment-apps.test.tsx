@@ -4,8 +4,13 @@ import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import feishuMark from "../../assets/app-marks/feishu.png?url";
+import githubMark from "../../assets/app-marks/github.svg?url";
+import notionMark from "../../assets/app-marks/notion.svg?url";
+import qqMailMark from "../../assets/app-marks/qq-mail.png?url";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp } from "../../lib/ui-flags";
+import { BUILTIN_APPS } from "../../lib/ui-flags";
 import type { DeploymentOAuthClient } from "./deployment-apps";
 import { DeploymentApps } from "./deployment-apps";
 
@@ -184,6 +189,40 @@ it("lists only the apps the deployment offers", async () => {
     "grid grid-cols-1 gap-2 sm:grid-cols-2",
   );
   expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
+});
+
+it("shows the shipped mark for each app the product offers", async () => {
+  const container = await render(
+    <DeploymentApps
+      apps={BUILTIN_APPS}
+      servers={[]}
+      pending={null}
+      error={null}
+      onDisconnect={vi.fn()}
+      directory={{ name: "飞书", linked: false, onConnect: vi.fn() }}
+    />,
+  );
+  const rows = [
+    ...container.querySelectorAll('[data-testid="deployment-app"], [data-testid="directory-app"]'),
+  ];
+  expect(rows.map((row) => row.querySelector("img")?.getAttribute("src"))).toEqual([
+    qqMailMark,
+    notionMark,
+    githubMark,
+    feishuMark,
+  ]);
+  for (const [index, name] of ["QQ邮箱", "Notion", "GitHub", "飞书"].entries()) {
+    expect(rows[index]?.textContent).toContain(name);
+  }
+});
+
+it("keeps the initial for an app without shipped artwork", async () => {
+  const container = await render(
+    <DeploymentApps apps={[APP]} servers={[]} pending={null} error={null} onDisconnect={vi.fn()} />,
+  );
+  const row = appRows(container)[0];
+  expect(row?.querySelector("img")).toBeNull();
+  expect(row?.textContent).toContain("M");
 });
 
 it("starts sign-in with the chosen permission and accepts the callback address", async () => {
