@@ -53,8 +53,15 @@ metadata addresses stay blocked. Leave the flag unset on public installs.
 Remote MCP servers that use OAuth normally register BotCamp with their provider on the first
 **Connect OAuth**. Some providers only accept a client you create in their console. For those,
 enter the client ID (and secret, for a confidential client) under **Advanced** when adding the
-server, and add the **Redirect URI** shown there (`<your web origin>/mcp/oauth/callback`) to the
-client's allowed redirect URIs. The client is stored encrypted with the server's other
+server, and add the **Redirect URI** shown there (`<your web origin>/mcp/oauth/callback/`) to the
+client's allowed redirect URIs.
+
+A deployment can register one client for an app everyone connects, so people never see those
+fields. Set `MCP_OAUTH_CLIENTS` on the API and worker to a JSON object keyed by MCP endpoint,
+for example `{"https://api.githubcopilot.com/mcp": {"clientId": "...", "clientSecret": "..."}}`,
+and list that endpoint in the web build's `config.js` as
+`window.__BOTCAMP_UI__ = { oauthClients: ["https://api.githubcopilot.com/mcp"] }`. The client is
+stored with the connection on first use, so a later deployment change does not drop the grant. The client is stored encrypted with the server's other
 credentials and survives **Disconnect**; switching to a different client drops the current grant.
 On first use the client is bound to the authorization server the MCP server pointed to, and BotCamp
 refuses to send it anywhere else afterwards. Replacing the client clears the binding.

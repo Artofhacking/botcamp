@@ -440,6 +440,8 @@ services:
       # Sign-in, sessions, billing and inbound webhooks: API only.
       API_HOST: "0.0.0.0"
       API_PORT:
+      # OAuth clients the deployment registered, keyed by MCP endpoint (JSON).
+      MCP_OAUTH_CLIENTS:
       BETTER_AUTH_SECRET:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://127.0.0.1:5173}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://127.0.0.1:5173}

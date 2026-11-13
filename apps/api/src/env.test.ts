@@ -6,6 +6,36 @@ const base = {
   NODE_ENV: "test",
 };
 
+describe("MCP_OAUTH_CLIENTS", () => {
+  it("reads the clients a deployment registered, keyed by endpoint", () => {
+    const env = loadEnv({
+      ...base,
+      MCP_OAUTH_CLIENTS: JSON.stringify({
+        "https://api.githubcopilot.com/mcp": {
+          clientId: "client-1",
+          clientSecret: "secret-1",
+        },
+      }),
+    });
+    expect(env.mcpOAuthClients).toEqual({
+      "https://api.githubcopilot.com/mcp": { clientId: "client-1", clientSecret: "secret-1" },
+    });
+  });
+
+  it("drops a malformed entry instead of failing to start", () => {
+    expect(loadEnv({ ...base, MCP_OAUTH_CLIENTS: "not json" }).mcpOAuthClients).toEqual({});
+    expect(
+      loadEnv({
+        ...base,
+        MCP_OAUTH_CLIENTS: JSON.stringify({
+          "http://insecure.example/mcp": { clientId: "client-1" },
+          "https://no-client.example/mcp": { clientSecret: "secret-1" },
+        }),
+      }).mcpOAuthClients,
+    ).toEqual({});
+  });
+});
+
 describe("loadEnv", () => {
   it("defaults the attachment count to four and accepts configured bounds", () => {
     expect(loadEnv(base).maxAttachmentsPerMessage).toBe(4);

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { deploymentApps, offeredApps, parseDeploymentApps, sectionHidden } from "./ui-flags";
+import {
+  deploymentApps,
+  deploymentSuppliesOAuthClient,
+  offeredApps,
+  parseDeploymentApps,
+  sectionHidden,
+} from "./ui-flags";
 
 afterEach(() => {
   delete window.__BOTCAMP_UI__;
@@ -90,6 +96,20 @@ describe("deploymentApps", () => {
     expect(deploymentApps()).toEqual([]);
     window.__RAKAZO_UI__ = { hiddenSections: ["billing"] };
     expect(deploymentApps()).toEqual([]);
+  });
+});
+
+describe("deploymentSuppliesOAuthClient", () => {
+  it("is true only for an endpoint the deployment registered", () => {
+    window.__BOTCAMP_UI__ = {
+      oauthClients: ["https://api.githubcopilot.com/mcp", "not a url"],
+    };
+    expect(deploymentSuppliesOAuthClient("https://api.githubcopilot.com/mcp")).toBe(true);
+    expect(deploymentSuppliesOAuthClient("https://mcp.notion.com/mcp")).toBe(false);
+  });
+
+  it("is false without the setting", () => {
+    expect(deploymentSuppliesOAuthClient("https://api.githubcopilot.com/mcp")).toBe(false);
   });
 });
 

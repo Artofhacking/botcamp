@@ -59,9 +59,10 @@ function loopbackRedirect(authorizationUrl: string): boolean {
 
 /** Where providers send the user back. The server allows this origin's
  * `/mcp/oauth/callback` and a fragment is not a valid redirect URI, so a console
- * mounted under `/console/` is opened by the site page at this path. */
+ * mounted under `/console/` is opened by the site page at this path. The trailing
+ * slash is what makes the static host answer with that page instead of a 404. */
 export function mcpOAuthRedirectUri(origin = window.location.origin): string {
-  return new URL("/mcp/oauth/callback", origin).toString();
+  return new URL("/mcp/oauth/callback/", origin).toString();
 }
 
 async function connectMcpOauthInSystemBrowser(

@@ -2682,7 +2682,45 @@ describe("MCP server health", () => {
       });
       expect(begin).toHaveBeenCalledWith(
         expect.objectContaining({
-          redirectUri: new URL("/mcp/oauth/callback", h.deps.env.webOrigin).toString(),
+          redirectUri: new URL("/mcp/oauth/callback/", h.deps.env.webOrigin).toString(),
+        }),
+      );
+    });
+
+    it("uses the deployment's OAuth client when the request has none", async () => {
+      const h = harness({
+        row: baseRow({
+          transport: "streamable_http",
+          endpoint: "https://api.githubcopilot.com/mcp",
+        }),
+      });
+      Object.assign(h.deps.env, {
+        mcpOAuthClients: {
+          "https://api.githubcopilot.com/mcp": {
+            clientId: "deployment-client",
+            clientSecret: "deployment-secret",
+          },
+        },
+      });
+      const begin = vi.fn(async () => ({ status: "already_connected" as const }));
+      Object.assign(h.deps, { mcpOAuth: { ...(h.deps.mcpOAuth as object), begin } });
+      const client = createRouterClient(createRouter(h.deps), {
+        context: {
+          actor: {
+            spaceId: "workspace-1",
+            userId: "owner-1",
+            email: "owner@rakazo.test",
+            isDeploymentOwner: true,
+          },
+        } as never,
+      });
+
+      await expect(client.mcp.oauth.begin({ serverId: "server-1" })).resolves.toEqual({
+        status: "already_connected",
+      });
+      expect(begin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          oauthClient: { clientId: "deployment-client", clientSecret: "deployment-secret" },
         }),
       );
     });

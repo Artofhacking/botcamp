@@ -73,9 +73,12 @@ import { computerContext, isUniqueViolation } from "./shared.js";
  */
 function allowedOAuthRedirect(value: string, webOrigin: URL): string {
   const url = new URL(value);
+  // The static host answers a directory path with the callback page; older clients
+  // and native clients still send the path without its trailing slash.
+  const path = url.pathname.replace(/\/+$/, "");
   if (
     url.origin !== webOrigin.origin ||
-    !url.pathname.endsWith("/mcp/oauth/callback") ||
+    !path.endsWith("/mcp/oauth/callback") ||
     url.search ||
     url.hash
   ) {
@@ -918,14 +921,22 @@ export function mcpRoutes(ctx: RouterContext) {
         begin: authed.mcp.oauth.begin.handler(async ({ context, input }) => {
           try {
             const webOrigin = new URL(deps.env.webOrigin);
-            const expectedRedirect = new URL("/mcp/oauth/callback", webOrigin).toString();
+            const expectedRedirect = new URL("/mcp/oauth/callback/", webOrigin).toString();
             // A deployment under a subpath returns into its own base, so the path may sit
             // behind one; only the origin is fixed. Native clients omit it and use the default.
             const redirectUri = input.redirectUri
               ? allowedOAuthRedirect(input.redirectUri, webOrigin)
               : expectedRedirect;
+            // The deployment may have registered the client for this endpoint, so a
+            // provider that cannot register one still connects without asking.
+            const deploymentClient = await deps.prisma.mcpServer
+              .findFirst({ where: { id: input.serverId }, select: { endpoint: true } })
+              .then((row) =>
+                row?.endpoint ? deps.env.mcpOAuthClients?.[row.endpoint] : undefined,
+              );
             return await mcpOAuth.begin({
               ...input,
+              ...(deploymentClient ? { oauthClient: deploymentClient } : {}),
               redirectUri,
               spaceId: context.actor.spaceId,
               userId: context.actor.userId,
