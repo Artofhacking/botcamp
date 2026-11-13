@@ -102,8 +102,6 @@ describe("the images compose file", () => {
     expect(published.size).toBeGreaterThan(0);
     expect(referenced.has("computer")).toBe(true);
     for (const name of referenced) {
-      // The app and updater images are built on the host from the release tag (docs/ci.md).
-      if (name === "app" || name === "updater") continue;
       expect(
         published.has(name),
         `${name} referenced by images compose but omitted from publish matrix`,

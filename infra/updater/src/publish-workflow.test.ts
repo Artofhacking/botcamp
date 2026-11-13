@@ -101,31 +101,31 @@ describe("server image publish workflow", () => {
     for (const step of after.filter((step) => step.id !== "depot")) {
       expect(step.if).toContain("steps.build.outcome == 'success'");
     }
-    // The app and updater images are built on the host from the release tag; main publishes
-    // only the computer image that existing computers pull (docs/ci.md).
-    expect(Object.keys(depot.outputs ?? {}).sort()).toEqual(["computer"]);
+    expect(Object.keys(depot.outputs ?? {}).sort()).toEqual(["app", "computer", "updater"]);
     const fallback = workflow.jobs.build;
     expect(fallback.needs).toEqual(["build-depot"]);
     expect(fallback.if).toContain("!cancelled()");
     expect(fallback.if).toContain("contains(needs.build-depot.outputs.*, 'failed')");
   });
 
-  it("logs in to the registry before a build pushes or a tag is published", () => {
-    const login = (job: WorkflowJob) =>
-      job.steps.findIndex((step) => step.uses?.startsWith("docker/login-action@"));
-    for (const job of [workflow.jobs.build, workflow.jobs["build-depot"], workflow.jobs.publish]) {
-      expect(login(job)).toBeGreaterThanOrEqual(0);
-    }
-    const nativeBuildAt = workflow.jobs.build.steps.findIndex((step) => step.id === "build");
-    expect(login(workflow.jobs.build)).toBeLessThan(nativeBuildAt);
-    const depotPublishAt = workflow.jobs["build-depot"].steps.findIndex(
-      (step) => step.uses === publicationAction,
+  it("checks credentials before publishing Depot tags or making native digests available", () => {
+    const nativeSteps = workflow.jobs.build.steps;
+    const nativeScan = nativeSteps.findIndex((step) =>
+      step.run?.includes("check-image.sh /tmp/rootfs.tar"),
     );
-    expect(login(workflow.jobs["build-depot"])).toBeLessThan(depotPublishAt);
-    // Native builds and Depot builds publish by digest; a tag is applied only by the publish job.
-    for (const step of workflow.jobs.build.steps) {
-      if (step.id === "build") expect(step.with?.outputs).toContain("push-by-digest=true");
-    }
+    const upload = nativeSteps.findIndex((step) =>
+      step.uses?.startsWith("actions/upload-artifact@"),
+    );
+    expect(nativeScan).toBeGreaterThanOrEqual(0);
+    const nativeBuild = nativeSteps.find((step) => step.id === "build");
+    expect(nativeBuild?.with?.outputs).toContain("type=tar,dest=/tmp/rootfs.tar");
+    expect(upload).toBeGreaterThan(nativeScan);
+    const depotSteps = workflow.jobs["build-depot"].steps;
+    const depotScan = depotSteps.findIndex((step) => step.run?.includes("check-image.sh"));
+    const publish = depotSteps.findIndex((step) => step.uses === publicationAction);
+    expect(depotScan).toBeGreaterThanOrEqual(0);
+    expect(depotSteps[depotScan]?.run).toContain("for platform in linux/amd64 linux/arm64; do");
+    expect(publish).toBeGreaterThan(depotScan);
   });
 
   it("publishes main from ci.yml so the production deploy waits for its image", () => {
