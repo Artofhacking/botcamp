@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-11-13
+
+### Changed
+
+- The QQ邮箱 row in Connect apps shows a mail icon instead of the QQ Mail logo, so the row reads as a mailbox at a glance.
+
 ## [2.1.2] - 2026-11-13
 
 ### Fixed
