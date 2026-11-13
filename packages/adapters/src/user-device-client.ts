@@ -1,3 +1,5 @@
+import type { Socket } from "node:net";
+import { connect as connectTcp } from "node:net";
 import { USER_DEVICE_CONNECT_PATH } from "@botcamp/contracts";
 import { secureHttpOrigin } from "@botcamp/contracts/network-host";
 import WebSocket from "ws";
@@ -8,6 +10,9 @@ import { createHostComputerRunner } from "./host-computer-runner.js";
 import type { HostScreen } from "./host-screen.js";
 import type { UserDeviceClientMessage, UserDeviceRevokeReason } from "./user-device-protocol.js";
 import {
+  USER_DEVICE_RELAY_BUFFER_BYTES,
+  USER_DEVICE_RELAY_CHUNK_BYTES,
+  USER_DEVICE_RELAY_LIMIT,
   USER_DEVICE_REVOKED_HEADER,
   userDeviceRevokeReason,
   userDeviceServerMessage,
@@ -16,8 +21,13 @@ import {
 /** One frame or request plus its small envelope, in either direction. */
 export const USER_DEVICE_MAX_MESSAGE_BYTES = HOST_COMPUTER_MAX_BYTES + 4096;
 const PING_INTERVAL_MS = 30_000;
+const RELAY_CONNECT_TIMEOUT_MS = 15_000;
+const RELAY_DRAIN_POLL_MS = 25;
 const BUSY_MESSAGE = "Local computer is busy. Try again shortly.";
 const NOT_ALLOWED_MESSAGE = "Not allowed on this computer";
+const RELAY_REFUSED_MESSAGE = "This computer is not sharing its network";
+const RELAY_BUSY_MESSAGE = "This computer is relaying too much traffic";
+const RELAY_UNREACHABLE_MESSAGE = "Could not reach that address from this computer";
 
 export interface UserDeviceClientOptions {
   serverUrl: string;
@@ -29,13 +39,15 @@ export interface UserDeviceClientOptions {
   onRevoked: (reason?: UserDeviceRevokeReason) => void;
   /** Whether this computer lets the server's bots run anything. Asked before every request. */
   authorize: () => Promise<boolean>;
+  /** Whether this computer routes the bots' traffic through its own network. */
+  relay?: () => boolean;
   retryMs?: { min: number; max: number };
 }
 
 /**
  * Connects outbound to a BotCamp server so its bots can use this computer. The server never
- * connects in. Runs only while started; `close` stops every command and the connection, and
- * `cancelAll` stops every command and refuses requests still waiting on `authorize`.
+ * connects in. Runs only while started; `close` stops every command, every relayed connection,
+ * and the socket, and `cancelAll` stops every command and refuses requests still waiting.
  */
 export function startUserDeviceClient(options: UserDeviceClientOptions) {
   if (secureHttpOrigin(options.serverUrl) === null)
@@ -50,6 +62,8 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
   let socket: WebSocket | undefined;
   let reconnectTimer: NodeJS.Timeout | undefined;
   let refuseWaiting: (() => void) | undefined;
+  let relayState = options.relay?.() ?? false;
+  let setRelayOnSocket: ((enabled: boolean) => void) | undefined;
 
   function stop() {
     if (stopped) return;
@@ -96,6 +110,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       { call: HostComputerCall; cancelled: boolean; settled: boolean }
     >();
     const authorizing = new Set<string>();
+    const relays = new Map<string, { socket: Socket; draining?: NodeJS.Timeout }>();
     let alive = true;
     let openedAt = 0;
     let ping: NodeJS.Timeout | undefined;
@@ -104,6 +119,78 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
         void send(id, { error: NOT_ALLOWED_MESSAGE }).catch(() => undefined);
       authorizing.clear();
     };
+
+    const sendRaw = (body: string) =>
+      new Promise<void>((resolve, reject) => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          reject(new Error("Local computer disconnected"));
+          return;
+        }
+        ws.send(body, (error) => (error ? reject(error) : resolve()));
+      });
+
+    function sendRelayState() {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: "relay-state", enabled: relayState }));
+    }
+    setRelayOnSocket = () => sendRelayState();
+
+    function closeRelay(id: string, error?: string) {
+      const face = relays.get(id);
+      relays.delete(id);
+      if (face?.draining) clearInterval(face.draining);
+      face?.socket.destroy();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "relay-close", id, ...(error ? { error } : {}) }));
+      }
+    }
+
+    function pauseWhileBuffered(face: { socket: Socket; draining?: NodeJS.Timeout }) {
+      if (face.draining || ws.bufferedAmount < USER_DEVICE_RELAY_BUFFER_BYTES) return;
+      face.socket.pause();
+      face.draining = setInterval(() => {
+        if (ws.bufferedAmount > USER_DEVICE_RELAY_BUFFER_BYTES / 4) return;
+        const timer = face.draining;
+        if (timer) clearInterval(timer);
+        face.draining = undefined;
+        face.socket.resume();
+      }, RELAY_DRAIN_POLL_MS);
+      face.draining.unref();
+    }
+
+    async function openRelay(id: string, host: string, port: number) {
+      if (!(options.relay?.() ?? false)) return closeRelay(id, RELAY_REFUSED_MESSAGE);
+      if (relays.size >= USER_DEVICE_RELAY_LIMIT) return closeRelay(id, RELAY_BUSY_MESSAGE);
+      const target = connectTcp({ host, port });
+      const face = { socket: target };
+      relays.set(id, face);
+      const timer = setTimeout(
+        () => closeRelay(id, RELAY_UNREACHABLE_MESSAGE),
+        RELAY_CONNECT_TIMEOUT_MS,
+      );
+      timer.unref();
+      target.setNoDelay(true);
+      target.once("connect", () => clearTimeout(timer));
+      target.once("error", () => closeRelay(id, RELAY_UNREACHABLE_MESSAGE));
+      target.on("data", (chunk: Buffer) => {
+        if (relays.get(id) !== face) return;
+        for (let offset = 0; offset < chunk.length; offset += USER_DEVICE_RELAY_CHUNK_BYTES) {
+          const piece = chunk.subarray(offset, offset + USER_DEVICE_RELAY_CHUNK_BYTES);
+          ws.send(
+            JSON.stringify({
+              type: "relay-data",
+              id,
+              data: piece.toString("base64"),
+            } satisfies UserDeviceClientMessage),
+          );
+        }
+        pauseWhileBuffered(face);
+      });
+      target.once("end", () => closeRelay(id));
+      target.once("close", () => {
+        if (relays.get(id) === face) closeRelay(id);
+      });
+    }
 
     ws.on("unexpected-response", (request, response) => {
       request.destroy();
@@ -115,6 +202,8 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
     });
     ws.on("open", () => {
       openedAt = Date.now();
+      relayState = options.relay?.() ?? false;
+      if (options.relay) sendRelayState();
       // A silent network drop otherwise leaves the device looking connected for hours.
       ping = setInterval(() => {
         if (!alive) {
@@ -137,9 +226,15 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       // A lost response is never retried, so in-flight work stops with the connection.
       for (const { call } of calls.values()) call.abort();
       calls.clear();
+      for (const face of relays.values()) {
+        if (face.draining) clearInterval(face.draining);
+        face.socket.destroy();
+      }
+      relays.clear();
       if (socket === ws) {
         socket = undefined;
         refuseWaiting = undefined;
+        setRelayOnSocket = undefined;
       }
       if (openedAt && Date.now() - openedAt >= PING_INTERVAL_MS) attempt = 0;
       scheduleReconnect();
@@ -168,6 +263,21 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
         }
         return;
       }
+      if (message.type === "relay-open") {
+        void openRelay(message.id, message.host, message.port);
+        return;
+      }
+      if (message.type === "relay-data") {
+        relays.get(message.id)?.socket.write(Buffer.from(message.data, "base64"));
+        return;
+      }
+      if (message.type === "relay-close") {
+        const face = relays.get(message.id);
+        relays.delete(message.id);
+        if (face?.draining) clearInterval(face.draining);
+        face?.socket.end();
+        return;
+      }
       if (calls.has(message.id) || authorizing.has(message.id)) return;
       void handle(message.id, message.request);
     });
@@ -181,13 +291,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
         entry?.call.abort();
       }
       if (entry && ("done" in frame || "error" in frame)) entry.settled = true;
-      return new Promise<void>((resolve, reject) => {
-        if (ws.readyState !== WebSocket.OPEN) {
-          reject(new Error("Local computer disconnected"));
-          return;
-        }
-        ws.send(body, (error) => (error ? reject(error) : resolve()));
-      });
+      return sendRaw(body);
     }
 
     async function handle(id: string, request: unknown) {
@@ -226,7 +330,15 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
   }
 
   connect();
-  return { close: stop, cancelAll };
+  return {
+    close: stop,
+    cancelAll,
+    /** Tells the server right away, so the switch takes effect on this connection. */
+    setRelay(enabled: boolean) {
+      relayState = enabled;
+      setRelayOnSocket?.(enabled);
+    },
+  };
 }
 
 export type UserDeviceClient = ReturnType<typeof startUserDeviceClient>;

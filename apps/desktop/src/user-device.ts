@@ -40,6 +40,8 @@ export type DeviceConsent = "allowed" | "declined";
 export interface SavedConsent {
   consent: DeviceConsent;
   userId: string | null;
+  /** The "Route traffic through this computer" switch; never on without "allowed". */
+  relay?: boolean;
 }
 
 const optionalString = (value: unknown) => (typeof value === "string" ? value : null);
@@ -106,7 +108,11 @@ export async function readDeviceConsent(
     // so that answer may not be the person's: ask again.
     if (saved.consent === "declined" && !("userId" in saved)) return null;
     return saved.consent === "allowed" || saved.consent === "declined"
-      ? { consent: saved.consent, userId: optionalString(saved.userId) }
+      ? {
+          consent: saved.consent,
+          userId: optionalString(saved.userId),
+          relay: saved.consent === "allowed" && saved.relay === true ? true : undefined,
+        }
       : null;
   } catch {
     return null;
@@ -116,11 +122,11 @@ export async function readDeviceConsent(
 export async function saveDeviceConsent(
   userDataDir: string,
   origin: string,
-  { consent, userId }: SavedConsent,
+  { consent, userId, relay }: SavedConsent,
 ): Promise<void> {
   const file = deviceFile(userDataDir, origin, ".consent");
   await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-  await writePrivateFile(file, JSON.stringify({ origin, consent, userId }));
+  await writePrivateFile(file, JSON.stringify({ origin, consent, userId, relay }));
 }
 
 export async function deviceName(platform = process.platform): Promise<string> {
@@ -152,12 +158,15 @@ export function createUserDeviceAccess(deps: {
     events: {
       onRevoked: UserDeviceClientOptions["onRevoked"];
       authorize: () => Promise<boolean>;
+      relay: () => boolean;
     },
-  ) => { close(): void; cancelAll(): void };
+  ) => { close(): void; cancelAll(): void; setRelay(enabled: boolean): void };
 }) {
   let current: string | null = null;
   let generation = 0;
-  let client: { origin: string; close(): void; cancelAll(): void } | undefined;
+  let client:
+    | { origin: string; close(): void; cancelAll(): void; setRelay(enabled: boolean): void }
+    | undefined;
   const paired = new Map<string, Omit<PairedDevice, "token">>();
   const consent = new Map<string, SavedConsent | null>();
   /** Bumped on every consent change, so a prompt answered after one is ignored. */
@@ -183,8 +192,10 @@ export function createUserDeviceAccess(deps: {
       origin,
       close: () => connection.close(),
       cancelAll: () => connection.cancelAll(),
+      setRelay: (enabled: boolean) => connection.setRelay(enabled),
     };
     const connection = deps.connect(origin, token, {
+      relay: () => isRelaying(origin),
       onRevoked: (reason) => {
         if (client === active) client = undefined;
         paired.delete(origin);
@@ -215,8 +226,17 @@ export function createUserDeviceAccess(deps: {
     return choice?.consent === "allowed" && device !== undefined && choice.userId === device.userId;
   }
 
-  async function decide(origin: string, choice: DeviceConsent) {
-    const saved = { consent: choice, userId: paired.get(origin)?.userId ?? null };
+  /** Relay requires the account's access, so turning access off turns it off too. */
+  function isRelaying(origin: string) {
+    return isAllowed(origin) && consent.get(origin)?.relay === true;
+  }
+
+  async function decide(origin: string, choice: DeviceConsent, relay = false) {
+    const saved = {
+      consent: choice,
+      userId: paired.get(origin)?.userId ?? null,
+      relay: choice === "allowed" && relay,
+    };
     consent.set(origin, saved);
     changes.set(origin, (changes.get(origin) ?? 0) + 1);
     const save = (consentSaves.get(origin) ?? Promise.resolve()).then(() =>
@@ -415,7 +435,19 @@ export function createUserDeviceAccess(deps: {
     pair,
     state(origin: string): Omit<BotCampDesktopDevice, "name"> | null {
       if (origin !== current) return null;
-      return { deviceId: paired.get(origin)?.deviceId ?? null, allowed: isAllowed(origin) };
+      return {
+        deviceId: paired.get(origin)?.deviceId ?? null,
+        allowed: isAllowed(origin),
+        relay: isRelaying(origin),
+      };
+    },
+    /** Turns the traffic relay on or off; it never grants computer access by itself. */
+    async setRelay(origin: string, relay: boolean) {
+      if (origin !== current) return;
+      if (relay && !isAllowed(origin)) throw new Error("Turn on computer access first");
+      if (relay === isRelaying(origin)) return;
+      await decide(origin, "allowed", relay);
+      client?.setRelay(relay);
     },
     /**
      * Turning it on asks with the native prompt and keeps the answer only once this computer is

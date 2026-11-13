@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld("botcampDesktop", {
   device: {
     state: () => ipcRenderer.invoke("desktop.device.state"),
     setAllowed: (allowed) => ipcRenderer.invoke("desktop.device.setAllowed", allowed),
+    setRelay: (relay) => ipcRenderer.invoke("desktop.device.setRelay", relay),
   },
   locale: {
     set: (locale) => ipcRenderer.invoke("desktop.locale.set", locale),

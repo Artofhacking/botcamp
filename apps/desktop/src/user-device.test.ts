@@ -145,6 +145,7 @@ describe("remote computer access", () => {
           cancelled: 0,
           revoke: events.onRevoked,
           authorize: events.authorize,
+          relay: false,
         };
         clients.push(client);
         return {
@@ -153,6 +154,9 @@ describe("remote computer access", () => {
           },
           cancelAll: () => {
             client.cancelled += 1;
+          },
+          setRelay: (enabled: boolean) => {
+            client.relay = enabled;
           },
         };
       },
@@ -189,7 +193,7 @@ describe("remote computer access", () => {
       platform: "darwin",
     });
     expect(clients).toMatchObject([{ origin, token: "device-token", closed: false }]);
-    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false, relay: false });
     expect(access.state(other)).toBeNull();
     expect(confirm).not.toHaveBeenCalled();
     expect(await readPairedDevice(userData, origin, cipher)).toEqual({
@@ -239,7 +243,7 @@ describe("remote computer access", () => {
     await access.setAllowed(origin, false);
     expect(await clients[0]!.authorize()).toBe(false);
     expect(confirm).toHaveBeenCalledTimes(2);
-    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false, relay: false });
   });
 
   it("stops running and waiting work, but keeps the connection, when turned off", async () => {
@@ -289,7 +293,7 @@ describe("remote computer access", () => {
     answer(true);
     await turningOn;
     expect(await readDeviceConsent(userData, origin)).toMatchObject({ consent: "declined" });
-    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false, relay: false });
     expect(requests.filter(({ url }) => url.endsWith("/pair"))).toHaveLength(1);
   });
 
@@ -304,11 +308,11 @@ describe("remote computer access", () => {
     const { access, clients } = setup({ fetch });
     await access.select(origin);
     await expect(access.setAllowed(origin, true)).rejects.toThrow();
-    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false, relay: false });
     expect(await readDeviceConsent(userData, origin)).toMatchObject({ consent: "declined" });
     status = 200;
     await access.setAllowed(origin, true);
-    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true });
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true, relay: false });
     expect(clients).toHaveLength(1);
   });
 
@@ -478,13 +482,13 @@ describe("remote computer access", () => {
     await vi.waitFor(async () =>
       expect(await readDeviceConsent(userData, origin)).toMatchObject({ consent: "declined" }),
     );
-    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false, relay: false });
     await access.pair();
     expect(requests.map((request) => request.url)).toEqual([`${origin}/api/devices/self/session`]);
 
     await access.setAllowed(origin, true);
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true });
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true, relay: false });
     expect(clients.at(-1)).toMatchObject({ token: "device-token", closed: false });
   });
   /** A server that pairs whoever the window is signed in as. */
@@ -518,14 +522,14 @@ describe("remote computer access", () => {
     await vi.waitFor(async () =>
       expect(await readPairedDevice(userData, origin, cipher)).toBeNull(),
     );
-    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false, relay: false });
     await access.pair();
     expect(clients).toHaveLength(1);
 
     server.account = "alice";
     await access.pair();
     expect(clients.at(-1)).toMatchObject({ token: "token-2", closed: false });
-    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: true });
+    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: true, relay: false });
     expect(await clients.at(-1)!.authorize()).toBe(true);
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(await readDeviceConsent(userData, origin)).toEqual({
@@ -541,14 +545,14 @@ describe("remote computer access", () => {
     server.account = "alice";
     await access.select(origin);
     await access.setAllowed(origin, true);
-    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true });
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true, relay: false });
 
     server.account = null;
     clients[0]!.revoke("session-ended");
     server.account = "bob";
     await access.pair();
     expect(clients.at(-1)).toMatchObject({ token: "token-2", closed: false });
-    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false, relay: false });
 
     confirm.mockResolvedValueOnce(false);
     expect(await clients.at(-1)!.authorize()).toBe(false);
@@ -572,7 +576,7 @@ describe("remote computer access", () => {
     await access.pair();
     answer(true);
     expect(await waiting).toBe(false);
-    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false, relay: false });
     expect(await readDeviceConsent(userData, origin)).toBeNull();
   });
 
@@ -589,7 +593,7 @@ describe("remote computer access", () => {
     clients[0]!.revoke("session-ended");
     await vi.waitFor(() => expect(clients).toHaveLength(2));
     expect(clients[1]).toMatchObject({ token: "token-2", closed: false });
-    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "device-2", allowed: false, relay: false });
   });
 
   it("does not let a saved answer for another account through after a relaunch", async () => {
@@ -603,7 +607,7 @@ describe("remote computer access", () => {
     const confirm = vi.fn(async () => false);
     const { access, clients } = setup({ confirm });
     await access.select(origin);
-    expect(access.state(origin)).toEqual({ deviceId: "d1", allowed: false });
+    expect(access.state(origin)).toEqual({ deviceId: "d1", allowed: false, relay: false });
     expect(await clients[0]!.authorize()).toBe(false);
     expect(confirm).toHaveBeenCalledTimes(1);
   });

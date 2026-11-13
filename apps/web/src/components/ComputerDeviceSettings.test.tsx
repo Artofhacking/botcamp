@@ -86,11 +86,15 @@ it("lists computers with their status and removes one", async () => {
 
 it("turns this computer on and off through the desktop app only", async () => {
   vi.mocked(listUserDevices).mockResolvedValue([]);
-  const state = { deviceId: null, name: "Laptop", allowed: false };
+  const state = { deviceId: null, name: "Laptop", allowed: false, relay: false };
   const device = {
     state: vi.fn(async () => state),
     setAllowed: vi.fn(async (allowed: boolean) => {
       Object.assign(state, { allowed, deviceId: "d1" });
+      return state;
+    }),
+    setRelay: vi.fn(async (relay: boolean) => {
+      Object.assign(state, { relay });
       return state;
     }),
   };
@@ -105,6 +109,42 @@ it("turns this computer on and off through the desktop app only", async () => {
   expect(device.setAllowed).toHaveBeenCalledWith(true);
   expect(toggle.checked).toBe(true);
   expect(host.textContent).toContain("LaptopConnected");
+});
+
+it("routes traffic through this computer only while access is on", async () => {
+  vi.mocked(listUserDevices).mockResolvedValue([]);
+  const state = { deviceId: "d1", name: "Laptop", allowed: true, relay: false };
+  const device = {
+    state: vi.fn(async () => state),
+    setAllowed: vi.fn(async () => state),
+    setRelay: vi.fn(async (relay: boolean) => {
+      Object.assign(state, { relay });
+      return state;
+    }),
+  };
+  desktopWith(device);
+  await act(async () => root.render(<ComputerDeviceSettings />));
+  const relay = host.querySelector<HTMLInputElement>('[data-testid="this-computer-relay"]')!;
+  expect(host.textContent).toContain("Route traffic through this computer");
+  expect(relay.checked).toBe(false);
+  expect(relay.disabled).toBe(false);
+
+  await act(async () => relay.click());
+  expect(device.setRelay).toHaveBeenCalledWith(true);
+  expect(relay.checked).toBe(true);
+});
+
+it("disables traffic routing while bots cannot use this computer", async () => {
+  vi.mocked(listUserDevices).mockResolvedValue([]);
+  desktopWith({
+    state: vi.fn(async () => ({ deviceId: null, name: "Laptop", allowed: false, relay: false })),
+    setAllowed: vi.fn(async () => null),
+    setRelay: vi.fn(async () => null),
+  });
+  await act(async () => root.render(<ComputerDeviceSettings />));
+  expect(
+    host.querySelector<HTMLInputElement>('[data-testid="this-computer-relay"]')!.disabled,
+  ).toBe(true);
 });
 
 it("reports a failed removal", async () => {
@@ -127,10 +167,11 @@ it("shows every connected computer as connected", async () => {
 it("stays off and reports it when turning this computer on fails", async () => {
   vi.mocked(listUserDevices).mockResolvedValue([]);
   const device = {
-    state: vi.fn(async () => ({ deviceId: null, name: "Laptop", allowed: false })),
+    state: vi.fn(async () => ({ deviceId: null, name: "Laptop", allowed: false, relay: false })),
     setAllowed: vi.fn(async () => {
       throw new Error("Could not pair this computer");
     }),
+    setRelay: vi.fn(async () => null),
   };
   desktopWith(device);
   await act(async () => root.render(<ComputerDeviceSettings />));

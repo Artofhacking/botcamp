@@ -190,6 +190,8 @@ model UserDeviceConnection {
   address      String
   connectedAt  DateTime   @default(now())
   heartbeatAt  DateTime   @default(now())
+  /// The desktop's "Route traffic through this computer" switch, as the connected app reported it.
+  relay        Boolean    @default(false)
 
   @@index([heartbeatAt])
   @@map("user_device_connections")

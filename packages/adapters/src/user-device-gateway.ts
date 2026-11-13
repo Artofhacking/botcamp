@@ -18,9 +18,13 @@ import {
 import type {
   UserDevice,
   UserDeviceGateway,
+  UserDeviceRelay,
   UserDeviceRevokeReason,
+  UserDeviceServerMessage,
 } from "./user-device-protocol.js";
 import {
+  USER_DEVICE_RELAY_BUFFER_BYTES,
+  USER_DEVICE_RELAY_CHUNK_BYTES,
   USER_DEVICE_REVOKED_HEADER,
   userDeviceClientMessage,
   userDeviceRevokeReason,
@@ -28,6 +32,7 @@ import {
 
 /** Internal API endpoints other processes forward to. Not under /api, so the public proxy never routes them. */
 export const USER_DEVICE_FORWARD_PATH = "/internal/user-devices/request";
+export const USER_DEVICE_RELAY_FORWARD_PATH = "/internal/user-devices/relay";
 export const USER_DEVICE_DISCONNECT_PATH = "/internal/user-devices/disconnect";
 export const USER_DEVICE_OFFLINE_MESSAGE = "Your computer is not connected. Open the desktop app.";
 const DISCONNECTED_MESSAGE = "Your computer disconnected. Check the result before retrying.";
@@ -111,6 +116,9 @@ interface LiveDevice {
   connectionId: string;
   socket: UserDeviceSocket;
   pending: Map<string, FrameQueue>;
+  relays: Map<string, RelayQueue>;
+  /** What the connected app last reported; kept here so attach can write it before messages race. */
+  relay: boolean;
   alive: boolean;
 }
 
@@ -118,6 +126,8 @@ export interface UserDeviceRoute {
   deviceId: string;
   userId: string;
   connectionId: string;
+  /** What the connected app reported for routing traffic through it, right now. */
+  relay?: boolean;
 }
 
 /** Why a device was revoked, as the device is told. */
@@ -291,7 +301,15 @@ export class UserDeviceHub {
   /** Registers a connected device socket; a newer socket for the same device replaces the older. */
   async attach(device: AuthenticatedDevice, socket: UserDeviceSocket): Promise<string> {
     const connectionId = randomUUID();
-    const entry: LiveDevice = { device, connectionId, socket, pending: new Map(), alive: true };
+    const entry: LiveDevice = {
+      device,
+      connectionId,
+      socket,
+      pending: new Map(),
+      relays: new Map(),
+      relay: false,
+      alive: true,
+    };
     const previous = this.live.get(device.id);
     this.live.set(device.id, entry);
     if (previous) this.drop(previous, DISCONNECTED_MESSAGE, [4000, "Replaced"]);
@@ -319,8 +337,15 @@ export class UserDeviceHub {
             address: this.address,
             connectedAt: now,
             heartbeatAt: now,
+            relay: entry.relay,
           },
-          update: { connectionId, address: this.address, connectedAt: now, heartbeatAt: now },
+          update: {
+            connectionId,
+            address: this.address,
+            connectedAt: now,
+            heartbeatAt: now,
+            relay: entry.relay,
+          },
         });
         await tx.userDevice.update({ where: { id: device.id }, data: { lastSeenAt: now } });
       }),
@@ -410,6 +435,57 @@ export class UserDeviceHub {
     });
   }
 
+  /** Opens one TCP stream through this process's device socket, or fails when it is gone. */
+  relay(route: UserDeviceRoute, host: string, port: number, signal: AbortSignal): UserDeviceRelay {
+    const entry = this.live.get(route.deviceId);
+    if (!entry || !this.holds(route)) throw new UserDeviceOfflineError();
+    signal.throwIfAborted();
+    const id = randomUUID();
+    const queue = new RelayQueue();
+    entry.relays.set(id, queue);
+    const send = (body: UserDeviceServerMessage) => {
+      try {
+        entry.socket.send(JSON.stringify(body));
+      } catch {
+        queue.fail(new Error(DISCONNECTED_MESSAGE));
+      }
+    };
+    const stop = (error?: string) => {
+      if (!entry.relays.delete(id)) return;
+      queue.end(error);
+      send({ type: "relay-close", id });
+    };
+    const abort = () => {
+      queue.fail(signal.reason ?? new Error(DISCONNECTED_MESSAGE));
+      stop();
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    send({ type: "relay-open", id, host, port });
+    return {
+      data: (async function* () {
+        try {
+          yield* queue;
+        } finally {
+          signal.removeEventListener("abort", abort);
+          if (entry.relays.delete(id)) send({ type: "relay-close", id });
+        }
+      })(),
+      write(chunk: Buffer) {
+        if (!entry.relays.has(id)) return;
+        for (let offset = 0; offset < chunk.length; offset += USER_DEVICE_RELAY_CHUNK_BYTES) {
+          send({
+            type: "relay-data",
+            id,
+            data: chunk.subarray(offset, offset + USER_DEVICE_RELAY_CHUNK_BYTES).toString("base64"),
+          });
+        }
+      },
+      end() {
+        stop();
+      },
+    };
+  }
+
   /** Closes this process's socket for a device and fails its in-flight requests. */
   disconnect(deviceId: string, reason?: UserDeviceRevokeReason): void {
     const entry = this.live.get(deviceId);
@@ -447,7 +523,34 @@ export class UserDeviceHub {
     }
     const message = userDeviceClientMessage.safeParse(parsed);
     if (!message.success) return;
-    entry.pending.get(message.data.id)?.push(message.data.frame, text.length);
+    const value = message.data;
+    if (value.type === "frame") {
+      entry.pending.get(value.id)?.push(value.frame, text.length);
+      return;
+    }
+    if (value.type === "relay-state") {
+      entry.relay = value.enabled;
+      void runAsSystem("record a device's relay choice", () =>
+        this.deps.prisma.userDeviceConnection.updateMany({
+          where: {
+            deviceId: entry.device.id,
+            connectionId: entry.connectionId,
+            relay: { not: value.enabled },
+          },
+          data: { relay: value.enabled },
+        }),
+      ).catch((error) => getLogger().warn("user device relay state save failed", { error }));
+      return;
+    }
+    if (value.type === "relay-data") {
+      entry.relays.get(value.id)?.push(Buffer.from(value.data, "base64"));
+      return;
+    }
+    if (value.type === "relay-close") {
+      const relay = entry.relays.get(value.id);
+      entry.relays.delete(value.id);
+      relay?.end(value.error);
+    }
   }
 
   /** Forgets a connection and fails its requests; without a close code the socket is dead and is terminated. */
@@ -455,6 +558,8 @@ export class UserDeviceHub {
     if (this.live.get(entry.device.id) === entry) this.live.delete(entry.device.id);
     for (const queue of entry.pending.values()) queue.fail(new Error(message), true);
     entry.pending.clear();
+    for (const relay of entry.relays.values()) relay.fail(new Error(message));
+    entry.relays.clear();
     try {
       if (close) entry.socket.close(...close);
       else entry.socket.terminate();
@@ -609,6 +714,38 @@ export class UserDevices implements UserDeviceGateway {
     yield* framesToValues<T>(frames, deadline);
   }
 
+  /** True only while the account's connected computer says it routes traffic through itself. */
+  async relaying(userId: string): Promise<boolean> {
+    const connection = await runAsSystem("check a user's device relay", () =>
+      this.deps.prisma.userDeviceConnection.findFirst({
+        where: {
+          heartbeatAt: { gt: new Date(Date.now() - STALE_AFTER_MS) },
+          relay: true,
+          device: { userId, revokedAt: null },
+        },
+        select: { deviceId: true },
+      }),
+    );
+    return connection !== null;
+  }
+
+  /**
+   * One TCP stream to `target` that leaves from the account's computer. The caller writes what
+   * the target should receive and reads what it sends back; either side closing ends the stream.
+   */
+  async relay(
+    userId: string,
+    target: { host: string; port: number },
+    signal: AbortSignal,
+  ): Promise<UserDeviceRelay> {
+    const route = await this.route(userId);
+    if (!route) throw new UserDeviceOfflineError();
+    if (!route.relay) throw new Error("This computer is not routing traffic");
+    return this.deps.hub?.holds(route)
+      ? this.deps.hub.relay(route, target.host, target.port, signal)
+      : this.forwardRelay(route.address, route, target, signal);
+  }
+
   /** Closes the device's socket wherever it is held. Best effort; heartbeats close it otherwise. */
   async disconnect(deviceId: string, reason?: UserDeviceRevokeReason): Promise<void> {
     this.deps.hub?.disconnect(deviceId, reason);
@@ -645,8 +782,10 @@ export class UserDevices implements UserDeviceGateway {
     if (!connection) return null;
     return {
       deviceId: connection.deviceId,
+      userId,
       connectionId: connection.connectionId,
       address: connection.address,
+      relay: connection.relay,
       name: connection.device.name,
       platform: connection.device.platform,
     };
@@ -679,6 +818,74 @@ export class UserDevices implements UserDeviceGateway {
       throw new UserDeviceOfflineError();
     }
     yield* ndjson(response.body, signal);
+  }
+
+  /** One relayed stream forwarded to the process that holds the device socket. */
+  private async forwardRelay(
+    address: string,
+    route: UserDeviceRoute,
+    target: { host: string; port: number },
+    signal: AbortSignal,
+  ): Promise<UserDeviceRelay> {
+    const query = new URLSearchParams({ host: target.host, port: String(target.port) });
+    let writer: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        writer = controller;
+      },
+    });
+    let response: Response;
+    try {
+      response = await this.fetch(new URL(`${USER_DEVICE_RELAY_FORWARD_PATH}?${query}`, address), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.deps.forwardSecret}`,
+          "content-type": "application/octet-stream",
+          "x-user-device-connection": route.connectionId,
+          "x-user-device-id": route.deviceId,
+          "x-user-device-user": route.userId,
+        },
+        body,
+        duplex: "half",
+        signal,
+        redirect: "error",
+      } as RequestInit);
+    } catch (error) {
+      signal.throwIfAborted();
+      throw new UserDeviceOfflineError(undefined, { cause: error });
+    }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      throw new UserDeviceOfflineError();
+    }
+    const reader = response.body.getReader();
+    return {
+      data: (async function* () {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) return;
+            if (value) yield Buffer.from(value);
+          }
+        } finally {
+          await reader.cancel().catch(() => undefined);
+        }
+      })(),
+      write(chunk: Buffer) {
+        try {
+          writer?.enqueue(chunk);
+        } catch {
+          /* The forward ended; the stream fails on its own. */
+        }
+      },
+      end() {
+        try {
+          writer?.close();
+        } catch {
+          /* Already closed. */
+        }
+      },
+    };
   }
 }
 
@@ -797,6 +1004,57 @@ class FrameQueue implements AsyncIterable<unknown> {
         yield next.frame;
         continue;
       }
+      await new Promise<void>((resolve) => {
+        this.wake = resolve;
+      });
+      this.wake = undefined;
+    }
+  }
+}
+
+/** Buffers one relayed stream's bytes until its consumer reads them, then ends or fails it. */
+class RelayQueue implements AsyncIterable<Buffer> {
+  private readonly items: Buffer[] = [];
+  private bytes = 0;
+  private done = false;
+  private error?: Error;
+  private wake?: () => void;
+
+  push(chunk: Buffer) {
+    if (this.done) return;
+    this.bytes += chunk.length;
+    if (this.bytes > USER_DEVICE_RELAY_BUFFER_BYTES) {
+      this.fail(new Error("Relayed traffic backed up"));
+      return;
+    }
+    this.items.push(chunk);
+    this.wake?.();
+  }
+
+  end(message?: string) {
+    if (this.done) return;
+    if (message) this.error = new Error(message);
+    this.done = true;
+    this.wake?.();
+  }
+
+  fail(error: Error) {
+    if (this.done) return;
+    this.error = error;
+    this.done = true;
+    this.wake?.();
+  }
+
+  async *[Symbol.asyncIterator]() {
+    while (true) {
+      const next = this.items.shift();
+      if (next) {
+        this.bytes -= next.length;
+        yield next;
+        continue;
+      }
+      if (this.error) throw this.error;
+      if (this.done) return;
       await new Promise<void>((resolve) => {
         this.wake = resolve;
       });
