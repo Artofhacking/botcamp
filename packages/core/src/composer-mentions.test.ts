@@ -123,9 +123,7 @@ describe("buildComposerMentionOptions", () => {
       },
     });
     expect(sources.bots.map((bot) => bot.name)).toEqual(["Ada-Helper", "Bea-Scout"]);
-    expect(sources.routines.map((routine) => [routine.id, routine.botName])).toEqual([
-      ["r-in", "Ada-Helper"],
-    ]);
+    expect(sources.routines).toEqual([]);
     expect(sources.people).toEqual([{ id: "bea", name: "Bea" }]);
     const options = buildComposerMentionOptions({
       query: "",
@@ -142,7 +140,6 @@ describe("buildComposerMentionOptions", () => {
       "person:Bea",
       "bot:Ada-Helper",
       "bot:Bea-Scout",
-      "routine:Inside",
     ]);
     expect(options.find((option) => option.kind === "person")?.subtitle).toBeUndefined();
   });
