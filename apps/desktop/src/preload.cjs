@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld("botcampDesktop", {
     toggleMaximize: () => ipcRenderer.invoke("desktop.window.toggleMaximize"),
     state: () => ipcRenderer.invoke("desktop.window.state"),
   },
+  page: {
+    reload: () => ipcRenderer.invoke("desktop.page.reload"),
+  },
   update: {
     state: () => ipcRenderer.invoke("desktop.update.state"),
     check: () => ipcRenderer.invoke("desktop.update.check"),

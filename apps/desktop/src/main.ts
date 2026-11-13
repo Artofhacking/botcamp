@@ -79,6 +79,7 @@ import {
   reportDesktopError,
 } from "./monitoring.js";
 import { oauthCallbackFrom } from "./oauth-callback.js";
+import { createPageReloadHandler } from "./page-reload.js";
 import { associatedPasskeyRpIds } from "./passkeys.js";
 import { deepLinkFromArgv, desktopProtocolRegistration } from "./protocol.js";
 import {
@@ -1760,6 +1761,9 @@ app.whenReady().then(async () => {
       fullScreen: win?.isFullScreen() ?? false,
     };
   });
+  // The page owns this one: it already decided a newer build exists, so it only reloads.
+  const reloadPage = createPageReloadHandler(permissionTarget);
+  ipcMain.handle("desktop.page.reload", (event) => reloadPage(event));
   ipcMain.handle("desktop.update.state", () => desktopUpdater.state());
   ipcMain.handle("desktop.update.check", (event) =>
     fromAppFrame(permissionTarget(), event) ? desktopUpdater.check(true) : desktopUpdater.state(),

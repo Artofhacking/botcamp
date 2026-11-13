@@ -51,12 +51,23 @@ afterEach(() => {
   delete window.__RAKAZO_API_ORIGIN__;
 });
 
+let pageBuild = () => "20261101090000";
+
+// The page's own build is a compile-time constant, so the rows that compare it to the served build
+// read it through one hook this file can move.
+vi.mock("../lib/web-page-refresh", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/web-page-refresh")>();
+  return { ...actual, pageBuild: () => pageBuild() };
+});
+
 function desktopBridge(
   update: BotCampDesktop["update"],
   platform: BotCampDesktop["platform"] = "win32",
+  page?: BotCampDesktop["page"],
 ): BotCampDesktop {
   return {
     platform,
+    ...(page ? { page } : {}),
     window: {
       close: async () => {},
       minimize: async () => {},
@@ -393,6 +404,99 @@ it("names the installed build in the window title, so a screenshot carries it", 
       await Promise.resolve();
     });
     expect(document.title).toBe("BotCamp 0.7.1");
+  } finally {
+    await view.cleanup();
+  }
+});
+
+it("refreshes the page onto the build the web server serves now", async () => {
+  const reload = vi.fn(async () => {});
+  const state: DesktopUpdateState = {
+    phase: "idle",
+    currentVersion: "0.7.1",
+    availableVersion: null,
+    percent: null,
+    message: null,
+    checkedAt: null,
+  };
+  window.rakazoDesktop = desktopBridge(
+    {
+      state: async () => state,
+      check: async () => state,
+      download: async () => state,
+      install: async () => state,
+    },
+    "win32",
+    { reload },
+  );
+  pageBuild = () => "20261101090000";
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (String(url).endsWith("/build-id"))
+      return { ok: true, text: async () => "20261113120000\n" };
+    return { ok: false, text: async () => "", json: async () => ({}) };
+  });
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
+  try {
+    await view.show();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const refresh = [...view.container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("刷新页面"),
+    );
+    expect(refresh).toBeTruthy();
+    await act(async () => {
+      refresh?.click();
+      await Promise.resolve();
+    });
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(view.container.textContent).not.toContain("网页已是最新版本");
+  } finally {
+    await view.cleanup();
+  }
+});
+
+it("says the page is already current instead of reloading onto the build it runs", async () => {
+  const reload = vi.fn(async () => {});
+  const state: DesktopUpdateState = {
+    phase: "idle",
+    currentVersion: "0.7.1",
+    availableVersion: null,
+    percent: null,
+    message: null,
+    checkedAt: null,
+  };
+  window.rakazoDesktop = desktopBridge(
+    {
+      state: async () => state,
+      check: async () => state,
+      download: async () => state,
+      install: async () => state,
+    },
+    "win32",
+    { reload },
+  );
+  pageBuild = () => "20261113120000";
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (String(url).endsWith("/build-id"))
+      return { ok: true, text: async () => "20261113120000\n" };
+    return { ok: false, text: async () => "", json: async () => ({}) };
+  });
+  const view = render(createElement(DesktopUpdatesProvider, null, createElement(DesktopAbout)));
+  try {
+    await view.show();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const refresh = [...view.container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("刷新页面"),
+    );
+    await act(async () => {
+      refresh?.click();
+      await Promise.resolve();
+    });
+    expect(reload).not.toHaveBeenCalled();
+    expect(view.container.textContent).toContain("网页已是最新版本");
   } finally {
     await view.cleanup();
   }

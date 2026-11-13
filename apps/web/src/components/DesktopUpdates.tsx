@@ -4,6 +4,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/desktop";
+import { pageBuild, refreshWebPageInApp } from "../lib/web-page-refresh";
 import type { ClientPlatform } from "./AboutBotCamp";
 import { AboutBotCamp, clientPlatform, releaseVersion, VersionRow } from "./AboutBotCamp";
 import { SettingsRow } from "./SettingsRows";
@@ -226,6 +227,51 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
 }
 
 /**
+ * Moves the window onto the newest web build. The page follows API replies to a newer build and
+ * reloads when idle, which a quiet window can sit out for minutes; this does it when asked. It reads
+ * the served build first, so a window already on it says so instead of reloading for nothing.
+ */
+function RefreshPage() {
+  const [busy, setBusy] = useState(false);
+  const [current, setCurrent] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function refresh() {
+    if (busy) return;
+    setBusy(true);
+    setCurrent(false);
+    setFailed(false);
+    try {
+      // A reload replaces the page, so the answer only shows when it did not happen.
+      if ((await refreshWebPageInApp(pageBuild())) === "current") setCurrent(true);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <SettingsRow
+      label={
+        <div>
+          <p>刷新网页</p>
+          {current ? <p className="text-[13px] text-muted-foreground">网页已是最新版本</p> : null}
+          {failed ? (
+            <p role="alert" className="text-[13px] text-destructive">
+              刷新失败，请稍后再试
+            </p>
+          ) : null}
+        </div>
+      }
+      control={
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void refresh()}>
+          {busy ? "刷新中…" : "刷新页面"}
+        </Button>
+      }
+    />
+  );
+}
+
+/**
  * One update control. A build with an update feed downloads and installs in
  * the app. An older build, which has no feed, links to that platform's installer.
  */
@@ -241,8 +287,20 @@ export function DesktopAbout() {
   // leave an installed build with no way to move forward.
   const usable = native !== null && native.phase !== "unsupported" && native.phase !== "error";
   if (usable && platform && version) {
-    return <InstalledUpdate platform={platform} version={version} />;
+    return (
+      <div className="space-y-3">
+        <InstalledUpdate platform={platform} version={version} />
+        {/* The shell's own release can be current while the page it shows is stale. */}
+        <RefreshPage />
+      </div>
+    );
   }
   if (!platform || !version) return <AboutBotCamp />;
-  return <AboutBotCamp client={{ platform, version }} />;
+  // The same sweep for a build with no update feed: the shell may stay put while the page moves on.
+  return (
+    <div className="space-y-3">
+      <AboutBotCamp client={{ platform, version }} />
+      <RefreshPage />
+    </div>
+  );
 }

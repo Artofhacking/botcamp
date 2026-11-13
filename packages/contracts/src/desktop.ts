@@ -151,6 +151,14 @@ export interface BotCampDesktop {
     toggleMaximize: () => Promise<void>;
     state: () => Promise<{ minimized: boolean; maximized: boolean; fullScreen: boolean }>;
   };
+  /**
+   * The page the shell shows, not the shell itself. Absent on older shells, which reload the page
+   * with a plain reload that the HTTP cache may answer.
+   */
+  page?: {
+    /** Reload the page onto whatever the web server serves now, ignoring the HTTP cache. */
+    reload: () => Promise<void>;
+  };
   update: BotCampDesktopUpdate;
   oauth: {
     /**
