@@ -55,6 +55,7 @@ describe("desktop preload bridge", () => {
       "monitoring",
       "nativeWindowFrame",
       "oauth",
+      "page",
       "passkeys",
       "platform",
       "settings",
@@ -68,6 +69,7 @@ describe("desktop preload bridge", () => {
       "toggleMaximize",
     ]);
     expect(Object.keys(bridge.update).sort()).toEqual(["check", "download", "install", "state"]);
+    expect(Object.keys(bridge.page!).sort()).toEqual(["reload"]);
 
     expect(Object.keys(bridge.badge!)).toEqual(["set"]);
     await bridge.badge!.set(7);
@@ -87,6 +89,7 @@ describe("desktop preload bridge", () => {
     await bridge.window.minimize();
     await bridge.window.toggleMaximize();
     await bridge.window.state();
+    await bridge.page?.reload();
     await bridge.update.state();
     await bridge.update.check();
     await bridge.update.download();
@@ -105,6 +108,7 @@ describe("desktop preload bridge", () => {
       "desktop.window.minimize",
       "desktop.window.toggleMaximize",
       "desktop.window.state",
+      "desktop.page.reload",
       "desktop.update.state",
       "desktop.update.check",
       "desktop.update.download",
