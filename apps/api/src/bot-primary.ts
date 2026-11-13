@@ -1,5 +1,5 @@
-import { ORPCError } from "@orpc/server";
 import type { PrismaClient } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 
 /**
  * One bot per account is the primary one, and only it manages the others. The rule is stored
@@ -10,7 +10,10 @@ export async function isPrimaryBot(
   userId: string,
   botId: string,
 ): Promise<boolean> {
-  const bot = await prisma.bot.findUnique({ where: { id: botId }, select: { userId: true, isPrimary: true } });
+  const bot = await prisma.bot.findUnique({
+    where: { id: botId },
+    select: { userId: true, isPrimary: true },
+  });
   return Boolean(bot && bot.userId === userId && bot.isPrimary);
 }
 

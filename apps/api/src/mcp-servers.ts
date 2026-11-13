@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import type { McpOAuthBroker, McpOAuthSummary, McpStdioPolicy } from "@botcamp/adapters";
 import {
   assertNoMcpEndpointCredential,
@@ -13,6 +12,7 @@ import { mcpOAuthEnvReferences } from "@botcamp/contracts";
 import type { McpServer as McpServerRow, Prisma } from "@botcamp/db";
 import { itemSecretIn, spaceAvailability } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import { isAdmin } from "./admins.js";
 import { assertNameFreeWhereAvailable, userAddedAvailability } from "./availability.js";
 import { dismissMcpServerApprovals } from "./mcp-approval.js";

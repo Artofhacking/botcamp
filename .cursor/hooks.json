@@ -1,8 +1,12 @@
 {
   "version": 1,
   "hooks": {
-    "sessionStart": [{ "command": "node scripts/agent-finish-gate.mjs cursor-start", "timeout": 30 }],
-    "beforeSubmitPrompt": [{ "command": "node scripts/agent-finish-gate.mjs cursor-prompt", "timeout": 10 }],
+    "sessionStart": [
+      { "command": "node scripts/agent-finish-gate.mjs cursor-start", "timeout": 30 }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "node scripts/agent-finish-gate.mjs cursor-prompt", "timeout": 10 }
+    ],
     "stop": [{ "command": "node scripts/agent-finish-gate.mjs cursor-stop", "timeout": 30 }]
   }
 }

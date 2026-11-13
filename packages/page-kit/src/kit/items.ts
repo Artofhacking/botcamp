@@ -1,4 +1,5 @@
-import { isValidElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { isValidElement } from "react";
 
 /** The object items of a list prop; a page's data may hold anything else, or no list at all. */
 export const objectItems = <T>(list: readonly T[] | undefined): T[] =>

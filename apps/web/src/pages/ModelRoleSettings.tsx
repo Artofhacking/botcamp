@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   ModelBackupChoice,
   ModelCredential,
@@ -29,6 +28,7 @@ import {
   DropdownMenuTrigger,
   Spinner,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { GripVertical, MoreHorizontal, Plus } from "lucide-react";
 import type { ReactNode } from "react";

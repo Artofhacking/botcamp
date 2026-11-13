@@ -1,9 +1,9 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import { ORPCError } from "@orpc/client";
 import type { Bot } from "@botcamp/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@botcamp/contracts";
 import { Button, Disclosure, Textarea } from "@botcamp/ui-web";
 import { Popover, PopoverContent, PopoverTrigger } from "@botcamp/ui-web/components/ui/popover";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { ORPCError } from "@orpc/client";
 import { History } from "lucide-react";
 import { useId, useState } from "react";
 import { rpc } from "../lib/rpc";

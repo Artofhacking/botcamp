@@ -1,4 +1,3 @@
-import { t } from "@lingui/core/macro";
 import {
   cancelResponseBody,
   readJsonObjectWithin,
@@ -6,13 +5,14 @@ import {
   speechLocaleTag,
   withAbort,
 } from "@botcamp/core";
+import { t } from "@lingui/core/macro";
+import { apiUrl } from "./api-origin.js";
+import { authHeaders } from "./auth-token.js";
 import { desktopBridge } from "./desktop.js";
 import { DesktopSpeechRecognition } from "./desktop-speech.js";
 import { getActiveUiLocale } from "./i18n.js";
 import { selectedSpaceId, withSpaceHeaders } from "./rpc.js";
 import { errorText, voiceAccountErrorText } from "./user-error.js";
-import { apiUrl } from "./api-origin.js";
-import { authHeaders } from "./auth-token.js";
 
 export type DictationMode = "hold" | "endpoint";
 
@@ -578,10 +578,7 @@ export class Dictation {
       const res = await withAbort(
         fetch(apiUrl("/api/voice/transcribe"), {
           method: "POST",
-          headers: withSpaceHeaders(
-            authHeaders({ "content-type": "application/json" }),
-            spaceId,
-          ),
+          headers: withSpaceHeaders(authHeaders({ "content-type": "application/json" }), spaceId),
           credentials: "include",
           body: JSON.stringify({
             audioBase64,

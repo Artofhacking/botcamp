@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { createRouterClient } from "@orpc/server";
 import { EncryptedSecretStore, withSecretPersistence } from "@botcamp/adapters";
 import type { Actor } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
 import { createDb, runAsSystem, runAsTenant } from "@botcamp/db";
+import { createRouterClient } from "@orpc/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";

@@ -79,7 +79,9 @@ it.skipIf(process.env.VERIFY_DOCKER_TEAM_SCREENS !== "1").each([false, true])(
         "--network",
         "none",
         "--shm-size=512m",
-        (process.env.BOTCAMP_COMPUTER_IMAGE ?? process.env.RAKAZO_COMPUTER_IMAGE) ?? "botcamp/computer:local",
+        process.env.BOTCAMP_COMPUTER_IMAGE ??
+          process.env.RAKAZO_COMPUTER_IMAGE ??
+          "botcamp/computer:local",
       );
       docker("cp", commandFile, `${name}:/tmp/team-desktops-commands.json`);
       docker(

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
 import { BOT_AVATAR_COLORS } from "@botcamp/core";
+import { expect, test } from "@playwright/test";
 import { captureScreenshot } from "./helpers";
 
 test.use({ viewport: { width: 1260, height: 1000 } });

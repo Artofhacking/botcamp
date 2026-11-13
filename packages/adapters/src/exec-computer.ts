@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { SandboxDamagedError } from "@botcamp/adapter-kit";
 import type {
   AdapterContext,
   CommandRequest,
@@ -10,6 +9,7 @@ import type {
   PortableFile,
   ProcessEvent,
 } from "@botcamp/adapter-kit";
+import { SandboxDamagedError } from "@botcamp/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@botcamp/core";
 import { COMPUTER_CACHE_ENV } from "@botcamp/core/node/desktop-runtime";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";

@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import {
   effectiveModelRole,
   hasHostedModelCredits,
@@ -36,6 +35,7 @@ import {
   voicePreferenceTarget,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import { createAccessGrant, listAccessGrants, revokeAccessGrant } from "../access-grants.js";
 import { requireAdmin } from "../admins.js";
 import { aiConsentStatus, allowAiConsent } from "../ai-consent.js";

@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { runWithLogContext } from "@botcamp/logging";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { SpanStatusCode } from "@opentelemetry/api";
@@ -9,7 +10,6 @@ import {
   NodeTracerProvider,
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-node";
-import { runWithLogContext } from "@botcamp/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MISSING_TOOL_FINAL_RESPONSE_ERROR, PiAgentRuntime } from "./pi-runtime.js";
 import {

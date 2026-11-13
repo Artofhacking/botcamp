@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import type { AdapterContext, ConnectorCatalogItem } from "@botcamp/adapter-kit";
 import { ConnectorAuthUnavailableError } from "@botcamp/adapter-kit";
 import {
@@ -16,6 +15,7 @@ import {
   runProviderTransaction,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import { connectionCreatedEvent } from "../security-audit.js";
 import type { RouterContext } from "./context.js";
 

@@ -25,7 +25,7 @@ describe("resolveUpdaterConfig", () => {
       updateServices: ["api", "worker", "web"],
       envFile: "/srv/rakazo/.env",
       projectName: DEFAULT_COMPOSE_PROJECT_NAME,
-      token: base.BOTCAMP_UPDATER_TOKEN ?? base.RAKAZO_UPDATER_TOKEN,
+      token: base.RAKAZO_UPDATER_TOKEN,
       port: DEFAULT_UPDATER_PORT,
     });
   });

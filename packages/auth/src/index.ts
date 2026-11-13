@@ -49,9 +49,6 @@ import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
-export type { TokenKey } from "./token-storage.js";
-export { openStoredOAuthToken, sealStoredOAuthToken } from "./token-storage.js";
-
 export type { DirectoryLoginConfig } from "./directory-login.js";
 export { DIRECTORY_PROVIDER_ID } from "./directory-login.js";
 export {
@@ -71,6 +68,8 @@ export {
   pluginSubmissionReviewedEmail,
 } from "./plugin-submission-email.js";
 export { referralEmail } from "./referral-email.js";
+export type { TokenKey } from "./token-storage.js";
+export { openStoredOAuthToken, sealStoredOAuthToken } from "./token-storage.js";
 export { welcomeEmail } from "./welcome-email.js";
 
 import { firstNonEmpty } from "@botcamp/core/env-name";

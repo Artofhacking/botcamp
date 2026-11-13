@@ -1,14 +1,3 @@
-import type {
-  AssistantMessage,
-  AssistantMessageEvent,
-  Context,
-  ModelsSimpleStreamOptions,
-  ModelThinkingLevel,
-  ThinkingLevelMap,
-  TranscriptContext,
-} from "@earendil-works/pi-ai";
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
-import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import type { AgentRunRequest, ConnectorTool } from "@botcamp/adapter-kit";
 import {
   isModelCredentialRejected,
@@ -24,6 +13,17 @@ import {
   MODEL_REQUEST_LIMIT_ERROR,
 } from "@botcamp/core";
 import { getLogger } from "@botcamp/logging";
+import type {
+  AssistantMessage,
+  AssistantMessageEvent,
+  Context,
+  ModelsSimpleStreamOptions,
+  ModelThinkingLevel,
+  ThinkingLevelMap,
+  TranscriptContext,
+} from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { ModelImageLimitError, pruneForRebuild } from "./context-pruning.js";
 import { groqRequestContextWindow } from "./groq-request-budget.js";
 import { estimateModelContextTokens } from "./model-context.js";

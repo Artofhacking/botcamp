@@ -2,11 +2,11 @@ import { normalizedHttpUrl } from "@botcamp/core/egress";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
+import { GITHUB_APP_NAME, GITHUB_MCP_ENDPOINT, isGithubAppName } from "./github-app.js";
 import { isMailboxAppName } from "./mailbox-app.js";
 import { loadSavedMailbox } from "./mailbox-connection.js";
 import { qqMailGrantConnected } from "./mcp-oauth.js";
 import { addMcpServerFromTool } from "./mcp-server-tool.js";
-import { GITHUB_APP_NAME, GITHUB_MCP_ENDPOINT, isGithubAppName } from "./github-app.js";
 import { isNotionAppName, NOTION_APP_NAME, NOTION_MCP_ENDPOINT } from "./notion-app.js";
 import type { RunContext } from "./run-context.js";
 import { runScopedToolExecutionId } from "./run-effects.js";
@@ -69,7 +69,6 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
   }
   return call.finish({ error: `unknown tool ${name}` });
 }
-
 
 /** Hosted apps whose Connect row is their own MCP sign-in. */
 const HOSTED_MCP_APPS = [

@@ -28,8 +28,8 @@ import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { withNewestThreadMessages } from "./preview-messages.js";
-import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { runAsSystemInTransaction } from "./row-security.js";
+import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
 import {
   activeRunSelection,

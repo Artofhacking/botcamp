@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import type {
   AgentModelOAuthCredential,
   ModelCredentialFailedState,
@@ -8,6 +7,7 @@ import type {
 } from "@botcamp/adapter-kit";
 import type { PrismaClient } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import { toOAuthCredential } from "./pi-credentials.js";
 import {
   GROK_SUBSCRIPTION_AUTH_HEADER,

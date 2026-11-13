@@ -1,10 +1,10 @@
-import type { ModelsSimpleStreamOptions } from "@earendil-works/pi-ai";
 import type { AgentRunModel } from "@botcamp/adapter-kit";
 import {
   cloudflareModelConfigMessage,
   cloudflareModelRouting,
   isCloudflareModelProvider,
 } from "@botcamp/contracts";
+import type { ModelsSimpleStreamOptions } from "@earendil-works/pi-ai";
 
 const CLOUDFLARE_ACCOUNT_ID_ENV = "CLOUDFLARE_ACCOUNT_ID";
 const CLOUDFLARE_GATEWAY_ID_ENV = "CLOUDFLARE_GATEWAY_ID";

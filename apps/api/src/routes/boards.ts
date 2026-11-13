@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import { commentTicket, createTicket, updateTicket } from "@botcamp/adapters";
 import type { BoardEvent } from "@botcamp/contracts";
 import { parseTicketRef } from "@botcamp/contracts";
@@ -14,6 +13,7 @@ import {
   toTicketCommentDto,
   toTicketDto,
 } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import type { RouterContext } from "./context.js";
 import { HEARTBEAT_MS, SESSION_RECHECK_MS } from "./shared.js";
 

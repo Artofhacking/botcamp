@@ -2,7 +2,8 @@ import type { Actor, Group } from "@botcamp/contracts";
 import { GROUP_MEMBER_MAX } from "@botcamp/contracts";
 import { displayName } from "@botcamp/core";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
-import { Prisma, type PrismaClient } from "./client.js";
+import type { PrismaClient } from "./client.js";
+import { Prisma } from "./client.js";
 import { createGroupRepos, lockReadableGroup, memberRowsInOrder } from "./groups.js";
 import { runAsSystemInTransaction } from "./row-security.js";
 import { IsolationError } from "./scope.js";
@@ -74,11 +75,7 @@ export function createSharedGroupRepos(prisma: PrismaClient) {
     return role;
   }
 
-  async function cancelBots(
-    tx: Prisma.TransactionClient,
-    groupId: string,
-    botIds: string[],
-  ) {
+  async function cancelBots(tx: Prisma.TransactionClient, groupId: string, botIds: string[]) {
     if (botIds.length === 0) return;
     const thread = await tx.thread.findFirst({
       where: { groupId },
@@ -103,8 +100,11 @@ export function createSharedGroupRepos(prisma: PrismaClient) {
     groupId: string,
     userId: string,
   ): Promise<string[]> {
-    const rows = await runAsSystemInTransaction(tx, "read shared group member names", () =>
-      tx.$queryRaw<Array<{ botId: string }>>`
+    const rows = await runAsSystemInTransaction(
+      tx,
+      "read shared group member names",
+      () =>
+        tx.$queryRaw<Array<{ botId: string }>>`
         SELECT m."botId"
         FROM chat_group_members m
         JOIN bots b ON b.id = m."botId"
@@ -289,8 +289,11 @@ export function createSharedGroupRepos(prisma: PrismaClient) {
           select: { id: true },
         });
         if (already) return;
-        const [row] = await runAsSystemInTransaction(tx, "read shared group member names", () =>
-          tx.$queryRaw<Array<{ count: number }>>`
+        const [row] = await runAsSystemInTransaction(
+          tx,
+          "read shared group member names",
+          () =>
+            tx.$queryRaw<Array<{ count: number }>>`
             SELECT count(*)::int AS count
             FROM chat_group_members m
             JOIN bots b ON b.id = m."botId"
@@ -315,8 +318,11 @@ export function createSharedGroupRepos(prisma: PrismaClient) {
       await prisma.$transaction(async (tx) => {
         const locked = await requireShared(tx, actor, input.groupId);
         const role = await requireManager(tx, input.groupId, actor.userId);
-        const [owner] = await runAsSystemInTransaction(tx, "read shared group member names", () =>
-          tx.$queryRaw<Array<{ userId: string }>>`
+        const [owner] = await runAsSystemInTransaction(
+          tx,
+          "read shared group member names",
+          () =>
+            tx.$queryRaw<Array<{ userId: string }>>`
             SELECT b."userId"
             FROM chat_group_members m
             JOIN bots b ON b.id = m."botId"

@@ -1,8 +1,8 @@
-import type { OAuthCredential } from "@earendil-works/pi-ai";
 import type { SecretStore } from "@botcamp/adapter-kit";
 import type { ThinkingLevel } from "@botcamp/contracts";
 import { ThinkingLevelSchema } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
+import type { OAuthCredential } from "@earendil-works/pi-ai";
 import { listAvailablePiCatalog } from "./pi-catalog-availability.js";
 import { LiveCatalogCache, liveModelCatalogEnabled } from "./pi-live-cache.js";
 import type { CatalogSpaceAuth } from "./pi-live-catalog.js";

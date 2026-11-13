@@ -1,7 +1,7 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { BotSecretMetadata, VaultRevealed } from "@botcamp/contracts";
 import { BotSecretName, cardExpiry, commandVariableName, vaultKind } from "@botcamp/contracts";
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";

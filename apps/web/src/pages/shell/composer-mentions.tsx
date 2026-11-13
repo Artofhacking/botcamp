@@ -1,7 +1,7 @@
-import { t } from "@lingui/core/macro";
 import type { ComposerMention, ComposerMentionBinding, SlashActionId } from "@botcamp/core";
 import { composerMentionSegments, mentionChipKey } from "@botcamp/core";
 import { BotAvatar, resolvePersonaColorDef } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
 import { Clock, Puzzle, X } from "lucide-react";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { Fragment } from "react";

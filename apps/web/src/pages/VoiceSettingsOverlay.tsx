@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   SettingsScope,
   VoiceCatalogEntry,
@@ -25,6 +24,7 @@ import {
   NativeSelectOption,
   Spinner,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";

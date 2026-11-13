@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Button,
   Command,
@@ -10,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRef, useState } from "react";
 import { useListSearch } from "../lib/use-list-search";
 

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { SpanAttributes, TelemetryContext, TelemetrySpan } from "@earendil-works/pi-telemetry";
 import type { AgentRunRequest } from "@botcamp/adapter-kit";
+import type { SpanAttributes, TelemetryContext, TelemetrySpan } from "@earendil-works/pi-telemetry";
 
 const current = new AsyncLocalStorage<TelemetryContext>();
 let exporter: Promise<{ context: TelemetryContext; shutdown(): Promise<void> }> | undefined;

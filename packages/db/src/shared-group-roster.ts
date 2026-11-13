@@ -1,6 +1,6 @@
 import { resolveBotAvatarSet } from "@botcamp/contracts";
-import { displayName, isSharedGroupRole, sharedGroupBotName } from "@botcamp/core";
 import type { SharedGroupRole } from "@botcamp/core";
+import { displayName, isSharedGroupRole, sharedGroupBotName } from "@botcamp/core";
 import { Prisma } from "./client.js";
 import { activeRunStatuses } from "./thread-listing.js";
 

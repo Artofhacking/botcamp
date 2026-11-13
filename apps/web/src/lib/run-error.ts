@@ -1,5 +1,5 @@
-import { i18n } from "@lingui/core";
 import type { RunErrorTranslator } from "@botcamp/core";
+import { i18n } from "@lingui/core";
 
 /** Static descriptors keep shared run-error messages in Lingui extraction. */
 export const translateRunError: RunErrorTranslator = (message, values) => {

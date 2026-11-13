@@ -1,12 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type {
-  AuthInteraction,
-  Credential,
-  OAuthAuth,
-  OAuthCredential,
-} from "@earendil-works/pi-ai";
-import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import type {
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
   SecretStore,
@@ -31,6 +24,13 @@ import {
 import type { PrismaClient } from "@botcamp/db";
 import { retireModelCredential, runAsSystem, runAsTenant } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import type {
+  AuthInteraction,
+  Credential,
+  OAuthAuth,
+  OAuthCredential,
+} from "@earendil-works/pi-ai";
+import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { createManualAnthropicOAuthLogin } from "./pi-anthropic-oauth.js";
 
 export const CHATGPT_OAUTH_PROVIDER = "openai-codex";

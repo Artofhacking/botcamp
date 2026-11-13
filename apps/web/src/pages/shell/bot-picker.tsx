@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot } from "@botcamp/contracts";
 import {
   BotAvatar,
@@ -9,6 +8,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Plus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 

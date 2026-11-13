@@ -502,6 +502,7 @@ msgstr "Activity"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Add"
 msgstr "Add"
 
@@ -647,6 +648,10 @@ msgstr "Address"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "Address line 2"
 msgstr "Address line 2"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "Admin"
+msgstr "Admin"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -957,17 +962,10 @@ msgstr "Authentication"
 msgid "Authentication failed."
 msgstr "Authentication failed."
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Authorization code"
 msgstr "Authorization code"
-
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Authorization code was rejected"
-msgstr "Authorization code was rejected"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -1030,6 +1028,7 @@ msgstr "Avatar Studio"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/chat-tool-link.tsx
 msgid "Back"
 msgstr "Back"
 
@@ -1232,6 +1231,7 @@ msgid "Cancel new bot"
 msgstr "Cancel new bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Cancel new group"
 msgstr "Cancel new group"
 
@@ -1492,6 +1492,7 @@ msgid "Close page"
 msgstr "Close page"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/side-panel.tsx
 msgid "Close panel"
 msgstr "Close panel"
@@ -1807,6 +1808,7 @@ msgstr "Continue in Background"
 msgid "Continue to checkout"
 msgstr "Continue to checkout"
 
+#. placeholder {0}: reset.directory.name
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
@@ -1968,6 +1970,7 @@ msgid "Could not create bot"
 msgstr "Could not create bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Could not create group"
 msgstr "Could not create group"
 
@@ -2169,11 +2172,6 @@ msgstr "Could not play a test clip"
 msgid "Could not preview plugin"
 msgstr "Could not preview plugin"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Could not reach the mailbox"
-msgstr "Could not reach the mailbox"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not reach the model server."
 msgstr "Could not reach the model server."
@@ -2278,6 +2276,7 @@ msgid "Could not save computer settings"
 msgstr "Could not save computer settings"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Could not save group"
 msgstr "Could not save group"
 
@@ -2475,6 +2474,10 @@ msgstr "Create group"
 msgid "Create Routine"
 msgstr "Create Routine"
 
+#: src/pages/SharedGroupPanel.tsx
+msgid "Create shared group"
+msgstr "Create shared group"
+
 #: src/components/AskCard.tsx
 msgid "Create space"
 msgstr "Create space"
@@ -2488,6 +2491,7 @@ msgid "Created"
 msgstr "Created"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Creating…"
@@ -2646,6 +2650,7 @@ msgid "Delete account"
 msgstr "Delete account"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Delete group"
 msgstr "Delete group"
 
@@ -2925,9 +2930,7 @@ msgstr "Ends {day}"
 msgid "Enter a password"
 msgstr "Enter a password"
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/lib/user-error.ts
-#: src/pages/shell/message-cards.tsx
 msgid "Enter a valid email"
 msgstr "Enter a valid email"
 
@@ -2949,11 +2952,6 @@ msgstr "Enter a whole number from 1 to 1000 for the image limit."
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "Enter an API key before testing."
-
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Enter the 16-character authorization code"
-msgstr "Enter the 16-character authorization code"
 
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
@@ -3293,6 +3291,7 @@ msgid "Group"
 msgstr "Group"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Group settings"
 msgstr "Group settings"
 
@@ -3566,6 +3565,10 @@ msgstr "Invite friends"
 msgid "Invite link"
 msgstr "Invite link"
 
+#: src/pages/SharedGroupPanel.tsx
+msgid "Invite with an email"
+msgstr "Invite with an email"
+
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Isolated"
 msgstr "Isolated"
@@ -3642,6 +3645,7 @@ msgid "Later"
 msgstr "Later"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Leave"
 msgstr "Leave"
 
@@ -3781,11 +3785,6 @@ msgstr "Low"
 msgid "Low"
 msgstr "Low"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Mailbox"
-msgstr "Mailbox"
-
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "Main model"
@@ -3885,6 +3884,7 @@ msgid "Medium"
 msgstr "Medium"
 
 #: src/lib/identity-display.ts
+#: src/pages/SharedGroupPanel.tsx
 msgid "Member"
 msgstr "Member"
 
@@ -4122,6 +4122,7 @@ msgstr "My computers"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/create-bot-dialog.tsx
@@ -4140,6 +4141,7 @@ msgid "Name this bot"
 msgstr "Name this bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Name this group"
 msgstr "Name this group"
 
@@ -4222,24 +4224,6 @@ msgstr "New group"
 msgid "New group chat"
 msgstr "New group chat"
 
-msgid "New shared group"
-msgstr "New shared group"
-
-msgid "Invite with an email"
-msgstr "Invite with an email"
-
-msgid "People"
-msgstr "People"
-
-msgid "Admin"
-msgstr "Admin"
-
-msgid "Your bots"
-msgstr "Your bots"
-
-msgid "Create shared group"
-msgstr "Create shared group"
-
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr "New login"
@@ -4261,6 +4245,12 @@ msgstr "New password"
 #: src/pages/shell/dialogs.tsx
 msgid "New section"
 msgstr "New section"
+
+#: src/pages/SharedGroupPanel.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+msgid "New shared group"
+msgstr "New shared group"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "New skill"
@@ -4661,6 +4651,7 @@ msgstr "Other model…"
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Owner"
 msgstr "Owner"
 
@@ -4794,6 +4785,10 @@ msgstr "Paused"
 #: src/pages/PluginSubmissionsPanel.tsx
 msgid "Pending"
 msgstr "Pending"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "People"
+msgstr "People"
 
 #: src/components/integrations/deployment-apps.tsx
 #: src/pages/shell/message-cards.tsx
@@ -5073,6 +5068,7 @@ msgstr "Recreating the computer"
 msgid "Recruiting & HR"
 msgstr "Recruiting & HR"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Redirect URI"
 msgstr "Redirect URI"
@@ -5138,6 +5134,7 @@ msgstr "Reload"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Remove"
 msgstr "Remove"
 
@@ -5364,6 +5361,7 @@ msgstr "Retry now"
 msgid "Retry screen"
 msgstr "Retry screen"
 
+#: src/pages/DesktopReturn.tsx
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/SlackInstallCallback.tsx
 msgid "Return to BotCamp"
@@ -5477,6 +5475,7 @@ msgstr "Saturday"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Save"
@@ -5556,6 +5555,7 @@ msgstr "Screen not connected"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 #: src/pages/shell/command-palette.tsx
@@ -5751,6 +5751,8 @@ msgstr "Share, anyone with the link can view"
 
 #: src/components/pages/PagesList.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/shell/shared-mark.tsx
+#: src/pages/shell/sidebar-roster.tsx
 msgid "Shared"
 msgstr "Shared"
 
@@ -6062,6 +6064,7 @@ msgstr "Stopped."
 msgid "Stopping…"
 msgstr "Stopping…"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"
 msgstr "Stored encrypted"
@@ -6070,8 +6073,10 @@ msgstr "Stored encrypted"
 msgid "subagent"
 msgstr "subagent"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Submit"
 msgstr "Submit"
 
@@ -6177,11 +6182,6 @@ msgstr "Template"
 msgid "Test"
 msgstr "Test"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Test and save"
-msgstr "Test and save"
-
 #: src/components/ModelConnectionPreflightNotice.tsx
 msgid "Test API key"
 msgstr "Test API key"
@@ -6199,9 +6199,7 @@ msgstr "Test run"
 msgid "Testing"
 msgstr "Testing"
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/components/ModelConnectionPreflightNotice.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Testing…"
 msgstr "Testing…"
 
@@ -6845,6 +6843,7 @@ msgstr "Wait a moment and test again."
 msgid "Waiting in line…"
 msgstr "Waiting in line…"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "Waiting…"
@@ -7010,6 +7009,7 @@ msgstr "You"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "You can close this tab if it does not redirect automatically."
 
+#: src/pages/DesktopReturn.tsx
 #: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
@@ -7031,6 +7031,10 @@ msgstr "You have control"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Your Anthropic"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "Your bots"
+msgstr "Your bots"
 
 #: src/components/ModelCredits.tsx
 msgid "Your card is charged {annualPrice} today, less the unused part of this month."
@@ -7102,23 +7106,3 @@ msgstr "Your voice provider key was rejected."
 #: src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"
 msgstr "ZIP or postal code"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Already linked"
-msgstr "Already linked"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Chat app code"
-msgstr "Chat app code"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Link your chat app"
-msgstr "Link your chat app"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "Number from your phone"
-msgstr "Number from your phone"
-
-#: src/pages/shell/chat-tool-link.tsx
-msgid "The code expired"
-msgstr "The code expired"

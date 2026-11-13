@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ORPCError } from "@orpc/server";
 import type { AgentHomeStore, JobPublisher, SandboxProvider } from "@botcamp/adapter-kit";
 import {
   createAdapterContext,
@@ -41,6 +40,7 @@ import {
 import type { createRepos, PrismaClient, ThreadEvents } from "@botcamp/db";
 import { clearEndedRunState, expireComputerExecutionLeases, IsolationError } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 
 export interface TaughtSkillsDeps {
   prisma: PrismaClient;

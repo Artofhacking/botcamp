@@ -26,7 +26,10 @@ async function ico(input: Buffer, name: string, sizes: number[]) {
   await writeFile(path(name), Buffer.concat([header, ...frames]));
 }
 
-const desktopIcon = await sharp(path("apps/desktop/assets/icon.png")).resize(1024, 1024).png().toBuffer();
+const desktopIcon = await sharp(path("apps/desktop/assets/icon.png"))
+  .resize(1024, 1024)
+  .png()
+  .toBuffer();
 await ico(desktopIcon, "apps/desktop/assets/icon.ico", [16, 32, 48, 64, 128, 256]);
 
 // Unpackaged Mac draws this file as-is. The squircle matches the old Dock

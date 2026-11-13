@@ -3,8 +3,8 @@ import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { mkdir, open, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { getLogger } from "@botcamp/logging";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 export const PI_SESSION_RETENTION_DAYS = 30;
 export const PI_SESSION_MAX_FILES_PER_BOT = 100;

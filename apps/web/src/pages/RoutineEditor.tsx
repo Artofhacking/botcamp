@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   ModelCatalogEntry,
   ModelCredential,
@@ -36,6 +34,8 @@ import {
   Switch,
   Textarea,
 } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,

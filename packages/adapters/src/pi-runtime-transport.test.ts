@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL_MAX_TOKENS } from "@botcamp/contracts";
 import type {
   Api,
   Context,
@@ -5,7 +6,6 @@ import type {
   ModelsSimpleStreamOptions,
   ProviderHeaders,
 } from "@earendil-works/pi-ai";
-import { DEFAULT_MODEL_MAX_TOKENS } from "@botcamp/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_MODEL_STREAM_MAX_RETRIES, MODEL_STREAM_TIMEOUT_MS } from "./pi-runtime-limits.js";
 import { resolveRuntimeModel } from "./pi-runtime-models.js";

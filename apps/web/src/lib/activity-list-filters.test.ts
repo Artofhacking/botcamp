@@ -1,5 +1,5 @@
-import { t } from "@lingui/core/macro";
 import type { RunActivityRow } from "@botcamp/contracts";
+import { t } from "@lingui/core/macro";
 import { describe, expect, it, vi } from "vitest";
 import {
   activityFiltersActive,

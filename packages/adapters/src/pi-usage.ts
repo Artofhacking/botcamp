@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type {
+  AgentRuntimeEvent,
+  AgentUsage,
+  ModelCallObserver,
+  UsageOperationKind,
+} from "@botcamp/adapter-kit";
+import type {
   Api,
   AssistantMessage,
   Context,
@@ -9,12 +15,6 @@ import type {
   Usage,
 } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
-import type {
-  AgentRuntimeEvent,
-  AgentUsage,
-  ModelCallObserver,
-  UsageOperationKind,
-} from "@botcamp/adapter-kit";
 import { Agent } from "undici";
 import { withChatCompletionsCompatibility } from "./chat-completions-compat.js";
 import type { ContextBudget } from "./context-selection.js";

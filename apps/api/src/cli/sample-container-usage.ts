@@ -27,15 +27,24 @@ async function kubernetesSandboxCores(): Promise<
   Array<{ botId: string; tier: string; cores: number; podName: string; startedAt?: string }>
 > {
   const args = [
-    "--cacert", process.env.K8S_CA ?? "/root/.kube/pki/ca.crt",
-    "--cert", process.env.K8S_CERT ?? "/root/.kube/pki/client.crt",
-    "--key", process.env.K8S_KEY ?? "/root/.kube/pki/client.key",
+    "--cacert",
+    process.env.K8S_CA ?? "/root/.kube/pki/ca.crt",
+    "--cert",
+    process.env.K8S_CERT ?? "/root/.kube/pki/client.crt",
+    "--key",
+    process.env.K8S_KEY ?? "/root/.kube/pki/client.key",
     "-s",
     `${K8S_API}/api/v1/namespaces/${NAMESPACE}/pods`,
   ];
   const raw = execFileSync("curl", args, { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   const list = JSON.parse(raw) as { items?: Array<Record<string, any>> };
-  const out: Array<{ botId: string; tier: string; cores: number; podName: string; startedAt?: string }> = [];
+  const out: Array<{
+    botId: string;
+    tier: string;
+    cores: number;
+    podName: string;
+    startedAt?: string;
+  }> = [];
   for (const pod of list.items ?? []) {
     const phase = pod.status?.phase;
     if (phase !== "Running") continue;
@@ -46,7 +55,9 @@ async function kubernetesSandboxCores(): Promise<
     out.push({
       botId,
       tier: imageTier(container.image),
-      cores: coresFromQuantity(container.resources?.limits?.cpu ?? container.resources?.requests?.cpu),
+      cores: coresFromQuantity(
+        container.resources?.limits?.cpu ?? container.resources?.requests?.cpu,
+      ),
       podName: pod.metadata?.name ?? botId,
       startedAt: pod.status?.startTime,
     });

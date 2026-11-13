@@ -2,9 +2,8 @@
 //
 // Brings accounts over from the previous BotCamp deployment. Passwords stay with their
 // original PBKDF2 hash in legacy_credentials; the first sign-in upgrades them in place.
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { randomBytes, scryptSync } from "node:crypto";
 import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
 import { createDb, PLANS, runAsSystem } from "@botcamp/db";
 
@@ -19,7 +18,12 @@ interface LegacyUser {
 /** Placeholder hash in the current scheme, so a normal sign-in fails cleanly until upgraded. */
 function placeholderHash(): string {
   const salt = randomBytes(16).toString("hex");
-  const key = scryptSync(randomBytes(32).toString("hex"), salt, 64, { N: 16384, r: 16, p: 1, maxmem: 128 * 16384 * 16 * 2 });
+  const key = scryptSync(randomBytes(32).toString("hex"), salt, 64, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    maxmem: 128 * 16384 * 16 * 2,
+  });
   return `${salt}:${key.toString("hex")}`;
 }
 

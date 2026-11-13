@@ -1,6 +1,6 @@
-import { useLingui } from "@lingui/react/macro";
 import { navLinkSandbox } from "@botcamp/contracts";
 import { buttonVariants } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router-dom";

@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createMemoryState } from "@chat-adapter/state-memory";
 import type {
   AdapterContext,
   AdapterDescriptor,
@@ -16,6 +15,7 @@ import type {
   MessagingSurface,
 } from "@botcamp/adapter-kit";
 import { getLogger } from "@botcamp/logging";
+import { createMemoryState } from "@chat-adapter/state-memory";
 import type { Adapter, Message, PostableMarkdown, Root, Thread } from "chat";
 import { Chat, isLinkNode, paragraph, parseMarkdown, root, text, toPlainText, walkAst } from "chat";
 import { getLarkTextParts } from "./lark/text-parts.js";

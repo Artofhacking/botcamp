@@ -2,9 +2,9 @@ import { lookup } from "node:dns/promises";
 import { existsSync } from "node:fs";
 import { BlockList, isIP } from "node:net";
 import { networkInterfaces } from "node:os";
-import { getConnInfo } from "@hono/node-server/conninfo";
 import { CLIENT_IP_HEADER } from "@botcamp/auth";
 import { withSecurityRequest } from "@botcamp/db";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context, MiddlewareHandler } from "hono";
 
 export interface ClientIpConfig {

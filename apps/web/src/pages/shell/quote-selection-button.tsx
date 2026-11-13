@@ -1,5 +1,5 @@
-import { useLingui } from "@lingui/react/macro";
 import { Button, cn } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { TextQuote } from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";

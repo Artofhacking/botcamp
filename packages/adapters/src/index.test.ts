@@ -79,9 +79,9 @@ describe("scripted runtime", () => {
 
   it("does not create a space when asked", () => {
     const script = inferScript("create a space named Customer support");
-    expect(script?.some((turn) => turn.toolCalls?.some((call) => call.name === "create_space"))).toBe(
-      false,
-    );
+    expect(
+      script?.some((turn) => turn.toolCalls?.some((call) => call.name === "create_space")),
+    ).toBe(false);
     expect(script?.some((turn) => turn.complete)).toBe(true);
   });
 

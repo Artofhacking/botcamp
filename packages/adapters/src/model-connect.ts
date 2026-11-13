@@ -1,4 +1,3 @@
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ModelConnectInput, ModelCredential, ThinkingLevel } from "@botcamp/contracts";
 import {
   assertHeaderSafeApiKey,
@@ -10,6 +9,7 @@ import {
   MAX_ENABLED_MODEL_IDS,
   modelOutputLeavesInputRoom,
 } from "@botcamp/contracts";
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { enabledOpenAiCompatibleModelIds } from "./model-selection.js";
 import { modelIdSupportsImages, updateModelImageCapabilities } from "./model-vision.js";
 import { normalizeOpenAiCompatibleBaseUrl } from "./openai-compatible-url.js";

@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type { AgentSkillCatalogEntry, ThreadMessage } from "@botcamp/contracts";
 import type { ComposerMention, ComposerMentionRange, SlashActionId } from "@botcamp/core";
 import {
@@ -18,6 +17,7 @@ import {
   updateComposerMentionBindings,
 } from "@botcamp/core";
 import { Button } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { ArrowUp, Box, Paperclip, Plus, Settings, Square, X } from "lucide-react";
 import type { ClipboardEvent, ComponentProps, DragEvent, RefObject } from "react";
 import {

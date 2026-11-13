@@ -1,5 +1,5 @@
-import { useLingui } from "@lingui/react/macro";
 import { Button } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 

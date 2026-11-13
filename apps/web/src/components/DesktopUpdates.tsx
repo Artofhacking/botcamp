@@ -1,6 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { DesktopUpdateState } from "@botcamp/contracts";
 import { Button, toast } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/desktop";

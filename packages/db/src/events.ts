@@ -60,10 +60,10 @@ import {
   partialReplyClientNonce,
   RunHistoryWriteError,
 } from "./messages.js";
+import { runAsSystemInTransaction } from "./row-security.js";
 import { deleteRunSecretsInTransaction } from "./run-secrets.js";
 import { isRunResponse, readRunTimingFields } from "./run-timing.js";
 import { RUN_TURN_CHECKPOINT_KIND } from "./run-turn-checkpoint.js";
-import { runAsSystemInTransaction } from "./row-security.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 

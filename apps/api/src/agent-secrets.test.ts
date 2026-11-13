@@ -1,6 +1,6 @@
-import { ORPCError } from "@orpc/server";
 import { EncryptedSecretStore } from "@botcamp/adapters";
 import type { PrismaClient } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import { describe, expect, it, vi } from "vitest";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
 

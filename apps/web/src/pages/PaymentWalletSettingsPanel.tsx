@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { PaymentWalletStatus } from "@botcamp/contracts";
 import { writeSaved } from "@botcamp/core/query";
 import {
@@ -11,6 +10,7 @@ import {
   AlertDialogTitle,
   Button,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";

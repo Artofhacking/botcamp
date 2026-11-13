@@ -1,6 +1,6 @@
 import { pbkdf2Sync, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { Hono } from "hono";
 import type { PrismaClient } from "@botcamp/db";
+import { Hono } from "hono";
 
 /**
  * One-time bridge for accounts whose password was hashed by the previous BotCamp backend
@@ -11,9 +11,10 @@ export function legacySignInRoutes(deps: { prisma: PrismaClient }) {
   const app = new Hono();
 
   app.post("/api/auth/legacy-sign-in", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as
-      | { email?: unknown; password?: unknown }
-      | null;
+    const body = (await c.req.json().catch(() => null)) as {
+      email?: unknown;
+      password?: unknown;
+    } | null;
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
     if (!email || !password) return c.json({ error: "email and password are required" }, 400);
@@ -41,7 +42,12 @@ export function legacySignInRoutes(deps: { prisma: PrismaClient }) {
 /** Current scheme: `salt:key`, scrypt with N=16384, r=16, p=1, 64-byte key. */
 function hashForStorage(password: string): string {
   const salt = randomBytes(16).toString("hex");
-  const key = scryptSync(password.normalize("NFKC"), salt, 64, { N: 16384, r: 16, p: 1, maxmem: 128 * 16384 * 16 * 2 });
+  const key = scryptSync(password.normalize("NFKC"), salt, 64, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    maxmem: 128 * 16384 * 16 * 2,
+  });
   return `${salt}:${key.toString("hex")}`;
 }
 

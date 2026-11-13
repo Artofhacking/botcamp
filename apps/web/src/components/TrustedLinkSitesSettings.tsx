@@ -1,5 +1,5 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { useTrustedLinkSites } from "../lib/trusted-link-sites";
 import { errorText } from "../lib/user-error";

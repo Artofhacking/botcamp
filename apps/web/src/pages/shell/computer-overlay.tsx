@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
 import type {
   Bot,
   ComputerReleaseReason,
@@ -8,6 +6,8 @@ import type {
   TaughtSkill,
 } from "@botcamp/contracts";
 import { BotAvatar, Button } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { ComputerMaintenanceActions } from "../../components/ComputerMaintenanceActions";

@@ -1,10 +1,19 @@
 import { chromium } from "playwright";
+
 const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log("PAGEERROR:", String(e).slice(0, 300)));
-page.on("console", (m) => { if (m.type() === "error") console.log("CONSOLE:", m.text().slice(0, 300)); });
-await page.goto("https://botcamp.demox.site/console/", { waitUntil: "networkidle", timeout: 60000 });
+page.on("console", (m) => {
+  if (m.type() === "error") console.log("CONSOLE:", m.text().slice(0, 300));
+});
+await page.goto("https://botcamp.demox.site/console/", {
+  waitUntil: "networkidle",
+  timeout: 60000,
+});
 await page.waitForTimeout(4000);
 console.log("URL:", page.url());
-console.log("ROOT HTML:", (await page.evaluate(() => document.getElementById("root")?.innerHTML || "empty")).slice(0, 200));
+console.log(
+  "ROOT HTML:",
+  (await page.evaluate(() => document.getElementById("root")?.innerHTML || "empty")).slice(0, 200),
+);
 await browser.close();

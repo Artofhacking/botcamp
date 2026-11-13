@@ -2338,13 +2338,17 @@ describe("Boat computer snapshot", () => {
       await vi.waitFor(() => expect(remove).toHaveBeenCalledOnce());
       const third = await provision(provider);
 
-      const computers = api.creates.filter((request) => (request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID));
+      const computers = api.creates.filter(
+        (request) => request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID,
+      );
       expect(computers.map((request) => request.from)).toEqual([
         undefined,
         undefined,
         BOAT_COMPUTER_SNAPSHOT,
       ]);
-      const builds = api.creates.filter((request) => !(request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID));
+      const builds = api.creates.filter(
+        (request) => !(request.env?.BOTCAMP_BOT_ID ?? request.env?.RAKAZO_BOT_ID),
+      );
       expect(builds).toEqual([{ ttlSeconds: 1800, noEnv: true }]);
       const buildId = api.savedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.sourceSandboxId;
       expect([first.id, second.id, third.id]).not.toContain(buildId);

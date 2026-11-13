@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ORPCError } from "@orpc/server";
 import type { AdapterContext, SandboxProvider } from "@botcamp/adapter-kit";
 import { computerControlExpireJobKey } from "@botcamp/adapter-kit";
 import type { ComputerExecutionLease } from "@botcamp/adapters";
@@ -48,15 +47,16 @@ import {
 import { ACTIVE_RUN_STATUSES, scrollDirection } from "@botcamp/core";
 import { addScreenProxyCapability } from "@botcamp/core/node/screen-capability";
 import type { ComputerRunEnd, PrismaClient } from "@botcamp/db";
-import { runAsSystem } from "@botcamp/db";
 import {
   createRepos,
   expireComputerExecutionLeases,
   IsolationError,
   parseComputerMode,
   recordComputerRunEnd,
+  runAsSystem,
 } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
+import { ORPCError } from "@orpc/server";
 import { scrollPoint } from "../computer-input.js";
 import {
   executionBlocksUserTakeover,

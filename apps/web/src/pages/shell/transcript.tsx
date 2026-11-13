@@ -1,5 +1,3 @@
-import { i18n } from "@lingui/core";
-import { useLingui } from "@lingui/react/macro";
 import type {
   BotAvatarSet,
   LoginFieldInput,
@@ -21,6 +19,8 @@ import {
 } from "@botcamp/core";
 import type { GroupAvatarMember } from "@botcamp/ui-web";
 import { Button, cn, Spinner } from "@botcamp/ui-web";
+import { i18n } from "@lingui/core";
+import { useLingui } from "@lingui/react/macro";
 import { ArrowDown } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 import {

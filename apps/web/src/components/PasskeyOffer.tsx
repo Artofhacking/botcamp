@@ -1,6 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { passkeyOfferDismissedKey, shouldOfferPasskey } from "@botcamp/core";
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth";

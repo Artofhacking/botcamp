@@ -6,7 +6,10 @@ export const MAILBOX_APP_NAME = "QQ邮箱";
 const MAILBOX_APP_KEYS = new Set(["qq邮箱", "qqmail", "qqemail", "邮箱"]);
 
 export function isMailboxAppName(value: string): boolean {
-  const key = value.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const key = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
   return MAILBOX_APP_KEYS.has(key);
 }
 

@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, rpc, signup } from "./helpers";
 
-test("a skill in the one workspace has no space availability choice", async ({ page }, testInfo) => {
+test("a skill in the one workspace has no space availability choice", async ({
+  page,
+}, testInfo) => {
   await signup(page, `availability-${Date.now()}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
   await rpc(page, "agentSkills/create", {

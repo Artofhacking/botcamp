@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { PageIcon } from "@botcamp/chat-ui/web";
 import type { PageSummary } from "@botcamp/contracts";
 import { PAGE_TITLE_MAX_LENGTH } from "@botcamp/contracts";
@@ -12,6 +11,7 @@ import {
   SectionHeading,
   Spinner,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Globe, MoreHorizontal, Search } from "lucide-react";
 import { useDeferredValue, useState } from "react";

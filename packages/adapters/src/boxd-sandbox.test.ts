@@ -1,7 +1,7 @@
-import { RateLimitError } from "@boxd-sh/sdk";
 import type { AdapterContext, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import { SandboxRateLimitError, WorkspaceTooLargeError } from "@botcamp/adapter-kit";
 import { screenDisplayArgv, shellQuote } from "@botcamp/core/node/desktop-runtime";
+import { RateLimitError } from "@boxd-sh/sdk";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { BOXD_COMPUTER_SNAPSHOT, BoxdSandboxProvider } from "./boxd-sandbox.js";
 import { BOXD_WORKSPACE, FakeBoxd, fakeBoxdProvider } from "./boxd-sandbox.test-support.js";

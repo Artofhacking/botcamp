@@ -1,8 +1,8 @@
-import { t } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
 import type { SearchHit } from "@botcamp/contracts";
 import { searchHitListKey } from "@botcamp/core";
 import { Button } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 
 export function SpaceSearchResults({
   hits,

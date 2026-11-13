@@ -60,9 +60,9 @@ describe("rowSecurityWarning", () => {
   });
 
   it("says to rerun db:migrate when the bypass key is stale", () => {
-    expect(rowSecurityWarning({ enforced: true, role: "botcamp_app", systemBlocked: true })).toMatch(
-      /db:migrate/,
-    );
+    expect(
+      rowSecurityWarning({ enforced: true, role: "botcamp_app", systemBlocked: true }),
+    ).toMatch(/db:migrate/);
   });
 
   it("names the login and why it bypasses the policies", () => {

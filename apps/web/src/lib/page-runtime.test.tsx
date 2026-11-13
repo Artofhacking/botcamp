@@ -54,9 +54,7 @@ it("asks the server for the page runtime again each time a page opens", async ()
   await open();
   expect(shown).toContain("kit-v2");
   expect(fetcher).toHaveBeenCalledTimes(2);
-  expect(fetcher.mock.calls[0]?.[0]).toBe(
-    new URL("/page-runtime.js", window.location.origin).href,
-  );
+  expect(fetcher.mock.calls[0]?.[0]).toBe(new URL("/page-runtime.js", window.location.origin).href);
   expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ credentials: "omit" });
 });
 

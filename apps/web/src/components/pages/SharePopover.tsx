@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { PageVisibility } from "@botcamp/contracts";
 import { accountDisplay } from "@botcamp/core";
 import {
@@ -10,6 +9,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowUpRight, Check, Globe, Lock, Share } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCopyText } from "../../lib/copy-text";

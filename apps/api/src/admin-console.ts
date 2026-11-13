@@ -36,13 +36,6 @@ const MEMORY_YUAN_PER_GIB_HOUR = Number(process.env.TKE_MEMORY_YUAN_PER_GIB_HOUR
 // Memory is fixed per tier, so cost follows from the tier rather than a second counter.
 const TIER_MEMORY_GIB: Record<string, number> = { big: 2, desktop: 4, small: 0 };
 const USD_TO_CNY = Number(process.env.USD_TO_CNY ?? 7.1);
-// Flat monthly spend: entry CVM, cluster management fee, CFS, managed Postgres.
-const fixedMonthlyYuan = firstNonEmpty(
-  process.env.BOTCAMP_FIXED_MONTHLY_YUAN,
-  process.env.RAKAZO_FIXED_MONTHLY_YUAN,
-)?.trim();
-const FIXED_MONTHLY_YUAN = Number(fixedMonthlyYuan ? fixedMonthlyYuan : 190);
-
 /** Container spend for a set of rows, in 元. */
 function containerYuan(rows: Array<{ tier: string; coreSeconds: bigint | number }>): number {
   return rows.reduce((sum, row) => {

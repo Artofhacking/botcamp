@@ -360,32 +360,32 @@ export function createGroupRepos(prisma: PrismaClient) {
       prisma,
       actor.userId,
       await withNewestThreadMessages(
-      prisma,
-      await prisma.chatGroup.findMany({
-        where: {
-          spaceId: { in: spaceIds },
-          userId: actor.userId,
-          archivedAt: null,
-        },
-        select: {
-          id: true,
-          spaceId: true,
-          name: true,
-          pinned: true,
-          sectionId: true,
-          shared: true,
-          updatedAt: true,
-          thread: {
-            select: {
-              id: true,
-              unread: true,
-            },
+        prisma,
+        await prisma.chatGroup.findMany({
+          where: {
+            spaceId: { in: spaceIds },
+            userId: actor.userId,
+            archivedAt: null,
           },
-          members: groupInclude.members,
-        },
-        orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
-      }),
-      1,
+          select: {
+            id: true,
+            spaceId: true,
+            name: true,
+            pinned: true,
+            sectionId: true,
+            shared: true,
+            updatedAt: true,
+            thread: {
+              select: {
+                id: true,
+                unread: true,
+              },
+            },
+            members: groupInclude.members,
+          },
+          orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
+        }),
+        1,
       ),
     );
     return groups
@@ -542,7 +542,11 @@ export function createGroupRepos(prisma: PrismaClient) {
         const owner = locked.userId === actor.userId && locked.spaceId === actor.spaceId;
         if (!locked.shared && !owner) throw new IsolationError();
         if (locked.shared && !owner) {
-          if (input.pinned !== undefined || input.sectionId !== undefined || input.name === undefined) {
+          if (
+            input.pinned !== undefined ||
+            input.sectionId !== undefined ||
+            input.name === undefined
+          ) {
             throw new IsolationError();
           }
           const participant = await tx.chatGroupParticipant.findUnique({

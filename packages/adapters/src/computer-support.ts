@@ -155,10 +155,10 @@ function isTeamRootPath(value: string): boolean {
   );
 }
 
-// A leading ~ or /home/botcamp means the workspace root, the same as a leading /.
+// A leading ~, /home/botcamp, or the image's legacy /home/rakazo means the workspace root.
 function expandHomePrefix(value: string): string {
   return value.replace(
-    /^(?:~|[\\/]home[\\/]rakazo)([\\/]|$)/,
+    /^(?:~|[\\/]home[\\/](?:botcamp|rakazo))([\\/]|$)/,
     (_, separator: string) => separator || "/",
   );
 }

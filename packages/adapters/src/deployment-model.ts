@@ -1,5 +1,5 @@
-import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import type { ModelUsageLookup } from "@botcamp/adapter-kit";
+import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import { OpenRouterUsageLookup } from "./openrouter-usage.js";
 import { LOCAL_PROVIDER_ID, localModelIds } from "./pi-local-provider-id.js";
 
@@ -62,7 +62,8 @@ export function resolveDeploymentModel(env: NodeJS.ProcessEnv = process.env) {
     model: explicitModel || models[provider] || models.openrouter!,
     key,
     baseUrl,
-    configured: provider === "openai-compatible" ? Boolean(key && baseUrl) : Boolean(key) || hostCredentials,
+    configured:
+      provider === "openai-compatible" ? Boolean(key && baseUrl) : Boolean(key) || hostCredentials,
     hostCredentials,
   };
 }

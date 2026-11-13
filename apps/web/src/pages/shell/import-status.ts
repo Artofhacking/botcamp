@@ -1,5 +1,5 @@
-import { useLingui } from "@lingui/react/macro";
 import type { AgentImportNeed, AgentImportStatus } from "@botcamp/contracts";
+import { useLingui } from "@lingui/react/macro";
 
 /** Short labels for what an imported item needs, shared by the preview and the chat checklist. */
 export function useImportStatusText() {

@@ -1,11 +1,11 @@
 import type {
   AdapterContext,
-  PortableFile,
-  StreamedPortableFile,
   CommandRequest,
   ComputerRef,
+  PortableFile,
   ProcessEvent,
   SandboxProvider,
+  StreamedPortableFile,
 } from "@botcamp/adapter-kit";
 import type { PrismaClient } from "@botcamp/db";
 
@@ -70,7 +70,7 @@ class TieredSandbox {
   }
 
   async provision(request: { botId: string }, context: AdapterContext) {
-    const tier = await (this.options.tierFor(request.botId).catch(() => "small" as const));
+    const tier = await this.options.tierFor(request.botId).catch(() => "small" as const);
     if (tier !== "small") await this.options.beforeBurstProvision?.(request.botId, tier);
     return (await this.owner(request.botId)).provision(request as never, context);
   }

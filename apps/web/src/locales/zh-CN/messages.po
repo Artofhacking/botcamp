@@ -502,6 +502,7 @@ msgstr "动态"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Add"
 msgstr "添加"
 
@@ -647,6 +648,10 @@ msgstr "地址"
 #: src/components/vault/VaultItemEditor.tsx
 msgid "Address line 2"
 msgstr "地址第二行"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "Admin"
+msgstr "管理员"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -957,17 +962,10 @@ msgstr "认证"
 msgid "Authentication failed."
 msgstr "身份验证失败。"
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Authorization code"
 msgstr "授权码"
-
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Authorization code was rejected"
-msgstr "授权码不正确"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -1030,6 +1028,7 @@ msgstr "头像工作室"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/chat-tool-link.tsx
 msgid "Back"
 msgstr "返回"
 
@@ -1232,6 +1231,7 @@ msgid "Cancel new bot"
 msgstr "取消新建 Bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Cancel new group"
 msgstr "取消新建群组"
 
@@ -1492,6 +1492,7 @@ msgid "Close page"
 msgstr "关闭页面"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/side-panel.tsx
 msgid "Close panel"
 msgstr "关闭面板"
@@ -1807,6 +1808,7 @@ msgstr "在后台继续"
 msgid "Continue to checkout"
 msgstr "继续结账"
 
+#. placeholder {0}: reset.directory.name
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
@@ -1968,6 +1970,7 @@ msgid "Could not create bot"
 msgstr "无法创建 Bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Could not create group"
 msgstr "无法创建群组"
 
@@ -2169,11 +2172,6 @@ msgstr "无法播放测试片段"
 msgid "Could not preview plugin"
 msgstr "无法预览插件"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Could not reach the mailbox"
-msgstr "连不上邮箱"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not reach the model server."
 msgstr "无法连接到模型服务器。"
@@ -2278,6 +2276,7 @@ msgid "Could not save computer settings"
 msgstr "无法保存电脑设置"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Could not save group"
 msgstr "无法保存群组"
 
@@ -2475,6 +2474,10 @@ msgstr "创建群组"
 msgid "Create Routine"
 msgstr "新建例行任务"
 
+#: src/pages/SharedGroupPanel.tsx
+msgid "Create shared group"
+msgstr "创建共享群聊"
+
 #: src/components/AskCard.tsx
 msgid "Create space"
 msgstr "创建工作区"
@@ -2488,6 +2491,7 @@ msgid "Created"
 msgstr "已创建"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Creating…"
@@ -2646,6 +2650,7 @@ msgid "Delete account"
 msgstr "删除账户"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Delete group"
 msgstr "删除群组"
 
@@ -2925,9 +2930,7 @@ msgstr "将于 {day} 结束"
 msgid "Enter a password"
 msgstr "请输入密码"
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/lib/user-error.ts
-#: src/pages/shell/message-cards.tsx
 msgid "Enter a valid email"
 msgstr "请输入有效的电子邮件地址"
 
@@ -2949,11 +2952,6 @@ msgstr "请输入 1 到 1000 之间的整数作为图像限制。"
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "测试前请输入 API 密钥。"
-
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Enter the 16-character authorization code"
-msgstr "请输入 16 位授权码"
 
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
@@ -3293,6 +3291,7 @@ msgid "Group"
 msgstr "群组"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Group settings"
 msgstr "群组设置"
 
@@ -3566,6 +3565,10 @@ msgstr "邀请朋友"
 msgid "Invite link"
 msgstr "邀请链接"
 
+#: src/pages/SharedGroupPanel.tsx
+msgid "Invite with an email"
+msgstr "用邮箱邀请"
+
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Isolated"
 msgstr "隔离"
@@ -3642,6 +3645,7 @@ msgid "Later"
 msgstr "稍后"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Leave"
 msgstr "退出"
 
@@ -3781,11 +3785,6 @@ msgstr "低"
 msgid "Low"
 msgstr "低"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Mailbox"
-msgstr "邮箱"
-
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "主模型"
@@ -3885,6 +3884,7 @@ msgid "Medium"
 msgstr "中"
 
 #: src/lib/identity-display.ts
+#: src/pages/SharedGroupPanel.tsx
 msgid "Member"
 msgstr "成员"
 
@@ -4122,6 +4122,7 @@ msgstr "我的电脑"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/create-bot-dialog.tsx
@@ -4140,6 +4141,7 @@ msgid "Name this bot"
 msgstr "给这个 Bot 命名"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Name this group"
 msgstr "给这个群组命名"
 
@@ -4222,24 +4224,6 @@ msgstr "新建群组"
 msgid "New group chat"
 msgstr "新建群聊"
 
-msgid "New shared group"
-msgstr "新建共享群聊"
-
-msgid "Invite with an email"
-msgstr "用邮箱邀请"
-
-msgid "People"
-msgstr "成员"
-
-msgid "Admin"
-msgstr "管理员"
-
-msgid "Your bots"
-msgstr "你的机器人"
-
-msgid "Create shared group"
-msgstr "创建共享群聊"
-
 #: src/components/VaultSettings.tsx
 msgid "New login"
 msgstr "新建登录"
@@ -4261,6 +4245,12 @@ msgstr "新密码"
 #: src/pages/shell/dialogs.tsx
 msgid "New section"
 msgstr "新建分组"
+
+#: src/pages/SharedGroupPanel.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+msgid "New shared group"
+msgstr "新建共享群聊"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "New skill"
@@ -4661,6 +4651,7 @@ msgstr "其他模型…"
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Owner"
 msgstr "所有者"
 
@@ -4794,6 +4785,10 @@ msgstr "已暂停"
 #: src/pages/PluginSubmissionsPanel.tsx
 msgid "Pending"
 msgstr "待处理"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "People"
+msgstr "成员"
 
 #: src/components/integrations/deployment-apps.tsx
 #: src/pages/shell/message-cards.tsx
@@ -5073,6 +5068,7 @@ msgstr "正在重建电脑"
 msgid "Recruiting & HR"
 msgstr "招聘与人事"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Redirect URI"
 msgstr "重定向 URI"
@@ -5138,6 +5134,7 @@ msgstr "重新加载"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/SharedGroupPanel.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -5364,6 +5361,7 @@ msgstr "立即重试"
 msgid "Retry screen"
 msgstr "重新连接屏幕"
 
+#: src/pages/DesktopReturn.tsx
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/SlackInstallCallback.tsx
 msgid "Return to BotCamp"
@@ -5477,6 +5475,7 @@ msgstr "周六"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Save"
@@ -5556,6 +5555,7 @@ msgstr "屏幕未连接"
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/SharedGroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 #: src/pages/shell/command-palette.tsx
@@ -5751,6 +5751,8 @@ msgstr "共享，任何拥有链接的人都可查看"
 
 #: src/components/pages/PagesList.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/shell/shared-mark.tsx
+#: src/pages/shell/sidebar-roster.tsx
 msgid "Shared"
 msgstr "共享"
 
@@ -6062,6 +6064,7 @@ msgstr "已停止。"
 msgid "Stopping…"
 msgstr "正在停止…"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"
 msgstr "已加密存储"
@@ -6070,8 +6073,10 @@ msgstr "已加密存储"
 msgid "subagent"
 msgstr "子 Agent"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/message-cards.tsx
 msgid "Submit"
 msgstr "提交"
 
@@ -6177,11 +6182,6 @@ msgstr "模板"
 msgid "Test"
 msgstr "测试"
 
-#: src/components/integrations/deployment-apps.tsx
-#: src/pages/shell/message-cards.tsx
-msgid "Test and save"
-msgstr "测试并保存"
-
 #: src/components/ModelConnectionPreflightNotice.tsx
 msgid "Test API key"
 msgstr "测试 API 密钥"
@@ -6199,9 +6199,7 @@ msgstr "测试运行"
 msgid "Testing"
 msgstr "测试"
 
-#: src/components/integrations/deployment-apps.tsx
 #: src/components/ModelConnectionPreflightNotice.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Testing…"
 msgstr "正在测试…"
 
@@ -6845,6 +6843,7 @@ msgstr "请稍候并重新测试。"
 msgid "Waiting in line…"
 msgstr "排队等候…"
 
+#: src/components/integrations/deployment-apps.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "等待中…"
@@ -7010,6 +7009,7 @@ msgstr "你"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "如果没有自动跳转，可以关闭此标签页。"
 
+#: src/pages/DesktopReturn.tsx
 #: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
@@ -7031,6 +7031,10 @@ msgstr "你已接管"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "你的 Anthropic"
+
+#: src/pages/SharedGroupPanel.tsx
+msgid "Your bots"
+msgstr "你的机器人"
 
 #: src/components/ModelCredits.tsx
 msgid "Your card is charged {annualPrice} today, less the unused part of this month."

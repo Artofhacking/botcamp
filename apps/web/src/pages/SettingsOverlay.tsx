@@ -1,6 +1,6 @@
-import { useLingui } from "@lingui/react/macro";
 import type { SpaceMemoryConfig, UsageSummary } from "@botcamp/contracts";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";

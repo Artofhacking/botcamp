@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ChromeOpenContext } from "./system-browser.js";
 import {
   httpsBundleIdFromLaunchServices,
   isEphemeralChromeCommand,
   openSystemBrowser,
   preferredChromeOpenArgs,
-  type ChromeOpenContext,
 } from "./system-browser.js";
 
 const home = "/Users/test";

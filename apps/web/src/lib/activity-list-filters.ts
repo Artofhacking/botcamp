@@ -1,5 +1,5 @@
-import { t } from "@lingui/core/macro";
 import type { RunActivityRow, RunStatus } from "@botcamp/contracts";
+import { t } from "@lingui/core/macro";
 
 export type ActivityStatusFilter = RunStatus | "all";
 

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -19,7 +19,12 @@
       "!**/test-report",
       "!**/verify-report",
       "!**/data",
-      "!**/*.astro"
+      "!**/*.astro",
+      "!**/mobile",
+      "!**/agent",
+      "!**/deploy",
+      "!**/server",
+      "!**/local"
     ]
   },
   "plugins": [
@@ -50,7 +55,12 @@
       "preset": "recommended",
       "style": {
         "noNonNullAssertion": "off",
-        "useImportType": { "level": "error", "options": { "style": "separatedType" } }
+        "useImportType": {
+          "level": "error",
+          "options": {
+            "style": "separatedType"
+          }
+        }
       },
       "correctness": {
         "useExhaustiveDependencies": "off"
@@ -112,6 +122,26 @@
     },
     {
       "includes": ["packages/logging/src/console-sink.ts", "packages/logging/src/sink-guard.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["web/site/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/api/src/cli/**"],
       "linter": {
         "rules": {
           "suspicious": {

@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentImportFile,
   AgentImportMemoryDestination,
@@ -42,6 +41,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@botcamp/ui-web/components/ui/collapsible";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowLeft, ChevronDown, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";

@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { MAX_MODEL_CONNECTION_LABEL } from "@botcamp/contracts";
 import {
   Button,
@@ -14,6 +13,7 @@ import {
   PopoverTrigger,
   SectionHeading,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronRight, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useId, useRef, useState } from "react";

@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { RPCHandler } from "@orpc/server/fetch";
 import type { Actor } from "@botcamp/contracts";
 import { MODEL_REQUIRED_SEND_ERROR } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
@@ -11,6 +10,7 @@ import {
   provisionMessagingIdentity,
   runAsSystem,
 } from "@botcamp/db";
+import { RPCHandler } from "@orpc/server/fetch";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";

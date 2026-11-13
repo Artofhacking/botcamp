@@ -100,10 +100,7 @@ describe("lingui catalogs", () => {
         "When it finishes or needs input",
         "Model",
         "Add open work",
-        "Disable a tool",
         "Edit name",
-        "Enable {0}",
-        "Model connections",
         "Permissions",
         "Skills",
       ]) {

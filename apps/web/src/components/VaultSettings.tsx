@@ -1,5 +1,9 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { BotSecretMetadata, SettingsScope, VaultKind, VaultRevealed } from "@botcamp/contracts";
+import type {
+  BotSecretMetadata,
+  SettingsScope,
+  VaultKind,
+  VaultRevealed,
+} from "@botcamp/contracts";
 import { isIdentityConfirmationRequired, VAULT_KINDS, vaultKind } from "@botcamp/contracts";
 import { fetchFresh, writeSaved } from "@botcamp/core/query";
 import {
@@ -11,6 +15,7 @@ import {
   DropdownMenuTrigger,
   ListSearchInput,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";

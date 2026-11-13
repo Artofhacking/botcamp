@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import type { CommandRequest, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import type { CommandResult, EntryInfo } from "@e2b/desktop";
 import {
   AuthenticationError,
@@ -11,7 +12,6 @@ import {
   SandboxNotFoundError,
   TimeoutError,
 } from "@e2b/desktop";
-import type { CommandRequest, ComputerRef, ProcessEvent } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { sandboxIdleMs } from "./computer-idle.js";
 import { shouldSkipPortableWorkspaceFile } from "./computer-workspace.js";

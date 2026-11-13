@@ -13,9 +13,9 @@ import {
   claimSpaceDeletionForMember,
   createSpaceForMember,
   deleteClaimedSpaceForMember,
-  recordAuditEvent,
   listClaimedSpaceComputers,
   pushSessionExpiresAt,
+  recordAuditEvent,
   releaseSpaceDeletionClaim,
   renewSpaceDeletionClaim,
   runAsSystem,
@@ -573,6 +573,17 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["botSecrets/list"],
       ["botSecrets/put"],
       ["botSecrets/remove"],
+      ["groups/createShared", { name: "Check" }],
+      ["groups/invite", { groupId: "missing-group", email: "person@example.test" }],
+      ["groups/searchPeople", { groupId: "missing-group", query: "a" }],
+      ["groups/setPersonRole", { groupId: "missing-group", userId: "missing-user", role: "admin" }],
+      ["groups/removePerson", { groupId: "missing-group", userId: "missing-user" }],
+      ["groups/addBot", { groupId: "missing-group", botId: "missing-bot" }],
+      ["groups/removeBot", { groupId: "missing-group", botId: "missing-bot" }],
+      ["messaging/chatTools/list", { botId: "missing-bot" }],
+      ["messaging/chatTools/start", { botId: "missing-bot", provider: "weixin" }],
+      ["messaging/chatTools/poll", { loginId: "missing-login" }],
+      ["messaging/chatTools/unlink", { botId: "missing-bot" }],
     ]);
 
     const results = await Promise.all(
@@ -2587,6 +2598,11 @@ interface Bot {
 
 function exhaustiveProtectedCalls<
   const Calls extends ReadonlyArray<readonly [ProtectedRpcPath, unknown?]>,
->(calls: Calls & (ProtectedRpcPath extends Calls[number][0] ? unknown : never)): Calls {
+>(
+  calls: Calls &
+    (Exclude<ProtectedRpcPath, Calls[number][0]> extends never
+      ? unknown
+      : { missing: Exclude<ProtectedRpcPath, Calls[number][0]> }),
+): Calls {
   return calls;
 }

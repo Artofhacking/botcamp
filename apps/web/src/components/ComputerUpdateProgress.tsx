@@ -1,8 +1,8 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { ComputerUpdate } from "@botcamp/contracts";
 import { COMPUTER_UPDATE_STAGES } from "@botcamp/contracts";
 import { computerUpdateNeedsAttention, computerUpdateStages } from "@botcamp/core";
 import { Button, cn, Dialog, DialogContent, DialogTitle, Spinner } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckCircle2, Circle, CircleAlert } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { computerUpdates } from "../lib/computer-updates";

@@ -1,4 +1,3 @@
-import { Readability } from "@mozilla/readability";
 import type {
   AdapterContext,
   WebFetchRequest,
@@ -7,6 +6,7 @@ import type {
   WebSearchHit,
   WebSearchRequest,
 } from "@botcamp/adapter-kit";
+import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { clampMaxChars, clampMaxResults, clampOffset, pageWindow } from "./web-limits.js";
 import type { ResolveHostname } from "./web-ssrf.js";

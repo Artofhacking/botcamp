@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, Group } from "@botcamp/contracts";
 import {
   BotAvatar,
@@ -8,6 +7,7 @@ import {
   CollapsibleTrigger,
   GroupAvatar,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import type { createSpaceRpc } from "../../lib/rpc";
 

@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/server";
 import type { Actor, SpaceNavigation } from "@botcamp/contracts";
 import type { createGroupRepos, createRepos, PrismaClient } from "@botcamp/db";
 import {
@@ -6,8 +5,8 @@ import {
   CannotDeleteLastSpaceError,
   CannotDeleteSpaceAsNonOwnerError,
   CannotRenameSpaceAsNonOwnerError,
-  InvalidSpaceNameError,
   createExternalConversationRepos,
+  InvalidSpaceNameError,
   IsolationError,
   recordAuditEvent,
   renameSpaceForMember,
@@ -19,6 +18,7 @@ import {
   setSpaceSettingOverride,
   spaceSettingOverrides,
 } from "@botcamp/db";
+import { ORPCError } from "@orpc/server";
 import type { RouterDeps } from "../router.js";
 import { listRoutinesDto } from "../routines.js";
 import { deleteSpaceWithContent } from "../space-deletion.js";

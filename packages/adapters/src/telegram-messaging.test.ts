@@ -1,5 +1,5 @@
-import { createTelegramAdapter } from "@chat-adapter/telegram";
 import type { AdapterContext, MessagingInboundEvent } from "@botcamp/adapter-kit";
+import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatSdkMessagingSurface } from "./chat-sdk-surface.js";
 import type { MessagingEnvironmentValues } from "./messaging-platforms.js";

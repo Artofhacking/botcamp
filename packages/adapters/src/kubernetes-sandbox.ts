@@ -1,7 +1,5 @@
 import { createHash } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
-import type * as KubernetesClient from "@kubernetes/client-node";
-import type { CoreV1Api, Exec, V1Pod, V1PodSpec, V1Status } from "@kubernetes/client-node";
 import type {
   AdapterContext,
   CommandRequest,
@@ -23,6 +21,8 @@ import type {
 import { SandboxUnavailableError } from "@botcamp/adapter-kit";
 import { COMPUTER_CACHE_ENV } from "@botcamp/core/node/desktop-runtime";
 import { getLogger } from "@botcamp/logging";
+import type * as KubernetesClient from "@kubernetes/client-node";
+import type { CoreV1Api, Exec, V1Pod, V1PodSpec, V1Status } from "@kubernetes/client-node";
 import type { RawExecEvent } from "./exec-computer.js";
 import { ExecComputer, COMPUTER_IMAGE_WORKSPACE as WORKSPACE } from "./exec-computer.js";
 import { LinuxDesktop, onBotScreen } from "./linux-desktop.js";
@@ -341,8 +341,7 @@ export class KubernetesSandboxProvider implements SandboxProvider {
     // A legacy mount is the same saved directory. A checkpoint can skip the copy. Replacing the
     // pod still requires the current path, so startup does not delete one it would fail to read.
     return (
-      !!pod &&
-      podMountsHome(pod, computer.botId, this.homeClaim, [WORKSPACE, LEGACY_WORKSPACE])
+      !!pod && podMountsHome(pod, computer.botId, this.homeClaim, [WORKSPACE, LEGACY_WORKSPACE])
     );
   }
 

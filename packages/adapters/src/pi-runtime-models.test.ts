@@ -1,10 +1,10 @@
+import type { AgentRunRequest } from "@botcamp/adapter-kit";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
   clampThinkingLevel,
   getSupportedThinkingLevels,
   normalizeContext,
 } from "@earendil-works/pi-ai";
-import type { AgentRunRequest } from "@botcamp/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { buildModelConnectPlaintext, modelCredentialDto } from "./model-connect.js";
 import { defaultCatalogModelId, isCatalogModelChoice } from "./model-selection.js";

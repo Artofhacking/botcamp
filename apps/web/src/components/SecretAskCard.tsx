@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@botcamp/chat-ui/web";
 import type { LoginFieldInput } from "@botcamp/contracts";
 import {
@@ -8,6 +7,7 @@ import {
   vaultKind,
 } from "@botcamp/contracts";
 import { Button, Input } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AskBlock, AskCardProps } from "./AskCard";

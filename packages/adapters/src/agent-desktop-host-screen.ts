@@ -202,7 +202,10 @@ export function createAgentDesktopHostScreen(options: AgentDesktopHostScreenOpti
   }
 
   function isOwnAppQuery(query: string) {
-    const wanted = query.trim().toLowerCase().replace(/\.exe$/, "");
+    const wanted = query
+      .trim()
+      .toLowerCase()
+      .replace(/\.exe$/, "");
     return wanted === "botcamp" || wanted === "rakazo";
   }
 

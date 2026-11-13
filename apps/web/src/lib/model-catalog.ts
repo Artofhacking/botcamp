@@ -1,7 +1,7 @@
-import { i18n } from "@lingui/core";
 import type { ModelCatalogEntry, ModelCredential, ThinkingLevel } from "@botcamp/contracts";
 import type { ConnectedModelChoice } from "@botcamp/core";
 import { connectedModelChoices } from "@botcamp/core";
+import { i18n } from "@lingui/core";
 
 export { modelOptionKey, parseModelOptionKey } from "@botcamp/core";
 

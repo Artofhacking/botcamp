@@ -1,8 +1,8 @@
-import { Trans } from "@lingui/react/macro";
 import type { MessageBlock } from "@botcamp/contracts";
 import { cloudAgentHttpsUrl } from "@botcamp/core";
 import { Badge } from "@botcamp/ui-web/components/ui/badge";
 import { Card, CardContent } from "@botcamp/ui-web/components/ui/card";
+import { Trans } from "@lingui/react/macro";
 
 export function CloudAgentCard({
   block,

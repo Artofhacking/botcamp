@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+
 // Blocks an agent turn while this session's tracked edits are still local.
 // Paths that were already dirty when the session started are not this session's work.
 
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -148,7 +149,13 @@ function eventName(input, argvMode) {
 }
 
 function sessionId(input) {
-  return input.session_id || input.sessionId || input.conversation_id || input.conversationId || "session";
+  return (
+    input.session_id ||
+    input.sessionId ||
+    input.conversation_id ||
+    input.conversationId ||
+    "session"
+  );
 }
 
 function promptText(input) {
@@ -190,7 +197,9 @@ export function handle(raw, cwd, argvMode) {
   const head = state ? git(cwd, ["rev-parse", "HEAD"]) : "";
   const touched = state ? touchedPaths(state.dirty || {}, dirtyMap(cwd)) : [];
   const unpushed = state ? unpushedCommits(cwd, state.head, head) : [];
-  const pushedSessionWork = Boolean(state && state.head && state.head !== head && touched.length === 0 && unpushed.length === 0);
+  const pushedSessionWork = Boolean(
+    state && state.head && state.head !== head && touched.length === 0 && unpushed.length === 0,
+  );
   const decision = decide({
     reason: input.reason,
     subagent: Boolean(input.subagentType || input.subagent_type),

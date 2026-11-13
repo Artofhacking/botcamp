@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@botcamp/chat-ui/web";
 import type { Bot, Ticket, TicketPriority, TicketStatus } from "@botcamp/contracts";
 import {
@@ -22,6 +21,7 @@ import {
   NativeSelectOption,
   Textarea,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useId, useState } from "react";

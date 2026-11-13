@@ -1,5 +1,5 @@
-import { plural, t } from "@lingui/core/macro";
 import type { ModelCredential } from "@botcamp/contracts";
+import { plural, t } from "@lingui/core/macro";
 
 type ModelPreflightOutcome =
   | "timeout"

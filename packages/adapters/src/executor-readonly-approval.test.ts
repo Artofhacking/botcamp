@@ -9,7 +9,10 @@ import { MEMORY_REVISION_CONFLICT_ERROR } from "@botcamp/adapter-kit";
 import type { ModelRoleSettings } from "@botcamp/contracts";
 import type { ActionApprovalRule } from "@botcamp/core";
 import { inboundRoutineBlock } from "@botcamp/core";
-import { approvalEffectKey, toolEffectIdempotencyKey } from "@botcamp/core/node/approval-effect-key";
+import {
+  approvalEffectKey,
+  toolEffectIdempotencyKey,
+} from "@botcamp/core/node/approval-effect-key";
 import type { PrismaClient } from "@botcamp/db";
 import { createPendingSteeringRun, sendUserMessage } from "@botcamp/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";

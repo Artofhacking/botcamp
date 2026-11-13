@@ -15,7 +15,8 @@ it("mounts a page and reports its height where the browser has no ResizeObserver
   const code = pageViewerCode(
     `const App = () => (\n  <Page title="Hello">\n    <Text>Drawn</Text>\n  </Page>\n);\nexport default App;\n`,
   );
-  const page = (window as unknown as { BotCampPage: { mount: (boot: object) => void } }).BotCampPage;
+  const page = (window as unknown as { BotCampPage: { mount: (boot: object) => void } })
+    .BotCampPage;
   await act(async () => {
     page.mount({ code, theme: "light", errorTitle: "This page couldn't be shown." });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -42,7 +43,8 @@ it("runs a saved page that declares its own component under a kit component's na
   );
   if (!checked.ok) throw new Error(checked.errors.join("\n"));
   document.body.replaceChildren();
-  const page = (window as unknown as { BotCampPage: { mount: (boot: object) => void } }).BotCampPage;
+  const page = (window as unknown as { BotCampPage: { mount: (boot: object) => void } })
+    .BotCampPage;
   await act(async () => {
     page.mount({ code: checked.code, theme: "light", errorTitle: "This page couldn't be shown." });
     await new Promise((resolve) => setTimeout(resolve, 0));

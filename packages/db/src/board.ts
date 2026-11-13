@@ -1,4 +1,10 @@
-import type { Board, Ticket, TicketComment, TicketPriority, TicketStatus } from "@botcamp/contracts";
+import type {
+  Board,
+  Ticket,
+  TicketComment,
+  TicketPriority,
+  TicketStatus,
+} from "@botcamp/contracts";
 import {
   parseTicketRef,
   TicketPrioritySchema,

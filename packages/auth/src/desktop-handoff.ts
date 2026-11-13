@@ -68,10 +68,7 @@ function sessionToken(cookie: string | null) {
 }
 
 function escapeAttribute(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;");
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
 }
 
 /** The system browser lands here, then the desktop app reads the session once. */
@@ -98,7 +95,11 @@ export function desktopHandoff(webOrigin: string): BetterAuthPlugin {
             throw new APIError("BAD_REQUEST", { message: "Invalid handoff" });
           }
           for (const [key, value] of Object.entries(body.returns)) {
-            if (!RETURN_KEY.test(key) || typeof value !== "string" || !acceptedReturn(value, webOrigin)) {
+            if (
+              !RETURN_KEY.test(key) ||
+              typeof value !== "string" ||
+              !acceptedReturn(value, webOrigin)
+            ) {
               throw new APIError("BAD_REQUEST", { message: "Invalid handoff" });
             }
             returns[key] = value;
@@ -115,7 +116,10 @@ export function desktopHandoff(webOrigin: string): BetterAuthPlugin {
           if (existing) await adapter.deleteVerificationByIdentifier(identifier(nonce));
           await adapter.createVerificationValue({
             identifier: identifier(nonce),
-            value: JSON.stringify({ secretHash: secretHash(pollSecret), returns } satisfies HandoffRecord),
+            value: JSON.stringify({
+              secretHash: secretHash(pollSecret),
+              returns,
+            } satisfies HandoffRecord),
             expiresAt: new Date(Date.now() + HANDOFF_TTL_MS),
           });
           return ctx.json({ ok: true });
@@ -178,7 +182,11 @@ export function desktopHandoff(webOrigin: string): BetterAuthPlugin {
           const adapter = ctx.context.internalAdapter;
           const row = await adapter.findVerificationValue(identifier(nonce));
           const record = row ? parseRecord(row.value) : null;
-          if (!record || !sameSecret(record.secretHash, pollSecret) || row!.expiresAt.getTime() <= Date.now()) {
+          if (
+            !record ||
+            !sameSecret(record.secretHash, pollSecret) ||
+            row!.expiresAt.getTime() <= Date.now()
+          ) {
             throw new APIError("NOT_FOUND", { message: "Handoff not found" });
           }
           if (!record.claimed) return new Response(null, { status: 204 });

@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
 import { PageIcon } from "@botcamp/chat-ui/web";
 import type { Bot, PageSummary } from "@botcamp/contracts";
 import {
@@ -15,6 +13,8 @@ import {
   CommandShortcut,
   Kbd,
 } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";

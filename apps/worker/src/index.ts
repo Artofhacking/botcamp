@@ -96,7 +96,6 @@ import {
   resolveSupervisorToken,
   uploadSizeFromEnv,
 } from "@botcamp/core";
-import { createDirectoryGrant, directoryRuntime } from "../../api/src/directory-grant.js";
 import {
   createBoardEvents,
   createDb,
@@ -117,6 +116,7 @@ import {
 import { SERVICE_NAMES } from "@botcamp/logging";
 import { createRootLogger } from "@botcamp/logging/axiom";
 import { MarkdownMemoryStore } from "@botcamp/memory";
+import { createDirectoryGrant, directoryRuntime } from "../../api/src/directory-grant.js";
 
 const logger = createRootLogger(SERVICE_NAMES.worker);
 

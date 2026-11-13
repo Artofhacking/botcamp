@@ -1,4 +1,3 @@
-import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +10,7 @@ import {
   Button,
   Input,
 } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth";

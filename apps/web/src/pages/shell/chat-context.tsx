@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type { ReplyPreview, ThreadMessage } from "@botcamp/contracts";
 import {
   formatTimeSeparator,
@@ -7,6 +6,7 @@ import {
   replyLabel,
 } from "@botcamp/core";
 import { cn } from "@botcamp/ui-web";
+import { useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactTarget } from "../../lib/artifact-open";
