@@ -34,6 +34,7 @@ import {
   signedBearer,
 } from "./account-security.js";
 import { breachedPasswordCheck } from "./breached-password.js";
+import { desktopHandoff } from "./desktop-handoff.js";
 import type { DirectoryLoginConfig } from "./directory-login.js";
 import {
   DIRECTORY_PROVIDER_ID,
@@ -168,6 +169,10 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
       "/unlink-directory": rule,
       // Sign-in pages request a challenge on load for passkey autofill.
       "/passkey/generate-authenticate-options": { window: 60, max: 30 },
+      // The desktop window polls until the system browser finishes sign-in.
+      "/desktop-handoff/start": { window: 300, max: 20 },
+      "/desktop-handoff": { window: 300, max: 20 },
+      "/desktop-handoff/poll": { window: 300, max: 400 },
     },
   };
 }
@@ -235,7 +240,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     logger: env.logger,
     secret: env.secret,
     baseURL: env.baseURL,
-    trustedOrigins: [...buildTrustedOrigins(env), "rakazo://"],
+    trustedOrigins: [...buildTrustedOrigins(env), "rakazo://", "botcamp://"],
     account: {
       accountLinking: {
         enabled: true,
@@ -468,6 +473,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           ]
         : []),
       ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
+      desktopHandoff(env.webOrigin),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
