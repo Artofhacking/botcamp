@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.77] - 2026-11-13
+
+### Fixed
+
+- Connect apps shows each app's own mark for QQ邮箱, Notion, GitHub, and the directory sign-in, instead of the first letter of its name.
+
 ## [2.0.76] - 2026-11-13
 
 ### Removed
