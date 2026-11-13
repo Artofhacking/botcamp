@@ -36,6 +36,13 @@ export interface DirectoryLoginProfile {
   image?: string;
 }
 
+/** Button and product name for this directory, from the deployment's configured label. */
+export function directoryDisplayName(name: string | undefined, domain: string | undefined): string {
+  const configured = name?.trim();
+  if (configured) return configured;
+  return domain?.trim().toLowerCase() === "lark" ? "Lark" : "飞书";
+}
+
 /** Feishu and Lark use the same paths on different hosts. An unknown domain is refused. */
 export function directoryLoginEndpoints(
   domain: string | undefined,
@@ -191,6 +198,62 @@ function contactEmail(data: Record<string, unknown>): string | null {
     if (email.includes("@") && !/\s/.test(email)) return email;
   }
   return null;
+}
+
+/**
+ * User scopes the login app has enabled, from its own application record. The authorization
+ * page rejects every requested scope the app has not enabled, so requesting the whole command
+ * catalog only works when an administrator enabled all of it. A failed lookup returns null and
+ * the caller keeps its configured list.
+ */
+export async function enabledDirectoryUserScopes(input: {
+  appId: string;
+  appSecret: string;
+  domain: string | undefined;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}): Promise<Set<string> | null> {
+  const endpoints = directoryLoginEndpoints(input.domain);
+  if (!endpoints) return null;
+  const openBase = new URL(endpoints.tokenUrl).origin;
+  const http = input.fetchImpl ?? fetch;
+  const signal = () => input.signal ?? AbortSignal.timeout(5_000);
+  try {
+    const tokenResponse = await http(`${openBase}/open-apis/auth/v3/tenant_access_token/internal`, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ app_id: input.appId, app_secret: input.appSecret }),
+      signal: signal(),
+    });
+    if (!tokenResponse.ok) return null;
+    const token = await readJson(tokenResponse);
+    if (token?.code !== 0) return null;
+    if (!singleLine(token.tenant_access_token)) return null;
+    const infoResponse = await http(
+      `${openBase}/open-apis/application/v6/applications/${encodeURIComponent(input.appId)}?lang=zh_cn`,
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${token.tenant_access_token}`,
+        },
+        signal: signal(),
+      },
+    );
+    if (!infoResponse.ok) return null;
+    const info = await readJson(infoResponse);
+    if (!info || (typeof info.code === "number" && info.code !== 0)) return null;
+    const app = isRecord(info.data) && isRecord(info.data.app) ? info.data.app : undefined;
+    const entries = app && Array.isArray(app.scopes) ? app.scopes : [];
+    const enabled = new Set<string>();
+    for (const entry of entries) {
+      if (!isRecord(entry) || typeof entry.scope !== "string") continue;
+      const tokenTypes = Array.isArray(entry.token_types) ? entry.token_types : [];
+      if (tokenTypes.includes("user")) enabled.add(entry.scope);
+    }
+    return enabled;
+  } catch {
+    return null;
+  }
 }
 
 async function postJson(url: string, payload: Record<string, string>): Promise<JsonRecord | null> {

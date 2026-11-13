@@ -775,6 +775,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           prisma,
           key: env.authSecret,
           directory: {
+            name: env.directory.name,
             clientId: env.directory.clientId,
             clientSecret: env.directory.clientSecret,
             tokenUrl: env.directory.tokenUrl,

@@ -1,5 +1,8 @@
 import {
+  DIRECTORY_LOGIN_EMAIL_SCOPE,
+  directoryDisplayName,
   directoryLoginEndpoints,
+  enabledDirectoryUserScopes,
   refreshDirectoryAccessToken,
 } from "@botcamp/adapters/lark-directory-login";
 import type { TokenKey } from "@botcamp/auth";
@@ -10,10 +13,42 @@ import type { PrismaClient } from "@botcamp/db";
 const REFRESH_SKEW_MS = 120_000;
 
 export interface DirectoryGrantConfig {
+  /** The button label, also the app name the bot's instructions use. */
+  name: string;
   clientId: string;
   clientSecret: string;
   tokenUrl: string;
   brand: "feishu" | "lark";
+}
+
+/**
+ * The login scopes this app enables. Requesting a scope the app does not enable makes the
+ * authorization page fail, so keep only the enabled ones. Without the email scope the login
+ * cannot identify the person, so that case keeps the configured list: the admin has to fix
+ * the app either way.
+ */
+export function narrowDirectoryScopesForApp(
+  requested: readonly string[],
+  enabled: ReadonlySet<string>,
+): string[] | null {
+  if (!enabled.has(DIRECTORY_LOGIN_EMAIL_SCOPE)) return null;
+  const narrowed = requested.filter((scope) => enabled.has(scope));
+  return narrowed.length > 0 ? narrowed : null;
+}
+
+/** Looks up the app and narrows the requested scopes. Null keeps the configured list. */
+export async function narrowDirectoryScopes(input: {
+  requested: readonly string[];
+  appId: string;
+  appSecret: string;
+  domain: string | undefined;
+}): Promise<string[] | null> {
+  const enabled = await enabledDirectoryUserScopes({
+    appId: input.appId,
+    appSecret: input.appSecret,
+    domain: input.domain,
+  });
+  return enabled ? narrowDirectoryScopesForApp(input.requested, enabled) : null;
 }
 
 /** Login client from this process's environment. Absent when the secret is not set. */
@@ -24,6 +59,7 @@ export function directoryRuntime(source: NodeJS.ProcessEnv): DirectoryGrantConfi
   const endpoints = directoryLoginEndpoints(source.LARK_DOMAIN);
   if (!endpoints) return undefined;
   return {
+    name: directoryDisplayName(source.LARK_LOGIN_NAME, source.LARK_DOMAIN),
     clientId,
     clientSecret,
     tokenUrl: endpoints.tokenUrl,
@@ -56,6 +92,7 @@ export function createDirectoryGrant(input: {
     return pending;
   };
   return {
+    name: input.directory.name,
     linked: (userId: string) => directoryLinked(input.prisma, userId),
     openGrant: open,
   };

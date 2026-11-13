@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDirectoryGrant, directoryRuntime } from "./directory-grant.js";
+import {
+  createDirectoryGrant,
+  directoryRuntime,
+  narrowDirectoryScopesForApp,
+} from "./directory-grant.js";
 
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("@botcamp/adapters/lark-directory-login", async (importOriginal) => {
@@ -9,6 +13,7 @@ vi.mock("@botcamp/adapters/lark-directory-login", async (importOriginal) => {
 
 const key = "offline-test-secret-with-at-least-32-characters";
 const directory = {
+  name: "飞书",
   clientId: "cli-test",
   clientSecret: "login-secret",
   tokenUrl: "https://open.example.test/token",
@@ -33,6 +38,7 @@ describe("directory grant", () => {
       },
     };
     const grant = createDirectoryGrant({ prisma: prisma as never, key, directory });
+    expect(grant.name).toBe("飞书");
     await expect(grant.openGrant("user-1")).resolves.toMatchObject({ accessToken: "plain-access" });
     expect(refresh).not.toHaveBeenCalled();
     expect(await grant.linked("user-1")).toBe(true);
@@ -99,5 +105,21 @@ describe("directory grant", () => {
       tokenUrl: "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
       brand: "feishu",
     });
+  });
+});
+
+describe("directory login scopes", () => {
+  const email = "contact:user.email:readonly";
+  const requested = [email, "docs:document:read", "offline_access", "okr:okr.content:readonly"];
+
+  it("drops scopes the app has not enabled", () => {
+    expect(narrowDirectoryScopesForApp(requested, new Set([email, "docs:document:read"]))).toEqual([
+      email,
+      "docs:document:read",
+    ]);
+  });
+
+  it("keeps the configured list when the email scope is missing", () => {
+    expect(narrowDirectoryScopesForApp(requested, new Set(["docs:document:read"]))).toBeNull();
   });
 });

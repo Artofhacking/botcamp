@@ -201,6 +201,7 @@ import {
   selectBuiltinToolsForRun,
 } from "./run-tool-selection.js";
 import { applyTool } from "./run-tools.js";
+import { directoryToolDescription } from "./run-tools-directory.js";
 import { historyMyChatsAllowed } from "./run-tools-memory.js";
 import type { UserComputerState } from "./run-tools-user-computer.js";
 import { USER_COMPUTER_SHELL_TOOL, userComputerOwner } from "./run-tools-user-computer.js";
@@ -1459,7 +1460,14 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
-        const strategicBuiltins = filterStrategicInitiativeTools(builtins, {
+        const describedBuiltins = builtins.map((tool) =>
+          directoryLinked &&
+          deps.directory &&
+          (tool.name === "directory_read" || tool.name === "directory_write")
+            ? { ...tool, description: directoryToolDescription(tool.name, deps.directory.name) }
+            : tool,
+        );
+        const strategicBuiltins = filterStrategicInitiativeTools(describedBuiltins, {
           trigger: run.trigger,
           clientNonce: run.clientNonce,
         });

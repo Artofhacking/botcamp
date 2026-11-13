@@ -16,6 +16,7 @@ import {
   telegramBotsFromEnv,
 } from "@botcamp/adapters";
 import {
+  directoryDisplayName,
   directoryLoginEndpoints,
   directoryLoginProfile,
   directoryLoginScopes,
@@ -236,7 +237,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     directoryAppId && directoryAppSecret && directoryEndpoints
       ? {
           issuer: directoryEndpoints.issuer,
-          name: optional(source.LARK_LOGIN_NAME) ?? (directoryDomain === "lark" ? "Lark" : "飞书"),
+          name: directoryDisplayName(optional(source.LARK_LOGIN_NAME), directoryDomain),
           clientId: directoryAppId,
           clientSecret: directoryAppSecret,
           authorizationUrl: directoryEndpoints.authorizationUrl,
