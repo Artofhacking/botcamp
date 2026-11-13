@@ -35,7 +35,7 @@ cd android && ./build-apk.sh
 | 项 | 说明 |
 |---|---|
 | 入口 | 固定 `https://botcamp.demox.site/console/`，登录后进入聊天 |
-| 站内跳转 | 只认 `/console` 前缀；其它链接（含产品页 `/`、`/admin/`）交给系统浏览器 |
+| 站内跳转 | 只认 `/console` 前缀；其它链接（含产品页 `/`、`/admin/`）交给系统浏览器。飞书登录从接口 `/api/auth` 或飞书账号页开始后，整段跳转留在应用里，回到控制台再交还 |
 | 深层链接 | Demox 没有 SPA 回退，`/console/app/<id>` 会拿到产品页；应用用 `shouldInterceptRequest` 把它换回 `index.html`，前端路由照常工作 |
 | 登录态 | token 存在 WebView 的 localStorage，重启应用仍保持登录 |
 | 附件 | `onShowFileChooser` 接系统文件选择器 |

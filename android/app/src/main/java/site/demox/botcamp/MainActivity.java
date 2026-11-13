@@ -37,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,8 +47,10 @@ import java.util.Map;
  */
 public class MainActivity extends Activity {
     private static final String HOST = "botcamp.demox.site";
+    /** 登录接口所在的站点。授权状态存在这里的 cookie 里。 */
+    private static final String API_HOST = "botcamp.aigc.sx.cn";
     /** 应用版本，控制台「关于」页显示它并据此判断有没有新版本。 */
-    private static final String APP_VERSION = "2.1.2";
+    private static final String APP_VERSION = "2.1.3";
     /** 只进控制台；/admin/ 和产品下载页不在这个应用里。 */
     private static final String START_URL = "https://" + HOST + "/console/";
     private static final int FILE_CHOOSER = 41;
@@ -62,6 +65,11 @@ public class MainActivity extends Activity {
     private PermissionRequest pendingPermission;
     private String pendingDownload;
     private boolean failed;
+    /**
+     * 飞书登录已经离开控制台。这条链上的后续跳转都留在应用里，
+     * 直到回到控制台。中途交给系统浏览器会丢掉登录状态。
+     */
+    private boolean oauthNavigation;
     /** 控制台首页 HTML，用作 SPA 回退（Demox 对 /console/xxx 直接返回产品页）。 */
     private byte[] indexHtml;
 
@@ -194,6 +202,13 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setTextZoom(100);
+        // 飞书登录页看到 WebView 标记会拒绝继续。去掉这个标记，其余标识保持系统原样。
+        String agent = s.getUserAgentString();
+        if (agent != null && agent.contains("; wv")) {
+            s.setUserAgentString(agent.replace("; wv", ""));
+        }
+        s.setSupportMultipleWindows(true);
+        s.setJavaScriptCanOpenWindowsAutomatically(true);
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
@@ -221,6 +236,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView v, String url) {
+                if (isConsole(url)) oauthNavigation = false;
                 v.evaluateJavascript(
                         "window.__BOTCAMP_APP__={platform:'android',version:'" + APP_VERSION + "'}",
                         null);
@@ -272,6 +288,49 @@ public class MainActivity extends Activity {
                 } else {
                     progress.setVisibility(View.VISIBLE);
                 }
+            }
+
+            @Override
+            public boolean onCreateWindow(WebView v, boolean dialog, boolean userGesture,
+                                          android.os.Message resultMsg) {
+                final WebView popup = new WebView(MainActivity.this);
+                popup.setWebViewClient(new WebViewClient() {
+                    private boolean handed;
+
+                    private void hand(String url) {
+                        if (handed || url == null || "about:blank".equals(url)) return;
+                        handed = true;
+                        if (!handleUrl(url) && web != null) web.loadUrl(url);
+                        popup.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                popup.destroy();
+                            }
+                        });
+                    }
+
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                        hand(request.getUrl().toString());
+                        return true;
+                    }
+
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                        hand(url);
+                        return true;
+                    }
+
+                    @Override
+                    public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                        hand(url);
+                    }
+                });
+                android.webkit.WebView.WebViewTransport transport =
+                        (android.webkit.WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(popup);
+                resultMsg.sendToTarget();
+                return true;
             }
 
             @Override
@@ -368,20 +427,87 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** 控制台以内的站内跳转留在应用里，其余交给系统浏览器。 */
+    /** 控制台，以及进行中的飞书登录，留在应用里。其余链接交给系统浏览器。 */
     private boolean handleUrl(String url) {
         if (url == null) return false;
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme() == null ? "" : uri.getScheme();
+        if ("intent".equals(scheme)) return handleIntent(url);
         if (!"http".equals(scheme) && !"https".equals(scheme)) return false;
-        String host = uri.getHost() == null ? "" : uri.getHost();
-        String path = uri.getPath() == null ? "/" : uri.getPath();
-        if (host.equals(HOST) && path.startsWith("/console")) return false;
+        if (isConsole(url)) {
+            oauthNavigation = false;
+            return false;
+        }
+        if (oauthNavigation || directoryAuthorize(uri)) {
+            oauthNavigation = true;
+            CookieManager.getInstance().flush();
+            return false;
+        }
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, uri));
         } catch (Exception ignored) {
         }
         return true;
+    }
+
+    /** 登录页用 intent 唤起飞书客户端时，改走它自带的网页地址，避免跳出应用。 */
+    private boolean handleIntent(String url) {
+        if (!oauthNavigation) return false;
+        String fallback = intentFallback(url);
+        if (fallback != null && (fallback.startsWith("https://") || fallback.startsWith("http://"))) {
+            final String next = fallback;
+            web.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (web != null) web.loadUrl(next);
+                }
+            });
+        }
+        return true;
+    }
+
+    private static String intentFallback(String url) {
+        String key = "S.browser_fallback_url=";
+        int marker = url.indexOf(key);
+        if (marker < 0) return null;
+        String rest = url.substring(marker + key.length());
+        int end = rest.indexOf(';');
+        if (end >= 0) rest = rest.substring(0, end);
+        try {
+            return URLDecoder.decode(rest, "UTF-8");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static boolean isConsole(String url) {
+        if (url == null) return false;
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost() == null ? "" : uri.getHost();
+        String path = uri.getPath() == null ? "/" : uri.getPath();
+        return HOST.equals(host) && path.startsWith("/console");
+    }
+
+    /** 目录登录的第一跳：接口上的授权，或飞书 / Lark 的账号页。 */
+    private static boolean directoryAuthorize(Uri uri) {
+        String host = uri.getHost() == null ? "" : uri.getHost();
+        String path = uri.getPath() == null ? "/" : uri.getPath();
+        if (API_HOST.equals(host) && path.startsWith("/api/auth")) return true;
+        if (authHost(host, "feishu.cn") || authHost(host, "larksuite.com") || authHost(host, "larkoffice.com")) {
+            return path.startsWith("/open-apis/authen")
+                    || path.startsWith("/accounts")
+                    || path.startsWith("/oauth")
+                    || path.startsWith("/suite/passport")
+                    || path.startsWith("/login");
+        }
+        return false;
+    }
+
+    private static boolean authHost(String host, String domain) {
+        return host.equals("accounts." + domain)
+                || host.equals("passport." + domain)
+                || host.equals("login." + domain)
+                || host.equals("open." + domain);
     }
 
     @Override
