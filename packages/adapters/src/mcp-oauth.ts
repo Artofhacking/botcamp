@@ -978,6 +978,8 @@ export class McpOAuthBroker {
     userId: string;
     redirectUri: string;
     scope?: string;
+    /** A client the deployment registered, used when the server has none stored. */
+    oauthClient?: PreRegisteredClient;
   }): Promise<
     | { status: "authorization_required"; sessionId: string; authorizationUrl: string }
     | { status: "already_connected" | "authorization_not_requested" }
@@ -993,6 +995,11 @@ export class McpOAuthBroker {
     const redirectUri = mcpOAuthRedirectFor(server.endpoint, input.redirectUri);
     const context = { spaceId: input.spaceId, userId: input.userId };
     const loaded = await this.loadMaterial(server, context);
+    // A deployment may register one client for everyone. It is kept in the pending
+    // session's material, so the finished grant keeps it for refreshes.
+    if (input.oauthClient && !loaded.material.oauthClient) {
+      loaded.material = { ...loaded.material, oauthClient: input.oauthClient };
+    }
     // A stdio server has no MCP endpoint; OAuth runs against its authorization server.
     const target = server.endpoint ?? loaded.material.oauthClient?.authorization_server;
     if (!target) throw new Error("MCP server endpoint is required for OAuth");
@@ -1424,6 +1431,10 @@ export class McpOAuthBroker {
         : {};
       const storedOAuth = nextMaterial.oauth;
       let kept: TokenGrant | undefined;
+      // A deployment-supplied client is stored with the first flow that uses it, so
+      // later writes compare against it instead of an empty material.
+      if (!nextMaterial.oauthClient && material.oauthClient)
+        nextMaterial.oauthClient = { ...material.oauthClient };
       if (material.oauth) {
         // OAuth state belongs to the client that obtained it; a client changed in
         // settings meanwhile has already dropped the grant this write carries.

@@ -1622,6 +1622,31 @@ describe("MCP OAuth", () => {
       expect(session.oauthClient).toMatchObject(oauthClient);
     });
 
+    it("uses a client the caller supplies when the server stores none", async () => {
+      const requested = nonRegisteringAuthServer(() => undefined);
+      const { broker, secrets } = brokerWithMaterial({});
+
+      const started = await broker.begin({
+        serverId: "server-1",
+        spaceId: "workspace-1",
+        userId: "user-1",
+        redirectUri: "https://app.example.test/mcp/oauth/callback",
+        oauthClient,
+      });
+
+      expect(started.status).toBe("authorization_required");
+      const authorizationUrl = new URL(
+        started.status === "authorization_required" ? started.authorizationUrl : "",
+      );
+      expect(authorizationUrl.searchParams.get("client_id")).toBe("registered-client");
+      expect(requested.some((request) => request.includes("/register"))).toBe(false);
+      const sessionWrite = (secrets.put.mock.calls as unknown[][]).find(
+        (call) => (call[1] as { operationId?: string }).operationId === "mcp.oauth.session",
+      );
+      const session = JSON.parse(sessionWrite?.[0] as string) as OAuthMaterial;
+      expect(session.oauthClient).toMatchObject(oauthClient);
+    });
+
     it("exchanges the code with the configured client's secret", async () => {
       let authorization: string | null = null;
       let body = new URLSearchParams();

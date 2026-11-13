@@ -936,7 +936,16 @@ export function mcpRoutes(ctx: RouterContext) {
               );
             return await mcpOAuth.begin({
               ...input,
-              ...(deploymentClient ? { oauthClient: deploymentClient } : {}),
+              ...(deploymentClient
+                ? {
+                    oauthClient: {
+                      client_id: deploymentClient.clientId,
+                      ...(deploymentClient.clientSecret
+                        ? { client_secret: deploymentClient.clientSecret }
+                        : {}),
+                    },
+                  }
+                : {}),
               redirectUri,
               spaceId: context.actor.spaceId,
               userId: context.actor.userId,

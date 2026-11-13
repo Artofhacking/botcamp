@@ -2720,7 +2720,7 @@ describe("MCP server health", () => {
       });
       expect(begin).toHaveBeenCalledWith(
         expect.objectContaining({
-          oauthClient: { clientId: "deployment-client", clientSecret: "deployment-secret" },
+          oauthClient: { client_id: "deployment-client", client_secret: "deployment-secret" },
         }),
       );
     });
