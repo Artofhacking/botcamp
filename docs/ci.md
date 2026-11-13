@@ -80,19 +80,43 @@ Every agent working in this repository follows this section. `AGENTS.md` is the 
 
 A release tag is `vX.Y.Z`. Cut it with `.agents/skills/release/SKILL.md` on the merge commit of the release pull request, then push that tag. Do not move a tag that already exists.
 
-The API host runs only that tag:
+The API host runs that one tag and nothing else. It is a source checkout kept at `/opt/botcamp/src`; `/opt/rakazo` is a symlink to it that must stay, because running computers still mount that path. The command this repository ships as `infra/compose/release-tag.sh` is installed on the host as `/usr/local/sbin/botcamp-release-tag`.
 
-1. `infra/compose/release-tag.sh deploy <checkout> vX.Y.Z`. The tag must already exist on the GitHub remote. A branch, a commit, and a file copied onto the host are refused. Leave `.env`, `node_modules`, `data`, and `apps/web/public/config.js` in place.
-2. Build the API and the worker, then apply migrations.
-3. `infra/compose/release-tag.sh seal <checkout>`.
-4. Restart the API, the worker, and the supervisor only after `infra/compose/release-tag.sh require <checkout>` passes. Install that command as `ExecStartPre`. They start only when the checkout still matches the tag and the build still matches the seal.
+Log in as `root`. The host refuses public keys and asks for the operator's password, and it does not read a command from standard input, so put the command in the argument to `ssh`. Run these steps in order:
 
-On the host the command is installed as `/usr/local/sbin/botcamp-release-tag`, and the checkout is `/opt/botcamp/src`; `/opt/rakazo` is a symlink it must keep, because running computers still mount that path. The four steps are the same: deploy the tag, build the API and the worker, apply migrations, seal, `require`, then restart `botcamp-api` and `botcamp-worker`. Restart only after `require` passes. The supervisor, the console's units, and the computer image keep running unless the release changes them. The host reaches GitHub through a proxy, so the deploy exports `BOTCAMP_REMOTE` for that one command rather than changing the checkout's remote. Readiness is `GET http://127.0.0.1:3100/health` on the host, which returns `{"ok":true}`; on the public hostname `/rpc/health` answers `405` and `GET /health` is a `404` from nginx, so neither tells you whether the API is up.
+```sh
+# 1. Deploy the tag. It must already exist on the GitHub remote: a branch, a commit, and
+#    a file copied into the checkout are refused. The host cannot reach github.com, so this
+#    one command gets a mirror; the checkout's own remote is left alone.
+export PATH="/root/.npm/_npx/3d41f72c9dd7981b/node_modules/.bin:$PATH"   # a non-login shell has no pnpm;
+# re-read the directory with: ls -d /root/.npm/_npx/*/node_modules/.bin
+export BOTCAMP_REMOTE="https://gh-proxy.com/https://github.com/<owner>/<repo>.git"
+export GIT_HTTP_VERSION=HTTP/1.1
+/usr/local/sbin/botcamp-release-tag deploy /opt/botcamp/src vX.Y.Z
 
+# 2. Build the server, then apply migrations.
+cd /opt/botcamp/src
+pnpm install --frozen-lockfile
+pnpm --filter @botcamp/api build
+pnpm --filter @botcamp/worker build
+pnpm --filter @botcamp/api db:migrate
 
-Do not edit the checkout. Do not extract an archive over it, and do not copy a single file onto it. A computer that is already running keeps the image it started with. `edge` moves only after Checks and Postgres journeys on `main`.
+# 3. Freeze the source and the built output.
+/usr/local/sbin/botcamp-release-tag seal /opt/botcamp/src
 
-The console, the homepage, and the operator page are separate publishes, and no workflow in this tree performs them: publish each from the tag commit with the hosting CLI, in place of the site that serves it. A publish replaces every object of that site, so leaving a file out removes it. Desktop and Android are below, and they are not a side effect of the tag.
+# 4. Restart only when the checkout still matches the tag and the build still matches the seal.
+/usr/local/sbin/botcamp-release-tag require /opt/botcamp/src
+systemctl restart botcamp-api botcamp-worker
+
+# 5. The API binds its port before it answers; a first request can be refused.
+curl -fsS http://127.0.0.1:3100/health   # {"ok":true}
+```
+
+A deploy leaves `.env`, `node_modules`, `data`, and `apps/web/public/config.js` in place. Do not edit the checkout by hand, do not extract an archive over it, and do not copy a single file onto it: `seal` makes a later change fail, and the units refuse to start when `require` does not pass. The supervisor, the web unit, and the computer image keep running unless the release changes them, and a computer that is already started keeps the image it started with.
+
+`GET /health` on the public hostname is a `404` from nginx and `/rpc/health` answers `405`. Neither says whether the API is up; the loopback route above does.
+
+The console is a separate publish on the host that serves `botcamp.demox.site`, and an API release does not update it. A publish replaces every object of that site, so put the new console build on top of what is already there and keep the live `console/config.js` (the API origin and the hidden settings) and `console/computer-screen/WuyingWebSDK.js`: both are filled in on that host, and a fresh build ships them empty. No workflow in this tree performs that publish. Desktop and Android are below, and they are not a side effect of the tag.
 
 ## Desktop and Android
 
