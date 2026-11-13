@@ -18,7 +18,6 @@ import { useId, useRef, useState } from "react";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
 import { mcpOAuthRedirectUri, mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
-import { deploymentSuppliesOAuthClient } from "../../lib/ui-flags";
 
 /** A client the user registered with the provider. GitHub cannot register one for us. */
 export type DeploymentOAuthClient = { clientId: string; clientSecret?: string };
@@ -251,19 +250,11 @@ export function DeploymentApps({
                   disabled={busy}
                   onClick={() => {
                     if (mailbox) return open(app);
-                    if (
-                      app.oauthClientRequired &&
-                      !server?.oauthClientId &&
-                      !deploymentSuppliesOAuthClient(app.endpoint)
-                    ) {
-                      // The deployment may have registered the client without saying so in
-                      // config.js. Try it, and ask only when the server has none.
-                      void Promise.resolve(onConnect?.(app)).catch((err) => {
-                        if (errorCode(err) === MCP_OAUTH_CLIENT_REQUIRED) openClient(app);
-                      });
-                      return;
-                    }
-                    onConnect?.(app);
+                    // The deployment may already hold the client; try it and ask only
+                    // when the server reports that none is configured.
+                    void Promise.resolve(onConnect?.(app)).catch((err) => {
+                      if (errorCode(err) === MCP_OAUTH_CLIENT_REQUIRED) openClient(app);
+                    });
                   }}
                 >
                   {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
