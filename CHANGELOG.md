@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.73] - 2026-11-13
+
+### Fixed
+
+- Desktop sign-in in the system browser returns to the BotCamp app and finishes the session there.
+
+## [2.0.72] - 2026-11-13
+
+### Added
+
+- A bot can connect GitHub through its hosted sign-in.
+
 ## [2.0.71] - 2026-11-13
 
 ### Fixed
