@@ -6,7 +6,11 @@ import type {
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
 } from "@botcamp/contracts";
-import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@botcamp/contracts";
+import {
+  CONNECTION_LABEL_MAX_LENGTH,
+  MCP_OAUTH_CLIENT_REQUIRED,
+  PluginPreviewSchema,
+} from "@botcamp/contracts";
 import type { PluginCategory } from "@botcamp/core";
 import {
   buildFeaturedConnectorTiles,
@@ -85,7 +89,7 @@ import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
 import type { DeploymentApp } from "../lib/ui-flags";
 import { offeredApps } from "../lib/ui-flags";
-import { errorText } from "../lib/user-error";
+import { errorCode, errorText } from "../lib/user-error";
 
 function ConnectorIcon({ name, logo }: { name: string; logo?: string | null }) {
   return logo ? (
@@ -357,6 +361,8 @@ export function PluginsOverlay({
       }
       await fetchFresh(queryClient, mcpOptions);
     } catch (err) {
+      // The row turns a missing client into the client form; anything else is shown here.
+      if (errorCode(err) === MCP_OAUTH_CLIENT_REQUIRED) throw err;
       setAppError(errorText(err, t`Could not connect`));
       // The client dialog stays open and shows this. A direct connect has no dialog.
       if (client) throw err;

@@ -333,7 +333,12 @@ it("asks for an OAuth client before GitHub sign-in, then sends that client", asy
     scopes: [],
     oauthClientRequired: true,
   };
-  const onConnect = vi.fn();
+  const clientRequired = Object.assign(new Error("Needs an OAuth client ID"), {
+    code: "MCP_OAUTH_CLIENT_REQUIRED",
+  });
+  const onConnect = vi.fn(async () => {
+    throw clientRequired;
+  });
   const container = await render(
     <DeploymentApps
       apps={[github]}
@@ -347,8 +352,11 @@ it("asks for an OAuth client before GitHub sign-in, then sends that client", asy
   const connect = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Connect",
   );
-  await act(async () => connect?.click());
-  expect(onConnect).not.toHaveBeenCalled();
+  await act(async () => {
+    connect?.click();
+    await Promise.resolve();
+  });
+  expect(onConnect).toHaveBeenCalledWith(github);
   const dialog = container.querySelector('[data-testid="mailbox-dialog"]');
   expect(dialog?.textContent).toContain("OAuth client ID");
   expect(dialog?.textContent).toContain("Redirect URI");
@@ -365,6 +373,35 @@ it("asks for an OAuth client before GitHub sign-in, then sends that client", asy
     clientId: "github-client",
     clientSecret: "github-secret",
   } satisfies DeploymentOAuthClient);
+});
+
+it("starts GitHub sign-in directly when the deployment client works", async () => {
+  const github: DeploymentApp = {
+    name: "GitHub",
+    endpoint: "https://api.githubcopilot.com/mcp",
+    scopes: [],
+    oauthClientRequired: true,
+  };
+  const onConnect = vi.fn(async () => undefined);
+  const container = await render(
+    <DeploymentApps
+      apps={[github]}
+      servers={[]}
+      pending={null}
+      error={null}
+      onConnect={onConnect}
+      onDisconnect={vi.fn()}
+    />,
+  );
+  const connect = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  );
+  await act(async () => {
+    connect?.click();
+    await Promise.resolve();
+  });
+  expect(onConnect).toHaveBeenCalledWith(github);
+  expect(container.querySelector('[data-testid="mailbox-dialog"]')).toBeNull();
 });
 
 it("starts GitHub sign-in directly once a client is saved", async () => {

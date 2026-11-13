@@ -1,4 +1,5 @@
 import type { McpServer } from "@botcamp/contracts";
+import { MCP_OAUTH_CLIENT_REQUIRED } from "@botcamp/contracts";
 import {
   Button,
   Dialog,
@@ -22,7 +23,7 @@ import { deploymentSuppliesOAuthClient } from "../../lib/ui-flags";
 /** A client the user registered with the provider. GitHub cannot register one for us. */
 export type DeploymentOAuthClient = { clientId: string; clientSecret?: string };
 
-import { errorText } from "../../lib/user-error";
+import { errorCode, errorText } from "../../lib/user-error";
 import { DeploymentAppMark } from "./deployment-app-mark";
 
 /** A scope list is the mailbox permission choice. Other apps use their own sign-in. */
@@ -248,15 +249,22 @@ export function DeploymentApps({
                   variant="secondary"
                   size="sm"
                   disabled={busy}
-                  onClick={() =>
-                    mailbox
-                      ? open(app)
-                      : app.oauthClientRequired &&
-                          !server?.oauthClientId &&
-                          !deploymentSuppliesOAuthClient(app.endpoint)
-                        ? openClient(app)
-                        : onConnect?.(app)
-                  }
+                  onClick={() => {
+                    if (mailbox) return open(app);
+                    if (
+                      app.oauthClientRequired &&
+                      !server?.oauthClientId &&
+                      !deploymentSuppliesOAuthClient(app.endpoint)
+                    ) {
+                      // The deployment may have registered the client without saying so in
+                      // config.js. Try it, and ask only when the server has none.
+                      void Promise.resolve(onConnect?.(app)).catch((err) => {
+                        if (errorCode(err) === MCP_OAUTH_CLIENT_REQUIRED) openClient(app);
+                      });
+                      return;
+                    }
+                    onConnect?.(app);
+                  }}
                 >
                   {expiring ? <Trans>Reconnect</Trans> : <Trans>Connect</Trans>}
                 </Button>
