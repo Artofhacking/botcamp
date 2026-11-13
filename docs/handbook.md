@@ -6,7 +6,7 @@ The repository is public. Do not add secrets, private URLs, host inventory, acco
 
 ## When a change is finished
 
-`AGENTS.md` is the rule. A change someone will read from git is committed, pushed, and in a pull request before you call it finished, and "pull the latest" is true only when that commit is on the ref they pull. A change people will use in the product follows `docs/ci.md` and `.agents/skills/release/SKILL.md` until the `vX.Y.Z` tag on `main` is the revision production runs. When `scripts/ship-plan.mjs` is in the tree, `node scripts/ship-plan.mjs` lists the places. Say the blocked step in the same report. Leave the tree uncommitted only when the user said to keep it local, and say so.
+`AGENTS.md` is the rule. A change someone will read from git is committed, pushed, and in a pull request before you call it finished, and "pull the latest" is true only when that commit is on the ref they pull. A change people will use in the product follows `docs/ci.md` and `.agents/skills/release/SKILL.md` until the `vX.Y.Z` tag on `main` is the revision production runs. When `scripts/ship-plan.mjs` is in the tree, `node scripts/ship-plan.mjs` lists the places. Say the blocked step in the same report. Leave the tree uncommitted only when the user said to keep it local, and say so. `scripts/agent-finish-gate.mjs` is the stop hook that blocks the turn while this session's changes are still local.
 
 ## What ships
 
