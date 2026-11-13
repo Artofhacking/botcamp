@@ -5,7 +5,11 @@
  *   window.__BOTCAMP_UI__ = {
  *     hiddenSections: ["computer", "models", "billing"],
  *     apps: [{ name: "Mail", endpoint: "https://mail.example.com/mcp" }],
+ *     oauthClients: ["https://api.githubcopilot.com/mcp"],
  *   };
+ *
+ * `oauthClients` names endpoints whose OAuth client the deployment registered in
+ * `MCP_OAUTH_CLIENTS`; Connect then skips the client prompt.
  *
  * A deployment that lists `apps` shows only those in Integrations, opened by name rather
  * than found in a catalog, and hides the catalog, plugins and custom-source entries.
@@ -26,9 +30,9 @@ export type DeploymentApp = {
 
 declare global {
   interface Window {
-    __BOTCAMP_UI__?: { hiddenSections?: string[]; apps?: unknown };
+    __BOTCAMP_UI__?: { hiddenSections?: string[]; apps?: unknown; oauthClients?: unknown };
     /** Previous name for `__BOTCAMP_UI__`, still read when the new one is unset or empty. */
-    __RAKAZO_UI__?: { hiddenSections?: string[]; apps?: unknown };
+    __RAKAZO_UI__?: { hiddenSections?: string[]; apps?: unknown; oauthClients?: unknown };
   }
 }
 
@@ -42,7 +46,11 @@ function hasEntries(value: unknown): boolean {
 function deploymentUi(): NonNullable<Window["__BOTCAMP_UI__"]> {
   if (typeof window === "undefined") return {};
   const next = window.__BOTCAMP_UI__;
-  if (next && (hasEntries(next.hiddenSections) || hasEntries(next.apps))) return next;
+  if (
+    next &&
+    (hasEntries(next.hiddenSections) || hasEntries(next.apps) || hasEntries(next.oauthClients))
+  )
+    return next;
   return window.__RAKAZO_UI__ ?? next ?? {};
 }
 
@@ -95,6 +103,13 @@ export function parseDeploymentApps(value: unknown): DeploymentApp[] {
     });
   }
   return apps;
+}
+
+/** Endpoints whose OAuth client the deployment registered, so Connect does not ask for one. */
+export function deploymentSuppliesOAuthClient(endpoint: string): boolean {
+  const raw = deploymentUi().oauthClients;
+  if (!Array.isArray(raw)) return false;
+  return raw.some((value) => parseEndpoint(value) === endpoint);
 }
 
 export function deploymentApps(): readonly DeploymentApp[] {

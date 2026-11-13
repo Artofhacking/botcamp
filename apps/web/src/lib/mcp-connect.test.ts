@@ -60,7 +60,7 @@ const started = {
 describe("mcpOAuthRedirectUri", () => {
   it("uses the origin callback the server allows", () => {
     expect(mcpOAuthRedirectUri("https://botcamp.example")).toBe(
-      "https://botcamp.example/mcp/oauth/callback",
+      "https://botcamp.example/mcp/oauth/callback/",
     );
   });
 });

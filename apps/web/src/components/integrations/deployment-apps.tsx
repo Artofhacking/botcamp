@@ -17,6 +17,7 @@ import { useId, useRef, useState } from "react";
 import type { McpOauthPaste } from "../../lib/mcp-connect";
 import { mcpOAuthRedirectUri, mcpOauthCodeFromPaste } from "../../lib/mcp-connect";
 import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
+import { deploymentSuppliesOAuthClient } from "../../lib/ui-flags";
 
 /** A client the user registered with the provider. GitHub cannot register one for us. */
 export type DeploymentOAuthClient = { clientId: string; clientSecret?: string };
@@ -250,7 +251,9 @@ export function DeploymentApps({
                   onClick={() =>
                     mailbox
                       ? open(app)
-                      : app.oauthClientRequired && !server?.oauthClientId
+                      : app.oauthClientRequired &&
+                          !server?.oauthClientId &&
+                          !deploymentSuppliesOAuthClient(app.endpoint)
                         ? openClient(app)
                         : onConnect?.(app)
                   }

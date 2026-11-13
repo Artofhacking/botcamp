@@ -148,6 +148,8 @@ export interface RouterDeps {
     mcpAllowPrivateEndpoint?: boolean;
     desktopHostChoiceEnabled?: boolean;
     mcpStdioEnabled?: boolean;
+    /** OAuth clients this deployment registered, keyed by MCP endpoint. */
+    mcpOAuthClients?: Record<string, { clientId: string; clientSecret?: string }>;
     mcpStdioAllowedCommands?: string[];
   };
 }

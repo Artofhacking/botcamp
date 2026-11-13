@@ -177,6 +177,11 @@ export interface AppEnv {
   mcpStdio: ReturnType<typeof mcpStdioOptionsFromEnv>;
   /** Deployment-owner escape for remote MCP on RFC1918 / Docker-network hosts. */
   mcpAllowPrivateEndpoint: boolean;
+  /**
+   * OAuth clients the deployment registered, keyed by MCP endpoint. A server that
+   * cannot register its own client (GitHub) then connects without asking the user.
+   */
+  mcpOAuthClients: Record<string, { clientId: string; clientSecret?: string }>;
   port: number;
   gitSha: string | undefined;
   /** Oldest client build per kind the API still serves (RAKAZO_MIN_CLIENT_BUILD). */
@@ -399,6 +404,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       .filter(Boolean),
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+    mcpOAuthClients: mcpOAuthClientsFromEnv(source),
     port: Number(source.API_PORT ?? 3100),
     gitSha:
       optional(source.GIT_SHA) ??
@@ -425,6 +431,34 @@ function resolveWebOrigin(value: string | undefined, fallback: string, name: str
     throw new Error(`${name} must be an absolute http(s) URL`);
   }
   return origin;
+}
+
+/**
+ * `MCP_OAUTH_CLIENTS` is JSON: `{"https://host/mcp": {"clientId": "...", "clientSecret": "..."}}`.
+ * A malformed entry is dropped, so a typo never stops the API from starting.
+ */
+function mcpOAuthClientsFromEnv(
+  source: NodeJS.ProcessEnv,
+): Record<string, { clientId: string; clientSecret?: string }> {
+  const raw = optional(source.MCP_OAUTH_CLIENTS);
+  if (!raw) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const clients: Record<string, { clientId: string; clientSecret?: string }> = {};
+  for (const [endpoint, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!endpoint.startsWith("https://") || !value || typeof value !== "object") continue;
+    const record = value as Record<string, unknown>;
+    const clientId = typeof record.clientId === "string" ? record.clientId.trim() : "";
+    const clientSecret = typeof record.clientSecret === "string" ? record.clientSecret.trim() : "";
+    if (!clientId) continue;
+    clients[endpoint] = { clientId, ...(clientSecret ? { clientSecret } : {}) };
+  }
+  return clients;
 }
 
 function required(source: NodeJS.ProcessEnv, key: string): string {
