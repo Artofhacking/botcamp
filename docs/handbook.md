@@ -4,6 +4,10 @@ Read this before changing the product, CI, or a deployment. `AGENTS.md` is the r
 
 The repository is public. Do not add secrets, private URLs, host inventory, account ids, or production data. Name a GitHub secret when a workflow reads it. Never write its value. If a task needs a credential that is not named below, stop and ask. Do not reconstruct one from chat, a server, or an old note.
 
+## When a change is finished
+
+`AGENTS.md` is the rule. A change someone will read from git is committed, pushed, and in a pull request before you call it finished, and "pull the latest" is true only when that commit is on the ref they pull. A change people will use in the product follows `docs/ci.md` and `.agents/skills/release/SKILL.md` until the `vX.Y.Z` tag on `main` is the revision production runs. When `scripts/ship-plan.mjs` is in the tree, `node scripts/ship-plan.mjs` lists the places. Say the blocked step in the same report. Leave the tree uncommitted only when the user said to keep it local, and say so. `scripts/agent-finish-gate.mjs` is the stop hook that blocks the turn while this session's changes are still local.
+
 ## What ships
 
 BotCamp is one product: a web console, an Electron desktop app, and an Android WebView shell. Shared behavior lives in `packages/`. The server is `apps/api` and `apps/worker`. Bot computers are sandbox images under `infra/sandboxes/`, not a process inside the API.
