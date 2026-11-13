@@ -22,14 +22,7 @@ import type { DeploymentApp, DeploymentAppScope } from "../../lib/ui-flags";
 export type DeploymentOAuthClient = { clientId: string; clientSecret?: string };
 
 import { errorText } from "../../lib/user-error";
-
-function AppIcon({ name }: { name: string }) {
-  return (
-    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-sm font-semibold text-foreground">
-      {name[0]}
-    </div>
-  );
-}
+import { DeploymentAppMark } from "./deployment-app-mark";
 
 /** A scope list is the mailbox permission choice. Other apps use their own sign-in. */
 function signsInWithMailbox(app: DeploymentApp): boolean {
@@ -231,7 +224,7 @@ export function DeploymentApps({
               data-testid="deployment-app"
               className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
             >
-              <AppIcon name={app.name} />
+              <DeploymentAppMark name={app.name} endpoint={app.endpoint} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium">{app.name}</span>
                 {connected || expiring ? (
@@ -273,7 +266,7 @@ export function DeploymentApps({
             data-testid="directory-app"
             className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
           >
-            <AppIcon name={directory.name} />
+            <DeploymentAppMark name={directory.name} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium">{directory.name}</span>
               {directory.linked ? (
