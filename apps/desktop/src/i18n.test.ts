@@ -15,7 +15,7 @@ import {
   t,
   withDetail,
 } from "./i18n.js";
-import { ES_MESSAGES } from "./locales/es.js";
+import { ZH_CN_MESSAGES } from "./locales/zh-CN.js";
 import { readUiLocale, writeUiLocale } from "./setup-store.js";
 
 const srcDir = import.meta.dirname;
@@ -44,12 +44,12 @@ afterEach(() => {
 
 describe("desktop language", () => {
   it.each([
-    ["es", "en-US", "es"],
-    ["en", "es-CL", "en"],
-    [null, "es-419", "es"],
-    [null, "es_ES", "es"],
-    // The app offers languages the desktop has no catalog for yet; those read English.
-    ["it", "es-CL", "en"],
+    ["zh-CN", "en-US", "zh-CN"],
+    ["en", "zh-HK", "en"],
+    [null, "zh-TW", "zh-CN"],
+    [null, "zh_HK", "zh-CN"],
+    // The app offers languages the desktop has no catalog for; those read English.
+    ["it", "zh-CN", "en"],
     [null, "it-IT", "en"],
     [null, undefined, "en"],
   ] as const)("resolves reported %s on a %s system to %s", (reported, system, expected) => {
@@ -57,14 +57,14 @@ describe("desktop language", () => {
   });
 
   it("starts in the saved language, ignoring a saved value that is not a language tag", () => {
-    expect(startDesktopLocale("es-MX", "en-US")).toBe("es");
-    expect(t("Check for Updates…")).toBe("Buscar actualizaciones…");
+    expect(startDesktopLocale("zh-HK", "en-US")).toBe("zh-CN");
+    expect(t("Check for Updates…")).toBe("检查更新…");
     expect(t("BotCamp {version} is ready to install.", { version: "1.2.0" })).toBe(
-      "BotCamp 1.2.0 está listo para instalarse.",
+      "BotCamp 1.2.0 已可安装。",
     );
-    expect(desktopMessages()).toBe(ES_MESSAGES);
+    expect(desktopMessages()).toBe(ZH_CN_MESSAGES);
 
-    expect(startDesktopLocale("es; rm -rf /", "en-US")).toBe("en");
+    expect(startDesktopLocale("zh; rm -rf /", "en-US")).toBe("en");
     expect(t("Check for Updates…")).toBe("Check for Updates…");
     expect(desktopMessages()).toEqual({});
   });
@@ -76,18 +76,18 @@ describe("desktop language", () => {
     const onChange = vi.fn();
     const handle = createLocaleHandler(() => target, save, onChange);
 
-    await handle(event, "es");
-    expect(desktopLocale()).toBe("es");
-    expect(save).toHaveBeenLastCalledWith("es");
+    await handle(event, "zh-CN");
+    expect(desktopLocale()).toBe("zh-CN");
+    expect(save).toHaveBeenLastCalledWith("zh-CN");
     expect(onChange).toHaveBeenCalledTimes(1);
 
-    // Another regional Spanish is still Spanish: saved for the next launch, menus unchanged.
-    await handle(event, "es-MX");
-    expect(save).toHaveBeenLastCalledWith("es-MX");
+    // Traditional Chinese is still Simplified Chinese: saved for the next launch, menus unchanged.
+    await handle(event, "zh-HK");
+    expect(save).toHaveBeenLastCalledWith("zh-HK");
     expect(onChange).toHaveBeenCalledTimes(1);
 
     // Every launch reports again; an unchanged language writes nothing.
-    await handle(event, "es-MX");
+    await handle(event, "zh-HK");
     expect(save).toHaveBeenCalledTimes(2);
 
     await handle(event, "it");
@@ -103,13 +103,13 @@ describe("desktop language", () => {
     const onChange = vi.fn();
     const handle = createLocaleHandler(() => target, save, onChange);
 
-    await handle({ ...event, sender: {} as WebContents }, "es");
+    await handle({ ...event, sender: {} as WebContents }, "zh-CN");
     await handle(
       { ...event, senderFrame: { url: target.url } as IpcMainInvokeEvent["senderFrame"] },
-      "es",
+      "zh-CN",
     );
-    await handle(appFrame("https://other.example.com").event, "es");
-    await createLocaleHandler(() => null, save, onChange)(event, "es");
+    await handle(appFrame("https://other.example.com").event, "zh-CN");
+    await createLocaleHandler(() => null, save, onChange)(event, "zh-CN");
     for (const value of [3, null, {}, "", "e", "es-", "../es", "es\nde", "x".repeat(36), "es;de"])
       await handle(event, value);
 
@@ -119,10 +119,10 @@ describe("desktop language", () => {
   });
 
   it("keeps error messages English for reports and shows their translated detail", () => {
-    startDesktopLocale("es", undefined);
+    startDesktopLocale("zh-CN", undefined);
     const error = withDetail(new Error("Page failed to load."), t("Page failed to load."));
     expect(error.message).toBe("Page failed to load.");
-    expect(errorDetail(error)).toBe(ES_MESSAGES["Page failed to load."]);
+    expect(errorDetail(error)).toBe(ZH_CN_MESSAGES["Page failed to load."]);
     expect(errorDetail(new Error("plain"))).toBeUndefined();
     expect(errorDetail(null)).toBeUndefined();
   });
@@ -136,7 +136,7 @@ describe("desktop language", () => {
       releaseFirst = resolve;
     });
     const save = vi.fn(async (locale: string) => {
-      if (locale === "es") await firstWrite;
+      if (locale === "zh-CN") await firstWrite;
       saved.push(locale);
     });
     const handle = createLocaleHandler(
@@ -145,13 +145,13 @@ describe("desktop language", () => {
       () => undefined,
     );
 
-    const first = handle(event, "es");
-    await vi.waitFor(() => expect(save).toHaveBeenCalledWith("es"));
+    const first = handle(event, "zh-CN");
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith("zh-CN"));
     const second = handle(event, "en");
     releaseFirst();
     await Promise.all([first, second]);
 
-    expect(saved).toEqual(["es", "en"]);
+    expect(saved).toEqual(["zh-CN", "en"]);
     expect(desktopLocale()).toBe("en");
   });
 
@@ -167,8 +167,8 @@ describe("desktop language", () => {
       () => undefined,
     );
 
-    await handle(event, "es");
-    await handle(event, "es");
+    await handle(event, "zh-CN");
+    await handle(event, "zh-CN");
 
     expect(save).toHaveBeenCalledTimes(2);
   });
@@ -183,9 +183,9 @@ describe("desktop language", () => {
       () => undefined,
     );
 
-    await Promise.all(["es", "en", "es", "en"].map((locale) => handle(event, locale)));
+    await Promise.all(["zh-CN", "en", "zh-CN", "en"].map((locale) => handle(event, locale)));
 
-    expect(save).not.toHaveBeenCalledWith("es");
+    expect(save).not.toHaveBeenCalledWith("zh-CN");
     expect(save).toHaveBeenLastCalledWith("en");
   });
 
@@ -200,10 +200,10 @@ describe("desktop language", () => {
         () => undefined,
       );
       startDesktopLocale(await readUiLocale(userData), "en-US");
-      await handle(event, "es-AR");
+      await handle(event, "zh-HK");
 
       startDesktopLocale(null, "en-US");
-      expect(startDesktopLocale(await readUiLocale(userData), "en-US")).toBe("es");
+      expect(startDesktopLocale(await readUiLocale(userData), "en-US")).toBe("zh-CN");
     } finally {
       await rm(userData, { recursive: true, force: true });
     }

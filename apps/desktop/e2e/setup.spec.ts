@@ -5,9 +5,9 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { BotCampDesktop } from "@botcamp/contracts";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { _electron as electron, expect, test } from "@playwright/test";
-import type { BotCampDesktop } from "@botcamp/contracts";
 
 const APP_MARKER = "Existing BotCamp instance ready";
 /** Outlasts the shell's 20s wait for a mounted app before it rejects the server. */
@@ -175,30 +175,31 @@ test("the server chooser offers BotCamp Cloud first, with local and existing ins
 });
 
 test("setup opens in the language the app last used", async () => {
-  await writeFile(path.join(userData, "ui-locale.txt"), "es\n");
+  await writeFile(path.join(userData, "ui-locale.txt"), "zh-CN\n");
   app = await launch();
   const setup = await app.firstWindow();
 
-  await expect(setup.locator("html")).toHaveAttribute("lang", "es");
-  await expect(
-    setup.getByRole("heading", { name: "Te damos la bienvenida a BotCamp" }),
-  ).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continuar" })).toBeEnabled();
+  await expect(setup.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await expect(setup.locator("html")).toHaveAttribute("dir", "ltr");
+  // The heading is source text. Continue is in the desktop catalog.
+  await expect(setup.getByRole("heading", { name: "Welcome to BotCamp" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "继续" })).toBeEnabled();
   await setup.screenshot({
-    path: path.join(import.meta.dirname, "screenshots", "10-setup-spanish.png"),
+    path: path.join(import.meta.dirname, "screenshots", "10-setup-simplified-chinese.png"),
   });
 });
 
-test("setup lays out right to left in Hebrew", async () => {
+test("setup opens in English when the saved language is not shipped", async () => {
   await writeFile(path.join(userData, "ui-locale.txt"), "he\n");
   app = await launch();
   const setup = await app.firstWindow();
 
-  await expect(setup.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(setup.getByRole("heading", { name: "ברוכים הבאים ל-BotCamp" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "המשך" })).toBeEnabled();
+  await expect(setup.locator("html")).toHaveAttribute("lang", "en");
+  await expect(setup.locator("html")).toHaveAttribute("dir", "ltr");
+  await expect(setup.getByRole("heading", { name: "Welcome to BotCamp" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue" })).toBeEnabled();
   await setup.screenshot({
-    path: path.join(import.meta.dirname, "screenshots", "11-setup-hebrew.png"),
+    path: path.join(import.meta.dirname, "screenshots", "11-setup-english-fallback.png"),
   });
 });
 

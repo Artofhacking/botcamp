@@ -80,10 +80,10 @@ describe("sendWelcomeEmail", () => {
 
   it("writes the welcome in the language of the browser that signed up", async () => {
     const { email, deps: welcome } = deps(true);
-    await sendWelcomeEmail(welcome, "user-1", new Headers({ "accept-language": "es-CL,es" }));
+    await sendWelcomeEmail(welcome, "user-1", new Headers({ "accept-language": "zh-HK,zh;q=0.9" }));
     await vi.waitFor(() => expect(email.sent).toHaveLength(1));
-    expect(email.sent[0]!.subject).toBe("Te damos la bienvenida a BotCamp");
-    expect(email.sent[0]!.text).toContain("¿Quieres usarlo en tus propios servidores?");
+    expect(email.sent[0]!.subject).toBe("欢迎使用 BotCamp");
+    expect(email.sent[0]!.text).toContain("想在自己的服务器上运行？");
   });
 
   it("sends nothing when another sign-in already claimed the welcome", async () => {

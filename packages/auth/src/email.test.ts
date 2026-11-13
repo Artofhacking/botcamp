@@ -95,21 +95,21 @@ describe("email languages", () => {
   const headers = (value: string) => new Headers({ "accept-language": value });
 
   it("writes in the saved app language, else the asking browser's, else English", () => {
-    expect(emailLocale("es", headers("de-DE,de;q=0.9"))).toBe("es");
-    expect(emailLocale(null, headers("es-CL,es;q=0.9,en;q=0.8"))).toBe("es");
+    expect(emailLocale("zh-CN", headers("de-DE,de;q=0.9"))).toBe("zh-CN");
+    expect(emailLocale(null, headers("zh-TW,zh;q=0.9,en;q=0.8"))).toBe("zh-CN");
     expect(emailLocale(undefined, headers("it-IT"))).toBe("en");
     expect(emailLocale("it", headers("es-ES"))).toBe("en");
-    expect(emailLocale(null, headers("it-IT,es;q=0.9"))).toBe("es");
-    expect(emailLocale(null, headers("en-US,es;q=0.9"))).toBe("en");
+    expect(emailLocale(null, headers("it-IT,zh-CN;q=0.9"))).toBe("zh-CN");
+    expect(emailLocale(null, headers("en-US,zh;q=0.9"))).toBe("en");
     expect(emailLocale(null, headers("*"))).toBe("en");
     expect(emailLocale(null, null)).toBe("en");
   });
 
-  it("writes a code email in Spanish", async () => {
-    const message = await signInCodeEmail("user@example.test", "123456", "es");
-    expect(message.subject).toBe("Tu código para iniciar sesión en BotCamp");
-    expect(message.html).toContain('lang="es"');
-    expect(message.text).toContain("Introduce este código para iniciar sesión en BotCamp:");
+  it("writes a code email in Simplified Chinese", async () => {
+    const message = await signInCodeEmail("user@example.test", "123456", "zh-CN");
+    expect(message.subject).toBe("你的 BotCamp 登录验证码");
+    expect(message.html).toContain('lang="zh-CN"');
+    expect(message.text).toContain("输入此验证码以登录 BotCamp：");
     expect(message.html).toContain('dir="ltr"');
   });
 
@@ -119,10 +119,10 @@ describe("email languages", () => {
     expect(message.html).toContain('dir="rtl"');
   });
 
-  it("greets by name in Spanish and keeps English as written", async () => {
+  it("greets by name in Simplified Chinese and keeps English as written", async () => {
     const user = { id: "user-1", email: "user@example.test", name: "Ana" };
-    expect((await passwordResetEmail(user, "https://example.test/r", "es")).text).toContain(
-      "Hola, Ana:",
+    expect((await passwordResetEmail(user, "https://example.test/r", "zh-CN")).text).toContain(
+      "Ana，你好：",
     );
     const english = await welcomeEmail(user, "https://example.test/u");
     expect(english.subject).toBe("Welcome to BotCamp");

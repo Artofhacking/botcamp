@@ -11,8 +11,6 @@ import type {
   DesktopSetupState,
 } from "@botcamp/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { ES_MESSAGES } from "./locales/es.js";
-import { HE_MESSAGES } from "./locales/he.js";
 
 type DesktopSetupResult = Awaited<ReturnType<BotCampSetup["save"]>>;
 
@@ -418,44 +416,56 @@ describe("setup", () => {
   });
 
   it("lays a right-to-left language out right to left", async () => {
-    await boot(null, { lang: "he", dir: "rtl", messages: HE_MESSAGES });
+    await boot(null, { lang: "he", dir: "rtl", messages: { Continue: "המשך" } });
     expect(document.documentElement.lang).toBe("he");
     expect(document.documentElement.dir).toBe("rtl");
-    expect(element("continue").textContent).toBe(HE_MESSAGES.Continue);
+    expect(element("continue").textContent).toBe("המשך");
   });
 
   it("renders the page and its messages in the app's language", async () => {
-    const ui = await boot(null, { lang: "es", dir: "ltr", messages: ES_MESSAGES });
-    expect(document.documentElement.lang).toBe("es");
+    const messages = {
+      "Welcome to BotCamp": "欢迎使用 BotCamp",
+      "This computer": "这台电脑",
+      "BotCamp Cloud": "BotCamp Cloud",
+      Quit: "退出",
+      "Quit BotCamp": "退出 BotCamp",
+      "Technical details": "技术细节",
+      "Name: value": "名称: 值",
+      Continue: "继续",
+      "Checking…": "正在检查…",
+      "BotCamp answered at {url}.": "BotCamp 已在 {url} 响应。",
+      "Downloading BotCamp…": "正在下载 BotCamp…",
+      "{size} downloaded": "已下载 {size}",
+    };
+    const ui = await boot(null, { lang: "zh-CN", dir: "ltr", messages });
+    expect(document.documentElement.lang).toBe("zh-CN");
     expect(document.documentElement.dir).toBe("ltr");
-    expect(document.querySelector("h1")?.textContent).toBe("Te damos la bienvenida a BotCamp");
-    expect(document.querySelector('label[for="mode-new"]')?.textContent?.trim()).toBe(
-      "Esta computadora",
-    );
+    expect(document.querySelector("h1")?.textContent).toBe("欢迎使用 BotCamp");
+    expect(document.querySelector('label[for="mode-new"]')?.textContent?.trim()).toBe("这台电脑");
     expect(document.querySelector('label[for="mode-cloud"]')?.textContent?.trim()).toBe(
       "BotCamp Cloud",
     );
-    expect(element("quit").textContent).toBe("Salir");
-    expect(element("quit").title).toBe("Salir de BotCamp");
-    expect(element("stack-details").getAttribute("aria-label")).toBe("Detalles técnicos");
-    expect(element<HTMLTextAreaElement>("server-headers").placeholder).toBe("Nombre: valor");
-    expect(element("continue").textContent).toBe("Continuar");
+    expect(element("quit").textContent).toBe("退出");
+    expect(element("quit").title).toBe("退出 BotCamp");
+    expect(element("stack-details").getAttribute("aria-label")).toBe("技术细节");
+    expect(element<HTMLTextAreaElement>("server-headers").placeholder).toBe("名称: 值");
+    expect(element("continue").textContent).toBe("继续");
 
     selectMode("existing");
     await flush();
     element<HTMLInputElement>("server-url").value = "one.example";
     element<HTMLButtonElement>("check").click();
     await flush();
-    expect(element("status").textContent).toBe("Comprobando…");
+    expect(element("status").textContent).toBe("正在检查…");
     ui.resolveCheck({ ok: true, url: "https://one.example" });
     await flush();
-    expect(element("status").textContent).toBe("BotCamp respondió en https://one.example.");
+    expect(element("status").textContent).toBe("BotCamp 已在 https://one.example 响应。");
 
     selectMode("new");
     submitForm();
     ui.startResult.resolve({ ...stackState("pulling"), layerBytes: { layer: 2.5e6 } });
     await flush();
-    expect(element("stack-phase").textContent).toBe("Descargando BotCamp…");
-    expect(element("stack-detail").textContent).toBe("3 MB descargados");
+    expect(element("stack-phase").textContent).toBe("正在下载 BotCamp…");
+    expect(element("stack-detail").textContent).toBe("已下载 3 MB");
   });
 });

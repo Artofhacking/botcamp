@@ -3,43 +3,19 @@ import { recognitionLocaleTag, speechLocaleTag, supportedSpeechTag } from "./spe
 
 describe("speechLocaleTag", () => {
   it("maps an app locale to a tag the recognizer accepts", () => {
-    expect(speechLocaleTag("es")).toBe("es-ES");
-    expect(speechLocaleTag("pt-BR")).toBe("pt-BR");
-    expect(speechLocaleTag("nl")).toBe("nl-NL");
-    expect(speechLocaleTag("ja")).toBe("ja-JP");
-    expect(speechLocaleTag("zh-TW")).toBe("zh-TW");
+    expect(speechLocaleTag("en")).toBe("en-US");
+    expect(speechLocaleTag("zh-CN")).toBe("zh-CN");
   });
 });
 
 describe("recognitionLocaleTag", () => {
-  it.each([
-    ["es-CL", "es-CL"],
-    ["es-MX", "es-MX"],
-    ["es_AR", "es-AR"],
-    ["es-us", "es-US"],
-    ["es-419", "es-MX"],
-    ["es", "es-ES"],
-    ["es-ES", "es-ES"],
-  ])("hears a Spanish speaker on %j as %j", (speaker, tag) => {
-    expect(recognitionLocaleTag("es", speaker)).toBe(tag);
-  });
-
-  it("keeps the app's language when the speaker's is another one", () => {
-    expect(recognitionLocaleTag("es", "en-US")).toBe("es-ES");
-    expect(recognitionLocaleTag("nl", "de-DE")).toBe("nl-NL");
-    expect(recognitionLocaleTag("es", undefined)).toBe("es-ES");
-    expect(recognitionLocaleTag("es", " ")).toBe("es-ES");
-  });
-
-  it("keeps the speaker's country for other languages too", () => {
-    expect(recognitionLocaleTag("pt-BR", "pt-PT")).toBe("pt-PT");
-    expect(recognitionLocaleTag("nl", "nl-BE")).toBe("nl-BE");
+  it("keeps the speaker's country when the UI is English", () => {
     expect(recognitionLocaleTag("en", "en-US-u-mu-celsius")).toBe("en-US");
     expect(recognitionLocaleTag("en", "EN-gb")).toBe("en-GB");
   });
 
-  it("keeps the app's Chinese script over the speaker's region", () => {
-    expect(recognitionLocaleTag("zh-TW", "zh-HK")).toBe("zh-TW");
+  it("keeps Simplified Chinese over the speaker's region", () => {
+    expect(recognitionLocaleTag("zh-CN", "zh-HK")).toBe("zh-CN");
     expect(recognitionLocaleTag("zh-CN", "zh-Hans-SG")).toBe("zh-CN");
   });
 

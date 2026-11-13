@@ -1,27 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { RUN_ERROR_LIMIT_MESSAGES } from "@botcamp/core";
 import { i18n } from "@lingui/core";
 import { formatter } from "@lingui/format-po";
-import { RUN_ERROR_LIMIT_MESSAGES } from "@botcamp/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { UI_LOCALES } from "./ui-locale";
 
 describe("lingui catalogs", () => {
   it("translates sign-out failures in every supported language", () => {
-    for (const locale of [
-      "de",
-      "es",
-      "fr",
-      "hi",
-      "ja",
-      "ko",
-      "nl",
-      "pt-BR",
-      "ru",
-      "tr",
-      "zh-CN",
-      "zh-TW",
-    ]) {
+    for (const locale of ["zh-CN"]) {
       const catalog = readFileSync(
         fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
         "utf8",
@@ -36,9 +23,9 @@ describe("lingui catalogs", () => {
     }
   });
 
-  it("translates dictation and voice errors into Spanish", () => {
+  it("translates dictation and voice errors into Simplified Chinese", () => {
     const catalog = readFileSync(
-      fileURLToPath(new URL("../locales/es/messages.po", import.meta.url)),
+      fileURLToPath(new URL("../locales/zh-CN/messages.po", import.meta.url)),
       "utf8",
     );
     for (const message of [
@@ -82,21 +69,7 @@ describe("lingui catalogs", () => {
       "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.",
       "Details",
     ];
-    for (const locale of [
-      "de",
-      "es",
-      "fr",
-      "he",
-      "hi",
-      "ja",
-      "ko",
-      "nl",
-      "pt-BR",
-      "ru",
-      "tr",
-      "zh-CN",
-      "zh-TW",
-    ]) {
+    for (const locale of ["zh-CN"]) {
       const catalog = readFileSync(
         fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
         "utf8",
@@ -107,10 +80,7 @@ describe("lingui catalogs", () => {
           .find((block) => block.includes(`msgid ${JSON.stringify(message)}\n`));
         const translated = entry?.split("msgstr ")[1];
         expect(translated, `${locale}: ${message}`).toBeTruthy();
-        // "Details" is also the German and Dutch label.
-        if ((locale !== "de" && locale !== "nl") || message !== "Details") {
-          expect(translated, `${locale}: ${message}`).not.toBe(JSON.stringify(message));
-        }
+        expect(translated, `${locale}: ${message}`).not.toBe(JSON.stringify(message));
         for (const placeholder of message.match(/\{\w+\}/g) ?? []) {
           expect(translated).toContain(placeholder);
         }
@@ -176,22 +146,7 @@ describe("lingui catalogs", () => {
       "Hide",
       "Could not show the credential",
     ];
-    for (const locale of [
-      "en",
-      "de",
-      "es",
-      "fr",
-      "he",
-      "hi",
-      "ja",
-      "ko",
-      "nl",
-      "pt-BR",
-      "ru",
-      "tr",
-      "zh-CN",
-      "zh-TW",
-    ]) {
+    for (const locale of ["en", "zh-CN"]) {
       const catalog = readFileSync(
         fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
         "utf8",
@@ -209,21 +164,7 @@ describe("lingui catalogs", () => {
   });
 
   it("translates model connection preflight feedback in every non-English catalog", () => {
-    const locales = [
-      "de",
-      "es",
-      "fr",
-      "he",
-      "hi",
-      "ja",
-      "ko",
-      "nl",
-      "pt-BR",
-      "ru",
-      "tr",
-      "zh-CN",
-      "zh-TW",
-    ];
+    const locales = ["zh-CN"];
     const messages = [
       "A subscription credential is stored securely.",
       'Model "{modelId}" was not listed.',
@@ -253,17 +194,6 @@ describe("lingui catalogs", () => {
         }
       }
     }
-
-    const russian = readFileSync(
-      fileURLToPath(new URL("../locales/ru/messages.po", import.meta.url)),
-      "utf8",
-    );
-    expect(russian).toContain(
-      "msgstr " +
-        '"Список моделей в порядке. {modelCount, plural, one {Доступна # модель} ' +
-        "few {Доступны # модели} many {Доступно # моделей} other {Доступно # модели}}. " +
-        'Чат не проверялся."',
-    );
   });
 
   it("says how late a run started for one and for many in every locale", () => {
@@ -288,19 +218,10 @@ describe("lingui catalogs", () => {
         for (const count of [1, 3]) {
           const label = i18n._({ id, values: { count } });
           expect(label, `${locale}: ${id}`).not.toMatch(/[{}]/);
-          if (!(locale === "he" && count === 1 && id.includes("d late"))) {
-            expect(label, `${locale}: ${id}`).toContain(String(count));
-          }
+          expect(label, `${locale}: ${id}`).toContain(String(count));
         }
       }
     }
-    i18n.activate("he");
-    expect(i18n._({ id: "Started {count}d late", values: { count: 1 } })).toBe(
-      "התחיל באיחור של יום",
-    );
-    expect(i18n._({ id: "Started {count}d late", values: { count: 3 } })).toBe(
-      "התחיל באיחור של 3 ימים",
-    );
   });
 
   it("translates counted peer exchanges and close controls in every locale", () => {
@@ -330,7 +251,7 @@ describe("lingui catalogs", () => {
   });
 });
 
-it("keeps source placeholders and JSX markers in Traditional Chinese translations", async () => {
+it("keeps source placeholders and JSX markers in Simplified Chinese translations", async () => {
   const readCatalog = async (locale: string) => {
     const filename = fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url));
     return formatter().parse(readFileSync(filename, "utf8"), {
@@ -340,7 +261,7 @@ it("keeps source placeholders and JSX markers in Traditional Chinese translation
     });
   };
   const source = await readCatalog("en");
-  const translated = await readCatalog("zh-TW");
+  const translated = await readCatalog("zh-CN");
   expect(Object.keys(translated).sort()).toEqual(Object.keys(source).sort());
   const markers = (value: string) =>
     [...new Set(value.match(/\{\w+(?=\s*[,}])|<\/?\d+\s*\/?>/g) ?? [])].sort();

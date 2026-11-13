@@ -57,23 +57,8 @@ export const TimeZoneSchema = z
   .max(64)
   .refine(isValidTimeZone, { message: "Unknown timezone" });
 
-/** An app language code, such as "es", "pt-BR" or "zh-TW". */
-export const AppLocaleSchema = z.enum([
-  "en",
-  "de",
-  "ko",
-  "tr",
-  "hi",
-  "pt-BR",
-  "zh-CN",
-  "zh-TW",
-  "es",
-  "ru",
-  "fr",
-  "he",
-  "nl",
-  "ja",
-]);
+/** An app language: English or Simplified Chinese. */
+export const AppLocaleSchema = z.enum(["en", "zh-CN"]);
 export type AvatarStyle = z.infer<typeof AvatarStyleSchema>;
 
 export { AGENT_SECRET_NAME_PATTERN };

@@ -215,41 +215,6 @@ export const ENGLISH_CRON_LABELS: CronLabels = {
       : `Every ${names.slice(0, -1).join(", ")} and ${names.at(-1)}`,
 };
 
-// Russian nouns after an amount take one of three case forms; the lead word
-// also agrees with the unit's gender. Shared so web and mobile agree.
-export function russianPluralForm(value: number, one: string, few: string, many: string): string {
-  const absolute = Math.abs(value);
-  const mod10 = absolute % 10;
-  const mod100 = absolute % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
-  return many;
-}
-
-export function russianIntervalUnit(value: number, unit: CronUnit): string {
-  switch (unit) {
-    case "minutes":
-      return russianPluralForm(value, "минуту", "минуты", "минут");
-    case "hours":
-      return russianPluralForm(value, "час", "часа", "часов");
-    case "days":
-      return russianPluralForm(value, "день", "дня", "дней");
-    default:
-      return unit;
-  }
-}
-
-export function russianInterval(value: number, unit: CronUnit): { lead: string; detail: string } {
-  const lead = value === 1 ? (unit === "minutes" ? "Каждую" : "Каждый") : "Каждые";
-  return {
-    lead,
-    detail:
-      value === 1
-        ? russianIntervalUnit(value, unit)
-        : `${value} ${russianIntervalUnit(value, unit)}`,
-  };
-}
-
 export function describeCronPreset(
   preset: CronPreset,
   labels: CronLabels = ENGLISH_CRON_LABELS,

@@ -85,10 +85,10 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await expect(page.getByPlaceholder("Message Group")).toBeVisible();
     await expectReadableNames(page.locator("body"));
     await captureScreenshot(page, testInfo, "readable-names-group-members");
-    await page.evaluate(() => localStorage.setItem("botcamp.uiLocale", "ru"));
+    await page.evaluate(() => localStorage.setItem("botcamp.uiLocale", "zh-CN"));
     await page.reload();
-    await expect(page.getByTestId("bots-sidebar")).toContainText("Группа");
-    await expect(page.getByTestId("bots-sidebar")).toContainText("Бот");
+    await expect(page.getByTestId("bots-sidebar")).toContainText("群组");
+    await expect(page.getByTestId("bots-sidebar")).toContainText("Bot");
     await expectReadableNames(page.locator("body"));
     await captureScreenshot(page, testInfo, "readable-names-localized");
     await page.evaluate(() => localStorage.setItem("botcamp.uiLocale", "en"));

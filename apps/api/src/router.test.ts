@@ -1,9 +1,6 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { InferRouterInitialContext } from "@orpc/server";
-import { createRouterClient } from "@orpc/server";
-import { RPCHandler } from "@orpc/server/fetch";
 import type { ManagedConnectorProvider } from "@botcamp/adapter-kit";
 import { ConnectorAuthUnavailableError, SecretStoreUnavailableError } from "@botcamp/adapter-kit";
 import type { McpOAuthSummary } from "@botcamp/adapters";
@@ -40,6 +37,9 @@ import {
   runProviderTransaction,
 } from "@botcamp/db";
 import { createLogger, createTestSink, installLogger } from "@botcamp/logging";
+import type { InferRouterInitialContext } from "@orpc/server";
+import { createRouterClient } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mainRole, withModelRoles } from "../../../packages/adapters/src/testing/model-roles.js";
 import type { RouterDeps } from "./router.js";
@@ -408,12 +408,12 @@ describe("account preferences", () => {
   it("saves the app language emails are written in", async () => {
     const setup = preferencesDeps("organic");
 
-    const response = await updatePreferences(setup, { locale: "pt-BR" });
+    const response = await updatePreferences(setup, { locale: "zh-CN" });
 
     expect(response.status).toBe(200);
     expect(setup.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { locale: "pt-BR" },
+      data: { locale: "zh-CN" },
     });
   });
 
