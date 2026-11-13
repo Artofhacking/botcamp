@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.74] - 2026-11-13
+
+### Changed
+
+- Directory sign-in asks for offline access again, so the linked token can refresh. Sign in or link the directory once more to store it.
+
+### Self-host upgrade notes
+
+- Enable `offline_access` as a user permission on the directory app and publish that version before this release. Attendance, OKR, and in-meeting scopes stay unrequested.
+
 ## [2.0.73] - 2026-11-13
 
 ### Fixed
