@@ -5,6 +5,11 @@
  *
  * `im:message.send_as_user` is omitted on purpose: the command line withholds it
  * from a bulk login because it forces a review that blocks the whole consent.
+ *
+ * Also omitted, because requesting a scope this app has not enabled makes Feishu
+ * reject the whole consent: `attendance:task:readonly`, the OKR content, comment,
+ * period, progress, and settings scopes, `vc:meeting.realtime:read`, and
+ * `offline_access`. Without `offline_access` the access token is not refreshed.
  */
 export const DIRECTORY_CLI_SCOPE_CATALOG_VERSION = "1.0.99";
 
@@ -45,7 +50,6 @@ export const DIRECTORY_CLI_USER_SCOPES = [
   "spark:app:read",
   "spark:app:write",
   "spark:directory.user.id_convert:read",
-  "attendance:task:readonly",
   "base:app:copy",
   "base:app:create",
   "base:app:read",
@@ -210,17 +214,6 @@ export const DIRECTORY_CLI_USER_SCOPES = [
   "minutes:minutes:update",
   "minutes:permission:apply",
   "vc:note:read",
-  "okr:okr.comment.delete",
-  "okr:okr.comment.readonly",
-  "okr:okr.comment.writeonly",
-  "okr:okr.content:readonly",
-  "okr:okr.content:writeonly",
-  "okr:okr.period:readonly",
-  "okr:okr.progress.file:upload",
-  "okr:okr.progress:delete",
-  "okr:okr.progress:readonly",
-  "okr:okr.progress:writeonly",
-  "okr:okr.setting:read",
   "sheets:spreadsheet.meta:read",
   "sheets:spreadsheet.meta:write_only",
   "sheets:spreadsheet:create",
@@ -245,7 +238,6 @@ export const DIRECTORY_CLI_USER_SCOPES = [
   "vc:meeting.interaction:write",
   "vc:meeting.meetingevent:read",
   "vc:meeting.message:write",
-  "vc:meeting.realtime:read",
   "vc:meeting.search:read",
   "vc:record:readonly",
   "wiki:member:create",
@@ -263,7 +255,6 @@ export const DIRECTORY_CLI_USER_SCOPES = [
 export const DIRECTORY_LOGIN_IDENTITY_SCOPES = [
   "contact:user.email:readonly",
   "contact:user.employee:readonly",
-  "offline_access",
 ] as const;
 
 /** The scopes a directory sign-in or link requests. Extra names are added, never a replacement. */

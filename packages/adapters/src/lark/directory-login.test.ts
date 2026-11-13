@@ -118,14 +118,19 @@ describe("directory authorization code exchange", () => {
 
 describe("directory login scopes", () => {
   it("asks for the command-line user scopes and the identity scopes together", () => {
-    const scopes = directoryLoginScopes(["extra:scope", "offline_access"]);
+    const scopes = directoryLoginScopes(["extra:scope"]);
     expect(scopes).toContain("contact:user.email:readonly");
     expect(scopes).toContain("contact:user.employee:readonly");
-    expect(scopes).toContain("offline_access");
     expect(scopes).toContain("calendar:calendar:read");
     expect(scopes).toContain("extra:scope");
-    expect(scopes.filter((scope) => scope === "offline_access")).toHaveLength(1);
+    expect(scopes).not.toContain("offline_access");
+    expect(scopes).not.toContain("attendance:task:readonly");
+    expect(scopes).not.toContain("okr:okr.content:readonly");
+    expect(scopes).not.toContain("vc:meeting.realtime:read");
     expect(scopes).not.toContain("im:message.send_as_user");
+    expect(
+      directoryLoginScopes(["offline_access"]).filter((scope) => scope === "offline_access"),
+    ).toHaveLength(1);
     expect(scopes.join(" ").length).toBeLessThan(7_500);
   });
 });

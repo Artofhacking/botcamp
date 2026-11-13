@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.70] - 2026-11-13
+
+### Fixed
+
+- Directory sign-in no longer asks for the attendance export, OKR, meeting-realtime, or offline-access permissions this app has not enabled. The access token is kept until it expires.
+
 ## [2.0.69] - 2026-11-13
 
 ### Changed
