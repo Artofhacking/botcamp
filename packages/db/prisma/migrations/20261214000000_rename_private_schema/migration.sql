@@ -16,7 +16,8 @@ BEGIN
     SELECT p.oid
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+    WHERE p.prokind = 'f'
+      AND n.nspname = 'public'
       AND pg_get_functiondef(p.oid) LIKE '%rakazo_private%'
   LOOP
     body := replace(pg_get_functiondef(fn.oid), 'rakazo_private', 'botcamp_private');
