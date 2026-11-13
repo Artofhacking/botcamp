@@ -104,9 +104,12 @@ export BOTCAMP_REMOTE="https://gh-proxy.com/https://github.com/<owner>/<repo>.gi
 export GIT_HTTP_VERSION=HTTP/1.1
 /usr/local/sbin/botcamp-release-tag deploy /opt/botcamp/src vX.Y.Z
 
-# 2. Build the server, then apply migrations.
+# 2. Build the server, then apply migrations. The generated Prisma client is kept on the
+#    host across deploys, so generate it before building: a schema change that skips this
+#    runs a client without its new fields and every query for them fails.
 cd /opt/botcamp/src
 pnpm install --frozen-lockfile
+pnpm db:generate
 pnpm --filter @botcamp/api build
 pnpm --filter @botcamp/worker build
 pnpm --filter @botcamp/api db:migrate
