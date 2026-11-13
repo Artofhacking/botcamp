@@ -105,12 +105,12 @@ describe("resolveUiLocale", () => {
 describe("persistUiLocale", () => {
   it("writes the storage key", () => {
     const store = new Map<string, string>();
-    persistUiLocale("ko", {
+    persistUiLocale("en", {
       setItem: (key, value) => {
         store.set(key, value);
       },
     });
-    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("ko");
+    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("en");
   });
 });
 
@@ -122,9 +122,9 @@ describe("Chinese preferences", () => {
     expect(resolveUiLocale({ stored: "en", envDefault: "zh-TW", navigatorLanguage: "zh-CN" })).toBe(
       "en",
     );
-    expect(
-      resolveUiLocale({ stored: "zh-CN", envDefault: "en", navigatorLanguage: "en" }),
-    ).toBe("zh-CN");
+    expect(resolveUiLocale({ stored: "zh-CN", envDefault: "en", navigatorLanguage: "en" })).toBe(
+      "zh-CN",
+    );
     expect(resolveUiLocale({ stored: null, envDefault: "zh-TW", navigatorLanguage: "en" })).toBe(
       "zh-CN",
     );

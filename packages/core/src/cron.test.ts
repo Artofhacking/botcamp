@@ -19,7 +19,6 @@ import {
   ONCE_ROUTINE_CRON,
   presetFromCron,
   resolveRoutineNextRunAt,
-  russianInterval,
   zonedDateTime,
 } from "./cron.js";
 
@@ -289,13 +288,6 @@ describe("formatCron", () => {
     expect(formatCron("*/15 * * * *", labels)).toBe("15分ごと");
     expect(formatCron("0 9 * * 1,3,5", labels)).toBe("毎週月曜日と水曜日と金曜日 9:00 AMに");
     expect(formatCron("0 6 * * *", labels)).toBe("毎日 6:00 AMに");
-  });
-
-  it("keeps Russian interval case forms for n=1 and plural amounts", () => {
-    expect(russianInterval(1, "minutes")).toEqual({ lead: "Каждую", detail: "минуту" });
-    expect(russianInterval(1, "hours")).toEqual({ lead: "Каждый", detail: "час" });
-    expect(russianInterval(5, "minutes")).toEqual({ lead: "Каждые", detail: "5 минут" });
-    expect(russianInterval(3, "days")).toEqual({ lead: "Каждые", detail: "3 дня" });
   });
 
   it("describes any day of the month", () => {

@@ -32,6 +32,8 @@ function stubLocaleStorage() {
   return store;
 }
 
+const english = async () => ({ messages: { Settings: "Settings" } });
+
 describe("activateUiLocale", () => {
   beforeEach(() => {
     setCatalogLoadersForTests(null);
@@ -42,25 +44,13 @@ describe("activateUiLocale", () => {
 
   it("falls back to English when the preferred catalog fails to load", async () => {
     setCatalogLoadersForTests({
-      en: async () => ({ messages: { Settings: "Settings" } }),
-      de: async () => {
-        throw new Error("de catalog missing");
+      en: english,
+      "zh-CN": async () => {
+        throw new Error("zh-CN catalog missing");
       },
-      ko: async () => ({ messages: { Settings: "설정" } }),
-      tr: async () => ({ messages: { Settings: "Ayarlar" } }),
-      hi: async () => ({ messages: { Settings: "सेटिंग्स" } }),
-      "pt-BR": async () => ({ messages: { Settings: "Configurações" } }),
-      "zh-CN": async () => ({ messages: { Settings: "设置" } }),
-      "zh-TW": async () => ({ messages: { Settings: "設定" } }),
-      es: async () => ({ messages: { Settings: "Configuración" } }),
-      ru: async () => ({ messages: { Settings: "Настройки" } }),
-      fr: async () => ({ messages: { Settings: "Paramètres" } }),
-      he: async () => ({ messages: { Settings: "הגדרות" } }),
-      nl: async () => ({ messages: { Settings: "Instellingen" } }),
-      ja: async () => ({ messages: { Settings: "設定" } }),
     });
 
-    const locale = await activateUiLocale("de");
+    const locale = await activateUiLocale("zh-CN");
     expect(locale).toBe("en");
     expect(getActiveUiLocale()).toBe("en");
     expect(i18n.locale).toBe("en");
@@ -72,116 +62,56 @@ describe("activateUiLocale", () => {
       en: async () => {
         throw new Error("en missing");
       },
-      de: async () => {
-        throw new Error("de missing");
-      },
-      ko: async () => {
-        throw new Error("ko missing");
-      },
-      tr: async () => {
-        throw new Error("tr missing");
-      },
-      hi: async () => {
-        throw new Error("hi missing");
-      },
-      "pt-BR": async () => {
-        throw new Error("pt-BR missing");
-      },
-      "zh-TW": async () => {
-        throw new Error("zh-TW missing");
-      },
       "zh-CN": async () => {
         throw new Error("zh-CN missing");
       },
-      es: async () => {
-        throw new Error("es missing");
-      },
-      ru: async () => {
-        throw new Error("ru missing");
-      },
-      fr: async () => {
-        throw new Error("fr missing");
-      },
-      he: async () => {
-        throw new Error("he missing");
-      },
-      nl: async () => {
-        throw new Error("nl missing");
-      },
-      ja: async () => {
-        throw new Error("ja missing");
-      },
     });
 
-    const locale = await activateUiLocale("ko");
+    const locale = await activateUiLocale("zh-CN");
     expect(locale).toBe("en");
     expect(i18n.locale).toBe("en");
   });
 
   it("lets the latest locale selection win under concurrency", async () => {
-    let resolveDe!: (value: { messages: Record<string, string> }) => void;
-    const dePromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
-      resolveDe = resolve;
+    let resolveZh!: (value: { messages: Record<string, string> }) => void;
+    const zhPromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
+      resolveZh = resolve;
     });
 
     setCatalogLoadersForTests({
-      en: async () => ({ messages: { Settings: "Settings" } }),
-      de: async () => dePromise,
-      ko: async () => ({ messages: { Settings: "설정" } }),
-      tr: async () => ({ messages: { Settings: "Ayarlar" } }),
-      hi: async () => ({ messages: { Settings: "सेटिंग्स" } }),
-      "pt-BR": async () => ({ messages: { Settings: "Configurações" } }),
-      "zh-CN": async () => ({ messages: { Settings: "设置" } }),
-      "zh-TW": async () => ({ messages: { Settings: "設定" } }),
-      es: async () => ({ messages: { Settings: "Configuración" } }),
-      ru: async () => ({ messages: { Settings: "Настройки" } }),
-      fr: async () => ({ messages: { Settings: "Paramètres" } }),
-      he: async () => ({ messages: { Settings: "הגדרות" } }),
-      nl: async () => ({ messages: { Settings: "Instellingen" } }),
-      ja: async () => ({ messages: { Settings: "設定" } }),
+      en: english,
+      "zh-CN": async () => zhPromise,
     });
 
-    const first = activateUiLocale("de");
-    const second = activateUiLocale("ko");
-    resolveDe({ messages: { Settings: "Einstellungen" } });
+    const first = activateUiLocale("zh-CN");
+    const second = activateUiLocale("en");
+    resolveZh({ messages: { Settings: "设置" } });
 
-    await expect(first).resolves.toBe("ko");
-    await expect(second).resolves.toBe("ko");
-    expect(getActiveUiLocale()).toBe("ko");
-    expect(i18n._({ id: "Settings", message: "Settings" })).toBe("설정");
+    await expect(first).resolves.toBe("en");
+    await expect(second).resolves.toBe("en");
+    expect(getActiveUiLocale()).toBe("en");
+    expect(i18n._({ id: "Settings", message: "Settings" })).toBe("Settings");
   });
 
   it("cancels a pending activation when re-selecting the already-active locale", async () => {
-    let resolveDe!: (value: { messages: Record<string, string> }) => void;
-    const dePromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
-      resolveDe = resolve;
+    let resolveZh!: (value: { messages: Record<string, string> }) => void;
+    const zhPromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
+      resolveZh = resolve;
     });
 
     setCatalogLoadersForTests({
-      en: async () => ({ messages: { Settings: "Settings" } }),
-      de: async () => dePromise,
-      ko: async () => ({ messages: { Settings: "설정" } }),
-      tr: async () => ({ messages: { Settings: "Ayarlar" } }),
-      hi: async () => ({ messages: { Settings: "सेटिंग्स" } }),
-      "pt-BR": async () => ({ messages: { Settings: "Configurações" } }),
-      "zh-CN": async () => ({ messages: { Settings: "设置" } }),
-      "zh-TW": async () => ({ messages: { Settings: "設定" } }),
-      es: async () => ({ messages: { Settings: "Configuración" } }),
-      ru: async () => ({ messages: { Settings: "Настройки" } }),
-      fr: async () => ({ messages: { Settings: "Paramètres" } }),
-      he: async () => ({ messages: { Settings: "הגדרות" } }),
-      nl: async () => ({ messages: { Settings: "Instellingen" } }),
-      ja: async () => ({ messages: { Settings: "設定" } }),
+      en: english,
+      "zh-CN": async () => zhPromise,
     });
 
     await activateUiLocale("en");
     expect(getActiveUiLocale()).toBe("en");
 
-    const pendingDe = activateUiLocale("de");
+    const pendingZh = activateUiLocale("zh-CN");
     const backToEn = activateUiLocale("en");
-    resolveDe({ messages: { Settings: "Einstellungen" } });
+    resolveZh({ messages: { Settings: "设置" } });
 
-    await expect(pendingDe).resolves.toBe("en");
+    await expect(pendingZh).resolves.toBe("en");
     await expect(backToEn).resolves.toBe("en");
     expect(getActiveUiLocale()).toBe("en");
     expect(i18n.locale).toBe("en");
@@ -190,38 +120,26 @@ describe("activateUiLocale", () => {
 
   it("does not let a stale setUiLocale fallback overwrite the latest stored locale", async () => {
     const store = stubLocaleStorage();
-    let resolveDe!: (value: { messages: Record<string, string> }) => void;
-    const dePromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
-      resolveDe = resolve;
+    let resolveZh!: (value: { messages: Record<string, string> }) => void;
+    const zhPromise = new Promise<{ messages: Record<string, string> }>((resolve) => {
+      resolveZh = resolve;
     });
 
     setCatalogLoadersForTests({
-      en: async () => ({ messages: { Settings: "Settings" } }),
-      de: async () => dePromise,
-      ko: async () => ({ messages: { Settings: "설정" } }),
-      tr: async () => ({ messages: { Settings: "Ayarlar" } }),
-      hi: async () => ({ messages: { Settings: "सेटिंग्स" } }),
-      "pt-BR": async () => ({ messages: { Settings: "Configurações" } }),
-      "zh-CN": async () => ({ messages: { Settings: "设置" } }),
-      "zh-TW": async () => ({ messages: { Settings: "設定" } }),
-      es: async () => ({ messages: { Settings: "Configuración" } }),
-      ru: async () => ({ messages: { Settings: "Настройки" } }),
-      fr: async () => ({ messages: { Settings: "Paramètres" } }),
-      he: async () => ({ messages: { Settings: "הגדרות" } }),
-      nl: async () => ({ messages: { Settings: "Instellingen" } }),
-      ja: async () => ({ messages: { Settings: "設定" } }),
+      en: english,
+      "zh-CN": async () => zhPromise,
     });
 
     await activateUiLocale("en");
-    const pendingDe = setUiLocale("de");
-    const pendingKo = setUiLocale("ko");
-    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("ko");
+    const pendingZh = setUiLocale("zh-CN");
+    const pendingEn = setUiLocale("en");
+    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("en");
 
-    resolveDe({ messages: { Settings: "Einstellungen" } });
-    await expect(pendingDe).resolves.toBe("ko");
-    await expect(pendingKo).resolves.toBe("ko");
-    expect(getActiveUiLocale()).toBe("ko");
-    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("ko");
+    resolveZh({ messages: { Settings: "设置" } });
+    await expect(pendingZh).resolves.toBe("en");
+    await expect(pendingEn).resolves.toBe("en");
+    expect(getActiveUiLocale()).toBe("en");
+    expect(store.get(UI_LOCALE_STORAGE_KEY)).toBe("en");
   });
 
   it("tells the desktop app the language it activated, even when the desktop refuses", async () => {
@@ -234,12 +152,12 @@ describe("activateUiLocale", () => {
     });
     vi.stubGlobal("window", { rakazoDesktop: { locale: { set } } });
 
-    await expect(activateUiLocale("es")).resolves.toBe("es");
-    expect(set).toHaveBeenCalledWith("es");
+    await expect(activateUiLocale("zh-CN")).resolves.toBe("zh-CN");
+    expect(set).toHaveBeenCalledWith("zh-CN");
 
     // Older desktop releases have no locale bridge.
     vi.stubGlobal("window", { rakazoDesktop: {} });
-    await expect(activateUiLocale("de")).resolves.toBe("de");
+    await expect(activateUiLocale("en")).resolves.toBe("en");
     vi.unstubAllGlobals();
   });
 });

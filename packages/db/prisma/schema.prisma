@@ -46,7 +46,7 @@ model User {
   weeklyCreditQuota       BigInt                 @default(300)
   /// IANA timezone such as "Pacific/Auckland". Null until set; bots then get UTC only.
   timezone                    String?
-  /// The app language last chosen, such as "es" or "pt-BR". Null until an app reports it;
+  /// The app language last chosen: "en" or "zh-CN". Null until an app reports it;
   /// emails then follow the language of the browser that asked for them.
   locale                      String?
   marketingEmailOptOutAt      DateTime?

@@ -1,5 +1,3 @@
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import type { CronFreq, CronPreset, CronUnit } from "@botcamp/core";
 import {
   CRON_FREQS,
@@ -8,9 +6,10 @@ import {
   cronIntervalAmounts,
   describeCronPreset,
   localizedClock,
-  russianIntervalUnit,
 } from "@botcamp/core";
 import { Input, NativeSelect, NativeSelectOption } from "@botcamp/ui-web";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Clock } from "lucide-react";
 import { cronLabels, cronUnitLabel } from "../lib/cron";
 
@@ -47,12 +46,6 @@ function cronFreqLabel(freq: CronFreq): string {
     default:
       return freq;
   }
-}
-
-function russianIntervalControlLead(): string {
-  // The amount select stays visible for 1, so use a construction that keeps
-  // the number in the sentence grammatical: “Раз в 1 час”, “Раз в 2 часа”.
-  return "Раз в";
 }
 
 export function RoutineSchedule({
@@ -98,7 +91,7 @@ export function RoutineSchedule({
     >
       {UNITS.map((unit) => (
         <NativeSelectOption key={unit} value={unit}>
-          {i18n.locale === "ru" ? russianIntervalUnit(value.n, unit) : cronUnitLabel(unit)}
+          {cronUnitLabel(unit)}
         </NativeSelectOption>
       ))}
     </NativeSelect>
@@ -149,15 +142,9 @@ export function RoutineSchedule({
           ))}
         </NativeSelect>
         {value.freq === "Interval" ? (
-          i18n.locale === "ru" ? (
-            <>
-              {russianIntervalControlLead()} {intervalAmountSelect} {intervalUnitSelect}
-            </>
-          ) : (
-            <Trans>
-              every {intervalAmountSelect} {intervalUnitSelect}
-            </Trans>
-          )
+          <Trans>
+            every {intervalAmountSelect} {intervalUnitSelect}
+          </Trans>
         ) : null}
         {TIMED.includes(value.freq) ? <Trans>at {timeSelect}</Trans> : null}
         {value.freq === "Advanced" ? (

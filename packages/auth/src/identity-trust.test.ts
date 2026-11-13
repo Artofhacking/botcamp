@@ -730,9 +730,9 @@ describe("identity confirmation", () => {
     const f = fixture();
     const token = await codeAccount(f);
     const user = f.data.user!.find((row) => row.email === "approved@example.test")!;
-    user.locale = "es";
+    user.locale = "zh-CN";
     expect((await f.request("/request-identity-code", {}, token)).status).toBe(200);
-    expect(f.messages.at(-1)).toMatchObject({ subject: "Tu código de confirmación de BotCamp" });
+    expect(f.messages.at(-1)).toMatchObject({ subject: "你的 BotCamp 确认码" });
   });
 
   it("binds an emailed code to the session that requested it", async () => {

@@ -51,6 +51,6 @@ it("saves the app language when the account has another, then each one picked", 
 it("leaves a matching account and an older server alone", async () => {
   act(() => root.render(<Reporter saved="zh-CN" />));
   act(() => root.render(<Reporter saved={undefined} />));
-  await act(() => activateUiLocale("fr"));
+  await act(() => activateUiLocale("en"));
   expect(update).not.toHaveBeenCalled();
 });

@@ -270,7 +270,7 @@ describe("setup preload bridge", () => {
   });
 
   it("hands the page its language before the page runs, English when main refuses", () => {
-    const locale = { lang: "es", dir: "ltr", messages: { Continue: "Continuar" } };
+    const locale = { lang: "zh-CN", dir: "ltr", messages: { Continue: "继续" } };
     const sendSync = vi.fn(() => locale);
     const [, bridge] = runPreload("setup-preload.cjs", { sendSync }).exposeInMainWorld.mock
       .calls[0] as [string, BotCampSetup];

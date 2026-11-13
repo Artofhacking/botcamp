@@ -12,19 +12,7 @@ export const UI_LOCALE_STORAGE_KEY = "botcamp.uiLocale";
 
 export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
   en: "English",
-  de: "Deutsch",
-  ko: "한국어",
-  tr: "Türkçe",
-  hi: "हिन्दी",
-  "pt-BR": "Português (Brasil)",
   "zh-CN": "简体中文",
-  "zh-TW": "繁體中文",
-  es: "Español",
-  ru: "Русский",
-  fr: "Français",
-  he: "עברית",
-  nl: "Nederlands",
-  ja: "日本語",
 };
 
 /**
@@ -32,8 +20,7 @@ export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
  * Any Chinese tag, including Traditional, becomes Simplified Chinese. Anything else becomes English.
  */
 export function normalizeUiLocale(raw: string | null | undefined): UiLocale {
-  const matched = matchUiLocale(raw, UI_LOCALES);
-  return matched === "zh-CN" || matched === "zh-TW" ? "zh-CN" : "en";
+  return matchUiLocale(raw, UI_LOCALES) === "zh-CN" ? "zh-CN" : "en";
 }
 
 function readStoredLocale(storage: Pick<Storage, "getItem"> | null | undefined): string | null {

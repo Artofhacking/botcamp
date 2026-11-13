@@ -3,35 +3,11 @@ import { matchUiLocale, textDirectionForLocale, translate } from "@botcamp/core"
 import type { IpcMainInvokeEvent } from "electron";
 import type { AppTarget } from "./app-frame.js";
 import { fromAppFrame } from "./app-frame.js";
-import { DE_MESSAGES } from "./locales/de.js";
-import { ES_MESSAGES } from "./locales/es.js";
-import { FR_MESSAGES } from "./locales/fr.js";
-import { HE_MESSAGES } from "./locales/he.js";
-import { HI_MESSAGES } from "./locales/hi.js";
-import { JA_MESSAGES } from "./locales/ja.js";
-import { KO_MESSAGES } from "./locales/ko.js";
-import { NL_MESSAGES } from "./locales/nl.js";
-import { PT_BR_MESSAGES } from "./locales/pt-BR.js";
-import { RU_MESSAGES } from "./locales/ru.js";
-import { TR_MESSAGES } from "./locales/tr.js";
 import { ZH_CN_MESSAGES } from "./locales/zh-CN.js";
-import { ZH_TW_MESSAGES } from "./locales/zh-TW.js";
 
 /** Every language the app offers; English is the source text and needs no catalog. */
 export const CATALOGS = {
-  de: DE_MESSAGES,
-  es: ES_MESSAGES,
-  fr: FR_MESSAGES,
-  he: HE_MESSAGES,
-  hi: HI_MESSAGES,
-  ja: JA_MESSAGES,
-  ko: KO_MESSAGES,
-  nl: NL_MESSAGES,
-  "pt-BR": PT_BR_MESSAGES,
-  ru: RU_MESSAGES,
-  tr: TR_MESSAGES,
   "zh-CN": ZH_CN_MESSAGES,
-  "zh-TW": ZH_TW_MESSAGES,
 } as const satisfies Record<string, Readonly<Record<string, string>>>;
 export type DesktopLocale = "en" | keyof typeof CATALOGS;
 const DESKTOP_LOCALES = ["en", ...Object.keys(CATALOGS)] as DesktopLocale[];
@@ -71,7 +47,7 @@ export function errorDetail(error: unknown): string | undefined {
   return typeof detail === "string" ? detail : undefined;
 }
 
-/** Language tags only, such as `es` or `zh-TW`: pages and saved files supply these. */
+/** Language tags only, such as `en` or `zh-CN`: pages and saved files supply these. */
 export function isLanguageTag(value: unknown): value is string {
   return typeof value === "string" && value.length <= 35 && LANGUAGE_TAG.test(value);
 }

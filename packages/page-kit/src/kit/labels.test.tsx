@@ -80,12 +80,13 @@ describe("page words", () => {
   });
 
   it("pick the closest shipped language and fall back to English", () => {
-    expect(pageLocaleOf("fr-CA")).toBe("fr");
-    expect(pageLocaleOf("zh-Hant")).toBe("zh-TW");
-    expect(pageLocaleOf("zh-HK")).toBe("zh-TW");
+    expect(pageLocaleOf("fr-CA")).toBe("en");
+    expect(pageLocaleOf("zh-Hant")).toBe("zh-CN");
+    expect(pageLocaleOf("zh-HK")).toBe("zh-CN");
+    expect(pageLocaleOf("zh-TW")).toBe("zh-CN");
     expect(pageLocaleOf("zh")).toBe("zh-CN");
-    expect(pageLocaleOf("pt-PT")).toBe("pt-BR");
-    expect(pageLocaleOf("JA")).toBe("ja");
+    expect(pageLocaleOf("pt-PT")).toBe("en");
+    expect(pageLocaleOf("JA")).toBe("en");
     expect(pageLocaleOf("sw")).toBe("en");
     expect(pageLocaleOf("not a tag")).toBe("en");
     expect(pageLocaleOf(undefined)).toBe("en");
@@ -95,29 +96,27 @@ describe("page words", () => {
   });
 
   it("choose plural forms by the language's rules", () => {
-    const ru = wordsFor("ru");
-    expect(ru.t("ratings", { count: 1 })).toBe("1 оценка");
-    expect(ru.t("ratings", { count: 3 })).toBe("3 оценки");
-    expect(ru.t("ratings", { count: 5 })).toBe("5 оценок");
+    expect(wordsFor("zh-CN").t("ratings", { count: 1 })).toBe("1 条评价");
+    expect(wordsFor("zh-CN").t("ratings", { count: 3 })).toBe("3 条评价");
     expect(wordsFor("en").t("photos", { count: 1 })).toBe("1 photo");
     expect(wordsFor("en").t("photos", { count: 2 })).toBe("2 photos");
   });
 
   it("put the page's language on built-in controls, dates and numbers", () => {
     const root = mount(
-      <Page title="Rapport" lang="fr">
-        <Table columns={["Nom", "Valeur"]} rows={longRows} />
+      <Page title="报告" lang="zh-CN">
+        <Table columns={["名称", "数值"]} rows={longRows} />
         <MonthView month="2026-10" />
         <EmptyChart />
       </Page>,
     );
-    expect(root.querySelector("input")!.placeholder).toBe("Filtrer les lignes");
-    expect(root.querySelector(".rk-table-more button")!.textContent).toBe("Afficher plus");
-    expect(root.querySelector(".rk-table-more span")!.textContent).toBe("200 sur 250 affichées");
-    expect(root.querySelector(".rk-cal-month")!.getAttribute("aria-label")).toBe("octobre 2026");
-    expect(root.querySelector(".rk-cal-month th")!.textContent).toBe("lun.");
-    expect(root.querySelector(".rk-chart-empty")!.textContent).toBe("Aucune donnée");
-    expect(document.documentElement.lang).toBe("fr");
+    expect(root.querySelector("input")!.placeholder).toBe("筛选行");
+    expect(root.querySelector(".rk-table-more button")!.textContent).toBe("显示更多");
+    expect(root.querySelector(".rk-table-more span")!.textContent).toBe("显示 200 / 250");
+    expect(root.querySelector(".rk-cal-month")!.getAttribute("aria-label")).toBe("2026年10月");
+    expect(root.querySelector(".rk-cal-month th")!.textContent).toBe("周一");
+    expect(root.querySelector(".rk-chart-empty")!.textContent).toBe("无数据");
+    expect(document.documentElement.lang).toBe("zh-CN");
   });
 
   it("keeps English and US formats for a page with no language", () => {
@@ -136,40 +135,41 @@ describe("page words", () => {
   it("follow the reader's app language unless the page sets its own", () => {
     // The runtime provides the language the host passed in the boot data.
     const reader = mount(
-      <PageLanguage.Provider value="he">
+      <PageLanguage.Provider value="zh-CN">
         <Page title="Report">
           <EmptyChart />
         </Page>
       </PageLanguage.Provider>,
     );
-    expect(reader.querySelector(".rk-chart-empty")!.textContent).toBe("אין נתונים");
+    expect(reader.querySelector(".rk-chart-empty")!.textContent).toBe("无数据");
     // The reader's language says nothing about the content, so the page keeps its direction.
     expect(reader.querySelector("main")!.hasAttribute("dir")).toBe(false);
     expect(document.documentElement.hasAttribute("dir")).toBe(false);
     const own = mount(
-      <PageLanguage.Provider value="he">
-        <Page title="Plan" lang="de">
+      <PageLanguage.Provider value="zh-CN">
+        <Page title="Plan" lang="en">
           <EmptyChart />
         </Page>
       </PageLanguage.Provider>,
     );
-    expect(own.querySelector(".rk-chart-empty")!.textContent).toBe("Keine Daten");
+    expect(own.querySelector(".rk-chart-empty")!.textContent).toBe("No data");
     // Outside a page, a language already on the document still applies.
-    document.documentElement.lang = "ja";
-    expect(mount(<EmptyChart />).textContent).toBe("データなし");
+    document.documentElement.lang = "zh-CN";
+    expect(mount(<EmptyChart />).textContent).toBe("无数据");
   });
 
   it("lays a right-to-left page out right to left", () => {
     const root = mount(
-      <Page title="דוח" lang="he">
+      <Page title="Report" lang="he">
         <Gallery photos={[{ src: PIXEL }, { src: PIXEL }]} />
       </Page>,
     );
     expect(root.querySelector("main")!.getAttribute("dir")).toBe("rtl");
     expect(document.documentElement.dir).toBe("rtl");
-    expect(root.querySelector(".rk-gallery")!.getAttribute("aria-label")).toBe("2 תמונות");
+    // Hebrew is not a shipped catalog, so the words fall back to English while the direction stays.
+    expect(root.querySelector(".rk-gallery")!.getAttribute("aria-label")).toBe("2 photos");
     expect(root.querySelector(".rk-gallery-dots button")!.getAttribute("aria-label")).toBe(
-      "הצגת תמונה 1",
+      "Show photo 1",
     );
     expect(wordsFor("en").dir).toBe("ltr");
   });
