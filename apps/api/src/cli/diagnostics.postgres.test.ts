@@ -59,8 +59,8 @@ it.skipIf(!testDatabase)(
       expect(stdout).toContain(`#### Bot ${opaque(bot.id)}`);
       expect(stdout).toContain(`| ${opaque(server.id)} | stdio | on | ok | 7 |`);
       for (const value of [
-        "Private",
-        "private",
+        "Private Tools",
+        "private-tools",
         "Secret Bot",
         "sk-private-token",
         "/opt/",
