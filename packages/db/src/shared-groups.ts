@@ -175,6 +175,39 @@ export function createSharedGroupRepos(prisma: PrismaClient) {
       return loadGroup(actor, groupId);
     },
 
+    async searchPeople(
+      actor: Actor,
+      input: { groupId: string; query: string },
+    ): Promise<Array<{ userId: string; name: string; email: string }>> {
+      const query = input.query.trim().slice(0, 80);
+      if (!query) return [];
+      const rows = await prisma.$transaction(async (tx) => {
+        await requireShared(tx, actor, input.groupId);
+        await requireManager(tx, input.groupId, actor.userId);
+        const members = await tx.chatGroupParticipant.findMany({
+          where: { groupId: input.groupId },
+          select: { userId: true },
+        });
+        return tx.user.findMany({
+          where: {
+            id: { notIn: members.map((member) => member.userId) },
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { email: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true, name: true, email: true },
+          orderBy: [{ name: "asc" }, { email: "asc" }],
+          take: 8,
+        });
+      });
+      return rows.map((user) => ({
+        userId: user.id,
+        name: displayName(user.name, user.email),
+        email: user.email,
+      }));
+    },
+
     async invitePerson(actor: Actor, input: { groupId: string; email: string }): Promise<Group> {
       const [user] = await usersForEmails([input.email]);
       if (!user) throw new SharedGroupInputError(NO_ACCOUNT);

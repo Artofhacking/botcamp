@@ -94,6 +94,7 @@ import {
   ExternalConversationPolicySchema,
   GroupDetailSchema,
   InviteSharedGroupInput,
+  SearchSharedGroupPeopleInput,
   GroupSchema,
   IncomingBotCallSchema,
   IntegrationCatalogResultSchema,
@@ -562,6 +563,11 @@ export const appContract = {
     remove: oc.input(groupId).output(z.object({ ok: z.literal(true) })),
     createShared: oc.input(CreateSharedGroupInput).output(GroupSchema),
     invite: oc.input(InviteSharedGroupInput).output(GroupSchema),
+    searchPeople: oc.input(SearchSharedGroupPeopleInput).output(
+      z.object({
+        people: z.array(z.object({ userId: Id, name: z.string(), email: z.string() })).max(8),
+      }),
+    ),
     setPersonRole: oc.input(SetSharedGroupRoleInput).output(GroupSchema),
     removePerson: oc.input(RemoveSharedGroupPersonInput).output(GroupSchema),
     addBot: oc.input(AddSharedGroupBotInput).output(GroupSchema),

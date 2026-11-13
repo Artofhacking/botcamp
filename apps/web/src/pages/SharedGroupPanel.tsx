@@ -1,10 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, Group } from "@botcamp/contracts";
 import { GROUP_MEMBER_MAX, GROUP_NAME_MAX_LENGTH } from "@botcamp/contracts";
-import { BotAvatar, Button, Checkbox, Input, SectionHeading } from "@botcamp/ui-web";
+import {
+  BotAvatar,
+  Button,
+  Checkbox,
+  Input,
+  ListSearchInput,
+  SectionHeading,
+} from "@botcamp/ui-web";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { errorText } from "../lib/user-error";
 import type { createSpaceRpc } from "../lib/rpc";
 import { DeleteItemDialog } from "./shell/dialogs";
@@ -211,7 +218,6 @@ export function SharedGroupSettings({
     setShown(group);
     if (name === shown.name) setName(group.name);
   }
-  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -223,13 +229,15 @@ export function SharedGroupSettings({
   const full = group.members.length >= GROUP_MEMBER_MAX;
 
   async function run(key: string, action: () => Promise<void>) {
-    if (pending) return;
+    if (pending) return false;
     setPending(key);
     setError(null);
     try {
       await action();
+      return true;
     } catch (cause) {
       setError(errorText(cause, t`Could not save group`));
+      return false;
     } finally {
       setPending(null);
     }
@@ -281,42 +289,38 @@ export function SharedGroupSettings({
         <SectionHeading variant="label" className="mb-2">
           <Trans>People</Trans>
         </SectionHeading>
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {group.people?.map((person) => (
-            <li key={person.userId} className="flex items-center gap-2 text-sm">
-              <span className="min-w-0 flex-1 truncate">{person.name}</span>
-              <span className="text-muted-foreground">
-                {person.role === "owner" ? (
-                  <Trans>Owner</Trans>
-                ) : person.role === "admin" ? (
-                  <Trans>Admin</Trans>
-                ) : (
-                  <Trans>Member</Trans>
-                )}
-              </span>
-              {owner && person.role !== "owner" ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+            <li key={person.userId} className="flex min-h-9 items-center gap-2 rounded-xl px-1.5">
+              <PersonFace name={person.name} />
+              <span className="min-w-0 flex-1 truncate text-sm">{person.name}</span>
+              <span className="flex shrink-0 items-center gap-1">
+                {owner && person.role !== "owner" ? (
+                  <PersonRoleSelect
+                    name={person.name}
+                    group={person.userId}
+                    role={person.role}
                     disabled={pending !== null}
-                    onClick={() =>
-                      void run(`role:${person.userId}`, async () => {
+                    onRole={(role) =>
+                      run(`role:${person.userId}`, async () => {
                         onGroup(
                           await rpc.groups.setPersonRole({
                             groupId: group.id,
                             userId: person.userId,
-                            role: person.role === "admin" ? "member" : "admin",
+                            role,
                           }),
                         );
                       })
                     }
-                  >
-                    {person.role === "admin" ? <Trans>Member</Trans> : <Trans>Admin</Trans>}
-                  </Button>
+                  />
+                ) : (
+                  <RoleLabel role={person.role} />
+                )}
+                {owner && person.role !== "owner" ? (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    aria-label={t`Remove`}
                     disabled={pending !== null}
                     onClick={() =>
                       void run(`person:${person.userId}`, async () => {
@@ -329,46 +333,37 @@ export function SharedGroupSettings({
                       })
                     }
                   >
-                    <Trans>Remove</Trans>
+                    <X />
                   </Button>
-                </>
-              ) : null}
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>
         {manager ? (
-          <div className="mt-3 flex gap-2">
-            <Input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t`Invite with an email`}
-              aria-label={t`Invite with an email`}
-            />
-            <Button
-              variant="outline"
-              disabled={pending !== null || !email.trim()}
-              onClick={() =>
-                void run("invite", async () => {
-                  onGroup(await rpc.groups.invite({ groupId: group.id, email: email.trim() }));
-                  setEmail("");
-                })
-              }
-            >
-              <Trans>Add</Trans>
-            </Button>
-          </div>
+          <InviteSearch
+            disabled={pending !== null}
+            onSearch={async (query) =>
+              (await rpc.groups.searchPeople({ groupId: group.id, query })).people
+            }
+            onInvite={(email) =>
+              run("invite", async () => {
+                onGroup(await rpc.groups.invite({ groupId: group.id, email }));
+              })
+            }
+          />
         ) : null}
       </section>
       <section className="mt-6">
         <SectionHeading variant="label" className="mb-2">
           <Trans>Your bots</Trans>
         </SectionHeading>
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {group.members.map((member) => {
             const mine = ownBotIds.has(member.botId);
             const canRemove = owner || (manager && mine);
             return (
-              <li key={member.botId} className="flex items-center gap-2">
+              <li key={member.botId} className="flex items-center gap-2 rounded-xl px-1.5 py-1">
                 <BotAvatar
                   avatarSet={member.avatarSet}
                   color={member.color}
@@ -379,7 +374,8 @@ export function SharedGroupSettings({
                 {canRemove ? (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    aria-label={t`Remove`}
                     disabled={pending !== null}
                     onClick={() =>
                       void run(`bot:${member.botId}`, async () => {
@@ -389,39 +385,24 @@ export function SharedGroupSettings({
                       })
                     }
                   >
-                    <Trans>Remove</Trans>
+                    <X />
                   </Button>
                 ) : null}
               </li>
             );
           })}
         </ul>
-        {manager && !full
-          ? available.map((bot) => (
-              <div key={bot.id} className="mt-2 flex items-center gap-2">
-                <BotAvatar
-                  avatarSet={bot.avatarSet}
-                  color={bot.color}
-                  identity={bot.id}
-                  size={28}
-                  status={bot.status}
-                />
-                <span className="min-w-0 flex-1 truncate text-sm">{bot.name}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending !== null}
-                  onClick={() =>
-                    void run(`add:${bot.id}`, async () => {
-                      onGroup(await rpc.groups.addBot({ groupId: group.id, botId: bot.id }));
-                    })
-                  }
-                >
-                  <Trans>Add</Trans>
-                </Button>
-              </div>
-            ))
-          : null}
+        {manager && !full && available.length > 0 ? (
+          <OwnBotSearch
+            bots={available}
+            disabled={pending !== null}
+            onAdd={(botId) =>
+              run(`add:${botId}`, async () => {
+                onGroup(await rpc.groups.addBot({ groupId: group.id, botId }));
+              })
+            }
+          />
+        ) : null}
       </section>
       {pages ? <section className="mt-6">{pages}</section> : null}
       {owner ? (
@@ -455,6 +436,233 @@ export function SharedGroupSettings({
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={onRemove}
         />
+      ) : null}
+    </div>
+  );
+}
+
+function personInitial(name: string) {
+  return name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? "?";
+}
+
+function PersonFace({ name }: { name: string }) {
+  return (
+    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-xs text-foreground">
+      {personInitial(name)}
+    </span>
+  );
+}
+
+function RoleLabel({ role }: { role: "owner" | "admin" | "member" }) {
+  return (
+    <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+      {role === "owner" ? (
+        <Trans>Owner</Trans>
+      ) : role === "admin" ? (
+        <Trans>Admin</Trans>
+      ) : (
+        <Trans>Member</Trans>
+      )}
+    </span>
+  );
+}
+
+function PersonRoleSelect({
+  name,
+  group,
+  role,
+  disabled,
+  onRole,
+}: {
+  name: string;
+  group: string;
+  role: "admin" | "member";
+  disabled: boolean;
+  onRole: (role: "admin" | "member") => Promise<boolean>;
+}) {
+  const { t } = useLingui();
+  const options = [
+    { value: "member" as const, label: t`Member` },
+    { value: "admin" as const, label: t`Admin` },
+  ];
+  return (
+    <fieldset aria-label={name} className="m-0 inline-flex rounded-lg border-0 bg-muted p-0.5">
+      {options.map((option) => {
+        const selected = option.value === role;
+        const tone = selected
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground";
+        return (
+          <label
+            key={option.value}
+            className={`rounded-md px-2 py-0.5 text-xs ${tone}${disabled ? " opacity-50" : ""}`}
+          >
+            <input
+              type="radio"
+              name={group}
+              value={option.value}
+              checked={selected}
+              disabled={disabled}
+              className="sr-only"
+              onChange={() => {
+                if (!selected) void onRole(option.value);
+              }}
+            />
+            {option.label}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+function InviteSearch({
+  disabled,
+  onSearch,
+  onInvite,
+}: {
+  disabled: boolean;
+  onSearch: (query: string) => Promise<Array<{ userId: string; name: string; email: string }>>;
+  onInvite: (email: string) => Promise<boolean>;
+}) {
+  const { t } = useLingui();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Array<{ userId: string; name: string; email: string }>>(
+    [],
+  );
+  const searchRef = useRef(onSearch);
+  searchRef.current = onSearch;
+  const trimmed = query.trim();
+
+  useEffect(() => {
+    if (!trimmed) {
+      setResults([]);
+      return;
+    }
+    let cancel = false;
+    const timer = window.setTimeout(() => {
+      void searchRef
+        .current(trimmed)
+        .then((people) => {
+          if (!cancel) setResults(people);
+        })
+        .catch(() => {
+          if (!cancel) setResults([]);
+        });
+    }, 200);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [trimmed]);
+
+  const typedEmail = looksLikeEmail(trimmed) ? trimmed.toLowerCase() : "";
+  const emailListed = results.some((person) => person.email.toLowerCase() === typedEmail);
+
+  async function choose(email: string) {
+    if (await onInvite(email)) {
+      setQuery("");
+      setResults([]);
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <ListSearchInput
+        query={query}
+        setQuery={setQuery}
+        label={t`People`}
+        placeholder={t`Search`}
+      />
+      {results.length || typedEmail ? (
+        <ul className="mt-1 overflow-hidden rounded-xl border border-border">
+          {results.map((person) => (
+            <li key={person.userId}>
+              <button
+                type="button"
+                disabled={disabled}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50"
+                onClick={() => void choose(person.email)}
+              >
+                <PersonFace name={person.name} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{person.name}</span>
+                  {person.email.toLowerCase() === person.name.toLowerCase() ? null : (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {person.email}
+                    </span>
+                  )}
+                </span>
+              </button>
+            </li>
+          ))}
+          {typedEmail && !emailListed ? (
+            <li>
+              <button
+                type="button"
+                disabled={disabled}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+                onClick={() => void choose(typedEmail)}
+              >
+                <PersonFace name={typedEmail} />
+                <span className="min-w-0 flex-1 truncate">{typedEmail}</span>
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function OwnBotSearch({
+  bots,
+  disabled,
+  onAdd,
+}: {
+  bots: Bot[];
+  disabled: boolean;
+  onAdd: (botId: string) => Promise<boolean>;
+}) {
+  const { t } = useLingui();
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim().toLowerCase();
+  const matches = trimmed ? bots.filter((bot) => bot.name.toLowerCase().includes(trimmed)) : [];
+
+  return (
+    <div className="mt-3">
+      <ListSearchInput
+        query={query}
+        setQuery={setQuery}
+        label={t`Your bots`}
+        placeholder={t`Search`}
+      />
+      {matches.length ? (
+        <ul className="mt-1 overflow-hidden rounded-xl border border-border">
+          {matches.map((bot) => (
+            <li key={bot.id}>
+              <button
+                type="button"
+                disabled={disabled}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50"
+                onClick={() =>
+                  void onAdd(bot.id).then((added) => {
+                    if (added) setQuery("");
+                  })
+                }
+              >
+                <BotAvatar
+                  avatarSet={bot.avatarSet}
+                  color={bot.color}
+                  identity={bot.id}
+                  size={28}
+                  status={bot.status}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm">{bot.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );

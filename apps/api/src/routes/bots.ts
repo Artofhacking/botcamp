@@ -808,6 +808,13 @@ export function botsRoutes(ctx: RouterContext) {
           throw mapSharedGroupError(error);
         }
       }),
+      searchPeople: authed.groups.searchPeople.handler(async ({ context, input }) => {
+        try {
+          return { people: await sharedGroupRepos.searchPeople(context.actor, input) };
+        } catch (error) {
+          throw mapSharedGroupError(error);
+        }
+      }),
       setPersonRole: authed.groups.setPersonRole.handler(async ({ context, input }) => {
         try {
           return await sharedGroupRepos.setPersonRole(context.actor, input);

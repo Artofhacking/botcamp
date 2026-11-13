@@ -289,6 +289,12 @@ export const InviteSharedGroupInput = z.object({
 });
 export type InviteSharedGroupInput = z.infer<typeof InviteSharedGroupInput>;
 
+export const SearchSharedGroupPeopleInput = z.object({
+  groupId: Id,
+  query: z.string().trim().min(1).max(80),
+});
+export type SearchSharedGroupPeopleInput = z.infer<typeof SearchSharedGroupPeopleInput>;
+
 export const SetSharedGroupRoleInput = z.object({
   groupId: Id,
   userId: Id,

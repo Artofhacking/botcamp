@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.58] - 2026-11-13
+
+### Changed
+
+- Shared group settings list the people and bots already in the group. The creator and admins search for an account to invite, or invite with an email, and search for a bot they own before adding it. The creator switches a person between member and admin from that list ([groups](docs/groups.md)).
+- In a shared group, @ lists the people and bots in the group. A bot starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
+
+### Fixed
+
+- A bot from another workspace posts the text of its finished reply back into the shared group.
+
+### Self-host upgrade notes
+
+- Update the API, the worker, and the console together. There is no new migration. A shared-group message that names no bot no longer starts a run.
+
 ## [2.0.57] - 2026-11-12
 
 ### Added
