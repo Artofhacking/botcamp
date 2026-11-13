@@ -365,7 +365,7 @@ export function routineScheduleSubtitle(
 /**
  * Mention sources for the open chat. A private group keeps the caller's bots.
  * A shared group offers only its member bots, under their in-group names, and
- * the other people in it.
+ * the other people in it. Scheduled routines stay off that list.
  */
 export function composerMentionSources(input: {
   bots: readonly MentionPickerBot[];
@@ -388,21 +388,14 @@ export function composerMentionSources(input: {
 } {
   const group = input.group;
   if (!group?.shared) return { bots: input.bots, routines: input.routines, people: [] };
-  const bots = group.members.map((member) => ({
-    id: member.botId,
-    name: member.name,
-    color: member.color,
-    avatarSet: member.avatarSet,
-  }));
-  const names = new Map(bots.map((bot) => [bot.id, bot.name]));
   return {
-    bots,
-    routines: input.routines
-      .filter((routine) => names.has(routine.botId))
-      .map((routine) => ({
-        ...routine,
-        botName: names.get(routine.botId) ?? routine.botName,
-      })),
+    bots: group.members.map((member) => ({
+      id: member.botId,
+      name: member.name,
+      color: member.color,
+      avatarSet: member.avatarSet,
+    })),
+    routines: [],
     people: (group.people ?? []).flatMap((person) => {
       const name = person.name.trim();
       if (!name || person.userId === input.userId) return [];

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.61] - 2026-11-13
+
+### Changed
+
+- In a shared group, @ lists the people and bots in the group. Scheduled routines are not in that list ([groups](docs/groups.md)).
+
 ## [2.0.59] - 2026-11-13
 
 ### Added
