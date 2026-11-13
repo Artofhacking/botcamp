@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.67] - 2026-11-13
+
+### Changed
+
+- A shared group in the sidebar shows a shared mark and each member's avatar and name. The group picture uses that full member list.
+
 ## [2.0.66] - 2026-11-13
 
 ### Changed

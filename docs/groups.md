@@ -14,7 +14,7 @@ Each bot keeps its own memory, computer and instructions; the group only shares 
 
 **New shared group** invites other accounts by email. Group settings list the people and bots already in the group. The creator and admins search for an account to invite, or invite with an email, and can add a bot they own. A member can talk in the group, and can leave it. Only the creator deletes the group or changes who is an admin.
 
-A bot in the group is shown as the owner's name, a hyphen, then the bot's name. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
+A bot in the group is shown as the owner's name, a hyphen, then the bot's name. The sidebar marks the group shared and lists each member's avatar and that name. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
 
 @ in a shared group lists the people and the bots who are in it, and does not list scheduled routines. Naming a person leaves their name in the message. A bot there starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
 

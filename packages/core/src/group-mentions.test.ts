@@ -5,6 +5,7 @@ import {
   inferHandoffTargetName,
   memberName,
   resolveGroupTargetBotIds,
+  sharedGroupFaces,
 } from "./group-mentions.js";
 
 const members = [
@@ -287,5 +288,32 @@ describe("memberName", () => {
     expect(memberName(members, "b2")).toBeUndefined();
     expect(memberName(members, undefined)).toBeUndefined();
     expect(memberName(undefined, "b1")).toBeUndefined();
+  });
+});
+
+describe("sharedGroupFaces", () => {
+  const roster = [
+    { botId: "mine", name: "Ada-Helper", status: "idle" },
+    { botId: "theirs", name: "Bea-Scout", status: "idle" },
+  ];
+
+  it("keeps another person's bot when the open thread has not caught up", () => {
+    expect(sharedGroupFaces(true, roster, [roster[0]!])).toEqual([
+      { botId: "mine", name: "Ada-Helper", status: "idle" },
+      { botId: "theirs", name: "Bea-Scout", status: "idle" },
+    ]);
+  });
+
+  it("takes run status from the open thread without replacing the roster name", () => {
+    expect(
+      sharedGroupFaces(true, roster, [{ botId: "theirs", name: "Scout", status: "running" }]),
+    ).toEqual([
+      { botId: "mine", name: "Ada-Helper", status: "idle" },
+      { botId: "theirs", name: "Bea-Scout", status: "running" },
+    ]);
+  });
+
+  it("keeps a private group's open-thread members", () => {
+    expect(sharedGroupFaces(false, roster, [roster[0]!])).toEqual([roster[0]!]);
   });
 });

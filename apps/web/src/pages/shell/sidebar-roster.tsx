@@ -1,7 +1,13 @@
-import { i18n } from "@lingui/core";
-import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@botcamp/contracts";
+import type {
+  Bot,
+  BotSection,
+  Group,
+  GroupMember,
+  Me,
+  Space,
+  ThreadSnapshot,
+} from "@botcamp/contracts";
+import { sharedGroupFaces } from "@botcamp/core";
 import {
   BotAvatar,
   Button,
@@ -14,6 +20,9 @@ import {
   ContextMenuTrigger,
   GroupAvatar,
 } from "@botcamp/ui-web";
+import { i18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDown, CircleAlert, Lock, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { Suspense } from "react";
@@ -25,8 +34,35 @@ import {
   rosterWorkStatusLabel,
 } from "../../lib/roster-status";
 import type { RosterDropAction, RosterDropTarget } from "./roster-drop";
+import { SharedMark } from "./shared-mark";
 import type { sidebarGroupsForSpaces } from "./space-sidebar";
 import { useRedrawAtMidnight } from "./use-redraw-at-midnight";
+
+/** The current space's groups carry `shared` at runtime; the sidebar type does not. */
+function sharedRoster(item: { kind: string; chat: object }): GroupMember[] | null {
+  if (item.kind !== "group") return null;
+  const chat = item.chat as { shared?: boolean; members?: GroupMember[] };
+  if (chat.shared !== true) return null;
+  return chat.members ?? [];
+}
+
+function groupFaces(
+  item: { kind: string; chat: { id: string; members: GroupMember[] } },
+  snapshot: ThreadSnapshot | null,
+): GroupMember[] {
+  const roster = sharedRoster(item);
+  if (roster) {
+    return [
+      ...sharedGroupFaces(
+        true,
+        roster,
+        snapshot?.groupId === item.chat.id ? snapshot.members : undefined,
+      ),
+    ];
+  }
+  if (snapshot?.groupId === item.chat.id) return snapshot.members ?? item.chat.members;
+  return item.chat.members;
+}
 
 export function SidebarRoster({
   sidebarGroups,
@@ -277,6 +313,8 @@ export function SidebarRoster({
                       ? t`Error`
                       : compactRosterStatusLabel(item.chat.status)
                     : null;
+                const sharedMembers = sharedRoster(item);
+                const sharedGroup = sharedMembers !== null;
                 const rosterLine = compact
                   ? compactStatusLabel
                   : (workStatusLabel ??
@@ -310,11 +348,7 @@ export function SidebarRoster({
                     />
                   ) : (
                     <GroupAvatar
-                      members={
-                        item.chat.id === activeSnapshot?.groupId
-                          ? (activeSnapshot.members ?? item.chat.members)
-                          : item.chat.members
-                      }
+                      members={groupFaces(item, activeSnapshot)}
                       size={mini ? 40 : compact ? 28 : 38}
                     />
                   );
@@ -326,7 +360,13 @@ export function SidebarRoster({
                     data-roster-unread={item.chat.unread ? "true" : undefined}
                     data-roster-error={rowError && (compact || mini) ? "true" : undefined}
                     aria-current={selected ? "page" : undefined}
-                    aria-label={mini ? item.chat.name : undefined}
+                    aria-label={
+                      mini
+                        ? sharedGroup
+                          ? `${item.chat.name}, ${t`Shared`}`
+                          : item.chat.name
+                        : undefined
+                    }
                     aria-describedby={
                       mini
                         ? [
@@ -446,12 +486,13 @@ export function SidebarRoster({
                             <span
                               dir="auto"
                               data-roster-bot-name={item.kind === "bot" ? "" : undefined}
-                              className={`max-w-full shrink-0 truncate text-body2 text-foreground ${
-                                item.chat.unread ? "font-semibold" : "font-medium"
-                              }`}
+                              className={`truncate text-body2 text-foreground ${
+                                sharedGroup ? "min-w-0" : "max-w-full shrink-0"
+                              } ${item.chat.unread ? "font-semibold" : "font-medium"}`}
                             >
                               {item.chat.name}
                             </span>
+                            {sharedGroup ? <SharedMark /> : null}
                             {item.chat.unread ? (
                               <span className="sr-only">
                                 <Trans> (unread)</Trans>
@@ -476,7 +517,25 @@ export function SidebarRoster({
                             ) : null}
                           </div>
                         </div>
-                        {compact ? (
+                        {sharedMembers && sharedMembers.length > 0 ? (
+                          <div
+                            dir="auto"
+                            data-roster-members
+                            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-muted-foreground"
+                          >
+                            {sharedMembers.map((member) => (
+                              <span key={member.botId} className="flex min-w-0 items-center gap-1">
+                                <BotAvatar
+                                  avatarSet={member.avatarSet}
+                                  color={member.color}
+                                  identity={member.botId}
+                                  size={18}
+                                />
+                                <span className="truncate">{member.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : compact ? (
                           compactStatusLabel ? (
                             <div
                               dir="auto"
