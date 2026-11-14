@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.12] - 2026-11-14
+
+### Fixed
+
+- In a shared group, another person's messages now sit on the left like a bot's reply, with their name and reply quote on that side; only your own messages stay on the right.
+- The sign-in page shows its title in the interface language again instead of always using Chinese.
+- A failed **Take control** closes its confirmation so the error and **Retry screen** are reachable.
+
 ## [2.1.11] - 2026-11-14
 
 ### Changed
