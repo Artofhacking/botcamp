@@ -66,6 +66,7 @@ function renderHeader(mini = false) {
         setMobileSidebarOpen={() => undefined}
         setPanel={() => undefined}
         setCreateBotOpen={() => undefined}
+        setRecruitOpen={() => undefined}
       />,
     );
   });

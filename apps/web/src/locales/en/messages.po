@@ -503,6 +503,7 @@ msgstr "Activity"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/SharedGroupPanel.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Add"
 msgstr "Add"
 
@@ -510,6 +511,10 @@ msgstr "Add"
 #: src/pages/GroupPanel.tsx
 msgid "Add {0} to the group"
 msgstr "Add {0} to the group"
+
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Add {name}"
+msgstr "Add {name}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add a command to run"
@@ -1157,6 +1162,10 @@ msgstr "Brain label"
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "Browse MCP servers"
+
+#: src/pages/shell/recruit-presets.ts
+msgid "Builds, tests, and ships software."
+msgstr "Builds, tests, and ships software."
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1966,6 +1975,7 @@ msgstr "Could not continue"
 
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/create-bot-dialog.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Could not create bot"
 msgstr "Could not create bot"
 
@@ -3273,6 +3283,10 @@ msgstr "Give a friend {weeks} weeks free"
 #: src/pages/NotFound.tsx
 msgid "Go home"
 msgstr "Go home"
+
+#: src/pages/shell/recruit-presets.ts
+msgid "Gold-Medal Editor"
+msgstr "Gold-Medal Editor"
 
 #: src/pages/AdminAccessPage.tsx
 msgid "Grant"
@@ -5063,6 +5077,11 @@ msgstr "Recreate a computer that is not working."
 msgid "Recreating the computer"
 msgstr "Recreating the computer"
 
+#: src/pages/shell/create-menu.tsx
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Recruit"
+msgstr "Recruit"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Recruiting & HR"
 msgstr "Recruiting & HR"
@@ -5911,6 +5930,10 @@ msgstr "Slack not enabled"
 msgid "Slide up to lock"
 msgstr "Slide up to lock"
 
+#: src/pages/shell/recruit-presets.ts
+msgid "Software Engineer"
+msgstr "Software Engineer"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr "Some plugins could not be loaded."
@@ -6579,6 +6602,10 @@ msgstr "Try the test again."
 msgid "Tuesday"
 msgstr "Tuesday"
 
+#: src/pages/shell/recruit-presets.ts
+msgid "Turns drafts into finished writing."
+msgstr "Turns drafts into finished writing."
+
 #: src/components/vault/VaultItemDetail.tsx
 #: src/components/vault/VaultItemEditor.tsx
 msgid "Type"
@@ -7002,6 +7029,14 @@ msgstr "Yesterday"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "You"
 msgstr "You"
+
+#: src/pages/shell/recruit-presets.ts
+msgid "You are a software engineer. Read the code before you change it, make the smallest change that solves the request, and run the tests that cover it. When you finish, say what changed and what you could not verify."
+msgstr "You are a software engineer. Read the code before you change it, make the smallest change that solves the request, and run the tests that cover it. When you finish, say what changed and what you could not verify."
+
+#: src/pages/shell/recruit-presets.ts
+msgid "You are an award-winning editor. Cut what does not earn its place, keep the author's voice, and fix the structure before the wording. When you finish, list the edits that matter and why."
+msgstr "You are an award-winning editor. Cut what does not earn its place, keep the author's voice, and fix the structure before the wording. When you finish, list the edits that matter and why."
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this tab if it does not redirect automatically."

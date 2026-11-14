@@ -47,6 +47,7 @@ export function SidebarHeader({
   setMobileSidebarOpen,
   setPanel,
   setCreateBotOpen,
+  setRecruitOpen,
 }: {
   mini?: boolean;
   createMenuOpen: boolean;
@@ -59,6 +60,7 @@ export function SidebarHeader({
   setMobileSidebarOpen: (open: boolean) => void;
   setPanel: (panel: Panel) => void;
   setCreateBotOpen: (open: boolean) => void;
+  setRecruitOpen: (open: boolean) => void;
 }) {
   const { t } = useLingui();
   const desktop = desktopBridge();
@@ -157,6 +159,11 @@ export function SidebarHeader({
                   setCreateMenuOpen(false);
                   setMobileSidebarOpen(false);
                   setCreateBotOpen(true);
+                }}
+                onRecruit={() => {
+                  setCreateMenuOpen(false);
+                  setMobileSidebarOpen(false);
+                  setRecruitOpen(true);
                 }}
                 onCreateGroup={() => {
                   setCreateMenuOpen(false);
