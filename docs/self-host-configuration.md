@@ -98,7 +98,8 @@ BotCamp uses two Postgres logins:
   `20261210000000_rename_runtime_role` creates `botcamp_app` beside it and grants `rakazo_app`
   to `botcamp_app`. The previous release keeps its `rakazo_app` sessions through that migration.
   New API and worker containers connect as `botcamp_app`. The owner login (`POSTGRES_USER`,
-  default `rakazo`) and the database name stay as the data directory was initialized. Migration
+  default `botcamp`; an install created before this release keeps `rakazo`) and the database
+  name stay as the data directory was initialized. Migration
   `20261214000000_rename_private_schema` renames schema `rakazo_private` to `botcamp_private`
   and updates `app_rls_bypass` in that same step. The previous release calls the function and
   does not name the schema on the request path.

@@ -65,11 +65,49 @@ at rest: run `content-encryption decrypt` before rolling back past them
 Migration `20261210000000_rename_runtime_role` creates Postgres role `botcamp_app` beside
 `rakazo_app` and grants `rakazo_app` to `botcamp_app`. It runs while the previous API and
 worker are still connected as `rakazo_app`. New containers connect as `botcamp_app` after
-they start. The owner login (`POSTGRES_USER`, default `rakazo`) and the database name stay.
+they start. The owner login (`POSTGRES_USER`, default `botcamp` on a new install; an install
+created before this release keeps `rakazo`) and the database name stay.
 Migration `20261214000000_rename_private_schema` renames schema `rakazo_private` to
 `botcamp_private`. The [computer identity replacement](./self-host-docker-computers.md)
 is a separate stop for computers, bridges, and egress. Other migrations also run while the
 previous release is serving.
+
+## Renaming the owner login and database
+
+New installs use `botcamp` for the owner login and the database. An install created before the
+rename keeps `rakazo`; nothing requires the old name. Renaming writes no data, but it needs a
+short stop because a database cannot be renamed while a session uses it and a login cannot rename
+itself:
+
+1. Stop the API, the worker, and the updater.
+2. Rename the owner login, then the database. The owner login cannot rename itself: connect as a
+   superuser, or create a short-lived login, grant it the owner role with `ADMIN OPTION`, and use
+   that session. Then terminate any remaining sessions on the database.
+
+   ```sql
+   ALTER ROLE rakazo_admin RENAME TO botcamp_admin;
+   ALTER DATABASE rakazo RENAME TO botcamp;
+   ```
+
+3. In `.env`, set `POSTGRES_USER=botcamp_admin` and `POSTGRES_DB=botcamp`, and rename the user in
+   `DATABASE_MIGRATION_URL`. Leave `DATABASE_URL` on `botcamp_app`.
+4. Start the stack, apply migrations as the owner, and check the health endpoint.
+5. Once the previous release is gone, drop the old app login: `DROP OWNED BY rakazo_app;` then
+   `DROP ROLE rakazo_app;`. `botcamp_app` keeps its own grants.
+
+The compose project name is separate; renaming it is not required for this change.
+
+## Renaming the PITR replication login
+
+`pitr.sh enable` now creates `botcamp_pitr` and allows it in `pg_hba.conf`. A host that runs the
+`pitr` profile must cut over in one stop, because the old slot only keeps WAL for the old login:
+
+1. Before pulling, run the previous release's `infra/compose/pitr.sh disable`; it stops the sidecar,
+   drops the `rakazo_pitr` slot, and removes the login.
+2. Pull the release, set `PITR_DATABASE_PASSWORD` again if it is new, and run
+   `infra/compose/pitr.sh enable`.
+
+Without the disable step the old slot stays and Postgres keeps its WAL.
 
 ## Upgrading to Postgres 18
 
