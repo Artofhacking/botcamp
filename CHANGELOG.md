@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-14
+
+### Added
+
+- In a shared group, naming a person with `@` now tells them: their open BotCamp shows a notification, and tapping it opens the group. See [Groups and teamwork](./docs/groups.md).
+
+### Changed
+
+- **Reply** on a message in a group now puts that sender's `@name` at the start of the composer, so the bot is addressed directly and a person in a shared group is notified. A one-to-one chat keeps a plain quote.
+
 ## [2.1.15] - 2026-11-14
 
 ### Changed
