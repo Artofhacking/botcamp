@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-11-14
+
+### Changed
+
+- The **Recruit** window is now a large, searchable catalog. Filter the roles by name or summary, and the list loads sixty cards at a time, so it stays usable as the set of bots to hire grows.
+
 ## [2.3.1] - 2026-11-14
 
 ### Fixed
