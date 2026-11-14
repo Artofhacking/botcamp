@@ -18,7 +18,7 @@ x-app-environment: &app-environment
   # Runtime
   NODE_ENV: production
   # The app's own login, subject to row-level security (docs/self-host-configuration.md#database-roles).
-  DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+  DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-botcamp}
   REALTIME_DATABASE_URL:
   DB_POOL_MAX:
   DATA_DIR: /data
@@ -322,9 +322,9 @@ services:
     pids_limit: 200
     mem_limit: 2g
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rakazo}
+      POSTGRES_USER: ${POSTGRES_USER:-botcamp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-rakazo}
+      POSTGRES_DB: ${POSTGRES_DB:-botcamp}
     volumes:
       # Postgres 18 keeps each major version's cluster in /var/lib/postgresql/<major>/docker.
       - postgres:/var/lib/postgresql
@@ -335,7 +335,7 @@ services:
     networks:
       - data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rakazo} -d ${POSTGRES_DB:-rakazo}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-botcamp} -d ${POSTGRES_DB:-botcamp}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -347,7 +347,7 @@ services:
     profiles: [pitr]
     # Tagged with a hash of Dockerfile.pitr and pitr-agent.sh, so a deploy builds it once per change
     # instead of on every run (compose-service.test.ts checks the hash).
-    image: rakazo-pitr:aa7cf1bde2aa8051
+    image: botcamp-pitr:2994f95f953c24c8
     build:
       context: .
       dockerfile: Dockerfile.pitr
@@ -370,7 +370,7 @@ services:
       # Stops pg_receivewal and uploads with the container, not only the script.
       TINI_KILL_PROCESS_GROUP: "1"
       PGHOST: postgres
-      PGUSER: rakazo_pitr
+      PGUSER: botcamp_pitr
       PGDATABASE: postgres
       PGPASSWORD: ${PITR_DATABASE_PASSWORD:-}
       PITR_AGE_RECIPIENTS:
@@ -384,7 +384,7 @@ services:
       PITR_RETAIN_DAYS:
       PITR_MAX_WAL_GB:
     volumes:
-      - pitrspool:/var/lib/rakazo-pitr
+      - pitrspool:/var/lib/botcamp-pitr
     tmpfs:
       - /tmp
     networks:
@@ -394,7 +394,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "rakazo-pitr", "health"]
+      test: ["CMD", "botcamp-pitr", "health"]
       interval: 1m
       timeout: 20s
       retries: 3
@@ -421,8 +421,8 @@ services:
     pids_limit: 256
     mem_limit: 1536m
     environment:
-      DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
-      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+      DATABASE_URL: postgres://botcamp_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-botcamp}
+      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-botcamp}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-botcamp}
     networks:
       - data
     depends_on:

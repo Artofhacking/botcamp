@@ -2,7 +2,7 @@ x-topology-app-environment: &app-environment
   MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
   MAX_ATTACHMENTS_PER_MESSAGE: ${MAX_ATTACHMENTS_PER_MESSAGE:-4}
   NODE_ENV: production
-  DATABASE_URL: postgres://botcamp_app:topology-only-runtime-password@postgres:5432/rakazo
+  DATABASE_URL: postgres://botcamp_app:topology-only-runtime-password@postgres:5432/botcamp
   DATA_DIR: /data
   BETTER_AUTH_SECRET: topology-only-auth-secret-at-least-32-characters
   SCREEN_PROXY_SECRET: topology-only-screen-proxy-secret-at-least-32-characters
@@ -46,13 +46,13 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: rakazo
+      POSTGRES_USER: botcamp
       POSTGRES_PASSWORD: topology-only-password
-      POSTGRES_DB: rakazo
+      POSTGRES_DB: botcamp
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rakazo -d rakazo"]
+      test: ["CMD-SHELL", "pg_isready -U botcamp -d botcamp"]
       interval: 2s
       timeout: 5s
       retries: 30
@@ -121,7 +121,7 @@ services:
       - bash
       - -lc
       # The owner URL lives only in this command, so neither process environment holds it.
-      - DATABASE_MIGRATION_URL=postgres://rakazo:topology-only-password@postgres:5432/rakazo pnpm db:deploy && exec node --enable-source-maps dist/index.js
+      - DATABASE_MIGRATION_URL=postgres://botcamp:topology-only-password@postgres:5432/botcamp pnpm db:deploy && exec node --enable-source-maps dist/index.js
     environment:
       <<: *app-environment
       # Directory login is separate from the messaging app. The secret stays on the API.

@@ -215,7 +215,7 @@ describe("the point-in-time recovery sidecar", () => {
       "PITR_SECRET_ACCESS_KEY",
       "TINI_KILL_PROCESS_GROUP",
     ]);
-    expect(pitr.environment?.PGUSER).toBe("rakazo_pitr");
+    expect(pitr.environment?.PGUSER).toBe("botcamp_pitr");
     expect(pitr.environment?.PGPASSWORD).toBe(interpolated("PITR_DATABASE_PASSWORD"));
     expect(pitr.env_file).toBeUndefined();
     expect(pitr.ports).toBeUndefined();
@@ -227,7 +227,7 @@ describe("the point-in-time recovery sidecar", () => {
     for (const file of ["Dockerfile.pitr", "pitr-agent.sh"]) {
       hash.update(readFileSync(path.join(composeDir, file)));
     }
-    expect(pitr.image).toBe(`rakazo-pitr:${hash.digest("hex").slice(0, 16)}`);
+    expect(pitr.image).toBe(`botcamp-pitr:${hash.digest("hex").slice(0, 16)}`);
   });
 
   it("builds on the same pinned Postgres image as the database", () => {

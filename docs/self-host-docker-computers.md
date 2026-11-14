@@ -65,7 +65,8 @@ It takes two parts:
       The supervisor does not pull a tag it can already see.
    2. Stop the API and the worker. The app-login migration does not belong in this stop:
       it adds `botcamp_app` beside `rakazo_app` while the previous release is still connected.
-      The owner login (`POSTGRES_USER`, default `rakazo`) and the database name stay. Migration
+      The owner login (`POSTGRES_USER`, default `botcamp`; before the rename, `rakazo`) and the
+      database name stay. Migration
       `20261214000000_rename_private_schema` renames schema `rakazo_private` to `botcamp_private`.
    3. Start the new supervisor and wait until it is listening. It removes computers from
       the previous identity, and any managed computer whose image is not the one it would

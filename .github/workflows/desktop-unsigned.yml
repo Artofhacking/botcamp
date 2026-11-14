@@ -77,7 +77,7 @@ jobs:
       - name: Generate the database client for desktop compilation
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
+          DATABASE_URL: postgres://botcamp:botcamp@127.0.0.1:5433/botcamp
 
       - name: Build renderer and Electron main process
         run: pnpm --filter @botcamp/web build && pnpm --filter @botcamp/desktop build

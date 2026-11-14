@@ -17,7 +17,7 @@ any failed run.
 
 ## Restore
 
-For backups created by `scripts/backup.sh`, use an empty `rakazo` database in the development
+For backups created by `scripts/backup.sh`, use an empty `botcamp` database in the development
 Compose stack. The script validates and extracts the homes archive in a clean sibling directory
 before touching the database, then stops the API, worker, and supervisor. It rejects a `data/`
 path that is a symlink or a non-directory. Stop bot computers and any other processes that
@@ -262,7 +262,7 @@ unset for AWS S3. Then turn it on from the checkout:
 sudo infra/compose/pitr.sh enable
 ```
 
-This creates the `rakazo_pitr` replication login, allows it in `pg_hba.conf`, sets
+This creates the `botcamp_pitr` replication login, allows it in `pg_hba.conf`, sets
 `archive_timeout` and `max_slot_wal_keep_size`, and reloads Postgres without restarting it. The
 sidecar then takes its first base backup. Run `enable` again after changing `PITR_DATABASE_PASSWORD`
 or `PITR_MAX_WAL_GB`, or after moving Postgres to a new cluster. Uploads are grouped by the
@@ -273,7 +273,7 @@ nothing is streaming from the slot, or the last base backup is over 30 hours old
 `BOTCAMP_MONITOR_COMPOSE_PROJECT` set, the host check alerts on it. For details:
 
 ```bash
-sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec pitr rakazo-pitr health
+sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec pitr botcamp-pitr health
 ```
 
 Restores run on any machine with Docker and this checkout. The identity comes on stdin and stays in
