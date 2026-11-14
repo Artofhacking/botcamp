@@ -153,7 +153,7 @@ test("adds a stdio MCP server with encrypted environment variables", async ({ pa
   await page
     .getByLabel("Authorization parameters (optional)")
     .fill("access_type=offline&prompt=consent");
-  await expect(page.getByLabel("Redirect URI")).toHaveValue(/\/mcp\/oauth\/callback$/);
+  await expect(page.getByLabel("Redirect URI")).toHaveValue(/\/mcp\/oauth\/callback\/$/);
   await expect(page.getByText("Use {{oauth.access_token}} for the access token.")).toBeVisible();
   await captureScreenshot(page, testInfo, "mcp-stdio-env-form");
 

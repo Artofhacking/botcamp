@@ -8,7 +8,6 @@ import {
   completeOnboarding,
   manageModelConnection,
   modelConnectionDialog,
-  openBotPanelTab,
   openModelConnection,
   openUserSettings,
   pickReopenedModel,
@@ -321,33 +320,32 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
       .click();
     await expect(saved).toBeHidden();
     await page.getByRole("button", { name: "Close model settings" }).click();
-    await openBotPanelTab(page, "Advanced");
-    const settings = page.getByTestId("bot-settings");
-    // The Model select sits inside its wrapping <label>, so the label text includes
-    // option copy and getByLabel(..., { exact: true }) misses it. Use the role name.
-    const botModel = settings.getByRole("combobox", { name: "Model", exact: true });
-    await expect(botModel.locator("option")).toContainText([LOCAL_MODEL_ID, SECOND_MODEL_ID]);
-    await botModel.selectOption(`openai-compatible::${SECOND_MODEL_ID}`);
-    // Native select popups are outside Playwright's screenshots. Render the
-    // same options as an expanded native list for the CI screenshot, then restore.
-    // An expanded select is a listbox, so keep a role-independent handle.
-    const botModelSelect = settings.locator(`[id="${await botModel.getAttribute("id")}"]`);
-    await botModelSelect.evaluate((select: HTMLSelectElement) => {
-      select.size = select.options.length;
-      select.style.height = "auto";
-    });
-    await botModelSelect.scrollIntoViewIfNeeded();
+    const userSettings = await openUserSettings(page, "models");
+    const mainRole = userSettings.getByTestId("model-role-main");
+    await mainRole
+      .getByRole("button", { name: /^Change / })
+      .first()
+      .click();
+    const modelOption = page.getByRole("option").filter({ hasText: SECOND_MODEL_ID });
+    await expect(modelOption).toBeVisible();
+    await modelOption.click();
+    await expect(mainRole).toContainText(SECOND_MODEL_ID);
     await captureScreenshot(page, testInfo, "openai-compatible-model-picker");
-    await botModelSelect.evaluate((select: HTMLSelectElement) => {
-      select.size = 0;
-      select.style.removeProperty("height");
-    });
-    await settings.getByRole("combobox", { name: "Thinking", exact: true }).selectOption("high");
-    const botSaved = page.waitForResponse(
-      (response) => response.url().includes("/rpc/bots/update") && response.ok(),
-    );
-    await settings.getByRole("button", { name: "Save", exact: true }).click();
-    await botSaved;
+    // The primary row's options menu carries the thinking level when the model supports it.
+    const rowOptions = mainRole.getByRole("button", { name: /options$/ }).first();
+    if (await rowOptions.isVisible().catch(() => false)) {
+      await rowOptions.click();
+      const thinking = page.getByRole("menuitem", { name: "Thinking" });
+      if (await thinking.isVisible().catch(() => false)) {
+        await thinking.hover();
+        await page.getByRole("menuitemradio", { name: "High" }).click();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+    }
+    if (await userSettings.isVisible().catch(() => false)) {
+      await userSettings.getByRole("button", { name: "Close model settings" }).click();
+    }
 
     if (process.env.AGENT_RUNTIME === "pi") {
       const composer = page.getByPlaceholder(/Message/);
