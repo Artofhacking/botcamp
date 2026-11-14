@@ -475,6 +475,8 @@ export const CreateBotInput = z.object({
   color: BotAvatarValueSchema.optional(),
   /** Ignored: a new bot takes its owner's set. Older apps still send one. */
   avatarSet: BotAvatarSetSchema.optional(),
+  /** Ignored: private computers are gone and every bot uses its space's Team computer. */
+  computerMode: z.enum(["team", "dedicated"]).optional(),
   /** Organic body family (0-9); the server picks a matching id unless one is reserved. */
   avatarFamily: z.number().int().min(0).max(9).optional(),
   /** Idempotency key within a space (unique with spaceId). */

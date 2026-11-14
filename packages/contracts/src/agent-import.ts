@@ -236,6 +236,8 @@ export const AgentImportCreateInput = z.strictObject({
   /** Portable appearance when supplied by an exported profile; without it, the owner's set applies. */
   color: BotAvatarValueSchema.optional(),
   avatarSet: BotAvatarSetSchema.optional(),
+  /** Ignored: private computers are gone. Older apps still send one. */
+  computerMode: z.enum(["team", "dedicated"]).optional(),
   selection: AgentImportSelectionSchema,
 });
 export type AgentImportCreateInput = z.infer<typeof AgentImportCreateInput>;
