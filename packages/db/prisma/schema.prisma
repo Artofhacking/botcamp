@@ -1900,6 +1900,9 @@ model McpOAuthSession {
   redirectUri     String
   oauthCiphertext String
   createdAt       DateTime  @default(now())
+  /// Set when the callback was handled, so a second callback for the same sign-in
+  /// can report the grant instead of "invalid or expired".
+  consumedAt      DateTime?
 
   @@index([spaceId, userId, createdAt])
   @@map("mcp_oauth_sessions")

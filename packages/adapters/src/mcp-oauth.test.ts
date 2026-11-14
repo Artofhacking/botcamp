@@ -41,6 +41,7 @@ function oauthSessionStore() {
     findFirst: vi.fn(),
     create: vi.fn().mockResolvedValue({}),
     deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   };
 }
 
@@ -2603,14 +2604,39 @@ describe("MCP OAuth", () => {
       userId: "user-1",
     });
 
-    expect(sessions.deleteMany).toHaveBeenCalledWith({
-      where: { id: sessionId, spaceId: "workspace-1", userId: "user-1" },
+    expect(sessions.updateMany).toHaveBeenCalledWith({
+      where: { id: sessionId, spaceId: "workspace-1", userId: "user-1", consumedAt: null },
+      data: { consumedAt: expect.any(Date) },
     });
     expect(new URLSearchParams(tokenRequestBody).get("code_verifier")).toBe("persisted-verifier");
     expect(prisma.mcpServer.update).toHaveBeenCalledWith({
       where: { id: "server-1" },
       data: { revision: { increment: 1 } },
     });
+
+    // A reload or a second tab sends the same callback again: the first call stored
+    // the grant, so the repeat reports success instead of an expired session.
+    sessions.findFirst.mockResolvedValue({
+      id: sessionId,
+      serverId: "server-1",
+      endpoint: "https://mcp.example.test/mcp",
+      redirectUri: material.oauth.redirectUri,
+      oauthCiphertext: "session-first",
+      createdAt: new Date(),
+      consumedAt: new Date(),
+    });
+    secrets.load.mockResolvedValue(
+      JSON.stringify({ oauth: { tokens: { access_token: "issued", token_type: "Bearer" } } }),
+    );
+    await expect(
+      restartedBroker.complete({
+        sessionId,
+        code: "authorization-code",
+        state: sessionId,
+        spaceId: "workspace-1",
+        userId: "user-1",
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("rotates the current credential inside a serialized database transaction", async () => {

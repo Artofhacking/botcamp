@@ -1014,7 +1014,7 @@ export class McpOAuthBroker {
       throw new Error("Too many pending MCP authorization attempts; wait and try again");
     }
     const activeCount = await this.prisma.mcpOAuthSession.count({
-      where: { spaceId: input.spaceId, userId: input.userId },
+      where: { spaceId: input.spaceId, userId: input.userId, consumedAt: null },
     });
     if (activeCount >= MAX_PENDING_SESSIONS) {
       throw new Error("Too many pending MCP authorization attempts; wait and try again");
@@ -1148,6 +1148,12 @@ export class McpOAuthBroker {
         },
       });
       if (!server) throw new Error("MCP OAuth session is invalid or expired");
+      // A reload or a second tab can send the callback again. Once the first one
+      // stored the grant, the repeat reports success instead of an expired session.
+      if (session.consumedAt) {
+        if (await this.waitForStoredGrant(server, input)) return;
+        throw new Error("MCP OAuth session is invalid or expired");
+      }
       const context = { spaceId: input.spaceId, userId: input.userId };
       const loaded = {
         material: await this.read(session.oauthCiphertext, session.id),
@@ -1171,14 +1177,23 @@ export class McpOAuthBroker {
     // retried with a replayed code; the user starts a fresh flow instead.
     this.pending.delete(input.sessionId);
     if (pending.expiry) clearTimeout(pending.expiry);
-    const consumed = await this.prisma.mcpOAuthSession.deleteMany({
+    const consumed = await this.prisma.mcpOAuthSession.updateMany({
       where: {
         id: input.sessionId,
         spaceId: input.spaceId,
         userId: input.userId,
+        consumedAt: null,
       },
+      data: { consumedAt: new Date() },
     });
-    if (consumed.count !== 1) throw new Error("MCP OAuth session is invalid or expired");
+    if (consumed.count !== 1) {
+      // Another process handled this callback between the read and the update.
+      const server = await this.prisma.mcpServer.findFirst({
+        where: { id: pending.serverId, ...availableInSpace(input) },
+      });
+      if (server && (await this.waitForStoredGrant(server, input))) return;
+      throw new Error("MCP OAuth session is invalid or expired");
+    }
     // The exchange sends the client secret: check it against the binding stored now, not
     // the one this flow started with, in case an overlapping flow bound the client first.
     const current = await this.prisma.mcpServer.findFirst({
@@ -1222,6 +1237,21 @@ export class McpOAuthBroker {
       where: { id: pending.serverId },
       data: { revision: { increment: 1 } },
     });
+  }
+
+  /** Wait briefly for the callback that won the race to store its grant. */
+  private async waitForStoredGrant(
+    server: ServerRef,
+    context: ActorRef,
+    timeoutMs = 5_000,
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const stored = await this.loadMaterial(server, context);
+      if (stored.material.oauth?.tokens) return true;
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
   }
 
   private async sweepExpiredPending(): Promise<void> {
