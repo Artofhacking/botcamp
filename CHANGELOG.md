@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-14
+
+### Fixed
+
+- The bot list could come up empty after a deploy: the runtime database login had no permission to call the shared-group policy helper, so listing bots and opening a group failed. The migration grants it, and an affected deployment recovers on the next migrate and restart.
+
 ## [2.3.0] - 2026-11-14
 
 ### Added
