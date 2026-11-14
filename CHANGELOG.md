@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-14
+
+### Added
+
+- The sidebar's **+** menu now has **Recruit**, a window of ready-made bots. **Software Engineer** and **Gold-Medal Editor** arrive with their own summary, avatar color, and instructions, so adding one opens a bot that already knows the job; rename or edit it like any other bot.
+
+### Changed
+
+- The **+** menu now only starts something new: **New bot**, **Recruit**, **New group chat**, and **New shared group**. The search field and the list of existing bots are gone from it; the roster and its search remain the way to open a bot.
+
 ## [2.2.2] - 2026-11-14
 
 ### Changed
