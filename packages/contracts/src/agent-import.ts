@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { AgentImportStatusSchema } from "./agent-import-setup.js";
 import { BotAvatarSetSchema, BotAvatarValueSchema } from "./bot-avatar.js";
-import { BOT_DESCRIPTION_MAX_LENGTH, BOT_NAME_MAX_LENGTH, ComputerModeSchema } from "./domain.js";
+import { BOT_DESCRIPTION_MAX_LENGTH, BOT_NAME_MAX_LENGTH } from "./domain.js";
 
 export const AGENT_IMPORT_MAX_FILES = 500;
 export const AGENT_IMPORT_MAX_FILE_LENGTH = 100_000;
@@ -233,10 +233,11 @@ export const AgentImportCreateInput = z.strictObject({
   skillFiles,
   name: z.string().trim().min(1).max(BOT_NAME_MAX_LENGTH),
   description: z.string().trim().max(BOT_DESCRIPTION_MAX_LENGTH).default(""),
-  computerMode: ComputerModeSchema.default("team"),
   /** Portable appearance when supplied by an exported profile; without it, the owner's set applies. */
   color: BotAvatarValueSchema.optional(),
   avatarSet: BotAvatarSetSchema.optional(),
+  /** Ignored: private computers are gone. Older apps still send one. */
+  computerMode: z.enum(["team", "dedicated"]).optional(),
   selection: AgentImportSelectionSchema,
 });
 export type AgentImportCreateInput = z.infer<typeof AgentImportCreateInput>;

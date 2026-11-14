@@ -154,7 +154,6 @@ function bot(description = "Billing", overrides: Partial<Bot> = {}): Bot {
     preview: "",
     status: "idle",
     runErrorId: null,
-    computerMode: "team",
     updatedAt: "2026-09-01T00:00:00.000Z",
     createdAt: "2026-09-01T00:00:00.000Z",
     voiceId: null,
@@ -632,18 +631,17 @@ describe("BotSettings avatar set persistence", () => {
 
 describe("BotSettings cached data", () => {
   it("follows a newer bot in fields not edited and keeps the ones that were", async () => {
-    await render("Billing", { computerMode: "team" });
+    await render("Billing");
     await setDescription("Invoices");
     await render("Remote edit", {
       name: "Grace",
-      computerMode: "dedicated",
       updatedAt: "2026-09-02T00:00:00.000Z",
     });
     expect(container.querySelector('[aria-label="Edit name"]')?.textContent).toBe("Grace");
     expect(descriptionField().value).toBe("Invoices");
     await clickSave();
     const patch = onSave.mock.lastCall?.[0];
-    expect(patch).toMatchObject({ description: "Invoices", computerMode: "dedicated" });
+    expect(patch).toMatchObject({ description: "Invoices" });
     expect(patch).not.toHaveProperty("name");
   });
 });

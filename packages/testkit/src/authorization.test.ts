@@ -297,7 +297,6 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["bots/importSetupState"],
       ["bots/reorder"],
       ["bots/restoreInstructions"],
-      ["bots/setComputer"],
       ["bots/rotateWebhookSecret"],
       ["groups/create", { name: "Nope", botIds: ["missing-a", "missing-b"] }],
       ["groups/list"],

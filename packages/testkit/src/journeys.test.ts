@@ -22,6 +22,7 @@ import {
   appendEvent,
   createThreadEvents,
   createThreadMessage,
+  ensureComputerRecord,
   RunHistoryWriteError,
   runAsSystem,
 } from "@botcamp/db";
@@ -216,12 +217,6 @@ describeJourneys("required product journeys", () => {
         body: JSON.stringify({ json: { botId: bot.id } }),
       });
       expect(stopped.status).toBe(409);
-      const switched = await app.request("/rpc/bots/setComputer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: cookie },
-        body: JSON.stringify({ json: { botId: bot.id, mode: "dedicated" } }),
-      });
-      expect(switched.status).toBe(409);
       release();
       await waitForDatabase(
         async () =>
@@ -415,8 +410,6 @@ describeJourneys("required product journeys", () => {
         prisma.bot.findUniqueOrThrow({ where: { id }, include: { computer: true } }),
       ),
     );
-    expect(chief.computerMode).toBe("team");
-    expect(coder.computerMode).toBe("team");
     expect(chiefRecord!.computerId).toBe(coderRecord!.computerId);
     expect(chiefRecord!.computerId).not.toBe(bobRecord!.computerId);
 
@@ -543,22 +536,6 @@ describeJourneys("required product journeys", () => {
       botId: coder.id,
     });
     expect(coderMem.some((m) => m.content.toLowerCase().includes("rust"))).toBe(true);
-    const dedicated = await rpc<Bot>(app, ada, "bots/setComputer", {
-      botId: coder.id,
-      mode: "dedicated",
-    });
-    expect(dedicated.computerMode).toBe("dedicated");
-    const dedicatedRecord = await prisma.bot.findUniqueOrThrow({
-      where: { id: coder.id },
-      include: { computer: true },
-    });
-    expect(dedicatedRecord.computerId).not.toBe(chiefRecord!.computerId);
-    await rpc<Bot>(app, ada, "bots/setComputer", { botId: coder.id, mode: "team" });
-    const backOnTeam = await prisma.bot.findUniqueOrThrow({ where: { id: coder.id } });
-    expect(backOnTeam.computerId).toBe(chiefRecord!.computerId);
-    await rpc<Bot>(app, ada, "bots/setComputer", { botId: coder.id, mode: "dedicated" });
-    const reusedDedicated = await prisma.bot.findUniqueOrThrow({ where: { id: coder.id } });
-    expect(reusedDedicated.computerId).toBe(dedicatedRecord.computerId);
     expect(bobBot.id).not.toBe(chief.id);
   });
 
@@ -1693,8 +1670,21 @@ describeJourneys("required product journeys", () => {
       description: "",
       instructions: "",
       notifyOnFinish: true,
-      computerMode: "dedicated",
     });
+    // The product no longer offers private computers; this journey still checks that a bot's
+    // own home is deleted with it, so give it one directly.
+    const goneRecord = await prisma.bot.findUniqueOrThrow({
+      where: { id: gone.id },
+      include: { computer: true },
+    });
+    const goneComputer = await ensureComputerRecord(prisma, {
+      mode: "dedicated",
+      spaceId: goneRecord.spaceId,
+      userId: goneRecord.userId,
+      botId: gone.id,
+      kind: goneRecord.computer!.kind,
+    });
+    await prisma.bot.update({ where: { id: gone.id }, data: { computerId: goneComputer.id } });
     const forget = await rpc<Bot>(app, ada, "bots/create", {
       name: "Forget",
       title: "",
@@ -4153,7 +4143,6 @@ type Bot = {
   pinned: boolean;
   sectionId: string | null;
   unread: boolean;
-  computerMode: "team" | "dedicated";
   fleetManagement: boolean;
   parentBotId?: string | null;
 };

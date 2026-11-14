@@ -63,7 +63,6 @@ export type AgentImportServices<PreparedKey = unknown> = {
       notifyOnFinish: boolean;
       color?: string;
       avatarSet?: BotAvatarSet;
-      computerMode: AgentImportCreateInput["computerMode"];
       modelProvider: string | null;
       modelId: string | null;
       seed: (tx: Prisma.TransactionClient, botId: string) => Promise<void>;
@@ -613,7 +612,6 @@ export async function createImportedBot<PreparedKey>(
       notifyOnFinish: true,
       color: input.color,
       avatarSet: input.avatarSet,
-      computerMode: input.computerMode,
       modelProvider: model?.provider ?? null,
       modelId: model?.modelId ?? null,
       seed: write,

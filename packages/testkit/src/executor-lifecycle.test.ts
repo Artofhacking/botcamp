@@ -13,6 +13,7 @@ import { approvalEffectKey } from "@botcamp/core/node/approval-effect-key";
 import {
   createThreadEvents,
   createThreadMessage,
+  ensureComputerRecord,
   loadRunHistoryMessages,
   runAsSystem,
   runAsTenant,
@@ -1329,7 +1330,21 @@ describeIntegration("run executor lifecycle", () => {
       instructions: "",
       notifyOnFinish: false,
     });
-    if (computerMode) await rpc(cookie, "bots/setComputer", { botId: bot.id, mode: computerMode });
+    if (computerMode === "dedicated") {
+      // The product no longer offers this; the lease tests still exercise the scope.
+      const stored = await db.bot.findUniqueOrThrow({
+        where: { id: bot.id },
+        include: { computer: true },
+      });
+      const dedicated = await ensureComputerRecord(db, {
+        mode: "dedicated",
+        spaceId: me.spaceId,
+        userId: me.userId,
+        botId: bot.id,
+        kind: stored.computer!.kind,
+      });
+      await db.bot.update({ where: { id: bot.id }, data: { computerId: dedicated.id } });
+    }
     const thread = await db.thread.findUniqueOrThrow({ where: { botId: bot.id } });
     const task = await db.task.create({
       data: {

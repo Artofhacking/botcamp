@@ -4910,10 +4910,6 @@ msgstr "上一组设置项"
 msgid "Priority"
 msgstr "优先级"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Private"
-msgstr "私有"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Productivity"
 msgstr "效率"
@@ -6169,10 +6165,6 @@ msgstr "示范任务"
 #: src/pages/Shell.tsx
 msgid "Teaching in progress. Stop teaching before sending a new message."
 msgstr "正在示范，发送新消息前请先停止示范。"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Team"
-msgstr "团队"
 
 #: src/pages/shell/computer-view.tsx
 msgid "Team Computer"
