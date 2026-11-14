@@ -31,8 +31,9 @@ The app asks **Allow bots to use this computer?** before access is granted. See
 
 Right under **Let bots use this computer**, **Route traffic through this computer** sends bots'
 TCP traffic out through your Mac's network, so sites that only your network reaches, or your usual
-address, work for them. It needs the switch above and turns off with it. It applies to your own
-private computers, never a Team computer other people share. It needs the web, API, supervisor and
+address, work for them. It needs the switch above and turns off with it. It applies to the computers
+your bots run, private and Team alike: a Team computer belongs to the space owner whose
+switch is on. It needs the web, API, supervisor and
 desktop app on the same release; the computer reaches a relay on the web service inside its own
 Docker network, which forwards to this app.
 

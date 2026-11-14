@@ -36,10 +36,10 @@ export function mountComputerRelayRoutes(app: Hono, deps: ComputerRelayRouteDeps
     const computer = await runAsSystem("find a computer's relay state", () =>
       deps.prisma.computer.findUnique({
         where: { homeKey: computerKey },
-        select: { userId: true, scope: true },
+        select: { userId: true },
       }),
     );
-    if (!computer || computer.scope !== "dedicated") return c.json({ relay: false });
+    if (!computer) return c.json({ relay: false });
     return c.json({ relay: await deps.devices.relaying(computer.userId) });
   });
 
@@ -54,15 +54,14 @@ export function mountComputerRelayRoutes(app: Hono, deps: ComputerRelayRouteDeps
       return c.json({ error: "Invalid address" }, 400);
     if (!Number.isInteger(port) || port < 1 || port > 65_535)
       return c.json({ error: "Invalid port" }, 400);
-    // Only a private computer of the signed-in owner uses that owner's network.
+    // A computer the owner runs uses that owner's network, Team computer included.
     const computer = await runAsSystem("find a computer for its relay", () =>
       deps.prisma.computer.findUnique({
         where: { homeKey: computerKey },
-        select: { userId: true, scope: true, state: true },
+        select: { userId: true, state: true },
       }),
     );
-    if (!computer || computer.scope !== "dedicated" || computer.state !== "running")
-      return c.json({ error: "Not found" }, 404);
+    if (!computer || computer.state !== "running") return c.json({ error: "Not found" }, 404);
     if (!(await deps.devices.relaying(computer.userId)))
       return c.json({ error: "Relay is off" }, 409);
     const relay = await deps.devices.relay(computer.userId, { host, port }, c.req.raw.signal);

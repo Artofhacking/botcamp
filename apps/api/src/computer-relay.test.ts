@@ -71,9 +71,10 @@ describe("computer relay", () => {
     expect(await (await state(appWith({ computer, relaying: false }), homeKey)).json()).toEqual({
       relay: false,
     });
+    // A Team computer uses the same owner's switch.
     expect(
       await (await state(appWith({ computer: { ...computer, scope: "team" } }), homeKey)).json(),
-    ).toEqual({ relay: false });
+    ).toEqual({ relay: true });
   });
 
   it("refuses a computer that cannot prove itself", async () => {
@@ -87,9 +88,9 @@ describe("computer relay", () => {
     expect((await request(app, { port: "0" })).status).toBe(400);
   });
 
-  it("only relays for the owner's private, running computer", async () => {
+  it("relays for a running computer of the owner, private or Team", async () => {
     expect((await request(appWith({ computer: null }))).status).toBe(404);
-    expect((await request(appWith({ computer: { ...computer, scope: "team" } }))).status).toBe(404);
+    expect((await request(appWith({ computer: { ...computer, scope: "team" } }))).status).toBe(200);
     expect((await request(appWith({ computer: { ...computer, state: "stopped" } }))).status).toBe(
       404,
     );
