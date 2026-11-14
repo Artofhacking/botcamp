@@ -6,6 +6,7 @@ import {
   composerMentionQuery,
   composerMentionsForPrompt,
   composerSelectedMentions,
+  hasMentionToken,
   mentionChipKey,
   newClientId,
   replyAttachment,
@@ -90,6 +91,7 @@ const ComposerBody = memo(function Composer({
   replyTarget,
   replyQuote,
   replyTargetName,
+  replyMention,
   onClearReply,
   mentionTargets,
   agentSkills,
@@ -131,6 +133,8 @@ const ComposerBody = memo(function Composer({
   replyTarget?: ThreadMessage | null;
   replyQuote?: string | null;
   replyTargetName?: string;
+  /** Armed by a reply: the sender to name in the draft, once per `key`. */
+  replyMention?: { key: number; chatKey: string; mention: ComposerMention } | null;
   onClearReply?: () => void;
   mentionTargets?: ComposerMention[];
   agentSkills?: AgentSkillCatalogEntry[];
@@ -379,6 +383,32 @@ const ComposerBody = memo(function Composer({
     pendingCaret.current = { start: completion.caret, end: completion.caret };
   }
 
+  /**
+   * A reply addresses its sender: put `@Name ` at the start of the draft once.
+   * An existing name stays as it is, so a second reply does not repeat it.
+   */
+  function insertReplyMention(mention: ComposerMention) {
+    const current = compositionRef.current;
+    if (hasMentionToken(current.text, mention.name)) {
+      textareaRef.current?.focus();
+      return;
+    }
+    const token = `@${mention.name} `;
+    const next = `${token}${current.text}`;
+    const shifted = updateComposerMentionBindings(current.text, next, current.bindings, {
+      before: [{ start: 0, end: 0 }],
+      after: { start: token.length, end: token.length },
+    });
+    const { ranges: _ranges, ...metadata } = mention;
+    markEdited();
+    commitComposition({
+      text: next,
+      bindings: [{ start: 0, end: token.length - 1, mention: metadata }, ...shifted],
+    });
+    pendingCaret.current = { start: token.length, end: token.length };
+    textareaRef.current?.focus();
+  }
+
   function insertSkill(skill: AgentSkillCatalogEntry) {
     markEdited();
     setSelectedSkill(skill);
@@ -552,6 +582,16 @@ const ComposerBody = memo(function Composer({
   replyNameRef.current = replyName;
   const announceTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(announceTimer.current), []);
+
+  // Each reply arms one mention; a rerender of the same reply does not repeat it.
+  const appliedReplyMention = useRef<number | null>(null);
+  useEffect(() => {
+    if (!replyMention || !replyTarget) return;
+    if (replyMention.chatKey !== draftKey) return;
+    if (appliedReplyMention.current === replyMention.key) return;
+    appliedReplyMention.current = replyMention.key;
+    insertReplyMention(replyMention.mention);
+  }, [replyMention, replyTarget, draftKey]);
 
   // Arming or retargeting a reply unmounts the control that started it, so
   // focus would drop to <body>; announce on start and when the target changes.
