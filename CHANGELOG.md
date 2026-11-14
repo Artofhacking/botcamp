@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-11-14
+
+### Changed
+
+- Every bot turn now opens with the same short stance: ask when it does not know, keep what the user told it instead of quietly rewriting it, say so when it disagrees, work out how to do the work itself, and finish by saying what the answer relied on and what was missing. Prompt lines that repeated another instruction are gone, and a live call now narrows the ask rule instead of forbidding it.
+
 ## [2.2.1] - 2026-11-14
 
 ### Added
