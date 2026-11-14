@@ -141,7 +141,6 @@ import {
   runAsSystem,
   securityEventRetentionDays,
   verifyContentKeys,
-  weekEnd,
   weeklyPointsUsed,
   weekStart,
 } from "@botcamp/db";

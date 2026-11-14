@@ -75,7 +75,6 @@ import {
   ChatToolLinkSchema,
   ChatToolPollSchema,
   CONNECTION_LABEL_MAX_LENGTH,
-  ComputerModeSchema,
   ComputerProviderSettingsSchema,
   ComputerProviderUpdateSchema,
   ComputerReleaseReasonSchema,
@@ -538,7 +537,6 @@ export const appContract = {
         }),
       )
       .output(BotSchema),
-    setComputer: oc.input(z.object({ botId: Id, mode: ComputerModeSchema })).output(BotSchema),
     archive: oc.input(botId).output(z.object({ ok: z.literal(true) })),
     restore: oc.input(botId).output(z.object({ ok: z.literal(true) })),
     remove: oc

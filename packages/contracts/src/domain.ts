@@ -107,7 +107,6 @@ export const BotSchema = z.object({
   status: z.string(),
   threadStatus: z.string().optional(),
   runErrorId: Id.nullable().default(null),
-  computerMode: ComputerModeSchema,
   updatedAt: z.string(),
   createdAt: z.string(),
   voiceId: z.string().nullable(),
@@ -485,9 +484,10 @@ export const CreateBotInput = z.object({
   color: BotAvatarValueSchema.optional(),
   /** Ignored: a new bot takes its owner's set. Older apps still send one. */
   avatarSet: BotAvatarSetSchema.optional(),
+  /** Ignored: private computers are gone and every bot uses its space's Team computer. */
+  computerMode: z.enum(["team", "dedicated"]).optional(),
   /** Organic body family (0-9); the server picks a matching id unless one is reserved. */
   avatarFamily: z.number().int().min(0).max(9).optional(),
-  computerMode: ComputerModeSchema.default("team"),
   /** Idempotency key within a space (unique with spaceId). */
   spawnKey: z.string().trim().min(1).max(120).optional(),
 });
@@ -520,8 +520,6 @@ export const UpdateBotInput = z
     fleetManagement: z.boolean().optional(),
     /** Which computer tier this bot runs on: small stays local, big/desktop burst to TKE. */
     computerTier: z.enum(["small", "big", "desktop"]).optional(),
-    /** Move this bot between the shared Team computer and its own dedicated one. */
-    computerMode: z.enum(["team", "dedicated"]).optional(),
     /** Make this bot the account's primary bot; the previous one steps down. */
     isPrimary: z.boolean().optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),

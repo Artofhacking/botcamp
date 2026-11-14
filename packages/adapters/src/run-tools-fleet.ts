@@ -183,17 +183,6 @@ export const fleetTools: ToolHandlers = {
   async spawn_bot(ctx, call) {
     const { deps, run, runId, bot, thread } = ctx;
     const { name, args, effectKey } = call;
-    const computerModeArg = args.computer_mode;
-    let computerMode: "team" | "dedicated" | undefined;
-    if (computerModeArg != null && computerModeArg !== "") {
-      const value = String(computerModeArg);
-      if (value !== "team" && value !== "dedicated") {
-        return call.finish({
-          error: 'computer_mode must be "team" or "dedicated".',
-        });
-      }
-      computerMode = value;
-    }
     const spawned = await spawnBot(deps, {
       spawnedBy: {
         id: bot.id,
@@ -207,7 +196,6 @@ export const fleetTools: ToolHandlers = {
       description: args.description ? String(args.description) : undefined,
       instructions: args.instructions ? String(args.instructions) : undefined,
       prompt: args.prompt ? String(args.prompt) : undefined,
-      computerMode,
     });
     if ("error" in spawned) return call.finish(spawned);
     if (!(await call.persistEffectResult(spawned))) return uncertainEffectResult(name);

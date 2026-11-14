@@ -14,7 +14,7 @@ import {
 const NAMESPACE = process.env.KUBERNETES_SANDBOX_NAMESPACE ?? "botcamp";
 const K8S_API = process.env.K8S_API ?? "https://10.0.1.13";
 const INTERVAL_SECONDS = Number(process.env.SAMPLE_INTERVAL_SECONDS ?? 60);
-const DATADIR = process.env.DATA_DIR ?? "./data";
+const _DATADIR = process.env.DATA_DIR ?? "./data";
 
 /** Kubernetes is one way to run computers; its absence must not stop the Docker meter. */
 let kubernetesUnavailableLogged = false;

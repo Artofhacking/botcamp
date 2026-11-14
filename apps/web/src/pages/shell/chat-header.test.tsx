@@ -146,7 +146,7 @@ it("opens the invite with both rewards and copies the link", async () => {
   expect(dialog.textContent).toContain("Copied");
 });
 
-it("lists every shared-group bot by its in-group name", () => {
+it("shows a shared group as a group chat without the bot names", () => {
   renderGroupHeader(
     {
       id: "group-1",
@@ -168,19 +168,16 @@ it("lists every shared-group bot by its in-group name", () => {
     } as ThreadSnapshot,
   );
   expect(container.textContent).toContain("Standup");
+  expect(container.textContent).toContain("Group chat");
   expect(container.textContent).toContain("Shared");
   expect(container.querySelector("[data-shared-mark]")?.textContent).toBe("Shared");
-  expect(container.textContent).toContain("Ada-Helper");
-  expect(container.textContent).toContain("Bea-Scout");
+  expect(container.textContent).not.toContain("Ada-Helper");
+  expect(container.textContent).not.toContain("Bea-Scout");
   expect(container.textContent).not.toContain("Mine-short");
   expect(container.querySelector("[data-group-avatars]")?.getAttribute("data-group-avatars")).toBe(
     "mine theirs",
   );
-  expect(
-    [...container.querySelectorAll("[data-bot-avatar]")].map((node) =>
-      node.getAttribute("data-bot-avatar"),
-    ),
-  ).toEqual(["mine", "theirs"]);
+  expect(container.querySelectorAll("[data-bot-avatar]")).toHaveLength(0);
 });
 
 it("keeps a private group header to the group name", () => {
@@ -193,6 +190,7 @@ it("keeps a private group header to the group name", () => {
     ],
   } as Group);
   expect(container.textContent).toContain("Notes");
+  expect(container.textContent).not.toContain("Group chat");
   expect(container.textContent).not.toContain("Ada-Helper");
   expect(container.querySelector("[data-shared-mark]")).toBeNull();
 });

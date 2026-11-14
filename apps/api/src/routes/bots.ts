@@ -2,11 +2,9 @@ import { randomBytes } from "node:crypto";
 import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   archiveBot,
-  checkpointAndStopComputer,
   defaultVaultItemTitle,
   forgetBotSecret,
   forgetPageShareSecrets,
-  hasActiveComputerControl,
   isSecretAlreadySaved,
   listVaultItems,
   newVaultItemName,
@@ -17,7 +15,6 @@ import {
   SPACE_VAULT_NOT_IN_USE,
   stopCancelledGroupRuns,
   storeBotSecret,
-  toComputerRef,
   validateBotModelChange,
 } from "@botcamp/adapters";
 import type {
@@ -28,7 +25,7 @@ import type {
   VaultPutInput,
 } from "@botcamp/contracts";
 import { BotSecretAuth, resolveBotAvatarSet } from "@botcamp/contracts";
-import { ACTIVE_RUN_STATUSES, displayName } from "@botcamp/core";
+import { displayName } from "@botcamp/core";
 import type { Prisma, PrismaClient } from "@botcamp/db";
 import {
   BotSectionNameConflictError,
@@ -36,12 +33,8 @@ import {
   ComputerLimitError,
   commitBotUpdate,
   createSharedGroupRepos,
-  ensureComputerRecord,
-  expireComputerExecutionLeases,
   InstructionConflictError,
   IsolationError,
-  parseComputerMode,
-  recordComputerRunEnd,
   recordSecurityEvent,
   restoreBotUnderComputerQuota,
   runAsSystem,
@@ -361,7 +354,6 @@ export function botsRoutes(ctx: RouterContext) {
             color: source.color,
             avatarSet: resolveBotAvatarSet(source.avatarSet),
             avatarSetPinned: source.avatarSetPinned,
-            computerMode: source.computer?.scope === "dedicated" ? "dedicated" : "team",
             modelProvider: source.modelProvider,
             modelId: source.modelId,
             thinkingLevel: source.thinkingLevel,
@@ -544,77 +536,6 @@ export function botsRoutes(ctx: RouterContext) {
           throw new ORPCError("CONFLICT", { message: error.message });
         }
         return (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId)!;
-      }),
-      setComputer: authed.bots.setComputer.handler(async ({ context, input }) => {
-        const bot = await repos.getBot(context.actor, input.botId);
-        if (!bot.computer) throw new IsolationError();
-        const currentMode = bot.computer.scope === "dedicated" ? "dedicated" : "team";
-        if (currentMode === input.mode) {
-          try {
-            return await repos.setBotComputer(context.actor, bot.id, input.mode);
-          } catch (error) {
-            throw mapSpaceLifecycleError(error);
-          }
-        }
-        const claimed = await deps.prisma.$transaction(async (tx) => {
-          await tx.$queryRaw`SELECT id FROM computers WHERE id = ${bot.computerId} FOR UPDATE`;
-          return tx.bot.updateMany({
-            where: { id: bot.id, computerSwitching: false, computer: { maintenanceId: null } },
-            data: { computerSwitching: true },
-          });
-        });
-        if (claimed.count !== 1) throw new ORPCError("CONFLICT");
-        try {
-          const active = await deps.prisma.run.findFirst({
-            where: { botId: bot.id, status: { in: [...ACTIVE_RUN_STATUSES] } },
-            select: { id: true },
-          });
-          if (active) {
-            throw new ORPCError("BAD_REQUEST", { message: "Stop the bot first" });
-          }
-          if (bot.computer.controlBotId === bot.id && hasActiveComputerControl(bot.computer)) {
-            throw new ORPCError("BAD_REQUEST", { message: "Release the computer first" });
-          }
-          if (bot.computer.scope === "dedicated" && bot.computer.providerRef) {
-            const ctx = computerContext(context.actor, bot.id, "computer.switch");
-            const ref = toComputerRef(bot.computer);
-            if (bot.computer.state === "running") {
-              await checkpointAndStopComputer(deps, bot.computer, ref, ctx);
-            }
-            await expireComputerExecutionLeases(deps.prisma, {
-              computerId: bot.computer.id,
-              botId: bot.id,
-            });
-            await deps.prisma.computer.update({
-              where: { id: bot.computer.id },
-              data: {
-                state: "stopped",
-                controlHolder: "none",
-                controlLeaseId: null,
-                controlLeaseExpiresAt: null,
-                controlBotId: null,
-                controlRunId: null,
-                executionRunId: null,
-                executionBotId: null,
-                executionLeaseExpiresAt: null,
-              },
-            });
-            await recordComputerRunEnd(deps.prisma, bot.computer, "stopped");
-          }
-          const updated = await repos.setBotComputer(context.actor, bot.id, input.mode);
-          deps.analytics?.capture(context.actor.userId, {
-            name: "bot_setting_changed",
-            setting: "computer",
-          });
-          return updated;
-        } catch (error) {
-          throw mapSpaceLifecycleError(error);
-        } finally {
-          await deps.prisma.bot.updateMany({
-            where: { id: bot.id },
-            data: { computerSwitching: false },
-          });
-        }
       }),
       archive: authed.bots.archive.handler(async ({ context, input }) => {
         await requirePrimaryBot(deps.prisma, context.actor.userId, primaryActorBotId(context));

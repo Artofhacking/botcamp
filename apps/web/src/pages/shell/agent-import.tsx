@@ -6,7 +6,6 @@ import type {
   AgentImportStatus,
   AgentImportWarning,
   Bot,
-  ComputerMode,
 } from "@botcamp/contracts";
 import {
   BOT_DESCRIPTION_MAX_LENGTH,
@@ -49,7 +48,6 @@ import { readAgentDocument } from "../../lib/agent-document";
 import { agentImportErrorText } from "../../lib/agent-import-errors";
 import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";
-import { ComputerModePicker } from "./bot-panel";
 import { useImportStatusText } from "./import-status";
 
 /** Warnings the status label already says. */
@@ -94,7 +92,6 @@ export function AgentImportForm({
   );
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [computerMode, setComputerMode] = useState<ComputerMode>("team");
   const [reply, setReply] = useState("");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -362,7 +359,6 @@ export function AgentImportForm({
         skillFiles,
         name: name.trim(),
         description: description.trim(),
-        computerMode,
         selection: {
           instructions: selectedInstructions.map((item) => item.id),
           memory: plan.memory
@@ -801,7 +797,6 @@ export function AgentImportForm({
               />
             </label>
           ) : null}
-          <ComputerModePicker value={computerMode} onChange={setComputerMode} />
           <div className="mt-5">
             <Button disabled={!ready || busy} onClick={() => void create()}>
               {busy ? <Trans>Creating…</Trans> : <Trans>Create</Trans>}

@@ -132,7 +132,7 @@ describe("spawned bot creation", () => {
     expect(enqueue).toHaveBeenCalledOnce();
   });
 
-  it("passes computerMode through to createBot", async () => {
+  it("creates the child on the team computer", async () => {
     const createBot = vi.fn().mockResolvedValue({
       id: "child-2",
       name: "Painter",
@@ -159,7 +159,6 @@ describe("spawned bot creation", () => {
         name: "Painter",
         description: " Paints murals. ",
         instructions: " Ask before using the shared screen. ",
-        computerMode: "dedicated",
       },
     );
 
@@ -169,7 +168,6 @@ describe("spawned bot creation", () => {
         name: "Painter",
         description: "Paints murals.",
         instructions: "Ask before using the shared screen.",
-        computerMode: "dedicated",
         parentBotId: "parent-1",
       }),
     );

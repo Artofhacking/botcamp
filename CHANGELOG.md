@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.15] - 2026-11-14
+
+### Changed
+
+- Bots are told the page browser keeps its own connection, so intranet hosts must be reached from the shell while the user's computer routes the network.
+
+## [2.1.14] - 2026-11-14
+
+### Changed
+
+- Bots are told they can run commands on the user's computer and drive its screen, and that when **Route traffic through this computer** is on, their HTTP(S) exits from the user's network — so they try intranet hosts instead of reporting them unreachable.
+
+## [2.1.13] - 2026-11-14
+
+### Changed
+
+- A space runs one Team computer. Bots no longer have a Team/Private choice: the bot settings, the import dialog and the `spawn_bot` tool drop it, and `bots.setComputer` is gone. Existing private computers keep running until their bots are moved over.
+
+## [2.1.12] - 2026-11-14
+
+### Fixed
+
+- In a shared group, another person's messages now sit on the left like a bot's reply, with their name and reply quote on that side; only your own messages stay on the right.
+- The sign-in page shows its title in the interface language again instead of always using Chinese.
+- A failed **Take control** closes its confirmation so the error and **Retry screen** are reachable.
+
 ## [2.1.11] - 2026-11-14
 
 ### Changed

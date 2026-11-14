@@ -2,12 +2,10 @@ import type {
   AgentSkillCatalogEntry,
   Bot,
   BotAvatarSet,
-  ComputerMode,
   ModelCatalogEntry,
   ThinkingLevel,
 } from "@botcamp/contracts";
 import {
-  BOT_COMPUTER_MODES,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   resolveBotAvatarSet,
@@ -66,37 +64,10 @@ function advancedValues(bot: Bot) {
   return [
     bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
     bot.thinkingLevel ?? "",
-    bot.computerMode,
     bot.memoryScope,
     bot.autoSpeak,
     bot.voiceId ?? "",
   ] as const;
-}
-
-export function ComputerModePicker({
-  value,
-  onChange,
-}: {
-  value: ComputerMode;
-  onChange: (value: ComputerMode) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {BOT_COMPUTER_MODES.map((mode) => (
-        <Toggle
-          key={mode}
-          variant="outline"
-          pressed={value === mode}
-          onPressedChange={(pressed) => {
-            if (pressed) onChange(mode);
-          }}
-          className="capitalize aria-pressed:border-foreground/40 aria-pressed:text-foreground"
-        >
-          {mode === "team" ? <Trans>Team</Trans> : <Trans>Private</Trans>}
-        </Toggle>
-      ))}
-    </div>
-  );
 }
 
 export type BotPanelTab = "computer" | "routines" | "pages" | "settings";
@@ -132,7 +103,6 @@ export function BotSettings({
     color?: string;
     avatarSet?: BotAvatarSet;
     notifyOnFinish?: boolean;
-    computerMode?: ComputerMode;
     memoryScope?: "isolated" | "shared" | null;
     autoSpeak?: boolean;
     isPrimary?: boolean;
@@ -172,7 +142,6 @@ export function BotSettings({
     notifyOnFinish: bot.notifyOnFinish ?? true,
   });
   const automaticRevision = useRef({ color: 0, avatarSet: 0, notifyOnFinish: 0 });
-  const [computerMode, setComputerMode] = useState(bot.computerMode);
   const [memoryScope, setMemoryScope] = useState(bot.memoryScope);
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
   const [crossSpaceCommunication, setCrossSpaceCommunication] = useState(
@@ -210,7 +179,6 @@ export function BotSettings({
   const advancedSnapshot = JSON.stringify([
     modelKey,
     thinkingLevel,
-    computerMode,
     memoryScope,
     autoSpeak,
     voiceId,
@@ -263,10 +231,9 @@ export function BotSettings({
     const next = advancedValues(bot);
     if (modelKey === saved[0]) setModelKey(next[0]);
     if (thinkingLevel === saved[1]) setThinkingLevel(next[1]);
-    if (computerMode === saved[2]) setComputerMode(next[2]);
-    if (memoryScope === saved[3]) setMemoryScope(next[3]);
-    if (autoSpeak === saved[4]) setAutoSpeak(next[4]);
-    if (voiceId === saved[5]) setVoiceId(next[5]);
+    if (memoryScope === saved[2]) setMemoryScope(next[2]);
+    if (autoSpeak === saved[3]) setAutoSpeak(next[3]);
+    if (voiceId === saved[4]) setVoiceId(next[4]);
     setSavedAdvanced(JSON.stringify(next));
   }, [bot]);
 
@@ -364,7 +331,6 @@ export function BotSettings({
           ? { avatarSet: nextAvatarSet }
           : {}),
         notifyOnFinish: nextNotify,
-        computerMode,
         memoryScope,
         autoSpeak,
         voiceId: voiceId || null,
@@ -389,9 +355,7 @@ export function BotSettings({
       };
       if (nextName) savedNameRef.current = nextName;
       savedDescriptionRef.current = nextDescription;
-      setSavedAdvanced(
-        JSON.stringify([modelKey, thinkingLevel, computerMode, memoryScope, autoSpeak, voiceId]),
-      );
+      setSavedAdvanced(JSON.stringify([modelKey, thinkingLevel, memoryScope, autoSpeak, voiceId]));
     } catch (err) {
       if (
         patchOverrides?.color !== undefined &&

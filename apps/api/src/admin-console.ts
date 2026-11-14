@@ -3,7 +3,6 @@
 // Deliberately plain HTTP + JSON rather than another RPC surface: the console is one page,
 // it ships with no build step, and every route here is gated on RAKAZO_ADMIN_EMAILS.
 import { listDeploymentModels, replaceDeploymentModels } from "@botcamp/adapters";
-import { firstNonEmpty } from "@botcamp/core/env-name";
 import type { PrismaClient } from "@botcamp/db";
 import {
   containerCostYuan,

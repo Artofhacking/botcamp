@@ -8,7 +8,7 @@ import type {
   SecretStore,
 } from "@botcamp/adapter-kit";
 import { routineJobKey, runContinueJob, runJobKey } from "@botcamp/adapter-kit";
-import type { Actor, Bot, ComputerMode } from "@botcamp/contracts";
+import type { Actor, Bot } from "@botcamp/contracts";
 import {
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_INSTRUCTIONS_MAX_LENGTH,
@@ -71,7 +71,6 @@ export async function spawnBot(
     description?: string;
     instructions?: string;
     prompt?: string;
-    computerMode?: ComputerMode;
   },
 ) {
   const name = input.name.trim();
@@ -94,7 +93,6 @@ export async function spawnBot(
       // Creation provenance only; bots remain peers in the roster.
       parentBotId: input.spawnedBy.id,
       spawnKey: input.spawnKey,
-      computerMode: input.computerMode,
       initialMessage: {
         role: "system",
         blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],

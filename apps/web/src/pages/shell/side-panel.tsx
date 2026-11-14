@@ -256,13 +256,7 @@ export function ShellSidePanel({
               onOpenConnections={() => openSettings("models")}
               memoryProviderConfigured={memoryProviderConfigured}
               onSkillsChange={setAgentSkills}
-              onSave={async ({ computerMode, ...patch }) => {
-                if (computerMode !== undefined && computerMode !== active.computerMode) {
-                  await rpc.bots.setComputer({
-                    botId: active.id,
-                    mode: computerMode,
-                  });
-                }
+              onSave={async (patch) => {
                 const updated = await rpc.bots.update({ botId: active.id, ...patch });
                 setBots((current) => current.map((bot) => (bot.id === updated.id ? updated : bot)));
                 // Persistence succeeded; a failed navigation refresh must not undo the tool edit.

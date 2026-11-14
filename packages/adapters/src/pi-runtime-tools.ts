@@ -402,7 +402,6 @@ function toAgentTool(
           description: raw.description ? String(raw.description) : "",
           instructions: raw.instructions ? String(raw.instructions) : "",
           prompt: raw.prompt ? String(raw.prompt) : "",
-          computer_mode: raw.computer_mode ? String(raw.computer_mode) : "",
         };
       }
       if (tool.name === "update_bot" || FLEET_TOOL_NAMES.some((name) => name === tool.name)) {

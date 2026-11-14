@@ -61,7 +61,7 @@ export function mountComputerRelayRoutes(app: Hono, deps: ComputerRelayRouteDeps
         select: { userId: true, state: true },
       }),
     );
-    if (!computer || computer.state !== "running") return c.json({ error: "Not found" }, 404);
+    if (computer?.state !== "running") return c.json({ error: "Not found" }, 404);
     if (!(await deps.devices.relaying(computer.userId)))
       return c.json({ error: "Relay is off" }, 409);
     const relay = await deps.devices.relay(computer.userId, { host, port }, c.req.raw.signal);
