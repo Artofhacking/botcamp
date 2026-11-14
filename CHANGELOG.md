@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.9] - 2026-11-14
+
+### Fixed
+
+- The core-second meter counts Docker computers again: it looked owners up by bot id, but a computer is labelled with its home key, so every sample was dropped and 核时 stayed at zero.
+
 ## [2.1.8] - 2026-11-14
 
 ### Fixed
