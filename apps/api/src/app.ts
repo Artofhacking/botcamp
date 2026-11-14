@@ -119,6 +119,7 @@ import {
 import { encryptionKeyWarning, signupPolicyFromEnv } from "@botcamp/core";
 import type { Pool, PrismaClient } from "@botcamp/db";
 import {
+  BURST_CONTAINER_TIERS,
   configureProviderTransactionPool,
   createBoardEvents,
   createDb,
@@ -1038,6 +1039,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         where: {
           userId: session.user.id,
           day: { gte: new Date(weekStart().toISOString().slice(0, 10)) },
+          // Always-on Docker computers are "small"; the bar tracks burst containers.
+          tier: { in: [...BURST_CONTAINER_TIERS] },
         },
         _sum: { coreSeconds: true },
       });
