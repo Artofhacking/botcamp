@@ -6,6 +6,7 @@ import type {
   VoiceStatus,
 } from "@botcamp/contracts";
 import { DEFAULT_NEW_BOT_AVATAR_SET } from "@botcamp/contracts";
+import type { ComposerMention } from "@botcamp/core";
 import {
   answerableAskMessageIds,
   channelMessageSender,
@@ -742,19 +743,51 @@ function SpaceShell() {
   useLayoutEffect(() => {
     setOverlayRef.current = setOverlay;
   }, [setOverlay]);
-  const replyToMessage = useCallback(
+  // A reply names its sender, so the composer can address that bot or person.
+  // The sequence lets the composer insert each arming once, even for the same message.
+  const replyMentionSequence = useRef(0);
+  const composerDraftKey = inGroup ? `group:${groupId}` : `bot:${active?.id}`;
+  const [replyMention, setReplyMention] = useState<{
+    key: number;
+    chatKey: string;
+    mention: ComposerMention;
+  } | null>(null);
+  const replyMentionFor = useCallback(
     (message: ThreadMessage) => {
-      composer.setReplyTarget(message);
-      composer.setReplyQuote(null);
+      // A one-to-one chat has only its bot, so a reply there needs no @.
+      if (!inGroup) return null;
+      return (
+        composerMentionTargets.find((target) =>
+          message.role === "user"
+            ? target.kind === "person" && target.id === message.senderUserId
+            : target.kind === "bot" && target.id === message.botId,
+        ) ?? null
+      );
     },
-    [composer.setReplyQuote, composer.setReplyTarget],
+    [composerMentionTargets, inGroup],
   );
-  const quoteMessage = useCallback(
-    (message: ThreadMessage, quote: string) => {
+  const armReply = useCallback(
+    (message: ThreadMessage, quote: string | null) => {
       composer.setReplyTarget(message);
       composer.setReplyQuote(quote);
+      const mention = replyMentionFor(message);
+      if (!mention) return;
+      replyMentionSequence.current += 1;
+      setReplyMention({ key: replyMentionSequence.current, chatKey: composerDraftKey, mention });
     },
-    [composer.setReplyQuote, composer.setReplyTarget],
+    [composer.setReplyQuote, composer.setReplyTarget, composerDraftKey, replyMentionFor],
+  );
+  // A request belongs to the chat it was armed in; leaving that chat drops it.
+  useEffect(() => {
+    setReplyMention(null);
+  }, [composerDraftKey]);
+  const replyToMessage = useCallback(
+    (message: ThreadMessage) => armReply(message, null),
+    [armReply],
+  );
+  const quoteMessage = useCallback(
+    (message: ThreadMessage, quote: string) => armReply(message, quote),
+    [armReply],
   );
   const markMessageUnread = useCallback(
     (message: ThreadMessage) => {
@@ -1162,8 +1195,8 @@ function SpaceShell() {
               </div>
             ) : null}
             <Composer
-              key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-              draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              key={composerDraftKey}
+              draftKey={composerDraftKey}
               enterToSend={enterToSend}
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
               running={composerRunning}
@@ -1202,6 +1235,7 @@ function SpaceShell() {
               replyTarget={composer.replyTarget}
               replyQuote={composer.replyQuote}
               replyTargetName={replyTargetName}
+              replyMention={replyMention}
               onClearReply={composer.clearReply}
               mentionTargets={composerMentionTargets}
               agentSkills={agentSkills}

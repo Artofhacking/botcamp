@@ -903,6 +903,45 @@ describe("Composer", () => {
     expect(second.value).toBe("unsent thought");
   });
 
+  it("names the message's sender at the start of a reply", () => {
+    const replyTarget: ThreadMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      seq: 1,
+      role: "bot",
+      botId: "bot-2",
+      blocks: [{ kind: "text", text: "original reply" }],
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const textarea = renderComposer(vi.fn(), {
+      replyTarget,
+      replyMention: { key: 1, chatKey: "bot:bot-1", mention: bob },
+    });
+    expect(textarea.value).toBe("@Bob ");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+  });
+
+  it("does not repeat a sender the draft already names", () => {
+    const replyTarget: ThreadMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      seq: 1,
+      role: "bot",
+      botId: "bot-2",
+      blocks: [{ kind: "text", text: "original reply" }],
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const textarea = renderComposer(vi.fn(), { replyTarget });
+    type(textarea, "@Bob hello");
+    rerenderComposer({ replyMention: { key: 1, chatKey: "bot:bot-1", mention: bob } });
+    expect(textarea.value).toBe("@Bob hello");
+    rerenderComposer({
+      replyMention: { key: 2, chatKey: "bot:bot-1", mention: bob },
+      replyTarget: { ...replyTarget, id: "message-2" },
+    });
+    expect(textarea.value).toBe("@Bob hello");
+  });
+
   it("keeps Enter as newline and Ctrl+Enter as send when enter-to-send is off", async () => {
     const onSend = vi.fn().mockResolvedValue(true);
     const textarea = renderComposer(onSend, {

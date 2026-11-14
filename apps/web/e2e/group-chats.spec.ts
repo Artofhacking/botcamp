@@ -220,6 +220,18 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
   ).toBeVisible();
   await page.getByRole("button", { name: "Cancel reply" }).click();
 
+  // Replying to a bot names that bot, so the answer is routed to it.
+  const botMessage = transcript
+    .locator("[data-message-id]")
+    .filter({ has: page.getByTestId("message-bot-bubble") })
+    .last();
+  await botMessage.hover();
+  await botMessage.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(composer).toHaveValue(/^@(?:Researcher|Research Writer) /);
+  await captureScreenshot(page, testInfo, "group-reply-mention");
+  await page.getByRole("button", { name: "Cancel reply" }).click();
+  await composer.fill("");
+
   let releaseReviewSnapshot!: () => void;
   let sawReviewSnapshot!: () => void;
   const reviewSnapshotReleased = new Promise<void>((resolve) => {
