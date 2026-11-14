@@ -1,4 +1,3 @@
-import type { Bot } from "@botcamp/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@botcamp/ui-web";
 import { useLingui } from "@lingui/react/macro";
 import { Bell, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
@@ -7,7 +6,7 @@ import { desktopBridge, windowChromeKind } from "../../lib/desktop";
 import type { Panel } from "../../lib/right-panel-state";
 import { brandIconSrc, siteHomeHref } from "../../lib/static-host-route";
 import { WindowChrome } from "../WindowChrome";
-import { BotCreatePicker } from "./bot-picker";
+import { CreateMenu } from "./create-menu";
 
 const BRAND = "BotCamp";
 
@@ -45,10 +44,8 @@ export function SidebarHeader({
   searchOpen = false,
   onSearch,
   setBotsSidebarCollapsedPref,
-  bots,
   setMobileSidebarOpen,
   setPanel,
-  navigate,
   setCreateBotOpen,
 }: {
   mini?: boolean;
@@ -59,10 +56,8 @@ export function SidebarHeader({
   searchOpen?: boolean;
   onSearch?: () => void;
   setBotsSidebarCollapsedPref: (collapsed: boolean) => void;
-  bots: Bot[];
   setMobileSidebarOpen: (open: boolean) => void;
   setPanel: (panel: Panel) => void;
-  navigate: (path: string) => void;
   setCreateBotOpen: (open: boolean) => void;
 }) {
   const { t } = useLingui();
@@ -157,17 +152,11 @@ export function SidebarHeader({
               align="end"
               className="app-no-drag w-auto gap-0 overflow-hidden p-0 data-closed:animate-none"
             >
-              <BotCreatePicker
-                bots={bots}
+              <CreateMenu
                 onCreateBot={() => {
                   setCreateMenuOpen(false);
                   setMobileSidebarOpen(false);
                   setCreateBotOpen(true);
-                }}
-                onOpenBot={(id) => {
-                  setCreateMenuOpen(false);
-                  setMobileSidebarOpen(false);
-                  navigate(`/app/${id}`);
                 }}
                 onCreateGroup={() => {
                   setCreateMenuOpen(false);

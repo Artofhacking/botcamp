@@ -10,11 +10,11 @@ test("the workspace is not a personal space and another space cannot be created"
   const sidebar = page.locator("aside").first();
   await expect(sidebar.getByText("Personal", { exact: true })).toHaveCount(0);
   await page.getByTestId("create-menu-trigger").click();
-  const picker = page.getByTestId("bot-create-picker");
-  await expect(picker.getByTestId("create-new-bot")).toBeVisible();
-  await expect(picker.getByTestId("create-new-group")).toBeVisible();
-  await expect(picker.getByTestId("create-new-space")).toHaveCount(0);
-  await expect(picker.getByText("New private space")).toHaveCount(0);
+  const menu = page.getByTestId("create-menu");
+  await expect(menu.getByTestId("create-new-bot")).toBeVisible();
+  await expect(menu.getByTestId("create-new-group")).toBeVisible();
+  await expect(menu.getByTestId("create-new-space")).toHaveCount(0);
+  await expect(menu.getByText("New private space")).toHaveCount(0);
 
   const created = await page.request.post("/rpc/spaces/create", {
     data: { json: { name: "Side" } },

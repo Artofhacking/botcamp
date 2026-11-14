@@ -4202,8 +4202,8 @@ msgid "New API key"
 msgstr "New API key"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New bot"
 msgstr "New bot"
 
@@ -4224,7 +4224,7 @@ msgid "New group"
 msgstr "New group"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New group chat"
 msgstr "New group chat"
 
@@ -4252,7 +4252,7 @@ msgstr "New section"
 
 #: src/pages/SharedGroupPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New shared group"
 msgstr "New shared group"
 
@@ -4297,7 +4297,6 @@ msgid "No bots"
 msgstr "No bots"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "No bots match"
 
@@ -5560,7 +5559,6 @@ msgstr "Screen not connected"
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SharedGroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 #: src/pages/shell/command-palette.tsx
 #: src/pages/shell/shell-sidebar.tsx
@@ -6493,10 +6491,6 @@ msgstr "To {0}"
 #: src/lib/ticket-status.ts
 msgid "To do"
 msgstr "To do"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "To:"
-msgstr "To:"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/chat-context.tsx

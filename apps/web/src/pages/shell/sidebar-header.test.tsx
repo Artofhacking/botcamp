@@ -33,7 +33,7 @@ vi.mock("../../lib/desktop", () => ({
   desktopBridge: () => undefined,
   windowChromeKind: () => "spacer",
 }));
-vi.mock("./bot-picker", () => ({ BotCreatePicker: () => null }));
+vi.mock("./create-menu", () => ({ CreateMenu: () => null }));
 
 import { SidebarHeader } from "./sidebar-header";
 
@@ -63,10 +63,8 @@ function renderHeader(mini = false) {
         toggleActivityMode={() => undefined}
         onSearch={() => undefined}
         setBotsSidebarCollapsedPref={() => undefined}
-        bots={[]}
         setMobileSidebarOpen={() => undefined}
         setPanel={() => undefined}
-        navigate={() => undefined}
         setCreateBotOpen={() => undefined}
       />,
     );

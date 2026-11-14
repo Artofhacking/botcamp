@@ -4202,8 +4202,8 @@ msgid "New API key"
 msgstr "新建 API 密钥"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New bot"
 msgstr "新建 Bot"
 
@@ -4224,7 +4224,7 @@ msgid "New group"
 msgstr "新建群组"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New group chat"
 msgstr "新建群聊"
 
@@ -4252,7 +4252,7 @@ msgstr "新建分组"
 
 #: src/pages/SharedGroupPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New shared group"
 msgstr "新建共享群聊"
 
@@ -4297,7 +4297,6 @@ msgid "No bots"
 msgstr "暂无 Bot"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "没有匹配的 Bot"
 
@@ -5560,7 +5559,6 @@ msgstr "屏幕未连接"
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SharedGroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 #: src/pages/shell/command-palette.tsx
 #: src/pages/shell/shell-sidebar.tsx
@@ -6493,10 +6491,6 @@ msgstr "到 {0}"
 #: src/lib/ticket-status.ts
 msgid "To do"
 msgstr "待办"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "To:"
-msgstr "至:"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/chat-context.tsx
