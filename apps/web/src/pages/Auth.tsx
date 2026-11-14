@@ -70,8 +70,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     sent || codeStep ? (
       <Trans>Check your email</Trans>
     ) : mode === "in" ? (
-      // 字面量而不是 <Trans>：新 msgid 没进编译目录时会渲染成哈希，这里直接写中文。
-      "登录 BotCamp"
+      <Trans>Sign in to BotCamp</Trans>
     ) : mode === "up" ? (
       <Trans>Create your BotCamp</Trans>
     ) : (

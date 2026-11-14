@@ -705,7 +705,12 @@ export function useComputerControls({
     const id = computerBotIdRef.current ?? activeBotId.current;
     if (!id) return;
     const opened = await openComputer(id, true, true);
-    if (!opened || !userHoldsComputerControl(computerRef.current, id)) return;
+    if (!opened) {
+      // A refused or failed takeover must not leave the prompt over the error it set.
+      setTakeoverPrompt(false);
+      return;
+    }
+    if (!userHoldsComputerControl(computerRef.current, id)) return;
     if (remember) dismissTakeoverHint();
     setTakeoverPrompt(false);
   }
