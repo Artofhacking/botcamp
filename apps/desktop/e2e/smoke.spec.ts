@@ -24,7 +24,8 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
     await expect(page).toHaveTitle("BotCamp desktop smoke");
 
     const renderer = await page.evaluate(async () => {
-      const desktop = (window as typeof window & { rakazoDesktop?: BotCampDesktop }).rakazoDesktop;
+      const desktop = (window as typeof window & { botcampDesktop?: BotCampDesktop })
+        .botcampDesktop;
 
       return {
         computerKeys: desktop?.computer ? Object.keys(desktop.computer).sort() : [],
@@ -56,9 +57,12 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
       "monitoring",
       "nativeWindowFrame",
       "oauth",
+      "page",
       "passkeys",
       "platform",
       "settings",
+      // Only macOS ships a system speech recognizer, so only it adds this bridge.
+      ...(process.platform === "darwin" ? ["speech"] : []),
       "update",
       "window",
     ]);
@@ -70,7 +74,7 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
       "requestAccess",
       "revokeAccess",
     ]);
-    expect(renderer.deviceKeys).toEqual(["setAllowed", "state"]);
+    expect(renderer.deviceKeys).toEqual(["setAllowed", "setRelay", "state"]);
     expect(renderer.windowKeys).toEqual(["close", "minimize", "state", "toggleMaximize"]);
     expect(renderer.updateKeys).toEqual(["check", "download", "install", "state"]);
     expect(renderer.badgeKeys).toEqual(["set"]);

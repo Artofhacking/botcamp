@@ -52,7 +52,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -68,9 +68,19 @@ jobs:
           DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
           BETTER_AUTH_SECRET: ci-build-auth-secret-at-least-32-characters
           ENCRYPTION_KEY: ci-build-encryption-key-at-least-32-characters
+      - name: Cache the Electron download
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Download the Electron binary
+        # electron ships no postinstall: its first require fetches the ~100MB build, and inside a
+        # test that download outlasts the 30s test timeout.
+        working-directory: apps/desktop
+        run: node -e "require('electron')"
       - name: Electron smoke
         run: xvfb-run --auto-servernum pnpm --filter @botcamp/desktop exec playwright test --config e2e/playwright.config.ts
-      - name: Upload desktop setup screenshots
+      - name: Upload desktop e2e screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
