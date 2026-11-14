@@ -112,5 +112,4 @@ describe("string enums keep their allowed values in a plain enum", () => {
     }
     expect(rewritten).toEqual([]);
   });
-
 });
