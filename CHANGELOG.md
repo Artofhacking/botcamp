@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.8] - 2026-11-14
+
+### Fixed
+
+- A GitHub sign-in that finishes twice (a reload, a second tab, or the app and the browser) reports success instead of "MCP OAuth session is invalid or expired". The first callback already stored the grant.
+
 ## [2.1.7] - 2026-11-14
 
 ### Fixed
