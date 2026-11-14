@@ -4,28 +4,33 @@
 import { execFileSync } from "node:child_process";
 import { contentKeyProviderFromEnv, unwrapEnvFromKeyManager } from "@botcamp/adapters";
 import { createDb, runAsSystem } from "@botcamp/db";
+import type { CoreSample } from "../container-usage-sampling.js";
+import {
+  coresFromContainerLimits,
+  coresFromQuantity,
+  imageTier,
+} from "../container-usage-sampling.js";
 
 const NAMESPACE = process.env.KUBERNETES_SANDBOX_NAMESPACE ?? "botcamp";
 const K8S_API = process.env.K8S_API ?? "https://10.0.1.13";
 const INTERVAL_SECONDS = Number(process.env.SAMPLE_INTERVAL_SECONDS ?? 60);
 const DATADIR = process.env.DATA_DIR ?? "./data";
 
-/** Cores a CPU quantity asks for: "500m" -> 0.5, "2" -> 2. */
-function coresFromQuantity(quantity: string | undefined): number {
-  if (!quantity) return 0;
-  const value = quantity.trim();
-  if (value.endsWith("m")) return Number(value.slice(0, -1)) / 1000;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+/** Kubernetes is one way to run computers; its absence must not stop the Docker meter. */
+let kubernetesUnavailableLogged = false;
+async function kubernetesSandboxCoresOrEmpty(): Promise<CoreSample[]> {
+  try {
+    return await kubernetesSandboxCores();
+  } catch (error) {
+    if (!kubernetesUnavailableLogged) {
+      kubernetesUnavailableLogged = true;
+      console.error("kubernetes usage sample unavailable; metering Docker computers only", error);
+    }
+    return [];
+  }
 }
 
-function imageTier(image: string | undefined): "big" | "desktop" {
-  return image && image.includes("computer:") ? "desktop" : "big";
-}
-
-async function kubernetesSandboxCores(): Promise<
-  Array<{ botId: string; tier: string; cores: number; podName: string; startedAt?: string }>
-> {
+async function kubernetesSandboxCores(): Promise<CoreSample[]> {
   const args = [
     "--cacert",
     process.env.K8S_CA ?? "/root/.kube/pki/ca.crt",
@@ -38,13 +43,7 @@ async function kubernetesSandboxCores(): Promise<
   ];
   const raw = execFileSync("curl", args, { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   const list = JSON.parse(raw) as { items?: Array<Record<string, any>> };
-  const out: Array<{
-    botId: string;
-    tier: string;
-    cores: number;
-    podName: string;
-    startedAt?: string;
-  }> = [];
+  const out: CoreSample[] = [];
   for (const pod of list.items ?? []) {
     const phase = pod.status?.phase;
     if (phase !== "Running") continue;
@@ -74,14 +73,14 @@ function dockerContainerIds(label: string): string[] {
     .filter(Boolean);
 }
 
-function dockerSandboxCores(): Array<{ botId: string; tier: string; cores: number }> {
+function dockerSandboxCores(): CoreSample[] {
   const names = [
     ...new Set([
       ...dockerContainerIds("label=botcamp.managed=true"),
       ...dockerContainerIds("label=rakazo.managed=true"),
     ]),
   ];
-  const out: Array<{ botId: string; tier: string; cores: number }> = [];
+  const out: CoreSample[] = [];
   for (const id of names) {
     try {
       const info = JSON.parse(
@@ -89,9 +88,14 @@ function dockerSandboxCores(): Array<{ botId: string; tier: string; cores: numbe
       )[0];
       const labels = info?.Config?.Labels ?? {};
       const botId = labels["botcamp.botId"] ?? labels["rakazo.botId"];
-      const nanoCpus = Number(info?.HostConfig?.NanoCpus ?? 0);
-      if (!botId || !nanoCpus) continue;
-      out.push({ botId, tier: "small", cores: nanoCpus / 1e9 });
+      if (!botId) continue;
+      out.push({
+        botId,
+        tier: "small",
+        cores: coresFromContainerLimits(info?.HostConfig),
+        podName: String(info?.Name ?? id).replace(/^\//, ""),
+        startedAt: info?.State?.StartedAt,
+      });
     } catch {
       // A container that vanished mid-sample is simply not counted this tick.
     }
@@ -106,15 +110,23 @@ const { prisma, pool } = createDb(process.env.DATABASE_URL!, {
 
 async function sampleOnce() {
   await runAsSystem("container usage sample", async () => {
-    // The always-on mini container just browses files: it shares a flat-rate host and has
-    // no per-core cost, so metering it would invent spend. Only burst sandboxes count.
-    const samples = await kubernetesSandboxCores();
+    // Both ways a deployment runs computers: Kubernetes burst sandboxes and Docker
+    // computers. A host that only has one of them returns nothing for the other.
+    const samples = [...(await kubernetesSandboxCoresOrEmpty()), ...dockerSandboxCores()];
     if (samples.length === 0) return;
-    const bots = await prisma.bot.findMany({
-      where: { id: { in: [...new Set(samples.map((sample) => sample.botId))] } },
-      select: { id: true, userId: true },
-    });
-    const owners = new Map(bots.map((bot) => [bot.id, bot.userId]));
+    const addresses = [...new Set(samples.map((sample) => sample.botId))];
+    // A Kubernetes pod names its bot; a Docker container names its computer's home key.
+    const [bots, computers] = await Promise.all([
+      prisma.bot.findMany({ where: { id: { in: addresses } }, select: { id: true, userId: true } }),
+      prisma.computer.findMany({
+        where: { homeKey: { in: addresses } },
+        select: { homeKey: true, userId: true },
+      }),
+    ]);
+    const owners = new Map([
+      ...bots.map((bot) => [bot.id, bot.userId] as const),
+      ...computers.map((computer) => [computer.homeKey, computer.userId] as const),
+    ]);
     const day = new Date(new Date().toISOString().slice(0, 10));
     const perUser = new Map<string, { tier: string; coreSeconds: number }>();
     for (const sample of samples) {
