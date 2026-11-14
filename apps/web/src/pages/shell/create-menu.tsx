@@ -1,14 +1,16 @@
 import { Button } from "@botcamp/ui-web";
 import { Trans } from "@lingui/react/macro";
-import { Plus, Users } from "lucide-react";
+import { Plus, UserRoundPlus, Users } from "lucide-react";
 
 /** What the sidebar's plus starts. It only creates; switching to a bot stays in the roster. */
 export function CreateMenu({
   onCreateBot,
+  onRecruit,
   onCreateGroup,
   onCreateSharedGroup,
 }: {
   onCreateBot: () => void;
+  onRecruit: () => void;
   onCreateGroup: () => void;
   onCreateSharedGroup?: () => void;
 }) {
@@ -25,6 +27,15 @@ export function CreateMenu({
       >
         <Plus className="text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
         <Trans>New bot</Trans>
+      </Button>
+      <Button
+        variant="ghost"
+        className="h-9 w-full justify-start gap-2.5 font-normal"
+        data-testid="create-recruit"
+        onClick={() => onRecruit()}
+      >
+        <UserRoundPlus className="text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+        <Trans>Recruit</Trans>
       </Button>
       <Button
         variant="ghost"

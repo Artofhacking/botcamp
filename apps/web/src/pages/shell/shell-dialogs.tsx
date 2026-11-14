@@ -26,6 +26,8 @@ import {
   NewBotSectionDialog,
   RenameBotSectionDialog,
 } from "./dialogs";
+import type { RecruitBotInput } from "./recruit-dialog";
+import { RecruitDialog } from "./recruit-dialog";
 
 type ChatTarget = { kind: "bot"; chat: Bot } | { kind: "group"; chat: Group };
 type SectionTarget = { section: BotSection; spaceId: string };
@@ -51,6 +53,7 @@ export function useShellDialogs() {
   const [renameSectionTarget, setRenameSectionTarget] = useState<SectionTarget | null>(null);
   const [deleteSectionTarget, setDeleteSectionTarget] = useState<SectionTarget | null>(null);
   const [createBotOpen, setCreateBotOpen] = useState(false);
+  const [recruitOpen, setRecruitOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   return {
     deleteTarget,
@@ -73,6 +76,8 @@ export function useShellDialogs() {
     setDeleteSectionTarget,
     createBotOpen,
     setCreateBotOpen,
+    recruitOpen,
+    setRecruitOpen,
     commandPaletteOpen,
     setCommandPaletteOpen,
   };
@@ -95,6 +100,7 @@ export function ShellDialogs({
   openSpaceSettings,
   closeMobileSidebar,
   createBot,
+  recruitBot,
   botAvatarSet,
   clearOpenThread,
   deleteRoutineDialogProps,
@@ -113,6 +119,7 @@ export function ShellDialogs({
   openSpaceSettings: (spaceId: string) => void;
   closeMobileSidebar: () => void;
   createBot: (input: CreateBotDialogInput) => Promise<void>;
+  recruitBot: (input: RecruitBotInput) => Promise<void>;
   /** The account's set, which a new bot takes. */
   botAvatarSet: BotAvatarSet;
   clearOpenThread: () => void;
@@ -140,6 +147,8 @@ export function ShellDialogs({
     setDeleteSectionTarget,
     createBotOpen,
     setCreateBotOpen,
+    recruitOpen,
+    setRecruitOpen,
     commandPaletteOpen,
     setCommandPaletteOpen,
   } = dialogs;
@@ -326,6 +335,14 @@ export function ShellDialogs({
           avatarSet={botAvatarSet}
           onCancel={() => setCreateBotOpen(false)}
           onCreate={createBot}
+        />
+      ) : null}
+
+      {recruitOpen ? (
+        <RecruitDialog
+          avatarSet={botAvatarSet}
+          onCancel={() => setRecruitOpen(false)}
+          onAdd={recruitBot}
         />
       ) : null}
 

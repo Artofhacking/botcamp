@@ -57,6 +57,7 @@ export function ShellSidebar({
   setPanel,
   navigate,
   setCreateBotOpen,
+  setRecruitOpen,
   roster,
   archived,
   footerLogos,
@@ -84,6 +85,7 @@ export function ShellSidebar({
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
   setCreateBotOpen: (open: boolean) => void;
+  setRecruitOpen: (open: boolean) => void;
   roster: ReactNode;
   archived: ReactNode;
   footerLogos: Array<{ name: string; logo?: string | null }>;
@@ -168,6 +170,7 @@ export function ShellSidebar({
           setMobileSidebarOpen={setMobileOpen}
           setPanel={setPanel}
           setCreateBotOpen={setCreateBotOpen}
+          setRecruitOpen={setRecruitOpen}
         />
         {mini ||
         !(
