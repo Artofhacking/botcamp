@@ -24,6 +24,7 @@ import { PRIVATE_MODEL_ENDPOINT_MESSAGE } from "./openai-compatible-url.js";
 import { RetiredModelCredentialError, serializeModelSecret } from "./pi-oauth.js";
 import { modelsForRequest, resolveRuntimeModel } from "./pi-runtime-models.js";
 import {
+  CORE_INSTRUCTION,
   dockerComputerToolInstruction,
   persistentComputerInstruction,
   threadContextForRun,
@@ -1593,6 +1594,25 @@ describe("userTurnInstructions", () => {
     replyGuidance,
   };
 
+  it("leads with the core stance before the bot's own instructions", () => {
+    const instructions = userTurnInstructions({
+      ...base,
+      groupContext: undefined,
+      messagingContext: undefined,
+      redactedMemoryContext: undefined,
+      redactedScratchpadContext: undefined,
+      hasHistoricalContext: false,
+      agentEnvironmentInstruction: undefined,
+      botDirectory: undefined,
+      pluginLine: undefined,
+      agentSkillsLine: undefined,
+      taughtSkillsLine: undefined,
+    }).filter(Boolean);
+
+    expect(instructions[0]).toBe(CORE_INSTRUCTION);
+    expect(instructions[1]).toBe("Bot instructions");
+  });
+
   it("places stable guidance before volatile context when every optional context is present", () => {
     const instructions = userTurnInstructions({
       ...base,
@@ -1609,6 +1629,7 @@ describe("userTurnInstructions", () => {
     }).filter(Boolean);
 
     expect(instructions).toEqual([
+      CORE_INSTRUCTION,
       "Bot instructions",
       computerLine,
       "This entire computer workspace is your private home.",
@@ -1645,6 +1666,7 @@ describe("userTurnInstructions", () => {
     }).filter(Boolean);
 
     expect(instructions).toEqual([
+      CORE_INSTRUCTION,
       "Bot instructions",
       computerLine,
       "This entire computer workspace is your private home.",
@@ -1673,6 +1695,7 @@ describe("userTurnInstructions", () => {
     }).filter(Boolean);
 
     expect(instructions).toEqual([
+      CORE_INSTRUCTION,
       "Bot instructions",
       computerLine,
       "Catalog guidance",
@@ -1720,7 +1743,7 @@ describe("userTurnInstructions", () => {
         agentSkillsLine: undefined,
         taughtSkillsLine: undefined,
         followUpsOffered,
-      }).filter(Boolean)[1];
+      }).filter(Boolean)[2];
     const offered = toolLine(true);
     expect(offered).toContain(
       "(not reminders — those are schedule_*). Do not wait to be asked about open loops.",
