@@ -4311,6 +4311,7 @@ msgid "No bots"
 msgstr "No bots"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "No bots match"
 msgstr "No bots match"
 
@@ -5594,6 +5595,10 @@ msgstr "Search apps"
 msgid "Search artifacts…"
 msgstr "Search artifacts…"
 
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Search bots"
+msgstr "Search bots"
+
 #: src/pages/shell/command-palette.tsx
 msgid "Search bots, actions, and settings"
 msgstr "Search bots, actions, and settings"
@@ -5802,6 +5807,7 @@ msgstr "Show list"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Show more"
 msgstr "Show more"
 
