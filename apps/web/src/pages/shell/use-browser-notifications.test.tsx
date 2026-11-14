@@ -139,6 +139,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  delete window.botcampAndroid;
 });
 
 describe("useBrowserNotifications chat alerts", () => {
@@ -169,6 +170,32 @@ describe("useBrowserNotifications chat alerts", () => {
       body: "Ship it?",
     });
     expect(shown()).toEqual([["Ada mentioned you in Team", "Ship it?", "thread-g:mention"]]);
+  });
+
+  it("posts a mention through the Android shell and lets its tap open the group", async () => {
+    const showNotification = vi.fn();
+    window.botcampAndroid = {
+      notificationPermission: () => "granted",
+      showNotification,
+    };
+    vi.stubGlobal("Notification", undefined);
+    await open({ botId: "bot-a" });
+    await send({
+      kind: "mention",
+      botId: undefined,
+      groupId: "group-g",
+      threadId: "thread-g",
+      title: "Ada mentioned you in Team",
+      body: "Ship it?",
+    });
+    expect(showNotification).toHaveBeenCalledWith(
+      "Ada mentioned you in Team",
+      "Ship it?",
+      "thread-g:mention",
+      "group-g",
+      "",
+    );
+    expect(FakeNotification.shown).toEqual([]);
   });
 
   it("opens the alerted chat when clicked", async () => {

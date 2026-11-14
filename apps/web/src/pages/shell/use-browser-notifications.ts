@@ -6,6 +6,10 @@ import {
   deliverBrowserNotification as deliverNativeBrowserNotification,
   shouldNotifyBrowser,
 } from "../../lib/browser-notifications";
+import {
+  androidNotificationBridge,
+  nativeNotificationPermission,
+} from "../../lib/native-notifications";
 import { notificationIcon, prepareNotificationIcons } from "../../lib/notification-icon";
 import type { RpcClient } from "../../lib/rpc";
 
@@ -42,7 +46,8 @@ export function useBrowserNotifications(
     // A click must not reach a shell that has gone, so its alerts go with it.
     const shown = new Set<Notification>();
     const show = (alert: ChatAlert) => {
-      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      const bridge = androidNotificationBridge();
+      if (nativeNotificationPermission(bridge) !== "granted") return;
       const isOpen = alert.groupId
         ? alert.groupId === activeGroupId.current
         : !activeGroupId.current && alert.botId === activeBotId.current;
@@ -54,13 +59,25 @@ export function useBrowserNotifications(
       )
         return;
       try {
+        // Per chat and kind: a repeat replaces its copy, but a question after a reply still pops up.
+        const tag = `${alert.threadId}:${alert.kind}`;
+        if (bridge) {
+          // The shell's tap opens the chat; this page may be gone by then.
+          bridge.showNotification(
+            alert.title,
+            alert.body,
+            tag,
+            alert.groupId ?? "",
+            alert.botId ?? "",
+          );
+          return;
+        }
         const bot = botsRef.current.find((candidate) => candidate.id === alert.botId);
         const icon = bot ? notificationIcon(bot) : undefined;
         const notification = new Notification(alert.title, {
           body: alert.body,
           ...(icon ? { icon } : {}),
-          // Per chat and kind: a repeat replaces its copy, but a question after a reply still pops up.
-          tag: `${alert.threadId}:${alert.kind}`,
+          tag,
         });
         shown.add(notification);
         notification.onclose = () => shown.delete(notification);
@@ -112,7 +129,8 @@ export function useBrowserNotifications(
   const pendingBrowserNotifications = useRef(new Map<string, PendingBrowserNotification>());
   const deliverBrowserNotification = useCallback((pending: PendingBrowserNotification): boolean => {
     const currentBot = botsRef.current.find((bot) => bot.id === pending.botId);
-    if (!currentBot || typeof Notification === "undefined") return true;
+    const bridge = androidNotificationBridge();
+    if (!currentBot || (!bridge && typeof Notification === "undefined")) return true;
     const result = deliverNativeBrowserNotification(
       pending.event,
       currentBot.name || pending.botName,
@@ -120,9 +138,13 @@ export function useBrowserNotifications(
         enabled: pending.groupNotification || currentBot.notifyOnFinish,
         pageVisible: document.visibilityState === "visible",
         windowFocused: document.hasFocus(),
-        permission: Notification.permission,
+        permission: nativeNotificationPermission(bridge),
         notifiedEventIds: notifiedBrowserEvents.current,
         show: (title, body, tag) => {
+          if (bridge) {
+            bridge.showNotification(title, body, tag, "", currentBot.id);
+            return;
+          }
           const icon = notificationIcon(currentBot);
           new Notification(title, { body, tag, ...(icon ? { icon } : {}) });
         },
@@ -149,13 +171,14 @@ export function useBrowserNotifications(
     ) => {
       const botId = event.botId;
       if (typeof botId !== "string") return;
+      const permission = nativeNotificationPermission();
       const eligible = shouldNotifyBrowser(event, {
         subscribedThreadId: subscribedThreadId ?? "",
         initialCursor,
         streamReady,
         pageVisible: document.visibilityState === "visible",
         windowFocused: document.hasFocus(),
-        permission: "granted",
+        permission,
         notifiedEventIds: notifiedBrowserEvents.current,
       });
       if (!eligible || !enabled) return;
@@ -165,8 +188,8 @@ export function useBrowserNotifications(
         botName,
         groupNotification,
       } satisfies PendingBrowserNotification;
-      if (typeof Notification === "undefined" || Notification.permission === "denied") return;
-      if (Notification.permission === "default") {
+      if (permission === "denied") return;
+      if (permission === "default") {
         pendingBrowserNotifications.current.set(event.threadId, pending);
         return;
       }

@@ -3,7 +3,13 @@ package site.demox.botcamp;
 import android.Manifest;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -15,6 +21,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
@@ -40,6 +47,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * BotCamp 的壳：只加载控制台（登录 + 聊天），不包含产品页和管理后台。
@@ -56,6 +64,15 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER = 41;
     private static final int MIC_REQUEST = 42;
     private static final int SAVE_REQUEST = 43;
+    private static final int NOTIFICATION_REQUEST = 44;
+    /** 系统通知渠道；聊天提醒走这一条。 */
+    private static final String NOTIFICATION_CHANNEL = "botcamp-alerts";
+    /** 点通知时带上的群或 bot id，进程还在就只切页面，不重载。 */
+    private static final String EXTRA_GROUP_ID = "site.demox.botcamp.GROUP_ID";
+    private static final String EXTRA_BOT_ID = "site.demox.botcamp.BOT_ID";
+    private static final String PREF_NOTIFICATION_ASKED = "notificationAsked";
+    /** bot 和群 id 都是 cuid；只接受安全字符，避免拼进地址或脚本时带进别的东西。 */
+    private static final Pattern CHAT_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
 
     private FrameLayout root;
     private WebView web;
@@ -76,6 +93,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        createNotificationChannel();
         int barColor = Color.rgb(249, 249, 249);
         getWindow().setStatusBarColor(barColor);
         getWindow().setNavigationBarColor(barColor);
@@ -143,8 +161,139 @@ public class MainActivity extends Activity {
         if (state != null) {
             web.restoreState(state);
         } else {
-            web.loadUrl(START_URL);
+            web.loadUrl(chatUrl(chatFrom(getIntent())));
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        // 点通知只切页面，保留原来打开着的聊天和输入。
+        String groupId = idFrom(intent, EXTRA_GROUP_ID);
+        String botId = idFrom(intent, EXTRA_BOT_ID);
+        if (groupId != null || botId != null) openChat(groupId, botId);
+    }
+
+    private static String idFrom(Intent intent, String extra) {
+        if (intent == null) return null;
+        String id = intent.getStringExtra(extra);
+        return id != null && CHAT_ID.matcher(id).matches() ? id : null;
+    }
+
+    /** 群和一对一都在控制台的 hash 路由里。 */
+    private static String chatUrl(String[] chat) {
+        if (chat[0] != null) return START_URL + "#/app/g/" + chat[0];
+        if (chat[1] != null) return START_URL + "#/app/" + chat[1];
+        return START_URL;
+    }
+
+    private static String[] chatFrom(Intent intent) {
+        return new String[]{idFrom(intent, EXTRA_GROUP_ID), idFrom(intent, EXTRA_BOT_ID)};
+    }
+
+    /** 进程还在：改 hash，让已打开的控制台直接切过去。 */
+    private void openChat(String groupId, String botId) {
+        if (web == null || (groupId == null && botId == null)) return;
+        String target = groupId != null ? "#/app/g/" + groupId : "#/app/" + botId;
+        if (isConsole(web.getUrl())) {
+            web.evaluateJavascript("window.location.hash='" + target + "'", null);
+        } else {
+            web.loadUrl(chatUrl(new String[]{groupId, botId}));
+        }
+    }
+
+    private void createNotificationChannel() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        NotificationChannel channel = new NotificationChannel(
+                NOTIFICATION_CHANNEL, "BotCamp 提醒", NotificationManager.IMPORTANCE_HIGH);
+        channel.setDescription("有人 @ 你、任务完成或需要你处理时提醒");
+        manager.createNotificationChannel(channel);
+    }
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences("botcamp", MODE_PRIVATE);
+    }
+
+    /**
+     * Android 13 起发通知要用户同意。第一次打开控制台就问一次，
+     * 否则被 @ 的人永远收不到提醒；问过之后交给系统设置页。
+     */
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) return;
+        if (prefs().getBoolean(PREF_NOTIFICATION_ASKED, false)) return;
+        prefs().edit().putBoolean(PREF_NOTIFICATION_ASKED, true).apply();
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                NOTIFICATION_REQUEST);
+    }
+
+    /** "granted" | "denied" | "default"，网页据此决定要不要提醒。 */
+    private String notificationPermissionState() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            return prefs().getBoolean(PREF_NOTIFICATION_ASKED, false) ? "denied" : "default";
+        }
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager != null && !manager.areNotificationsEnabled()) return "denied";
+        return "granted";
+    }
+
+    /** 给网页用的接口。只在控制台页面响应，登录跳转页拿不到。 */
+    private final class NotificationBridge {
+        @JavascriptInterface
+        public String notificationPermission() {
+            return notificationPermissionState();
+        }
+
+        @JavascriptInterface
+        public void showNotification(String title, String body, String tag, String groupId,
+                                     String botId) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    postNotification(title, body, tag, groupId, botId);
+                }
+            });
+        }
+    }
+
+    private void postNotification(String title, String body, String tag, String groupId,
+                                  String botId) {
+        if (web == null || !isConsole(web.getUrl())) return;
+        if (!"granted".equals(notificationPermissionState())) return;
+        if (title == null || title.trim().isEmpty()) return;
+        String safeTitle = clip(title, 200);
+        String safeBody = body == null ? "" : clip(body, 500);
+        String safeGroup = groupId != null && CHAT_ID.matcher(groupId).matches() ? groupId : "";
+        String safeBot = botId != null && CHAT_ID.matcher(botId).matches() ? botId : "";
+        int id = (tag == null || tag.isEmpty() ? safeTitle : tag).hashCode();
+
+        Intent open = new Intent(this, MainActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (!safeGroup.isEmpty()) open.putExtra(EXTRA_GROUP_ID, safeGroup);
+        else if (!safeBot.isEmpty()) open.putExtra(EXTRA_BOT_ID, safeBot);
+        PendingIntent pending = PendingIntent.getActivity(this, id, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Builder builder = new Notification.Builder(this, NOTIFICATION_CHANNEL)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(safeTitle)
+                .setContentText(safeBody)
+                .setStyle(new Notification.BigTextStyle().bigText(safeBody))
+                .setAutoCancel(true)
+                .setContentIntent(pending);
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager != null) manager.notify(tag == null || tag.isEmpty() ? "botcamp" : tag, id,
+                builder.build());
+    }
+
+    private static String clip(String value, int max) {
+        String text = value.trim();
+        return text.length() <= max ? text : text.substring(0, max);
     }
 
     private LinearLayout buildOffline() {
@@ -214,6 +363,9 @@ public class MainActivity extends Activity {
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(view, true);
 
+        // 页面用 window.botcampAndroid 发系统通知；只有控制台页面能被响应。
+        view.addJavascriptInterface(new NotificationBridge(), "botcampAndroid");
+
         view.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
@@ -236,7 +388,10 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView v, String url) {
-                if (isConsole(url)) oauthNavigation = false;
+                if (isConsole(url)) {
+                    oauthNavigation = false;
+                    askNotificationPermission();
+                }
                 v.evaluateJavascript(
                         "window.__BOTCAMP_APP__={platform:'android',version:'" + APP_VERSION + "'}",
                         null);
