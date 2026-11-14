@@ -30,3 +30,8 @@ server uses. Review or withdraw it later in **AI data sharing** in Settings.
 
 Bots notify you when they finish or need input, controlled per bot with
 **When it finishes or needs input** in its settings.
+
+In a shared group, naming you with `@` notifies you too. The Android app asks once
+for notification permission and then shows these alerts while it is running; tap one to
+open the chat or the group. An alert that arrives while the app is fully closed is not
+delivered, because the app has no background push service.

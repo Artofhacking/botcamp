@@ -1,6 +1,7 @@
 import type { ProductEvent } from "@botcamp/contracts";
 import { displayName, plainTextFromMarkdown } from "@botcamp/core";
 import { i18n } from "./i18n";
+import { androidNotificationBridge, nativeNotificationPermission } from "./native-notifications";
 
 export type BrowserNotificationPermission = "default" | "denied" | "granted";
 
@@ -16,6 +17,9 @@ export function requestBrowserNotificationPermission(
     ? undefined
     : Notification,
 ): Promise<BrowserNotificationPermission> | undefined {
+  // The Android shell asks the system itself; the page only reads the answer.
+  const bridge = androidNotificationBridge();
+  if (bridge) return Promise.resolve(nativeNotificationPermission(bridge));
   if (!api) return undefined;
   if (api.permission !== "default") return Promise.resolve(api.permission);
   if (permissionRequest) return permissionRequest;
