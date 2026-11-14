@@ -16,7 +16,7 @@ Each bot keeps its own memory, computer and instructions; the group only shares 
 
 A bot in the group is shown as the owner's name, a hyphen, then the bot's name. That is the only name it is given for the turn, so it does not also answer as its private name. The sidebar marks a shared group and still shows its latest message. The open chat shows each member's avatar and that name. Messages use those names. Your own messages sit on your side; everyone else's, people and bots, sit on the left. A bot from another workspace answers from its own chat, and the text of that reply is posted back here. It does not bring its owner's other chats or private memory with it.
 
-@ in a shared group lists the people and the bots who are in it, and does not list scheduled routines. Naming a person leaves their name in the message. A bot there starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
+@ in a shared group lists the people and the bots who are in it, and does not list scheduled routines. Naming a person leaves their name in the message and tells them: their open app shows a notification, and clicking it opens the group. A bot there starts only when the message names it, or uses @everyone. A message that names no bot stays in the chat, and no bot starts.
 
 A private group is unchanged: it still belongs to one person and holds 2 to 10 of that person's bots.
 

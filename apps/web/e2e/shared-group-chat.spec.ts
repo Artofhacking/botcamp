@@ -76,3 +76,67 @@ test("another person's message in a shared group sits on the left", async ({
     await personContext.close();
   }
 });
+
+test("naming a person in a shared group notifies them", async ({ page, browser }) => {
+  const stamp = Date.now();
+  const ownerEmail = `mention-owner-${stamp}@rakazo.test`;
+  const personEmail = `mention-person-${stamp}@rakazo.test`;
+  await signup(page, ownerEmail, "password12", "Ada");
+  await completeOnboarding(page);
+
+  const personContext = await browser.newContext();
+  const person = await personContext.newPage();
+  try {
+    // Record what the app would show on this device, without the OS permission prompt.
+    await personContext.addInitScript(() => {
+      const shown: Array<{ title: string; body?: string }> = [];
+      Object.defineProperty(window, "__botcampNotifications", { value: shown });
+      class RecordedNotification {
+        static permission = "granted";
+        static requestPermission = async () => "granted";
+        onclick: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        constructor(title: string, options?: NotificationOptions) {
+          shown.push({ title, body: options?.body });
+        }
+        close() {}
+      }
+      Object.defineProperty(window, "Notification", {
+        value: RecordedNotification,
+        configurable: true,
+      });
+    });
+    await signup(person, personEmail, "password12", "Bo");
+    await completeOnboarding(person);
+
+    const group = await rpc<{ id: string }>(page, "groups/createShared", {
+      name: "Shared planning",
+      emails: [personEmail],
+    });
+    await page.goto(`/app/g/${group.id}`);
+    const composer = page.getByRole("combobox", { name: "Message Shared planning" });
+    await expect(composer).toBeVisible();
+    await composer.fill("@Bo");
+    await page.getByRole("option", { name: "@Bo", exact: true }).click();
+    await composer.pressSequentially("please review");
+    await composer.press("Enter");
+
+    // Bo reads another chat, so the alert comes through as a device notification.
+    await expect
+      .poll(
+        () =>
+          person.evaluate(
+            () =>
+              (window as unknown as { __botcampNotifications?: Array<{ title: string }> })
+                .__botcampNotifications ?? [],
+          ),
+        { timeout: 20_000 },
+      )
+      .toContainEqual({
+        title: "Ada mentioned you in Shared planning",
+        body: "@Bo please review",
+      });
+  } finally {
+    await personContext.close();
+  }
+});

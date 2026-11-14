@@ -301,16 +301,24 @@ export function partitionComposerMentions(mentions: readonly ComposerMention[]) 
   return { bots, groups, routines, connectors, everyone };
 }
 
-/** Payload entries for `threads/send` mentions (legacy bare bot ids still accepted). */
+/**
+ * Payload entries for `threads/send` mentions (legacy bare bot ids still accepted).
+ * A named person is sent too, so a shared group can tell them; `everyone` is text only.
+ */
 export function toThreadMentionPayload(
   mentions: readonly ComposerMention[],
-): Array<string | { kind: "bot" | "group" | "routine" | "connector"; id: string }> {
-  const payload: Array<string | { kind: "bot" | "group" | "routine" | "connector"; id: string }> =
-    [];
+): Array<string | { kind: "bot" | "person" | "group" | "routine" | "connector"; id: string }> {
+  const payload: Array<
+    string | { kind: "bot" | "person" | "group" | "routine" | "connector"; id: string }
+  > = [];
   for (const mention of mentions) {
-    if (mention.kind === "everyone" || mention.kind === "person") continue;
+    if (mention.kind === "everyone") continue;
     if (mention.kind === "bot") {
       payload.push({ kind: "bot", id: mention.id });
+      continue;
+    }
+    if (mention.kind === "person") {
+      payload.push({ kind: "person", id: mention.id });
       continue;
     }
     if (mention.kind === "group") {

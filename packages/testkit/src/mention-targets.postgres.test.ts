@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ComposioConnector, FakeComposioClient } from "@botcamp/adapters";
+import { ComposioConnector, FakeComposioClient, InMemoryRealtimeFanout } from "@botcamp/adapters";
 import type { createApp } from "@botcamp/api/app";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sessionCookieHeader } from "./index.js";
@@ -17,15 +17,26 @@ process.env.AGENT_RUNTIME = "scripted";
 const hasDb = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATABASE_URL);
 const describeWithDatabase = hasDb ? describe : describe.skip;
 
+/** Keeps every published payload, so a test can read the alert a send delivered. */
+class RecordingRealtime extends InMemoryRealtimeFanout {
+  readonly published: Array<{ topic: string; payload: string }> = [];
+  override async publish(topic: string, payload: string) {
+    this.published.push({ topic, payload });
+    await super.publish(topic, payload);
+  }
+}
+
 describeWithDatabase("structured @ mention targets", () => {
   let handles: AppHandles;
   let app: App;
   let prisma: AppHandles["prisma"];
+  let realtime: RecordingRealtime;
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-mention-targets-"));
 
   beforeAll(async () => {
     const { createApp } = await import("@botcamp/api/app");
+    realtime = new RecordingRealtime();
     handles = await createApp({
       databaseUrl: process.env.DATABASE_URL!,
       dataDir,
@@ -33,6 +44,7 @@ describeWithDatabase("structured @ mention targets", () => {
       agentRuntime: "scripted",
       composio: new ComposioConnector({ client: new FakeComposioClient() }),
       signupsEnabled: "true",
+      realtime,
     });
     app = handles.app;
     prisma = asSystem(handles.prisma);
@@ -579,6 +591,69 @@ describeWithDatabase("structured @ mention targets", () => {
 
     const routineRuns = await prisma.run.count({ where: { botId: adaBot.id, trigger: "routine" } });
     expect(routineRuns).toBe(0);
+  });
+
+  it("alerts a named person in a shared group, and no one outside it", async () => {
+    const ownerEmail = `shared-mention-owner-${stamp}@rakazo.test`;
+    const personEmail = `shared-mention-person-${stamp}@rakazo.test`;
+    const outsiderEmail = `shared-mention-outsider-${stamp}@rakazo.test`;
+    const owner = await signup(app, ownerEmail, "Ada");
+    await signup(app, personEmail, "Bo");
+    await signup(app, outsiderEmail, "Cy");
+    const person = await prisma.user.findFirstOrThrow({ where: { email: personEmail } });
+    const outsider = await prisma.user.findFirstOrThrow({ where: { email: outsiderEmail } });
+    const membership = await prisma.spaceMember.findFirstOrThrow({
+      where: { userId: person.id },
+    });
+    const group = await rpc<{ id: string; threadId: string }>(app, owner, "groups/createShared", {
+      name: "Shared planning",
+      emails: [personEmail],
+    });
+
+    await rpc(app, owner, "threads/send", {
+      groupId: group.id,
+      text: "hello Bo",
+      mentions: [
+        { kind: "person", id: person.id },
+        { kind: "person", id: outsider.id },
+      ],
+    });
+
+    const topic = `chat-alerts:${person.id}`;
+    await expect
+      .poll(() => realtime.published.filter((entry) => entry.topic === topic).length)
+      .toBe(1);
+    const alert = JSON.parse(
+      realtime.published.find((entry) => entry.topic === topic)!.payload,
+    ) as Record<string, unknown>;
+    expect(alert).toMatchObject({
+      kind: "mention",
+      title: "Ada mentioned you in Shared planning",
+      body: "hello Bo",
+      // A guest reads the group from their own Space, so the alert names that one.
+      spaceId: membership.spaceId,
+      threadId: group.threadId,
+      groupId: group.id,
+    });
+    expect(
+      realtime.published.filter((entry) => entry.topic === `chat-alerts:${outsider.id}`),
+    ).toHaveLength(0);
+
+    // Typing the name without picking the chip still tells them.
+    await rpc(app, owner, "threads/send", {
+      groupId: group.id,
+      text: "@Bo one more",
+    });
+    await expect
+      .poll(() => realtime.published.filter((entry) => entry.topic === topic).length)
+      .toBe(2);
+    const typed = JSON.parse(
+      realtime.published.filter((entry) => entry.topic === topic)[1]!.payload,
+    ) as Record<string, unknown>;
+    expect(typed).toMatchObject({ body: "@Bo one more", groupId: group.id });
+    expect(
+      realtime.published.filter((entry) => entry.topic === `chat-alerts:${outsider.id}`),
+    ).toHaveLength(0);
   });
 });
 
