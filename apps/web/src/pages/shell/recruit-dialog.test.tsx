@@ -8,6 +8,7 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecruitBotInput } from "./recruit-dialog";
+import type { RecruitPreset } from "./recruit-presets";
 
 vi.mock("@lingui/react/macro", () => {
   const t = (input: TemplateStringsArray | MessageDescriptor, ...values: unknown[]) =>
@@ -40,21 +41,48 @@ afterEach(() => {
   container.remove();
 });
 
+function descriptor(message: string): MessageDescriptor {
+  return { id: message, message };
+}
+
 async function render(
   onAdd: (input: RecruitBotInput) => Promise<void>,
   avatarSet: BotAvatarSet = "organic",
+  presets?: readonly RecruitPreset[],
 ) {
   await act(async () => {
-    root.render(<RecruitDialog avatarSet={avatarSet} onCancel={() => undefined} onAdd={onAdd} />);
+    root.render(
+      <RecruitDialog
+        avatarSet={avatarSet}
+        presets={presets}
+        onCancel={() => undefined}
+        onAdd={onAdd}
+      />,
+    );
   });
 }
 
-async function add(preset: "software-engineer" | "gold-medal-editor") {
+async function add(preset: string) {
   const button = document.querySelector<HTMLButtonElement>(`[data-testid="recruit-add-${preset}"]`);
   if (!button) throw new Error(`No add button for ${preset}`);
   await act(async () => {
     button.click();
   });
+}
+
+async function search(value: string) {
+  const input = document.querySelector<HTMLInputElement>('input[placeholder="Search bots"]');
+  if (!input) throw new Error("No search input");
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // The query is deferred so typing stays responsive; let the transition settle.
+  await act(async () => undefined);
+}
+
+function card(preset: string) {
+  return document.querySelector(`[data-testid="recruit-${preset}"]`);
 }
 
 describe("RecruitDialog", () => {
@@ -93,6 +121,40 @@ describe("RecruitDialog", () => {
     expect(input?.id).toMatch(/^c[a-z0-9]{24}$/);
     expect(input).not.toHaveProperty("avatarFamily");
     expect(input?.name).toBe("Gold-Medal Editor");
+  });
+
+  it("filters the catalog by name and summary, and says when nothing matches", async () => {
+    await render(async () => undefined);
+    await search("editor");
+    expect(card("software-engineer")).toBeNull();
+    expect(card("gold-medal-editor")).not.toBeNull();
+    await search("ship");
+    expect(card("software-engineer")).not.toBeNull();
+    expect(card("gold-medal-editor")).toBeNull();
+    await search("zzz");
+    expect(document.body.textContent).toContain("No bots match");
+    await search("");
+    expect(card("software-engineer")).not.toBeNull();
+    expect(card("gold-medal-editor")).not.toBeNull();
+  });
+
+  it("renders one page at a time and loads the rest on request", async () => {
+    const presets: RecruitPreset[] = Array.from({ length: 61 }, (_, index) => ({
+      id: `role-${index}`,
+      name: descriptor(`Role ${index}`),
+      summary: descriptor("Does the job."),
+      instructions: descriptor("Do the job."),
+      color: "#3B82F6",
+    }));
+    await render(async () => undefined, "organic", presets);
+    expect(document.querySelectorAll('[data-testid^="recruit-add-"]').length).toBe(60);
+    const more = document.querySelector<HTMLButtonElement>('[data-testid="recruit-show-more"]');
+    expect(more).not.toBeNull();
+    await act(async () => {
+      more!.click();
+    });
+    expect(document.querySelectorAll('[data-testid^="recruit-add-"]').length).toBe(61);
+    expect(document.querySelector('[data-testid="recruit-show-more"]')).toBeNull();
   });
 
   it("disables adding while one is in flight and shows the error when it fails", async () => {

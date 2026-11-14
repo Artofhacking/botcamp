@@ -4311,6 +4311,7 @@ msgid "No bots"
 msgstr "暂无 Bot"
 
 #: src/pages/GroupPanel.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "No bots match"
 msgstr "没有匹配的 Bot"
 
@@ -5594,6 +5595,10 @@ msgstr "搜索应用"
 msgid "Search artifacts…"
 msgstr "搜索产物…"
 
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Search bots"
+msgstr "搜索 Bot"
+
 #: src/pages/shell/command-palette.tsx
 msgid "Search bots, actions, and settings"
 msgstr "搜索 Bot、操作和设置"
@@ -5802,6 +5807,7 @@ msgstr "显示列表"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Show more"
 msgstr "显示更多"
 
