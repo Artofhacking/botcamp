@@ -165,10 +165,8 @@ export function ShellSidebar({
             focusSidebarSearch();
           }}
           setBotsSidebarCollapsedPref={setCollapsedPref}
-          bots={bots}
           setMobileSidebarOpen={setMobileOpen}
           setPanel={setPanel}
-          navigate={navigate}
           setCreateBotOpen={setCreateBotOpen}
         />
         {mini ||
