@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.10] - 2026-11-14
+
+### Changed
+
+- The weekly budget, the 大容器时长 bar and the burst guard count only burst containers. Always-on Docker computers are metered as `small` and stay in admin reporting, but no longer spend a user's weekly balance.
+
 ## [2.1.9] - 2026-11-14
 
 ### Fixed
