@@ -3290,6 +3290,10 @@ msgstr "正在授权…"
 msgid "Group"
 msgstr "群组"
 
+#: src/pages/shell/chat-header.tsx
+msgid "Group chat"
+msgstr "群聊"
+
 #: src/pages/GroupPanel.tsx
 #: src/pages/SharedGroupPanel.tsx
 msgid "Group settings"

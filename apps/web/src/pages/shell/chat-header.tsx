@@ -1,7 +1,7 @@
 import type { Bot, Group, ThreadSnapshot } from "@botcamp/contracts";
 import { sharedGroupFaces } from "@botcamp/core";
 import { BotAvatar, Button, GroupAvatar } from "@botcamp/ui-web";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Gift, Menu, Phone } from "lucide-react";
 import { useState } from "react";
 import { IconTooltip } from "../../components/IconTooltip";
@@ -76,29 +76,15 @@ export function ChatHeader({
           />
         ) : null}
         <span className="min-w-0">
-          <span className="flex min-w-0 items-center gap-1.5" dir="auto">
-            <span className="truncate text-[15px] font-medium text-foreground">
-              {inGroup
-                ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
-                : (active?.name ?? t`Select a bot`)}
-            </span>
-            {activeGroup?.shared ? <SharedMark /> : null}
+          <span className="block truncate text-[15px] font-medium text-foreground" dir="auto">
+            {inGroup
+              ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
+              : (active?.name ?? t`Select a bot`)}
           </span>
-          {activeGroup?.shared && headerMembers.length > 0 ? (
-            <span className="mt-0.5 flex max-w-72 flex-wrap items-center gap-x-2 gap-y-1">
-              {headerMembers.map((member) => (
-                <span key={member.botId} className="flex min-w-0 items-center gap-1">
-                  <BotAvatar
-                    avatarSet={member.avatarSet}
-                    color={member.color}
-                    identity={member.botId}
-                    size={18}
-                  />
-                  <span className="truncate text-[12px] text-muted-foreground" dir="auto">
-                    {member.name}
-                  </span>
-                </span>
-              ))}
+          {activeGroup?.shared ? (
+            <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+              <Trans>Group chat</Trans>
+              <SharedMark />
             </span>
           ) : null}
         </span>

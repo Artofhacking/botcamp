@@ -3290,6 +3290,10 @@ msgstr "Granting…"
 msgid "Group"
 msgstr "Group"
 
+#: src/pages/shell/chat-header.tsx
+msgid "Group chat"
+msgstr "Group chat"
+
 #: src/pages/GroupPanel.tsx
 #: src/pages/SharedGroupPanel.tsx
 msgid "Group settings"
