@@ -64,6 +64,14 @@ export async function weeklyTokensUsed(
   return BigInt(summed._sum.totalTokens ?? 0);
 }
 
+/**
+ * Tiers that count against the weekly budget. Always-on Docker computers record the
+ * "small" tier: they run on the host the operator already pays for, and charging their
+ * core-seconds to the user's weekly credits would exhaust the balance in hours.
+ * Admin reporting still reads every tier.
+ */
+export const BURST_CONTAINER_TIERS = ["big", "desktop"] as const;
+
 /** Points spent: our cost in fen, so a model's price cannot change what a plan buys. */
 export async function weeklyPointsUsed(
   prisma: Pick<PrismaClient, "usageRecord" | "containerUsage" | "user">,
@@ -85,7 +93,11 @@ export async function weeklyPointsUsed(
       },
     }),
     prisma.containerUsage.aggregate({
-      where: { userId, day: { gte: new Date(window.start.toISOString().slice(0, 10)) } },
+      where: {
+        userId,
+        day: { gte: new Date(window.start.toISOString().slice(0, 10)) },
+        tier: { in: [...BURST_CONTAINER_TIERS] },
+      },
       _sum: { coreSeconds: true },
     }),
   ]);
@@ -116,7 +128,11 @@ export async function weeklyCreditsUsed(
       },
     }),
     prisma.containerUsage.aggregate({
-      where: { userId, day: { gte: new Date(weekStart(now).toISOString().slice(0, 10)) } },
+      where: {
+        userId,
+        day: { gte: new Date(weekStart(now).toISOString().slice(0, 10)) },
+        tier: { in: [...BURST_CONTAINER_TIERS] },
+      },
       _sum: { coreSeconds: true },
     }),
   ]);

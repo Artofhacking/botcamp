@@ -8,6 +8,7 @@ import type {
   StreamedPortableFile,
 } from "@botcamp/adapter-kit";
 import type { PrismaClient } from "@botcamp/db";
+import { BURST_CONTAINER_TIERS } from "@botcamp/db";
 
 /**
  * Where a bot's computer runs.
@@ -187,6 +188,8 @@ export function burstProvisionGuard(prisma: {
       where: {
         userId: account.userId,
         day: { gte: new Date(new Date().toISOString().slice(0, 10)) },
+        // Always-on Docker computers are "small" and do not consume the burst budget.
+        tier: { in: [...BURST_CONTAINER_TIERS] },
       },
       _sum: { coreSeconds: true },
     } as never);
