@@ -753,13 +753,18 @@ function SpaceShell() {
     mention: ComposerMention;
   } | null>(null);
   const replyMentionFor = useCallback(
-    (message: ThreadMessage) =>
-      composerMentionTargets.find((target) =>
-        message.role === "user"
-          ? target.kind === "person" && target.id === message.senderUserId
-          : target.kind === "bot" && target.id === message.botId,
-      ) ?? null,
-    [composerMentionTargets],
+    (message: ThreadMessage) => {
+      // A one-to-one chat has only its bot, so a reply there needs no @.
+      if (!inGroup) return null;
+      return (
+        composerMentionTargets.find((target) =>
+          message.role === "user"
+            ? target.kind === "person" && target.id === message.senderUserId
+            : target.kind === "bot" && target.id === message.botId,
+        ) ?? null
+      );
+    },
+    [composerMentionTargets, inGroup],
   );
   const armReply = useCallback(
     (message: ThreadMessage, quote: string | null) => {
