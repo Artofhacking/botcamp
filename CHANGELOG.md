@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.11] - 2026-11-14
+
+### Changed
+
+- A Team computer now routes its traffic through the owner's desktop when that owner turned on **Route traffic through this computer**, so a bot on a shared computer can reach a network only that person can.
+
 ## [2.1.10] - 2026-11-14
 
 ### Changed
