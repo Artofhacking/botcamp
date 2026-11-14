@@ -6,6 +6,13 @@ import type { UserComputerState } from "./run-tools-user-computer.js";
 import { SCHEDULE_TOOL_NAMES } from "./schedule-tools.js";
 import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "./takeover-resume.js";
 
+/**
+ * The product's stance, first in every turn: ask about what it was not told,
+ * keep what it was told, choose the means, and show its evidence.
+ */
+export const CORE_INSTRUCTION =
+  "Ask when you do not know. Never quietly rewrite what the user told you; if you disagree, say so. Work out how to do it yourself. When you finish, say what you relied on and what you were missing.";
+
 /** Added to the turn prompt when the user spoke this message on a live voice call. */
 const VOICE_CALL_BASE_INSTRUCTION =
   "You are on a live voice call. Reply in one to three short spoken sentences. No markdown, lists, links, or option cards; do not use ask_user unless you truly cannot proceed. Answer directly from what you already know when you can; use tools or subagents only when the answer requires them.";
@@ -348,6 +355,7 @@ export function userTurnInstructions(parts: {
   userComputerScreen?: boolean;
 }): (string | undefined)[] {
   return [
+    CORE_INSTRUCTION,
     parts.botInstructions,
     parts.historyRetrievalEnabled &&
     builtinOffered(parts.disabledBuiltinTools, "search_history") &&
