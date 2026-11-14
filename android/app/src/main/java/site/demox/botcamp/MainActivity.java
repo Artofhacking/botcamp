@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
     /** 登录接口所在的站点。授权状态存在这里的 cookie 里。 */
     private static final String API_HOST = "botcamp.aigc.sx.cn";
     /** 应用版本，控制台「关于」页显示它并据此判断有没有新版本。 */
-    private static final String APP_VERSION = "2.1.3";
+    private static final String APP_VERSION = "2.2.0";
     /** 只进控制台；/admin/ 和产品下载页不在这个应用里。 */
     private static final String START_URL = "https://" + HOST + "/console/";
     private static final int FILE_CHOOSER = 41;
