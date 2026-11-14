@@ -24,7 +24,6 @@ import {
 } from "@botcamp/core";
 import { chooseBotAvatar } from "./bot-avatar-choice.js";
 import type { Prisma, PrismaClient } from "./client.js";
-import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { withNewestThreadMessages } from "./preview-messages.js";
@@ -145,7 +144,6 @@ function mapBot(
     preview,
     status,
     runErrorId,
-    computerMode: bot.computer ? parseComputerMode(bot.computer.scope) : "team",
     createdAt: bot.createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
     voiceId: bot.voiceId ?? null,
@@ -538,7 +536,6 @@ export function createRepos(
         avatarSetPinned?: boolean;
         avatarFamily?: number;
         parentBotId?: string | null;
-        computerMode?: ComputerMode;
         spawnKey?: string;
         modelProvider?: string | null;
         modelId?: string | null;
@@ -672,16 +669,6 @@ export function createRepos(
               markUnread: false,
             });
           }
-          if (input.computerMode === "dedicated") {
-            const dedicated = await ensureComputerRecord(tx, {
-              mode: "dedicated",
-              spaceId: actor.spaceId,
-              userId: actor.userId,
-              botId: created.id,
-              kind,
-            });
-            await tx.bot.update({ where: { id: created.id }, data: { computerId: dedicated.id } });
-          }
           await tx.browserProfile.create({
             data: {
               spaceId: actor.spaceId,
@@ -772,34 +759,6 @@ export function createRepos(
           botIds.map((id, position) => tx.bot.update({ where: { id }, data: { position } })),
         );
       });
-    },
-
-    async setBotComputer(actor: Actor, botId: string, mode: ComputerMode): Promise<Bot> {
-      const bot = await prisma.bot.findFirst({
-        where: { id: botId, spaceId: actor.spaceId, userId: actor.userId },
-        include: { computer: true },
-      });
-      if (!bot?.computer) throw new IsolationError();
-      const kind = bot.computer.kind;
-      // Keep ensure + bot link in one transaction so a capped quota lock covers
-      // both steps (a computer row alone does not count until a live bot refs it).
-      const updated = await withTransactionRetry(() =>
-        prisma.$transaction(async (tx) => {
-          const computer = await ensureComputerRecord(tx, {
-            mode,
-            spaceId: actor.spaceId,
-            userId: actor.userId,
-            botId,
-            kind,
-          });
-          return tx.bot.update({
-            where: { id: botId },
-            data: { computerId: computer.id },
-            include: { thread: true, computer: true },
-          });
-        }),
-      );
-      return mapBot(updated);
     },
   };
 }

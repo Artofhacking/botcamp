@@ -993,7 +993,6 @@ describe("Pi connector tool dispatch", () => {
           name: "Scout",
           description: "Finds venues.",
           instructions: "Ask before booking anything.",
-          computer_mode: "team",
         },
       },
     };

@@ -98,7 +98,6 @@ function builtinParameters(tool: ConnectorTool) {
       description: Type.Optional(Type.String()),
       instructions: Type.Optional(Type.String()),
       prompt: Type.Optional(Type.String()),
-      computer_mode: Type.Optional(stringEnum(["team", "dedicated"], {})),
     });
   }
   if (tool.name === "update_bot") {
