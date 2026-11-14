@@ -1413,6 +1413,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         });
         let userComputer: UserComputerState;
         let userComputerScreen = false;
+        let userComputerRelay = false;
         if (
           userComputerOwnerId &&
           deps.userDevices &&
@@ -1423,6 +1424,8 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             userComputer = "connected";
             // The macOS and Windows desktops fetch a screen driver; Linux has none yet.
             userComputerScreen = device.platform === "darwin" || device.platform === "win32";
+            userComputerRelay =
+              (await deps.userDevices.relaying?.(userComputerOwnerId).catch(() => false)) ?? false;
           } else userComputer = "offline";
         }
         const builtins = [
@@ -1965,6 +1968,8 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                 offeredFleetTools: offeredFleetTools(strategicBuiltins),
                 followUpsOffered: followUpsOffered(strategicBuiltins, ownerStartedRun),
                 userComputer,
+                userComputerRelay,
+                userComputerScreen,
               })
                 .filter((instruction): instruction is string => Boolean(instruction))
                 .join("\n\n"),
