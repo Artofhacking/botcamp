@@ -1,6 +1,7 @@
 import { compareBuilds, isBuildId } from "@botcamp/contracts";
 import { CLIENT_BUILD } from "./client-build";
 import { desktopBridge } from "./desktop";
+import { servedBuildUrl } from "./served-build";
 
 /** This page's build id; empty on a dev server, which carries none to compare. */
 export function pageBuild(build: string = CLIENT_BUILD): string {
@@ -42,7 +43,7 @@ export async function refreshWebPage(deps: WebPageRefreshDeps): Promise<"reloade
 /** The build id the web server ships beside the page, from the `/build-id` file. */
 export async function servedWebPageBuild(): Promise<string | null> {
   try {
-    const response = await fetch("/build-id", { cache: "no-store", credentials: "omit" });
+    const response = await fetch(servedBuildUrl(), { cache: "no-store", credentials: "omit" });
     if (!response.ok) return null;
     const build = (await response.text()).trim();
     return isBuildId(build) ? build : null;

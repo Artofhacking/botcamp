@@ -15,6 +15,7 @@ import {
 import { hasOpenDialog } from "./has-open-dialog";
 import { recoveryReload } from "./preload-recovery";
 import { onRpcResponse } from "./rpc";
+import { servedBuildUrl } from "./served-build";
 
 const ATTEMPT_KEY = "rk:client-update-attempt";
 /** No keys, pointer, or scrolling for this long counts as idle. */
@@ -235,7 +236,7 @@ export function clientUpdates(): ReturnType<typeof createClientUpdates> {
     },
     responses: onRpcResponse,
     servedBuild: async () => {
-      const response = await fetch("/build-id", { cache: "no-store", credentials: "omit" });
+      const response = await fetch(servedBuildUrl(), { cache: "no-store", credentials: "omit" });
       return response.ok ? (await response.text()).trim() : null;
     },
     reload: recoveryReload,
