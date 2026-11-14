@@ -18,6 +18,7 @@ import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_RUN_TRIGGERS,
   callIdFromClientNonce,
+  hasMentionToken,
   isConversationalRun,
   MODEL_REQUIRED_SEND_ERROR,
   messageBypassesTakeoverWait,
@@ -59,6 +60,8 @@ import {
 } from "./artifacts.js";
 import { resolveBusyBotName, toComputerStatus } from "./computer-status.js";
 import { withSerializableRetry } from "./serializable-retry.js";
+import type { MentionedPerson } from "./shared-group-mentions.js";
+import { alertMentionedPeople } from "./shared-group-mentions.js";
 import { partitionSharedGroupBots, wakeSharedGroupBots } from "./shared-group-wake.js";
 import type { ImageAdmissionRun } from "./thread-image-admission.js";
 import { assertThreadImageInput } from "./thread-image-admission.js";
@@ -107,10 +110,13 @@ function steersUserMessage(run: { status: string; trigger?: string | null }) {
   return STEERABLE_RUN_STATUSES.has(run.status) && isConversationalRun(run.trigger);
 }
 
-type MentionTargetInput = string | { kind: "bot" | "group" | "routine" | "connector"; id: string };
+type MentionTargetInput =
+  | string
+  | { kind: "bot" | "person" | "group" | "routine" | "connector"; id: string };
 
 function splitMentionTargets(mentions: MentionTargetInput[] | undefined) {
   const botMentionIds = new Set<string>();
+  const personMentionIds = new Set<string>();
   const groupMentionIds = new Set<string>();
   const routineMentionIds = new Set<string>();
   const connectorMentionIds = new Set<string>();
@@ -120,12 +126,14 @@ function splitMentionTargets(mentions: MentionTargetInput[] | undefined) {
       continue;
     }
     if (mention.kind === "bot") botMentionIds.add(mention.id);
+    if (mention.kind === "person") personMentionIds.add(mention.id);
     if (mention.kind === "group") groupMentionIds.add(mention.id);
     if (mention.kind === "routine") routineMentionIds.add(mention.id);
     if (mention.kind === "connector") connectorMentionIds.add(mention.id);
   }
   return {
     botMentionIds: [...botMentionIds],
+    personMentionIds: [...personMentionIds],
     groupMentionIds: [...groupMentionIds],
     routineMentionIds: [...routineMentionIds],
     connectorMentionIds: [...connectorMentionIds],
@@ -314,7 +322,13 @@ async function lockAndLoadGroupMembers(
   tx: Prisma.TransactionClient,
   actor: Actor,
   target: Extract<ThreadTarget, { kind: "group" }>,
-): Promise<{ shared: boolean; spaceId: string; members: LoadedGroupMember[] }> {
+): Promise<{
+  shared: boolean;
+  spaceId: string;
+  members: LoadedGroupMember[];
+  /** The people in a shared group, under the names the group shows. Private groups have none. */
+  people: MentionedPerson[];
+}> {
   const locked = await lockReadableGroup(tx, actor, target.groupId);
   const visible = await tx.chatGroup.findFirst({
     where: {
@@ -334,6 +348,10 @@ async function lockAndLoadGroupMembers(
     return {
       shared: true,
       spaceId: locked.spaceId,
+      people: (roster?.people ?? []).map((person) => ({
+        userId: person.userId,
+        name: person.name,
+      })),
       members: (roster?.members ?? []).map((member) => ({
         botId: member.botId,
         name: member.name,
@@ -358,6 +376,7 @@ async function lockAndLoadGroupMembers(
   return {
     shared: false,
     spaceId: actor.spaceId,
+    people: [],
     members: group.members.map((member) => ({
       botId: member.bot.id,
       name: member.bot.name,
@@ -1091,6 +1110,14 @@ export async function sendThreadMessage(
       const members = loaded.members;
       const memberBotIds = members.map((member) => member.botId);
       const mentionTargets = splitMentionTargets(input.mentions);
+      // Only a shared group tells the people it names, and only those still in it.
+      // Typing the name counts too, as it does for a bot.
+      const mentionedPeople = loaded.people.filter(
+        (person) =>
+          person.userId !== actor.userId &&
+          (mentionTargets.personMentionIds.includes(person.userId) ||
+            hasMentionToken(input.text ?? "", person.name)),
+      );
       const targetBotIds = sendTargetBotIds(
         { kind: "group", members, shared: loaded.shared },
         input,
@@ -1290,6 +1317,17 @@ export async function sendThreadMessage(
         routineRuns,
         eventSeq: event.seq,
         quiet: loaded.shared && runs.length === 0,
+        mention: mentionedPeople.length
+          ? {
+              groupId: target.groupId,
+              groupName: target.groupName,
+              threadId: target.threadId,
+              senderName:
+                loaded.people.find((person) => person.userId === actor.userId)?.name ?? "Someone",
+              text: input.text ?? "",
+              people: mentionedPeople,
+            }
+          : undefined,
         wake: foreign.length
           ? {
               groupId: target.groupId,
@@ -1337,6 +1375,13 @@ export async function sendThreadMessage(
     await wakeSharedGroupBots(deps, committed.wake).catch((error) => {
       getLogger().error("shared group wake", error);
     });
+  }
+  if ("mention" in committed && committed.mention) {
+    // The message is committed, so a slow recipient lookup never holds the send.
+    void alertMentionedPeople(
+      { prisma: deps.prisma, events: deps.events },
+      committed.mention,
+    ).catch((error) => getLogger().error("shared group mention alert", error));
   }
   await enqueueRunsNeedingContinue(deps.jobs, [...committed.routineRuns, ...committed.runs]);
   return sendResult(

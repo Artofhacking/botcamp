@@ -220,14 +220,14 @@ describe("resolveComposerSendPlan", () => {
     expect(plan.isNoOp).toBe(false);
   });
 
-  it("keeps a person mention in the message and out of the bot payload", () => {
+  it("sends a named person to the server and keeps the name in the message", () => {
     const plan = resolveComposerSendPlan({
       text: "@Ada hello",
       mentions: [{ kind: "person", id: "u1", name: "Ada" }],
       hasAttachments: false,
     });
     expect(plan.trimmed).toBe("@Ada hello");
-    expect(plan.mentionPayload).toEqual([]);
+    expect(plan.mentionPayload).toEqual([{ kind: "person", id: "u1" }]);
     expect(plan.shouldSend).toBe(true);
     expect(plan.shouldOpenGroup).toBe(false);
   });
@@ -262,7 +262,7 @@ describe("partition and payload", () => {
     expect(parts.everyone).toBe(true);
   });
 
-  it("omits people and needs-auth catalog connectors from the API payload", () => {
+  it("sends people and connected connectors, skipping needs-auth catalog entries", () => {
     expect(
       toThreadMentionPayload([
         { kind: "person", id: "u1", name: "Ada" },
@@ -282,6 +282,7 @@ describe("partition and payload", () => {
         },
       ]),
     ).toEqual([
+      { kind: "person", id: "u1" },
       { kind: "bot", id: "b1" },
       { kind: "connector", id: "c1" },
     ]);

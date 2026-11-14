@@ -158,6 +158,19 @@ describe("useBrowserNotifications chat alerts", () => {
     ]);
   });
 
+  it("shows a mention alert from a shared group that names no bot", async () => {
+    await open({ botId: "bot-a" });
+    await send({
+      kind: "mention",
+      botId: undefined,
+      groupId: "group-g",
+      threadId: "thread-g",
+      title: "Ada mentioned you in Team",
+      body: "Ship it?",
+    });
+    expect(shown()).toEqual([["Ada mentioned you in Team", "Ship it?", "thread-g:mention"]]);
+  });
+
   it("opens the alerted chat when clicked", async () => {
     const focus = vi.spyOn(window, "focus").mockImplementation(() => undefined);
     await open({ botId: "bot-a" });

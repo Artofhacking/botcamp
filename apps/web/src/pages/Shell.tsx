@@ -421,7 +421,9 @@ function SpaceShell() {
       activeGroupId,
       openChat: (alert) => {
         setMobileSidebarOpen(false);
-        navigate(alert.groupId ? `/app/g/${alert.groupId}` : `/app/${alert.botId}`);
+        // A mention alert names its group; only a run alert can name a bot alone.
+        if (alert.groupId) navigate(`/app/g/${alert.groupId}`);
+        else if (alert.botId) navigate(`/app/${alert.botId}`);
       },
     },
   );
