@@ -16,6 +16,9 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 mkdir -p "${scratch}/infra/compose"
 cp "${root}/docker-compose.prod.yml" "${root}/upgrade-postgres.sh" "${scratch}/infra/compose/"
 cat >"${scratch}/.env" <<'ENV'
+# An install created before the rename keeps these values, whatever the new release defaults to.
+POSTGRES_USER=rakazo
+POSTGRES_DB=rakazo
 POSTGRES_PASSWORD=owner-test-password
 POSTGRES_APP_PASSWORD=app-test-password
 SCREEN_PROXY_SECRET=test-screen-proxy-secret-0123456789abcdef
