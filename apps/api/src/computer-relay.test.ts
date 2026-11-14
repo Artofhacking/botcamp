@@ -1,4 +1,4 @@
-import { COMPUTER_RELAY_PATH, computerRelayKey } from "@botcamp/core";
+import { COMPUTER_RELAY_PATH, computerRelayKey } from "@botcamp/core/computer-relay";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { mountComputerRelayRoutes } from "./computer-relay.js";

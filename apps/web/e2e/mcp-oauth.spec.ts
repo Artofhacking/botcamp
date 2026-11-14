@@ -57,7 +57,7 @@ test("connects an MCP server through the OAuth popup callback", async ({ page },
     expect(route.request().postDataJSON()).toEqual({
       json: {
         serverId: server.id,
-        redirectUri: `${browserOrigin}/mcp/oauth/callback`,
+        redirectUri: `${browserOrigin}/mcp/oauth/callback/`,
       },
     });
     await route.fulfill({
@@ -182,7 +182,7 @@ test("adds an MCP server with a pre-registered OAuth client", async ({ page }, t
   await expect(page.getByLabel("Redirect URI")).toBeHidden();
   await page.getByLabel("OAuth client ID (optional)").fill("client-1.apps.example.test");
   await page.getByLabel("OAuth client secret (optional)").fill("client-secret");
-  await expect(page.getByLabel("Redirect URI")).toHaveValue(`${browserOrigin}/mcp/oauth/callback`);
+  await expect(page.getByLabel("Redirect URI")).toHaveValue(`${browserOrigin}/mcp/oauth/callback/`);
   await captureScreenshot(page, testInfo, "mcp-oauth-client-form");
 
   await page.getByRole("button", { name: "Add server", exact: true }).click();

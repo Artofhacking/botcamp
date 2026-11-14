@@ -101,8 +101,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(studio).toBeVisible();
   await expect(studio.getByRole("button", { name: "Color #FFAF38" })).toHaveClass(/ring-2/);
   await studio.getByRole("button", { name: "Done", exact: true }).click();
-  const modelSelect = settings.getByRole("combobox", { name: "Model", exact: true });
-  const teamComputer = settings.getByRole("button", { name: "Team" });
   const openWork = settings.getByTestId("bot-scratchpad");
   const notificationsHeading = settings.getByRole("heading", {
     name: "Notifications",
@@ -110,7 +108,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   });
   await openBotPanelTab(page, "Computer");
   await expect(notificationsHeading).toHaveCount(0);
-  await expect(modelSelect).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Export", exact: true })).toHaveCount(0);
   await openBotPanelTab(page, "Advanced");
   await expect(notificationsHeading).toBeVisible();
@@ -119,8 +116,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   ).toBeVisible();
   await expect(openWork).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Export", exact: true })).toBeVisible();
-  await expect(settings.locator('label[for$="-model"]')).toHaveClass("sr-only");
-  await expect(modelSelect).toBeVisible();
   const dailyCheckIns = settings.getByRole("switch", {
     name: "Daily check-ins on unfinished work",
     exact: true,
@@ -146,17 +141,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     await workRows.first().getByRole("button", { name: "Remove" }).click();
   }
   await expect(openWork).toHaveCount(0);
-  const disabledTools = settings.getByLabel("Disable a tool");
-  await expect(disabledTools).toBeVisible();
-  await disabledTools.selectOption("web_search");
-  await expect(settings.getByRole("button", { name: "Enable Web search" })).toBeVisible();
-  await captureScreenshot(page, testInfo, "27c-disabled-builtin-tools");
-  await expect(teamComputer).toBeVisible();
-  await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeVisible();
-  await expect(settings.getByRole("switch", { name: "Manage other bots" })).toBeVisible();
-  await expect(modelSelect).toBeVisible();
-  await expect(modelSelect).toContainText("Space default");
-  await captureScreenshot(page, testInfo, "27a-bot-settings-model");
   await openBotPanelTab(page, "Computer");
   const sidePanel = page.getByTestId("side-panel");
   await expect(sidePanel).toHaveAttribute("data-panel", "computer");

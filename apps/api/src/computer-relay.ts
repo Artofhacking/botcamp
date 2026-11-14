@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { UserDevices } from "@botcamp/adapters";
-import { COMPUTER_RELAY_PATH, validComputerRelayKey } from "@botcamp/core";
+import { COMPUTER_RELAY_PATH, validComputerRelayKey } from "@botcamp/core/computer-relay";
 import type { PrismaClient } from "@botcamp/db";
 import { runAsSystem } from "@botcamp/db";
 import type { Hono } from "hono";

@@ -5834,6 +5834,10 @@ msgstr "在 <0>{0}</0> 登录，然后粘贴回调地址。"
 msgid "Sign in at <0>{0}</0>, then paste the code here."
 msgstr "在 <0>{0}</0> 登录，然后将代码粘贴到这里。"
 
+#: src/pages/Auth.tsx
+msgid "Sign in to BotCamp"
+msgstr "登录 BotCamp"
+
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
 msgstr "请登录现有账户以关联 SSO"

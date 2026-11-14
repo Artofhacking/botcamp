@@ -80,6 +80,7 @@ function renderView(
         canAnswer={false}
         canDismiss={false}
         message={message}
+        ownMessage={role === "user"}
         onAnswer={vi.fn()}
         onOpenBot={vi.fn()}
         onOpenPeerMessages={vi.fn()}
@@ -141,6 +142,33 @@ it("keeps a received peer marker off the user's side while user replies align to
 
   renderView("user", [{ kind: "text", text: "Thanks." }]);
   expect(container.querySelector(".items-end")?.textContent).toContain("Thanks.");
+});
+
+it("shows your own message in the chat colour on your side", () => {
+  renderView("user", [{ kind: "text", text: "Mine." }]);
+  const bubble = container.querySelector('[data-testid="message-user-bubble"]')!;
+  expect(bubble.className).toContain("bg-chat-user");
+  expect(bubble.className).toContain("text-chat-user-foreground");
+  expect(bubble.parentElement?.className).toContain("justify-end");
+});
+
+it("shows another person's message in a received bubble on the left", () => {
+  renderView("user", [{ kind: "text", text: "Theirs." }], {
+    ownMessage: false,
+    message: {
+      id: "other-person",
+      threadId: "thread",
+      seq: 2,
+      role: "user",
+      senderUserId: "person-b",
+      createdAt: new Date().toISOString(),
+      blocks: [{ kind: "text", text: "Theirs." }],
+    },
+  });
+  const bubble = container.querySelector('[data-testid="message-user-bubble"]')!;
+  expect(bubble.className).toContain("bg-muted");
+  expect(bubble.className).not.toContain("bg-chat-user");
+  expect(bubble.parentElement?.className).toContain("justify-start");
 });
 
 it("names a new bot inline in the reply, in its color", () => {
@@ -231,6 +259,7 @@ it("keeps an edit made after a save when the saved status arrives late", async (
           createdAt: new Date().toISOString(),
           blocks: [block],
         }}
+        ownMessage={false}
         onAnswer={vi.fn()}
         onOpenBot={vi.fn()}
         onOpenPeerMessages={vi.fn()}

@@ -5834,6 +5834,10 @@ msgstr "Sign in at <0>{0}</0>, then paste the callback address."
 msgid "Sign in at <0>{0}</0>, then paste the code here."
 msgstr "Sign in at <0>{0}</0>, then paste the code here."
 
+#: src/pages/Auth.tsx
+msgid "Sign in to BotCamp"
+msgstr "Sign in to BotCamp"
+
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
 msgstr "Sign in to your existing account to link SSO"

@@ -7,11 +7,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   boundedSandboxCommandTimeoutMs,
-  computerRelayKey,
   readBoundedJsonResponse,
   resolveSupervisorToken,
   uploadSizeFromEnv,
 } from "@botcamp/core";
+import { computerRelayKey } from "@botcamp/core/computer-relay";
 import {
   SCREEN_VIEWER_MISSING,
   SCREEN_VIEWER_MISSING_MARKER,

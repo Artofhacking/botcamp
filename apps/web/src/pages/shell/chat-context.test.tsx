@@ -84,6 +84,11 @@ it("navigates a one-line authoritative quote without a loaded parent", () => {
   act(() => container.querySelector("button")!.click());
   expect(onJump).toHaveBeenCalledWith("parent");
 });
+it("puts another person's quote on the left", () => {
+  act(() => root.render(<ReplyLine message={message} author="Bo" own={false} />));
+  expect(container.firstElementChild?.className).toContain("flex");
+  expect(container.firstElementChild?.className).not.toContain("justify-end");
+});
 it("renders a deleted target as static unavailable text", () => {
   act(() =>
     root.render(
