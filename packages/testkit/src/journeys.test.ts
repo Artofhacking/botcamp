@@ -22,6 +22,7 @@ import {
   appendEvent,
   createThreadEvents,
   createThreadMessage,
+  ensureComputerRecord,
   RunHistoryWriteError,
   runAsSystem,
 } from "@botcamp/db";
@@ -1670,6 +1671,20 @@ describeJourneys("required product journeys", () => {
       instructions: "",
       notifyOnFinish: true,
     });
+    // The product no longer offers private computers; this journey still checks that a bot's
+    // own home is deleted with it, so give it one directly.
+    const goneRecord = await prisma.bot.findUniqueOrThrow({
+      where: { id: gone.id },
+      include: { computer: true },
+    });
+    const goneComputer = await ensureComputerRecord(prisma, {
+      mode: "dedicated",
+      spaceId: goneRecord.spaceId,
+      userId: goneRecord.userId,
+      botId: gone.id,
+      kind: goneRecord.computer!.kind,
+    });
+    await prisma.bot.update({ where: { id: gone.id }, data: { computerId: goneComputer.id } });
     const forget = await rpc<Bot>(app, ada, "bots/create", {
       name: "Forget",
       title: "",

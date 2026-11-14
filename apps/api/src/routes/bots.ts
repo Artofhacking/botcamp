@@ -2,11 +2,9 @@ import { randomBytes } from "node:crypto";
 import { runContinueJob } from "@botcamp/adapter-kit";
 import {
   archiveBot,
-  checkpointAndStopComputer,
   defaultVaultItemTitle,
   forgetBotSecret,
   forgetPageShareSecrets,
-  hasActiveComputerControl,
   isSecretAlreadySaved,
   listVaultItems,
   newVaultItemName,
@@ -17,7 +15,6 @@ import {
   SPACE_VAULT_NOT_IN_USE,
   stopCancelledGroupRuns,
   storeBotSecret,
-  toComputerRef,
   validateBotModelChange,
 } from "@botcamp/adapters";
 import type {
@@ -28,7 +25,7 @@ import type {
   VaultPutInput,
 } from "@botcamp/contracts";
 import { BotSecretAuth, resolveBotAvatarSet } from "@botcamp/contracts";
-import { ACTIVE_RUN_STATUSES, displayName } from "@botcamp/core";
+import { displayName } from "@botcamp/core";
 import type { Prisma, PrismaClient } from "@botcamp/db";
 import {
   BotSectionNameConflictError,
@@ -36,12 +33,8 @@ import {
   ComputerLimitError,
   commitBotUpdate,
   createSharedGroupRepos,
-  ensureComputerRecord,
-  expireComputerExecutionLeases,
   InstructionConflictError,
   IsolationError,
-  parseComputerMode,
-  recordComputerRunEnd,
   recordSecurityEvent,
   restoreBotUnderComputerQuota,
   runAsSystem,
