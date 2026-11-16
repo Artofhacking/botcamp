@@ -66,6 +66,7 @@ import {
   completionMessageSegments,
   emptyDelegatedToolTurnShouldFail,
   runAllowsSilentEmpty,
+  runHoldsMidTurnNarration,
   runPromotesMidTurnNarration,
   TOOL_STEPS_WITHOUT_RESPONSE,
 } from "./run-replies.js";
@@ -782,7 +783,9 @@ export async function completeRun(ctx: RunContext) {
     reply.currentTextSegment = reply.assembled;
   }
   flushPendingTools(reply);
-  if (reply.supersedeAt !== undefined) {
+  // An append-only chat holds the earlier text until the run ends, so it was
+  // never on screen; cutting it off would answer with the update alone.
+  if (reply.supersedeAt !== undefined && !runHoldsMidTurnNarration(run.trigger)) {
     // Keep the answer that followed the last background result; the earlier text was
     // already on screen and repeating it in one bubble is the duplicate reply.
     const superseded = reply.assembled.slice(reply.supersedeAt).trim();

@@ -397,23 +397,6 @@ describe.each(["routine", "reaction", "bot_message", "messaging"])(
       );
     });
 
-    it("holds pre-tool text for the one final message on a chat channel", async () => {
-      const { finalizeRun, append } = await runTurn(
-        "Checked: all clear.",
-        false,
-        "I will check that.",
-        [],
-        "request",
-        { trigger: "messaging" },
-      );
-      expect(append.mock.calls.map(([event]) => event.type)).not.toContain(
-        "thread.message.created",
-      );
-      expect(finalizeRun.mock.calls[0]![0].blocks.filter((block) => block.kind === "text")).toEqual(
-        [{ kind: "text", text: "Checked: all clear." }],
-      );
-    });
-
     it.each([
       { narration: ["I will check that.", "NO_RESPONSE"], doneText: "" },
       { narration: ["NO_RESPONSE", "The draft is posted."], doneText: "" },
@@ -459,6 +442,37 @@ describe.each(["routine", "reaction", "bot_message", "messaging"])(
   },
 );
 
+it("holds pre-tool text for the one final message on a chat channel", async () => {
+  const { finalizeRun, append } = await runTurn(
+    "Checked: all clear.",
+    false,
+    "I will check that.",
+    [],
+    "request",
+    { trigger: "messaging" },
+  );
+  expect(append.mock.calls.map(([event]) => event.type)).not.toContain("thread.message.created");
+  expect(finalizeRun.mock.calls[0]![0].blocks.filter((block) => block.kind === "text")).toEqual([
+    { kind: "text", text: "Checked: all clear." },
+  ]);
+});
+
+it("keeps a held answer that a superseding result would otherwise cut off", async () => {
+  const { finalizeRun } = await runTurn("", false, undefined, [], "request", {
+    trigger: "messaging",
+    runtimeEvents: [
+      { type: "text", text: "The tunnel does not cover it." },
+      { type: "turn", supersede: true },
+      { type: "text", text: "Confirmed: unreachable." },
+      { type: "done", text: "The tunnel does not cover it.Confirmed: unreachable." },
+    ],
+  });
+  const text = finalizeRun.mock.calls[0]![0].blocks.flatMap((block) =>
+    block.kind === "text" ? [block.text] : [],
+  ).join("");
+  expect(text).toContain("The tunnel does not cover it.");
+  expect(text).toContain("Confirmed: unreachable.");
+});
 it("redacts restored narration", async () => {
   const { finalizeRun } = await runTurn(
     "",
