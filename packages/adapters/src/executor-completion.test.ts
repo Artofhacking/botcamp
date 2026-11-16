@@ -17,6 +17,7 @@ import {
   REACTION_SILENT_REPLY_GUIDANCE,
   ROUTINE_SILENT_REPLY_GUIDANCE,
   runAllowsSilentEmpty,
+  runHoldsMidTurnNarration,
   runPromotesMidTurnNarration,
   runReplyGuidance,
   TICKET_SILENT_REPLY_GUIDANCE,
@@ -601,7 +602,9 @@ describe("runReplyGuidance", () => {
 
   it("keeps progress guidance for user-triggered runs", () => {
     expect(runPromotesMidTurnNarration("user")).toBe(true);
-    expect(runPromotesMidTurnNarration("messaging")).toBe(true);
+    expect(runPromotesMidTurnNarration("messaging")).toBe(false);
+    expect(runHoldsMidTurnNarration("messaging")).toBe(true);
+    expect(runHoldsMidTurnNarration("user")).toBe(false);
     expect(runReplyGuidance("user")).toBe(longWorkProgressGuidance());
     expect(runReplyGuidance("user")).toContain("message_user");
     expect(runReplyGuidance("messaging")).toBe(longWorkProgressGuidance());
@@ -611,6 +614,13 @@ describe("runReplyGuidance", () => {
 describe("runPromotesMidTurnNarration", () => {
   it("drops mid-turn narration in bot-to-bot runs", () => {
     expect(runPromotesMidTurnNarration("bot_message")).toBe(false);
+  });
+
+  it("holds mid-turn narration for append-only chat channels", () => {
+    expect(runHoldsMidTurnNarration("messaging")).toBe(true);
+    expect(runPromotesMidTurnNarration("messaging")).toBe(false);
+    expect(runHoldsMidTurnNarration("routine")).toBe(false);
+    expect(runHoldsMidTurnNarration("user")).toBe(false);
   });
 });
 
