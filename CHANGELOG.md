@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-11-16
+
+### Fixed
+
+- A linked WeChat chat now shows the typing indicator while the bot is writing a reply, and clears it when the reply arrives or the run ends without one, so a longer run no longer looks like nothing happened.
+
 ## [2.3.2] - 2026-11-14
 
 ### Changed
