@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-11-16
+
+### Fixed
+
+- A bot working on a chat message no longer posts a draft answer and then repeats it. The complete answer arrives once, when the work is done; anything it says earlier is a short status note, not a conclusion, and thinking stays private.
+
 ## [2.3.3] - 2026-11-16
 
 ### Fixed
