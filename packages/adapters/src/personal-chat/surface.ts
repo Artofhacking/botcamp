@@ -7,7 +7,7 @@ import type {
 } from "@botcamp/adapter-kit";
 import { linkableChatApps } from "@botcamp/core";
 import type { PersonalChatBridge } from "./bridge.js";
-import { parsePersonalChatThreadId } from "./bridge.js";
+import { PERSONAL_CHAT_PROVIDER, parsePersonalChatThreadId } from "./bridge.js";
 
 /** Sends personal-chat replies without listing that app as a code-link provider. */
 export class PersonalChatSurface implements MessagingSurface {
@@ -28,7 +28,17 @@ export class PersonalChatSurface implements MessagingSurface {
   }
 
   platforms() {
-    return this.fallback?.platforms() ?? [];
+    return [
+      ...(this.fallback
+        ?.platforms()
+        .filter((platform) => platform.provider !== PERSONAL_CHAT_PROVIDER) ?? []),
+      {
+        provider: PERSONAL_CHAT_PROVIDER,
+        // One person talks to the bot in a direct chat. The chat service shows
+        // a typing bubble until the reply, so the surface owns that receipt.
+        capabilities: { direct: true, groups: false, receipt: "typing" as const },
+      },
+    ];
   }
 
   handleWebhook(provider: string, request: Request) {
@@ -60,8 +70,23 @@ export class PersonalChatSurface implements MessagingSurface {
   }
 
   acknowledge(threadId: string, handle: string, context: AdapterContext) {
-    if (parsePersonalChatThreadId(threadId)) return Promise.resolve();
+    const personal = parsePersonalChatThreadId(threadId);
+    if (personal) {
+      return personal.provider === PERSONAL_CHAT_PROVIDER
+        ? this.bridge.startTyping(threadId)
+        : Promise.resolve();
+    }
     return this.fallback?.acknowledge(threadId, handle, context) ?? Promise.resolve();
+  }
+
+  stopTyping(threadId: string, context: AdapterContext) {
+    const personal = parsePersonalChatThreadId(threadId);
+    if (personal) {
+      return personal.provider === PERSONAL_CHAT_PROVIDER
+        ? this.bridge.stopTyping(threadId)
+        : Promise.resolve();
+    }
+    return this.fallback?.stopTyping?.(threadId, context) ?? Promise.resolve();
   }
 
   async initialize() {

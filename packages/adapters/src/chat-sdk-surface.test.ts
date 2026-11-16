@@ -931,6 +931,33 @@ describe("ChatSdkMessagingSurface acknowledge", () => {
     expect(adapter.startTyping).not.toHaveBeenCalled();
     expect(adapter.addReaction).not.toHaveBeenCalled();
   });
+
+  it("clears the typing bubble where the adapter can", async () => {
+    const endTyping = vi.fn(async () => undefined);
+    const { surface } = createSurface({}, { endTyping });
+
+    await surface.stopTyping("mock:Duser:1", context);
+
+    expect(endTyping).toHaveBeenCalledWith("mock:Duser:1");
+  });
+
+  it("leaves the bubble to fade where the adapter cannot clear it", async () => {
+    const { surface } = createSurface({}, { endTyping: undefined });
+
+    await expect(surface.stopTyping("mock:Duser:1", context)).resolves.toBeUndefined();
+  });
+
+  it("never clears a typing bubble on a reaction platform", async () => {
+    const endTyping = vi.fn(async () => undefined);
+    const { surface } = createSurface(
+      { capabilities: { direct: true, groups: true, receipt: "reaction" } },
+      { endTyping },
+    );
+
+    await surface.stopTyping("mock:Duser:1", context);
+
+    expect(endTyping).not.toHaveBeenCalled();
+  });
 });
 
 describe("ChatSdkMessagingSurface shape", () => {
