@@ -236,7 +236,7 @@ export async function publishMidTurnNarration(
   }
   reply.discardedMidTurnNarration = true;
   reply.lastDiscardedMidTurnNarration = clampUserProgressMessage(text);
-  if ((promotes || runHoldsMidTurnNarration(run.trigger)) && !ctx.allowSilentEmptyRun) {
+  if ((promotes || holds) && !ctx.allowSilentEmptyRun) {
     reply.workingNotes.push(text);
     flushPendingTools(reply);
     reply.messageSegments = noteLastToolStep(reply.messageSegments, text);
