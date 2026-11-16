@@ -15,7 +15,11 @@ import type { ExecutorDeps } from "./executor-deps.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import type { ReplyState, RunContext } from "./run-context.js";
 import { publishMessage } from "./run-messages.js";
-import { runAllowsSilentEmpty, runPromotesMidTurnNarration } from "./run-replies.js";
+import {
+  runAllowsSilentEmpty,
+  runHoldsMidTurnNarration,
+  runPromotesMidTurnNarration,
+} from "./run-replies.js";
 import { PAGE_BROWSER_TOOL_NAMES } from "./run-tool-selection.js";
 import { isExactNoResponse } from "./silent-reply.js";
 import { USER_COMPUTER_SCREEN_TOOLS } from "./user-computer-tools.js";
@@ -186,7 +190,11 @@ export async function flushProgress(ctx: RunContext) {
  * and it fits; otherwise it is a note on that step, kept out of the reply. Returns the note so
  * the caller can show it as the working line.
  */
-export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard = false) {
+export async function publishMidTurnNarration(
+  ctx: RunContext,
+  beforeConnectCard = false,
+  force = false,
+) {
   const { deps, run } = ctx;
   const { reply } = ctx.state;
   const extracted = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
@@ -201,9 +209,16 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
   // Text the redactor still holds back belongs to the text just taken out.
   reply.redactor.skip();
   const promotes = runPromotesMidTurnNarration(run.trigger);
+  const holds = runHoldsMidTurnNarration(run.trigger);
+  // An append-only chat gets the answer once, at the end, so its draft text is
+  // only posted when the run is about to pause and the person needs it to answer.
+  const publishes = promotes || (force && holds);
+  const bypassBudget = force && holds;
   if (
-    text.length <= USER_PROGRESS_MESSAGE_MAX_LENGTH &&
-    (canPublishDurableNarration(ctx) || (beforeConnectCard && promotes))
+    publishes &&
+    (bypassBudget ||
+      (text.length <= USER_PROGRESS_MESSAGE_MAX_LENGTH &&
+        (canPublishDurableNarration(ctx) || (beforeConnectCard && promotes))))
   ) {
     reply.workingNotes.length = 0;
     reply.narrationStatusShowing = false;
@@ -221,7 +236,7 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
   }
   reply.discardedMidTurnNarration = true;
   reply.lastDiscardedMidTurnNarration = clampUserProgressMessage(text);
-  if (promotes && !ctx.allowSilentEmptyRun) {
+  if ((promotes || runHoldsMidTurnNarration(run.trigger)) && !ctx.allowSilentEmptyRun) {
     reply.workingNotes.push(text);
     flushPendingTools(reply);
     reply.messageSegments = noteLastToolStep(reply.messageSegments, text);
@@ -237,7 +252,9 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
 export async function publishNarrationBeforeAsk(ctx: RunContext) {
   const { deps, run } = ctx;
   const { reply } = ctx.state;
-  if (!runPromotesMidTurnNarration(run.trigger)) return;
+  // A chat channel holds mid-turn text for its final answer, but a paused run
+  // never reaches that answer, and the person needs this text to reply here.
+  if (!runPromotesMidTurnNarration(run.trigger) && !runHoldsMidTurnNarration(run.trigger)) return;
   const extracted = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
   const pending = redactSecretsAfter(reply.narrationSoFar, extracted.text, ctx.secrets).trim();
   reply.narrationSoFar += extracted.text;

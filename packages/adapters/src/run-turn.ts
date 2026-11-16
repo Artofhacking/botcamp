@@ -426,8 +426,9 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
   await ctx.computer.get("takeover");
   const safeReason = redactSecrets(event.reason, ctx.secrets);
   // Publish pending narration as tagged mid-turn progress so reconciliation
-  // does not treat pre-takeover text as the delegated final result.
-  await publishMidTurnNarration(ctx);
+  // does not treat pre-takeover text as the delegated final result. The run
+  // pauses here, so a chat channel needs it now rather than in a final reply.
+  await publishMidTurnNarration(ctx, false, true);
   if (reply.assembled.trim()) {
     const narration = clampUserProgressMessage(redactSecrets(reply.assembled, ctx.secrets));
     if (narration && canPublishDurableNarration(ctx)) {

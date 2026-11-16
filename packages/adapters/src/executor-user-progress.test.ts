@@ -397,6 +397,23 @@ describe.each(["routine", "reaction", "bot_message", "messaging"])(
       );
     });
 
+    it("holds pre-tool text for the one final message on a chat channel", async () => {
+      const { finalizeRun, append } = await runTurn(
+        "Checked: all clear.",
+        false,
+        "I will check that.",
+        [],
+        "request",
+        { trigger: "messaging" },
+      );
+      expect(append.mock.calls.map(([event]) => event.type)).not.toContain(
+        "thread.message.created",
+      );
+      expect(finalizeRun.mock.calls[0]![0].blocks.filter((block) => block.kind === "text")).toEqual(
+        [{ kind: "text", text: "Checked: all clear." }],
+      );
+    });
+
     it.each([
       { narration: ["I will check that.", "NO_RESPONSE"], doneText: "" },
       { narration: ["NO_RESPONSE", "The draft is posted."], doneText: "" },
