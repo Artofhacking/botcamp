@@ -169,8 +169,11 @@ export function burstProvisionGuard(prisma: {
     const account = await burstAccount(prisma, address);
     if (!account) return;
 
+    // Runs are recorded under the sandbox address, which is a team computer's home key rather
+    // than a bot id, so the computer being started must not count as the other container.
+    const own = [...new Set([address, ...account.botIds])];
     const running = await prisma.sandboxRun.findFirst({
-      where: { userId: account.userId, endedAt: null, botId: { notIn: account.botIds } },
+      where: { userId: account.userId, endedAt: null, botId: { notIn: own } },
       select: { botId: true },
     } as never);
     if (running) {
