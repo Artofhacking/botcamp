@@ -24,7 +24,7 @@ type ChatAlertOptions = {
   rpc: Pick<RpcClient, "notifications">;
   activeBotId: RefObject<string | undefined>;
   activeGroupId: RefObject<string | undefined>;
-  openChat: (alert: ChatAlert) => void;
+  openChat: (target: Pick<ChatAlert, "botId" | "groupId" | "messageId">) => void;
 };
 
 /**
@@ -146,7 +146,19 @@ export function useBrowserNotifications(
             return;
           }
           const icon = notificationIcon(currentBot);
-          new Notification(title, { body, tag, ...(icon ? { icon } : {}) });
+          const notification = new Notification(title, { body, tag, ...(icon ? { icon } : {}) });
+          // The chat that raised it is the one open, so a click returns to it at the reply.
+          const messageId = pending.event.payload.messageId;
+          const groupId = activeGroupId.current;
+          const botId = groupId ? undefined : activeBotId.current;
+          notification.onclick = () => {
+            window.focus();
+            openChatRef.current({
+              ...(groupId ? { groupId } : { botId }),
+              ...(typeof messageId === "string" ? { messageId } : {}),
+            });
+            notification.close();
+          };
         },
       },
     );

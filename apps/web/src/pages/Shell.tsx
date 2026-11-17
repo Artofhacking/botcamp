@@ -424,8 +424,9 @@ function SpaceShell() {
       openChat: (alert) => {
         setMobileSidebarOpen(false);
         // A mention alert names its group; only a run alert can name a bot alone.
-        if (alert.groupId) navigate(`/app/g/${alert.groupId}`);
-        else if (alert.botId) navigate(`/app/${alert.botId}`);
+        const at = alert.messageId ? `?m=${encodeURIComponent(alert.messageId)}` : "";
+        if (alert.groupId) navigate(`/app/g/${alert.groupId}${at}`);
+        else if (alert.botId) navigate(`/app/${alert.botId}${at}`);
       },
     },
   );

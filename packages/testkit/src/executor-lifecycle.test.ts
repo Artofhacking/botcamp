@@ -236,7 +236,9 @@ describeIntegration("run executor lifecycle", () => {
     ]);
 
     expect(results.filter((result) => result === false)).toHaveLength(1);
-    expect(results.filter(Boolean)).toEqual([{ continuationRunId: null }]);
+    expect(results.filter(Boolean)).toEqual([
+      { continuationRunId: null, messageId: expect.any(String) },
+    ]);
     const [run, storedAttempt, task, messages, terminalEvents] = await Promise.all([
       db.run.findUniqueOrThrow({ where: { id: seeded.run.id } }),
       db.attempt.findUniqueOrThrow({ where: { id: attempt.id } }),

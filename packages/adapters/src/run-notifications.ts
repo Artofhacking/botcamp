@@ -89,6 +89,7 @@ export async function notifyRun(
       spaceId: run.spaceId,
       botId: message.botId,
       threadId: message.threadId,
+      ...(message.messageId ? { messageId: message.messageId } : {}),
       ...(notice.groupId ? { groupId: notice.groupId } : {}),
     }))().catch((error) => getLogger().error("chat alert publish", error));
   if (!deps.notifications) return;
