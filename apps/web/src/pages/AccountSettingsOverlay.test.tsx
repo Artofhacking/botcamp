@@ -20,7 +20,11 @@ vi.mock("../lib/weekly-quota.js", () => ({
 
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
-    t: (strings: TemplateStringsArray) => strings.join(""),
+    t: (strings: TemplateStringsArray, ...values: unknown[]) =>
+      strings.reduce(
+        (text, part, index) => text + part + (index < values.length ? String(values[index]) : ""),
+        "",
+      ),
     i18n: { locale: "en" },
   }),
   Trans: ({ children }: { children: ReactNode }) => children,
@@ -257,9 +261,9 @@ it("shows the weekly allowance", async () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(container.textContent).toContain("周额度");
+    expect(container.textContent).toContain("Weekly quota");
     expect(container.textContent).toContain("40%");
-    expect(container.textContent).toContain("大容器时长");
+    expect(container.textContent).toContain("Large container time");
     expect(container.textContent).toContain("10%");
     expect(container.textContent).toContain("Nov 11");
   } finally {

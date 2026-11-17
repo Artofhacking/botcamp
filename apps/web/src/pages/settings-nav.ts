@@ -51,7 +51,6 @@ export function useSettingsNavItems(available: {
     ...(available.billing && !hidden("billing")
       ? [{ id: "billing" as const, label: t`Billing`, icon: CreditCard }]
       : []),
-    // 字面量：新 msgid 没进编译目录时会渲染成哈希
-    { id: "updates" as const, label: "关于", icon: Info },
+    { id: "updates" as const, label: t`About`, icon: Info },
   ];
 }

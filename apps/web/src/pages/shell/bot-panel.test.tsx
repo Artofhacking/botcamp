@@ -275,7 +275,7 @@ it("shows the profile and the Advanced tab's controls", async () => {
   expect(advanced.textContent).toContain("When it finishes or needs input");
   expect(advanced.textContent).toContain("Daily check-ins on unfinished work");
   expect(advanced.textContent).toContain("Allow cross-space bot communication");
-  expect(advanced.textContent).toContain("主 bot");
+  expect(advanced.textContent).toContain("Main bot");
 });
 
 describe("BotSettings thinking options", () => {

@@ -534,16 +534,22 @@ export function BotSettings({
               </div>
               <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
-                  <div className="font-medium">主 bot</div>
+                  <div className="font-medium">
+                    <Trans>Main bot</Trans>
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    {bot.isPrimary
-                      ? "它可以创建、配置、归档和删除其他 bot。"
-                      : "主 bot 负责管理其他 bot；同一个账号同时只有一个。"}
+                    {bot.isPrimary ? (
+                      <Trans>It can create, configure, archive, and delete other bots.</Trans>
+                    ) : (
+                      <Trans>
+                        The main bot manages your other bots. An account has one at a time.
+                      </Trans>
+                    )}
                   </div>
                 </div>
                 {bot.isPrimary ? (
                   <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
-                    当前
+                    <Trans>Current</Trans>
                   </span>
                 ) : (
                   <Button
@@ -552,7 +558,7 @@ export function BotSettings({
                     disabled={saving}
                     onClick={() => void enqueueSave({ isPrimary: true })}
                   >
-                    设为主 bot
+                    <Trans>Make main bot</Trans>
                   </Button>
                 )}
               </div>
