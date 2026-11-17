@@ -436,6 +436,10 @@ msgstr "已在 <0>{0}</0> 打开登录页。请在那里输入验证码，这个
 msgid "A subscription credential is stored securely."
 msgstr "订阅凭据已安全存储。"
 
+#: src/pages/settings-nav.ts
+msgid "About"
+msgstr "关于"
+
 #: src/pages/KnowledgeSection.tsx
 msgid "About {kb} KB of memory no longer reaches the bot."
 msgstr "约 {kb} KB 记忆不再传给 Bot。"
@@ -1339,6 +1343,7 @@ msgstr "检查间隔"
 msgid "Check failed: {0}"
 msgstr "检查失败：{0}"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/DesktopUpdates.tsx
 msgid "Check for updates"
 msgstr "检查更新"
@@ -1376,7 +1381,9 @@ msgstr "正在检查电脑设置…"
 msgid "Checking connection…"
 msgstr "正在检查连接…"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/DesktopUpdates.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "正在检查…"
@@ -1827,6 +1834,7 @@ msgstr "通过 {0} 继续"
 msgid "Conversations"
 msgstr "对话"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
@@ -1839,6 +1847,7 @@ msgstr "对话"
 msgid "Copied"
 msgstr "已复制"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/vault/VaultItemDetail.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -2415,6 +2424,10 @@ msgstr "无法更新默认记忆范围"
 msgid "Could not verify computer setup ({failureMessage}). Fix the connection, then check again."
 msgstr "无法确认电脑是否就绪（{failureMessage}）。请修复连接后再检查一次。"
 
+#: src/components/AboutBotCamp.tsx
+msgid "Couldn't check for updates. Try again later."
+msgstr "检查更新失败，请稍后再试"
+
 #: src/components/pages/SharePopover.tsx
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "无法复制。请选中链接后复制。"
@@ -2442,6 +2455,10 @@ msgstr "无法加载此页面。请重试。"
 #: src/pages/PaymentWalletSettingsPanel.tsx
 msgid "Couldn't load your wallet"
 msgstr "无法加载钱包"
+
+#: src/components/DesktopUpdates.tsx
+msgid "Couldn't refresh. Try again later."
+msgstr "刷新失败，请稍后再试"
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
@@ -2538,6 +2555,10 @@ msgstr "Cron"
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron expression"
 msgstr "Cron 表达式"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Current"
+msgstr "当前"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/AccountSettingsOverlay.tsx
@@ -2852,6 +2873,7 @@ msgstr "完成"
 msgid "Downgrade at renewal"
 msgstr "续订时降级"
 
+#: src/components/AboutBotCamp.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Download"
@@ -2873,6 +2895,10 @@ msgstr "下载 CSV"
 #: src/components/pages/DownloadPdfButton.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
+
+#: src/components/DesktopUpdates.tsx
+msgid "Downloading…"
+msgstr "下载中…"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Draft skill"
@@ -3331,7 +3357,7 @@ msgstr "请挂断，然后输入屏幕上的代码。"
 
 #: src/pages/RoutineEditor.tsx
 msgid "header"
-msgstr "请求头"
+msgstr "header"
 
 #: src/components/vault/VaultItemDetail.tsx
 msgid "Header \"{header}\""
@@ -3595,6 +3621,10 @@ msgstr "隔离"
 msgid "Isolated preview — no access to your account"
 msgstr "隔离预览，访问不了你的账户"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "It can create, configure, archive, and delete other bots."
+msgstr "它可以创建、配置、归档和删除其他 bot。"
+
 #: src/components/pages/PageViewHost.tsx
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "它可能已被删除，或属于其他人。"
@@ -3633,7 +3663,7 @@ msgstr "保留完整工具结果"
 
 #: src/pages/RoutineEditor.tsx
 msgid "key"
-msgstr "密钥"
+msgstr "key"
 
 #: src/components/vault/kinds.tsx
 msgid "Keys"
@@ -3647,6 +3677,10 @@ msgstr "标签"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
 msgstr "语言"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Large container time"
+msgstr "大容器时长"
 
 #. placeholder {0}: new Date(state.checkedAt).toLocaleString()
 #: src/pages/RoutineEditor.tsx
@@ -3803,9 +3837,17 @@ msgstr "低"
 msgid "Low"
 msgstr "低"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Main bot"
+msgstr "主 bot"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "主模型"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Make main bot"
+msgstr "设为主 bot"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
@@ -5093,6 +5135,7 @@ msgid "Redirect URI"
 msgstr "重定向 URI"
 
 #: src/App.tsx
+#: src/components/DesktopUpdates.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/components/ModelCredits.tsx
 msgid "Refresh"
@@ -5102,10 +5145,15 @@ msgstr "刷新"
 msgid "Refresh credits"
 msgstr "刷新额度"
 
+#: src/components/DesktopUpdates.tsx
+msgid "Refresh page"
+msgstr "刷新网页"
+
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
 msgstr "刷新画面"
 
+#: src/components/DesktopUpdates.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refreshing…"
 msgstr "正在刷新…"
@@ -5317,6 +5365,11 @@ msgstr "重置密码"
 #: src/pages/Auth.tsx
 msgid "Reset your password"
 msgstr "重置你的密码"
+
+#. placeholder {0}: resetLabel(weekly.resetsAt, i18n.locale)
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Resets {0}"
+msgstr "{0} 重置"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Resetting…"
@@ -6255,6 +6308,10 @@ msgstr "二维码已过期"
 msgid "The connection timed out."
 msgstr "连接超时。"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "The main bot manages your other bots. An account has one at a time."
+msgstr "主 bot 负责管理其他 bot；同一个账号同时只有一个。"
+
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model hit its output limit before finishing its reply."
@@ -6433,6 +6490,10 @@ msgstr "无法显示此页面。"
 #: src/components/pages/PageViewHost.tsx
 msgid "This page couldn't load"
 msgstr "无法加载此页面"
+
+#: src/components/DesktopUpdates.tsx
+msgid "This page is the newest version"
+msgstr "网页已是最新版本"
 
 #: src/components/pages/PageViewHost.tsx
 #: src/pages/SharedPage.tsx
@@ -6661,6 +6722,11 @@ msgstr "未读"
 msgid "Unsupported file type: {0}"
 msgstr "不支持的文件类型：{0}"
 
+#: src/components/AboutBotCamp.tsx
+#: src/components/DesktopUpdates.tsx
+msgid "Up to date"
+msgstr "已是最新版本"
+
 #: src/components/ModelCredits.tsx
 msgid "Update"
 msgstr "更新"
@@ -6848,6 +6914,11 @@ msgstr "正在校验…"
 msgid "Version"
 msgstr "版本"
 
+#. placeholder {0}: release.version
+#: src/components/AboutBotCamp.tsx
+msgid "Version {0} is available"
+msgstr "有新版本 {0}"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "View all"
 msgstr "查看全部"
@@ -6887,6 +6958,10 @@ msgstr "唤醒"
 msgid "Wallet"
 msgstr "钱包"
 
+#: src/components/AboutBotCamp.tsx
+msgid "Web"
+msgstr "网页端"
+
 #: src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"
 msgstr "Web、桌面和移动端"
@@ -6916,6 +6991,10 @@ msgstr "工作日"
 #: src/lib/cron.ts
 msgid "Weekends"
 msgstr "周末"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Weekly quota"
+msgstr "周额度"
 
 #: src/components/SignupSurvey.tsx
 msgid "Welcome to BotCamp"

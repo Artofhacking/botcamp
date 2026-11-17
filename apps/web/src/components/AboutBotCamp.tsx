@@ -1,4 +1,5 @@
 import { Button } from "@botcamp/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { apiOrigin } from "../lib/api-origin.js";
 import { useCopyText } from "../lib/copy-text.js";
@@ -95,7 +96,7 @@ export function VersionRow({ platform, version }: { platform: ClientPlatform; ve
             size="sm"
             onClick={() => copy(`BotCamp ${version} · ${PLATFORM_LABEL[platform]}`)}
           >
-            {copied ? "已复制" : "复制"}
+            {copied ? <Trans>Copied</Trans> : <Trans>Copy</Trans>}
           </Button>
         </div>
       }
@@ -109,6 +110,7 @@ export function AboutBotCamp({
   /** Set only for an installed Windows, Mac, or Android app. */
   client?: { platform: ClientPlatform; version: string };
 }) {
+  const { t } = useLingui();
   const version = releaseVersion(client?.version);
   const [checking, setChecking] = useState(false);
   const [release, setRelease] = useState<Release | null>(null);
@@ -143,7 +145,7 @@ export function AboutBotCamp({
       if (isNewer(latest, version)) setRelease({ ...data, version: latest });
       else setUpToDate(true);
     } catch {
-      setError("检查更新失败，请稍后再试");
+      setError(t`Couldn't check for updates. Try again later.`);
     } finally {
       setChecking(false);
     }
@@ -158,22 +160,34 @@ export function AboutBotCamp({
       ) : (
         <SettingsRow
           label={<span className="font-medium">BotCamp</span>}
-          control={<span className="text-[13px] text-muted-foreground">网页端</span>}
+          control={
+            <span className="text-[13px] text-muted-foreground">
+              <Trans>Web</Trans>
+            </span>
+          }
         />
       )}
       {client && version ? (
         <SettingsRow
           label={
             <div>
-              <p>检查更新</p>
-              {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
+              <p>
+                <Trans>Check for updates</Trans>
+              </p>
+              {upToDate ? (
+                <p className="text-[13px] text-muted-foreground">
+                  <Trans>Up to date</Trans>
+                </p>
+              ) : null}
               {error ? (
                 <p role="alert" className="text-[13px] text-destructive">
                   {error}
                 </p>
               ) : null}
               {release ? (
-                <p className="text-[13px] text-muted-foreground">有新版本 {release.version}</p>
+                <p className="text-[13px] text-muted-foreground">
+                  <Trans>Version {release.version} is available</Trans>
+                </p>
               ) : null}
             </div>
           }
@@ -185,7 +199,7 @@ export function AboutBotCamp({
                 rel="noreferrer"
                 className="inline-flex h-8 items-center rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
               >
-                下载
+                <Trans>Download</Trans>
               </a>
             ) : (
               <Button
@@ -194,7 +208,7 @@ export function AboutBotCamp({
                 disabled={checking}
                 onClick={() => void check()}
               >
-                {checking ? "检查中…" : "检查更新"}
+                {checking ? <Trans>Checking…</Trans> : <Trans>Check for updates</Trans>}
               </Button>
             )
           }
