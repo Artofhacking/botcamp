@@ -265,7 +265,8 @@ test("streaming rows preserve state while schema changes reset it", async ({ pag
     (markdown) => {
       window.dispatchEvent(new CustomEvent("rk-table-stream-update", { detail: { markdown } }));
     },
-    `Results updated.\n\n${tableMarkdown(13).replace("| item-01 | 0 |", "| item-updated | 99 |")}`,
+    // A stream only appends, so the table keeps its place in the reply.
+    `${tableMarkdown(13).replace("| item-01 | 0 |", "| item-updated | 99 |")}\n\nResults updated.`,
   );
 
   const dialog = page.getByRole("dialog", { name: "Table" });
