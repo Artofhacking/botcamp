@@ -66,8 +66,24 @@ describe("burst provision guard", () => {
     await expect(guard("team-digest", "desktop")).rejects.toThrow(/大容器/);
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: "user-1", endedAt: null, botId: { notIn: ["bot-1"] } },
+        where: { userId: "user-1", endedAt: null, botId: { notIn: ["team-digest", "bot-1"] } },
       }),
     );
+  });
+
+  it("does not count the team computer it is starting as another burst container", async () => {
+    const findFirst = vi.fn(async (args: { where: { botId: { notIn: string[] } } }) =>
+      args.where.botId.notIn.includes("team-digest") ? null : { botId: "team-digest" },
+    );
+    const guard = burstProvisionGuard({
+      bot: {
+        findUnique: vi.fn(async () => null),
+        findMany: vi.fn(async () => [{ id: "bot-1", userId: "user-1" }]),
+      },
+      sandboxRun: { findFirst: findFirst as never },
+      containerUsage: { aggregate: vi.fn(async () => ({ _sum: { coreSeconds: 0n } })) },
+      user: { findUnique: vi.fn(async () => ({ weeklyCoreSecondsQuota: 3600n })) },
+    });
+    await expect(guard("team-digest", "desktop")).resolves.toBeUndefined();
   });
 });
