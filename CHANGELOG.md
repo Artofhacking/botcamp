@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.7] - 2026-11-17
+
+### Fixed
+
+- Pages a bot made now show when the console is served from a subpath. Shared page links, pages opened in a chat, and HTML previews had shown the site's home page in place of the page.
+
 ## [2.3.6] - 2026-11-17
 
 ### Fixed
