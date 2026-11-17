@@ -8,6 +8,7 @@ import { useParams } from "react-router-dom";
 import { PublicPageShell } from "../components/pages/PublicPageShell";
 import { apiUrl } from "../lib/api-origin";
 import { usePageDocument } from "../lib/pages";
+import { appAssetPath } from "../lib/static-host-route";
 
 async function readSharedPage(token: string): Promise<SharedPage | null> {
   // The console and the API are different hosts. A path on this origin is the marketing site.
@@ -50,7 +51,7 @@ function SharedPageBody() {
     return (
       <main className="grid min-h-dvh place-items-center bg-background px-6 text-center">
         <div className="flex max-w-[360px] flex-col items-center gap-3">
-          <img src="/favicon-32x32.png" alt="" className="size-8 rounded-full" />
+          <img src={appAssetPath("favicon-32x32.png")} alt="" className="size-8 rounded-full" />
           <h1 className="text-[18px] leading-6 font-medium text-foreground">
             <Trans>This page isn't available</Trans>
           </h1>
