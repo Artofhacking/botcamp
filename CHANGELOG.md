@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.5] - 2026-11-17
+
+### Fixed
+
+- A light or dark appearance chosen in settings now stays after the app reloads, instead of falling back to System.
+- About, Usage, and the main bot setting now show in the interface language. In English they no longer show Chinese text, and in Chinese the webhook routine keeps its technical `key` and `header` labels as written.
+- Starting work on a team computer no longer fails with "only one big container can run at a time" when the container it names is that same computer.
+
 ## [2.3.4] - 2026-11-16
 
 ### Fixed
