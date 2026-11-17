@@ -183,6 +183,8 @@ export interface ClaimedSteeringMessage {
 
 export interface FinalizeRunResult {
   continuationRunId: string | null;
+  /** The reply this run posted, so a notification can open the chat at it. */
+  messageId?: string;
 }
 
 interface FinalizeRunBase {
@@ -1793,7 +1795,10 @@ export async function finalizeRun(
     "bot.id": input.botId,
   });
   void captureRunAnalytics(prisma, analytics, input.runId, `run.${input.outcome}`);
-  return { continuationRunId: committed.continuationRunId };
+  return {
+    continuationRunId: committed.continuationRunId,
+    ...(committed.messageId ? { messageId: committed.messageId } : {}),
+  };
 }
 
 /** Stamps one turn-level wall-clock duration on the final tool block. */
@@ -1878,6 +1883,7 @@ async function finalizeRunOnce(
   continuationRunId: string | null;
   firstResponse: boolean;
   groupEvent?: { threadId: string; seq: number };
+  messageId?: string;
 } | null> {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
@@ -1962,6 +1968,7 @@ async function finalizeRunOnce(
       });
     }
     let firstResponse = false;
+    let messageId: string | undefined;
     const replyBlocks =
       input.outcome === "completed"
         ? completedRunBlocks(input.blocks, writableRun?.startedAt ?? null, now)
@@ -1986,6 +1993,7 @@ async function finalizeRunOnce(
         payload: { messageId: message.id, role: "bot", blocks: replyBlocks },
       });
       firstResponse = response.firstResponse;
+      messageId = message.id;
     }
     const lastEvent = await appendEventInTransaction(tx, {
       spaceId: input.spaceId,
@@ -2032,6 +2040,7 @@ async function finalizeRunOnce(
       continuationRunId,
       firstResponse,
       groupEvent,
+      messageId,
     };
   }, FINALIZE_TRANSACTION_OPTIONS);
 }

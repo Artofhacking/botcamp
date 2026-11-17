@@ -896,6 +896,7 @@ export async function completeRun(ctx: RunContext) {
       botId: bot.id,
       threadId: thread.id,
       runId: run.id,
+      ...(completed.messageId ? { messageId: completed.messageId } : {}),
     });
   }
   // Last, and never fatal: the run is already finalized, so a failure here must not reach
