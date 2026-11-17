@@ -3,28 +3,28 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "node scripts/agent-finish-gate.mjs", "timeout": 30 }
+          { "type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && node scripts/agent-finish-gate.mjs", "timeout": 30 }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "node scripts/agent-finish-gate.mjs", "timeout": 10 }
+          { "type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && node scripts/agent-finish-gate.mjs", "timeout": 10 }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "node scripts/agent-finish-gate.mjs", "timeout": 30 }
+          { "type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && node scripts/agent-finish-gate.mjs", "timeout": 30 }
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "command": "node scripts/agent-finish-gate.mjs", "timeout": 30 }
+          { "type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && node scripts/agent-finish-gate.mjs", "timeout": 30 }
         ]
       }
     ]
