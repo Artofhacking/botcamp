@@ -149,10 +149,17 @@ export function siteHomeHref(origin: string): string {
   return new URL("/", origin).href;
 }
 
+/** A file served with the console, including when the console is not at `/`. */
+export function appAssetPath(
+  file: string,
+  base: string | undefined = import.meta.env.BASE_URL,
+): string {
+  return `${appBasePath(base)}${file.replace(/^\/+/, "")}`;
+}
+
 /** App icon served with the console, including when the console is not at `/`. */
 export function brandIconSrc(base: string | undefined = "/"): string {
-  const prefix = !base || base === "/" ? "/" : base.endsWith("/") ? base : `${base}/`;
-  return `${prefix}icon-192.png`;
+  return appAssetPath("icon-192.png", base);
 }
 
 /** Rewrite the route's query and return the address a redirect should come back to. */
