@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.6] - 2026-11-17
+
+### Fixed
+
+- Clicking a notification about a bot's reply now opens that chat scrolled to the reply, instead of only bringing the app forward.
+
 ## [2.3.5] - 2026-11-17
 
 ### Fixed
