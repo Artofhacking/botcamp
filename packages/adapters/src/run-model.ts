@@ -15,6 +15,7 @@ import { MISSING_MODEL_RUN_ERROR } from "@botcamp/core";
 import { assertWithinWeeklyQuota } from "@botcamp/db";
 import { cloudflareProviderEnv } from "./cloudflare-ai-gateway.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
+import { deploymentModelPricing } from "./deployment-model-chain.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetPrepareDeps } from "./fleet-tools.js";
 import {
@@ -156,7 +157,7 @@ export async function modelCreditBillingEnabled(
 }
 
 export async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMaterial>) {
-  const [deps, userId, spaceId, , provider] = args;
+  const [deps, userId, spaceId, , provider, modelId] = args;
   const subscription = args[7]?.subscription;
   const billingEnabled = await modelCreditBillingEnabled(deps);
   const scope = { userId, spaceId };
@@ -217,6 +218,10 @@ export async function resolveModelKey(...args: Parameters<typeof resolveModelKey
     retireOAuth: subscription?.retireOAuth ?? material.retireOAuth,
     redact: [...material.redact, ...(subscription?.redact ?? [])],
     baseUrl: material.baseUrl ?? deploymentEndpoint.baseUrl,
+    // A deployment model has no connection of its own; its price is on the admin list.
+    pricing:
+      material.pricing ??
+      (credential ? undefined : await deploymentModelPricing(deps.prisma, provider, modelId)),
     callObserver,
   };
 }

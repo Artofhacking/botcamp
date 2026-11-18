@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import type { ModelPricing } from "@botcamp/contracts";
 import { ModelConnectInputSchema, OPENAI_COMPATIBLE_PROVIDER_ID } from "@botcamp/contracts";
 import {
   calculateCost,
@@ -10,6 +11,7 @@ import {
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { fetch as undiciFetch } from "undici";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { costCeiling, modelPricedAt } from "./model-call-pricing.js";
 import { buildModelConnectPlaintext } from "./model-connect.js";
 import {
   assertAllowedOpenAiCompatibleUrl,
@@ -28,6 +30,7 @@ import {
   registerOpenAiCompatibleRuntime,
   verifyOpenAiCompatibleApiKey,
 } from "./pi-openai-compatible-provider.js";
+import { resolveRuntimeModel } from "./pi-runtime-models.js";
 import { normalizePiUsage } from "./pi-usage.js";
 
 const savedPrivateHosts =
@@ -113,33 +116,67 @@ describe("model connect", () => {
       ["fixture-b"],
     );
 
-    const models = registerOpenAiCompatibleRuntime(builtinModels(), {
-      ...base,
-      modelId: "fixture-a",
-      allowPrivate: true,
-      pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
-    });
-    const model = models.getModel(OPENAI_COMPATIBLE_PROVIDER_ID, "fixture-a");
-    expect(model?.cost).toEqual({ input: 0.3, output: 1.2, cacheRead: 0.3, cacheWrite: 0 });
-    const usage = {
+    const priced = (pricing?: ModelPricing) =>
+      resolveRuntimeModel({
+        provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+        id: "fixture-a",
+        baseUrl: base.baseUrl,
+        allowPrivateEndpoint: true,
+        ...(pricing ? { pricing } : {}),
+      }).model!;
+    const usage = () => ({
       input: 1_000_000,
       output: 500_000,
       cacheRead: 1_000_000,
       cacheWrite: 0,
       totalTokens: 2_500_000,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    });
+    const costAt = (model: ReturnType<typeof priced>, at: Date) => {
+      const call = modelPricedAt(model, at);
+      const measured = usage();
+      calculateCost(call, measured);
+      return normalizePiUsage(measured, call);
     };
-    calculateCost(model!, usage);
-    const costed = normalizePiUsage(usage, model!);
-    expect(costed.costSource).toBe("pi-catalog-estimate");
+    const flat = priced({ inputPerMillion: 0.3, outputPerMillion: 1.2 });
+    expect(flat.cost).toEqual({ input: 0.3, output: 1.2, cacheRead: 0.3, cacheWrite: 0 });
+    const flatCost = costAt(flat, new Date("2026-11-18T03:00:00Z"));
+    expect(flatCost.costSource).toBe("pi-catalog-estimate");
     // Cached input falls back to the input rate: 0.3 + 0.3 + 0.6.
-    expect(costed.costUsd).toBeCloseTo(1.2, 9);
-    const unpriced = registerOpenAiCompatibleRuntime(builtinModels(), {
-      ...base,
-      modelId: "fixture-c",
-      allowPrivate: true,
-    }).getModel(OPENAI_COMPATIBLE_PROVIDER_ID, "fixture-c");
-    expect(normalizePiUsage(usage, unpriced!).costUsd).toBeNull();
+    expect(flatCost.costUsd).toBeCloseTo(1.2, 9);
+
+    // Half price off-peak, full price in a weekday window, and a listed date stays off-peak.
+    const scheduled = priced({
+      inputPerMillion: 0.15,
+      outputPerMillion: 0.6,
+      cacheReadPerMillion: 0.003,
+      peak: {
+        inputPerMillion: 0.3,
+        outputPerMillion: 1.2,
+        cacheReadPerMillion: 0.006,
+        windows: [{ days: [1, 2, 3, 4, 5], start: "01:00", end: "04:00" }],
+        exceptDates: ["2027-01-01"],
+      },
+    });
+    // Wednesday 03:59 UTC is peak: 0.3 + 0.006 + 0.6.
+    expect(costAt(scheduled, new Date("2026-11-18T03:59:00Z")).costUsd).toBeCloseTo(0.906, 9);
+    // Wednesday 04:00 UTC is off-peak again: 0.15 + 0.003 + 0.3.
+    expect(costAt(scheduled, new Date("2026-11-18T04:00:00Z")).costUsd).toBeCloseTo(0.453, 9);
+    // Saturday and a listed holiday are off-peak at the same hour.
+    expect(costAt(scheduled, new Date("2026-11-21T02:00:00Z")).costUsd).toBeCloseTo(0.453, 9);
+    expect(costAt(scheduled, new Date("2027-01-01T02:00:00Z")).costUsd).toBeCloseTo(0.453, 9);
+    // The hold before a call uses the peak rates.
+    expect(costCeiling(scheduled.cost)).toEqual({
+      input: 0.3,
+      output: 1.2,
+      cacheRead: 0.006,
+      cacheWrite: 0,
+    });
+
+    const unpriced = priced();
+    const measured = usage();
+    calculateCost(unpriced, measured);
+    expect(normalizePiUsage(measured, unpriced).costUsd).toBeNull();
   });
   it("stores generic limits with hosted credentials and preserves them when rotating the key", () => {
     const plaintext = connectAsOwner({
