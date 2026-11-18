@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-18
+
+### Added
+
+- A connection to an OpenAI-compatible server can carry a price for each model: input, output, and optionally cached input, in USD per million tokens, under Advanced. Calls on a priced model are recorded with an estimated cost, so usage reports show what those models cost. Calls made before a price was saved keep no cost.
+
 ## [2.3.7] - 2026-11-17
 
 ### Fixed
