@@ -1577,13 +1577,85 @@ export function modelOutputLeavesInputRoom(
   return typeof maxTokens !== "number" || contextWindow === undefined || maxTokens < contextWindow;
 }
 
-/** USD per million tokens one model is billed at. Cached input defaults to the input rate. */
+const modelRate = z.number().nonnegative().max(100_000);
+const ModelRatesShape = {
+  inputPerMillion: modelRate,
+  outputPerMillion: modelRate,
+  cacheReadPerMillion: modelRate.optional(),
+};
+/** USD per million tokens. Cached input defaults to the input rate. */
+export type ModelRates = {
+  inputPerMillion: number;
+  outputPerMillion: number;
+  cacheReadPerMillion?: number;
+};
+
+const UTC_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$|^24:00$/;
+/** UTC weekdays (0 is Sunday) and a UTC time range, end exclusive. */
+export const ModelPriceWindowSchema = z
+  .object({
+    days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    start: z.string().regex(UTC_TIME),
+    end: z.string().regex(UTC_TIME),
+  })
+  .refine((window) => window.start < window.end, {
+    message: "A peak window must end after it starts",
+  });
+
+/**
+ * What one model is billed at. The top-level rates apply all day, or off-peak when `peak` is
+ * set. Peak rates apply inside a window, except on the listed UTC dates.
+ */
 export const ModelPricingSchema = z.object({
-  inputPerMillion: z.number().nonnegative().max(100_000),
-  outputPerMillion: z.number().nonnegative().max(100_000),
-  cacheReadPerMillion: z.number().nonnegative().max(100_000).optional(),
+  ...ModelRatesShape,
+  peak: z
+    .object({
+      ...ModelRatesShape,
+      windows: z.array(ModelPriceWindowSchema).min(1).max(24),
+      exceptDates: z
+        .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+        .max(1000)
+        .optional(),
+    })
+    .optional(),
 });
 export type ModelPricing = z.infer<typeof ModelPricingSchema>;
+
+function ratesOf(rates: ModelRates): ModelRates {
+  return {
+    inputPerMillion: rates.inputPerMillion,
+    outputPerMillion: rates.outputPerMillion,
+    ...(rates.cacheReadPerMillion !== undefined
+      ? { cacheReadPerMillion: rates.cacheReadPerMillion }
+      : {}),
+  };
+}
+
+/** The rates in force at `at`. */
+export function modelRatesAt(pricing: ModelPricing, at: Date): ModelRates {
+  const peak = pricing.peak;
+  if (!peak) return ratesOf(pricing);
+  const iso = at.toISOString();
+  if (peak.exceptDates?.includes(iso.slice(0, 10))) return ratesOf(pricing);
+  const day = at.getUTCDay();
+  const time = iso.slice(11, 16);
+  const inPeak = peak.windows.some(
+    (window) => window.days.includes(day) && time >= window.start && time < window.end,
+  );
+  return ratesOf(inPeak ? peak : pricing);
+}
+
+/** The highest rate of each kind, for holding enough before a call. */
+export function modelRatesCeiling(pricing: ModelPricing): ModelRates {
+  const peak = pricing.peak;
+  if (!peak) return ratesOf(pricing);
+  const cache = (rates: ModelRates) => rates.cacheReadPerMillion ?? rates.inputPerMillion;
+  return {
+    inputPerMillion: Math.max(pricing.inputPerMillion, peak.inputPerMillion),
+    outputPerMillion: Math.max(pricing.outputPerMillion, peak.outputPerMillion),
+    cacheReadPerMillion: Math.max(cache(pricing), cache(peak)),
+  };
+}
 
 /** A price field as typed: blank is unset, anything else must be a non-negative number. */
 export function parseModelPrice(value: string): number | null | undefined {

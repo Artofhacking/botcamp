@@ -19,6 +19,7 @@ import { Agent } from "undici";
 import { withChatCompletionsCompatibility } from "./chat-completions-compat.js";
 import type { ContextBudget } from "./context-selection.js";
 import { withGoogleToolHistory } from "./google-tool-history.js";
+import { costCeiling, modelPricedAt } from "./model-call-pricing.js";
 import { estimateModelContextTokens } from "./model-context.js";
 import { openRouterInferenceFetch } from "./openrouter-usage.js";
 import { requestedPiCacheWriteRetention, resolvePiCacheRetention } from "./pi-cache-retention.js";
@@ -307,7 +308,7 @@ function usageOperationKind(
 /** Guard and account every actual model invocation, including tools, failures and subagents. */
 export function observedPiStream(
   models: Models,
-  model: Model<Api>,
+  scheduledModel: Model<Api>,
   context: Context,
   options: SimpleStreamOptions | undefined,
   push: (event: AgentRuntimeEvent) => void,
@@ -329,6 +330,8 @@ export function observedPiStream(
     onProviderError?: (message: AssistantMessage) => void;
   },
 ) {
+  // A call is costed at the rates in force when it starts.
+  const model = modelPricedAt(scheduledModel, new Date());
   const stream = createAssistantMessageEventStream();
   const reported: ReportedUsageFields = new Set();
   const callId = randomUUID();
@@ -389,7 +392,7 @@ export function observedPiStream(
               inputTokensEstimate,
               maxOutputTokens: options?.maxTokens ?? model.maxTokens,
               maxCostUsd: maximumModelCallCost(
-                model.cost,
+                costCeiling(scheduledModel.cost),
                 inputTokensEstimate,
                 options?.maxTokens ?? model.maxTokens,
                 cacheWriteRetention,

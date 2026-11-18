@@ -10,6 +10,7 @@ import type {
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
+import { costOfPricing } from "./model-call-pricing.js";
 import { PiRuntimeCredentialStore, toOAuthCredential } from "./pi-credentials.js";
 import { liveModelSibling, withLiveImageInput } from "./pi-live-model.js";
 import { registerLocalProvider } from "./pi-local-provider.js";
@@ -111,6 +112,8 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
       ...(modelConfig.maxTokens !== undefined ? { maxTokens: modelConfig.maxTokens } : {}),
     };
   }
+  // A price the operator or the connection owner saved replaces the catalog's.
+  if (model && modelConfig.pricing) model = { ...model, cost: costOfPricing(modelConfig.pricing) };
   if (model && provider === CHATGPT_OAUTH_PROVIDER) {
     model = withLiveImageInput(model, modelConfig.acceptsImages);
   } else if (model && modelConfig.acceptsImages === true && !model.input.includes("image")) {
@@ -173,7 +176,6 @@ export function modelsForRequest(
       acceptsImages: request.model.acceptsImages,
       maxTokens: request.model.maxTokens,
       contextWindow: request.model.contextWindow,
-      pricing: request.model.pricing,
     });
   }
   return catalogModels();

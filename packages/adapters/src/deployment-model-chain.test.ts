@@ -181,6 +181,32 @@ describe("deployment model list", () => {
     ).toEqual({ ok: false, error: "a price needs input and output rates of 0 or more" });
   });
 
+  it("keeps a peak schedule and refuses a window that ends before it starts", () => {
+    const peak = {
+      inputPerMillion: 0.3,
+      outputPerMillion: 1.2,
+      cacheReadPerMillion: 0.006,
+      windows: [{ days: [1, 2, 3, 4, 5], start: "01:00", end: "04:00" }],
+      exceptDates: ["2027-01-01"],
+    };
+    const entry = (windows: unknown) => ({
+      provider: "openai-compatible",
+      modelId: "fixture-model",
+      enabled: true,
+      pricing: {
+        inputPerMillion: 0.15,
+        outputPerMillion: 0.6,
+        cacheReadPerMillion: 0.003,
+        peak: { ...peak, windows },
+      },
+    });
+    const parsed = parseDeploymentModelList([entry(peak.windows)]);
+    expect(parsed.ok && parsed.models[0]?.pricing?.peak).toEqual(peak);
+    expect(
+      parseDeploymentModelList([entry([{ days: [1], start: "10:00", end: "06:00" }])]).ok,
+    ).toBe(false);
+  });
+
   it("reads a saved price and treats an unreadable one as none", async () => {
     const stored = [
       {
