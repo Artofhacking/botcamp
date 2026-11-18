@@ -1176,6 +1176,10 @@ msgstr "写代码、跑测试、交付功能。"
 msgid "Built-in"
 msgstr "内置"
 
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Cached input price per 1M tokens (USD)"
+msgstr "缓存输入单价（美元 / 百万 token）"
+
 #: src/pages/shell/chat-header.tsx
 msgid "Call"
 msgstr "通话"
@@ -2989,6 +2993,10 @@ msgstr "请输入 1 到 1000 之间的整数作为图像限制。"
 msgid "Enter an API key before testing."
 msgstr "测试前请输入 API 密钥。"
 
+#: src/pages/model-settings/use-model-settings.ts
+msgid "Enter both input and output prices, or leave all prices blank."
+msgstr "请同时填写输入和输出单价，或全部留空。"
+
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
 msgstr "环境 ID"
@@ -3524,6 +3532,10 @@ msgstr "包含 API 密钥"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Incoming call"
 msgstr "来电"
+
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Input price per 1M tokens (USD)"
+msgstr "输入单价（美元 / 百万 token）"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -4707,6 +4719,10 @@ msgstr "原消息不可用"
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Other model…"
 msgstr "其他模型…"
+
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Output price per 1M tokens (USD)"
+msgstr "输出单价（美元 / 百万 token）"
 
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts

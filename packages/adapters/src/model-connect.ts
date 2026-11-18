@@ -126,6 +126,9 @@ export function buildModelConnectPlaintext(
       },
       prepared.modelId,
     );
+    const modelPricing = { ...(compatiblePrevious?.modelPricing ?? {}) };
+    if (input.pricing === null) delete modelPricing[prepared.modelId];
+    else if (input.pricing) modelPricing[prepared.modelId] = input.pricing;
     const compatibleCacheCapabilities =
       input.cacheCapabilities ?? compatiblePrevious?.cacheCapabilities;
     const secret: StoredModelSecret = {
@@ -152,6 +155,7 @@ export function buildModelConnectPlaintext(
           ? enabledModelIds.filter((id) => id !== prepared.modelId)
           : enabledModelIds,
       ...(maxImagesPerPrompt !== undefined ? { maxImagesPerPrompt } : {}),
+      ...(Object.keys(modelPricing).length ? { modelPricing } : {}),
     };
     return serializeModelSecret(secret);
   }
@@ -337,6 +341,9 @@ export function modelCredentialDto(
     cacheCapabilities: parsed.cacheCapabilities,
     ...(parsed.maxImagesPerPrompt !== undefined
       ? { maxImagesPerPrompt: parsed.maxImagesPerPrompt }
+      : {}),
+    ...(row.defaultModel && parsed.modelPricing?.[row.defaultModel.trim()]
+      ? { pricing: parsed.modelPricing[row.defaultModel.trim()] }
       : {}),
     ...(parsed.enabledModelIds !== undefined
       ? { enabledModelIds: enabledOpenAiCompatibleModelIds(parsed, row.defaultModel) }

@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import type { LookupFunction } from "node:net";
-import type { ModelApiProtocol } from "@botcamp/contracts";
+import type { ModelApiProtocol, ModelPricing } from "@botcamp/contracts";
 import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
   DEFAULT_MODEL_MAX_TOKENS,
@@ -74,6 +74,7 @@ export function openAiCompatibleModel(
   maxTokens = DEFAULT_MODEL_MAX_TOKENS,
   contextWindow = DEFAULT_MODEL_CONTEXT_WINDOW,
   apiProtocol: ModelApiProtocol = "chat-completions",
+  pricing?: ModelPricing,
 ): Model<"openai-completions" | "openai-responses" | "anthropic-messages"> {
   return {
     id,
@@ -104,7 +105,16 @@ export function openAiCompatibleModel(
             : { off: "none" },
         }),
     input: inputModalities(acceptsImages),
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    cost: pricing
+      ? {
+          input: pricing.inputPerMillion,
+          output: pricing.outputPerMillion,
+          cacheRead: pricing.cacheReadPerMillion ?? pricing.inputPerMillion,
+          // A rate here makes every call that reports no cache-write count unpriced,
+          // and most compatible servers report none.
+          cacheWrite: 0,
+        }
+      : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow,
     maxTokens,
   };
@@ -365,6 +375,7 @@ export function registerOpenAiCompatibleRuntime(
     acceptsImages?: boolean;
     maxTokens?: number;
     contextWindow?: number;
+    pricing?: ModelPricing;
     /** Explicit operator authorization for private endpoints. */
     allowPrivate?: boolean;
   },
@@ -383,6 +394,7 @@ export function registerOpenAiCompatibleRuntime(
           opts.maxTokens,
           opts.contextWindow,
           opts.apiProtocol,
+          opts.pricing,
         ),
       ],
       { allowPrivate: opts.allowPrivate, headers: opts.headers },

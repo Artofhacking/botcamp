@@ -9,6 +9,7 @@ import type {
   ModelContextLimits,
   ModelOAuthBegin,
   ModelOAuthSignInMode,
+  ModelPricing,
   SettingsScope,
   ThinkingLevel,
 } from "@botcamp/contracts";
@@ -18,6 +19,7 @@ import {
   MAX_MODEL_MAX_TOKENS,
   ModelApiProtocolSchema,
   ModelContextLimitsSchema,
+  ModelPricingSchema,
   parseModelHeaders,
   ThinkingLevelSchema,
 } from "@botcamp/contracts";
@@ -299,6 +301,8 @@ export type StoredModelSecret =
       visionModelIds?: string[];
       enabledModelIds?: string[];
       maxImagesPerPrompt?: number;
+      /** Price per model id, set by the connection owner. */
+      modelPricing?: Record<string, ModelPricing>;
     } & StoredModelLimits);
 
 export type PiOAuthConnected = {
@@ -442,6 +446,16 @@ function parsedModelIds(value: unknown): string[] | undefined {
     : undefined;
 }
 
+/** Drops entries that are not valid prices, so one bad entry cannot break the connection. */
+function parsedModelPricing(value: unknown): Record<string, ModelPricing> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value).flatMap(([modelId, price]) => {
+    const parsed = ModelPricingSchema.safeParse(price);
+    return modelId.trim() && parsed.success ? [[modelId.trim(), parsed.data] as const] : [];
+  });
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 export function parseModelSecret(plaintext: string): StoredModelSecret {
   const trimmed = plaintext.trim();
   if (!trimmed.startsWith("{")) return { kind: "api_key", key: plaintext };
@@ -481,6 +495,7 @@ export function parseModelSecret(plaintext: string): StoredModelSecret {
       parsed.maxImagesPerPrompt <= 1000
         ? parsed.maxImagesPerPrompt
         : undefined;
+    const modelPricing = parsedModelPricing(parsed.modelPricing);
     return {
       kind: "openai_compatible",
       baseUrl: parsed.baseUrl.trim(),
@@ -494,6 +509,7 @@ export function parseModelSecret(plaintext: string): StoredModelSecret {
       ...(visionModelIds ? { visionModelIds } : {}),
       ...(enabledModelIds ? { enabledModelIds } : {}),
       ...(maxImagesPerPrompt !== undefined ? { maxImagesPerPrompt } : {}),
+      ...(modelPricing ? { modelPricing } : {}),
       ...modelLimits(parsed),
     };
   }
@@ -567,6 +583,9 @@ export function serializeModelSecret(secret: StoredModelSecret): string {
       ...(secret.enabledModelIds !== undefined ? { enabledModelIds: secret.enabledModelIds } : {}),
       ...(secret.maxImagesPerPrompt !== undefined
         ? { maxImagesPerPrompt: secret.maxImagesPerPrompt }
+        : {}),
+      ...(secret.modelPricing && Object.keys(secret.modelPricing).length
+        ? { modelPricing: parsedModelPricing(secret.modelPricing) }
         : {}),
     });
   }

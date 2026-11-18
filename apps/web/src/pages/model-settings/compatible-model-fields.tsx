@@ -5,6 +5,8 @@ import {
   Button,
   Checkbox,
   Disclosure,
+  Field,
+  FieldLabel,
   Input,
   Label,
   ListSearchInput,
@@ -36,6 +38,9 @@ export function CompatibleModelFields({
   enabledModelIds,
   invalidatePreflight,
   maxImagesPerPrompt,
+  inputPrice,
+  outputPrice,
+  cachedInputPrice,
   maxTokens,
   modelId,
   preflightFailure,
@@ -49,6 +54,9 @@ export function CompatibleModelFields({
   setEnabledModelIds,
   setError,
   setMaxImagesPerPrompt,
+  setInputPrice,
+  setOutputPrice,
+  setCachedInputPrice,
   setMaxTokens,
   setNotice,
   setReasoning,
@@ -77,6 +85,9 @@ export function CompatibleModelFields({
   | "enabledModelIds"
   | "invalidatePreflight"
   | "maxImagesPerPrompt"
+  | "inputPrice"
+  | "outputPrice"
+  | "cachedInputPrice"
   | "maxTokens"
   | "modelId"
   | "preflightFailure"
@@ -90,6 +101,9 @@ export function CompatibleModelFields({
   | "setEnabledModelIds"
   | "setError"
   | "setMaxImagesPerPrompt"
+  | "setInputPrice"
+  | "setOutputPrice"
+  | "setCachedInputPrice"
   | "setMaxTokens"
   | "setNotice"
   | "setReasoning"
@@ -122,6 +136,15 @@ export function CompatibleModelFields({
     selectedIds: [modelId, ...enabledModelIds],
   });
   const hasSearchQuery = query.trim().length > 0;
+  const priceFields = [
+    { label: t`Input price per 1M tokens (USD)`, value: inputPrice, set: setInputPrice },
+    { label: t`Output price per 1M tokens (USD)`, value: outputPrice, set: setOutputPrice },
+    {
+      label: t`Cached input price per 1M tokens (USD)`,
+      value: cachedInputPrice,
+      set: setCachedInputPrice,
+    },
+  ];
   return (
     <div className="block text-[13.5px] text-muted-foreground">
       <label className="block" htmlFor="model-base-url">
@@ -337,6 +360,25 @@ export function CompatibleModelFields({
         }}
         maxImagesLabel={t`Maximum images per request`}
       >
+        {priceFields.map((field) => (
+          <Field key={field.label} orientation="horizontal" className="mt-3">
+            <FieldLabel>{field.label}</FieldLabel>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={field.value}
+              onChange={(event) => {
+                field.set(event.target.value);
+                setNotice(null);
+              }}
+              disabled={busy}
+              aria-label={field.label}
+              className="w-24 text-center text-foreground"
+            />
+          </Field>
+        ))}
         <ModelHeadersEditor
           rows={headerRows}
           savedNames={savedHeaderEndpointMatches ? credential?.headerNames : []}

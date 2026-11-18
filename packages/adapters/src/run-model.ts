@@ -253,6 +253,7 @@ async function resolveModelKeyMaterial(
   thinkingLevel?: AgentRunRequest["model"]["thinkingLevel"];
   acceptsImages?: boolean;
   maxImagesPerPrompt?: number;
+  pricing?: AgentRunRequest["model"]["pricing"];
   oauth?: AgentModelOAuthCredential;
   persistOAuth?: (credential: AgentModelOAuthCredential) => Promise<void>;
   retireOAuth?: (
@@ -375,6 +376,10 @@ async function resolveModelKeyMaterial(
           resolved.secret.kind === "openai_compatible"
             ? resolved.secret.maxImagesPerPrompt
             : undefined,
+        pricing:
+          resolved.secret.kind === "openai_compatible"
+            ? resolved.secret.modelPricing?.[modelId.trim()]
+            : undefined,
         oauth,
         persistOAuth: oauth
           ? async (next) => {
@@ -439,6 +444,7 @@ export function resolvedModelRunFields(
     maxTokens: resolved.maxTokens,
     acceptsImages: resolved.acceptsImages,
     maxImagesPerPrompt: resolved.maxImagesPerPrompt,
+    pricing: resolved.pricing,
     oauth: resolved.oauth
       ? {
           credential: resolved.oauth,

@@ -4,6 +4,7 @@ import type {
   ModelConnectInput,
   ModelCredential,
   ModelHeaderRow,
+  ModelPricing,
   SettingsScope,
   ThinkingLevel,
 } from "@botcamp/contracts";
@@ -17,6 +18,7 @@ import {
   parseModelContextWindow,
   parseModelMaxImagesPerPrompt,
   parseModelMaxTokens,
+  parseModelPrice,
   savedCompatibleEndpointMatches,
 } from "@botcamp/contracts";
 import {
@@ -40,6 +42,10 @@ export type ConnectionFormFields = {
   contextWindow: string;
   supportsImages: boolean;
   maxImagesPerPrompt: string;
+  /** USD per million tokens, as typed. All blank means no price. */
+  inputPrice: string;
+  outputPrice: string;
+  cachedInputPrice: string;
   accountId: string;
   gatewayId: string;
 };
@@ -89,6 +95,7 @@ export function connectionFormFields(input: {
     | "contextWindow"
     | "supportsImages"
     | "maxImagesPerPrompt"
+    | "pricing"
     | "accountId"
     | "gatewayId"
   >;
@@ -115,6 +122,9 @@ export function connectionFormFields(input: {
     contextWindow: String(credential?.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW),
     supportsImages: credential?.supportsImages ?? false,
     maxImagesPerPrompt: String(credential?.maxImagesPerPrompt ?? ""),
+    inputPrice: String(credential?.pricing?.inputPerMillion ?? ""),
+    outputPrice: String(credential?.pricing?.outputPerMillion ?? ""),
+    cachedInputPrice: String(credential?.pricing?.cacheReadPerMillion ?? ""),
     accountId: credential?.accountId ?? "",
     gatewayId: credential?.gatewayId ?? "",
   };
@@ -150,7 +160,30 @@ export type ConnectionFormDraft = Omit<ConnectionFormFields, "enabledModelIds"> 
 };
 
 /** A field whose number is out of range; each app words the message. */
-export type ConnectionFormInvalidField = "maxTokens" | "maxImagesPerPrompt" | "contextWindow";
+export type ConnectionFormInvalidField =
+  | "maxTokens"
+  | "maxImagesPerPrompt"
+  | "contextWindow"
+  | "pricing";
+
+/**
+ * The price a form sends: null when every field is blank, undefined when it is incomplete or
+ * not a number. Input and output are both required; cached input is optional.
+ */
+export function connectionFormPricing(
+  form: Pick<ConnectionFormFields, "inputPrice" | "outputPrice" | "cachedInputPrice">,
+): ModelPricing | null | undefined {
+  const input = parseModelPrice(form.inputPrice);
+  const output = parseModelPrice(form.outputPrice);
+  const cached = parseModelPrice(form.cachedInputPrice);
+  if (input === null && output === null && cached === null) return null;
+  if (input == null || output == null || cached === undefined) return undefined;
+  return {
+    inputPerMillion: input,
+    outputPerMillion: output,
+    ...(cached !== null ? { cacheReadPerMillion: cached } : {}),
+  };
+}
 
 export type ModelConnectRequest =
   | { status: "incomplete" }
@@ -209,6 +242,10 @@ export function modelConnectRequest(input: {
   if (compatible && contextWindow === undefined) {
     return { status: "invalid", field: "contextWindow" };
   }
+  const pricing = compatible ? connectionFormPricing(form) : undefined;
+  if (compatible && pricing === undefined) {
+    return { status: "invalid", field: "pricing" };
+  }
   // The staged effort belongs to the model on screen. Clamp it before a connect or a limit
   // save so a previous model's level cannot stick.
   const thinkingLevel = clampCatalogThinkingLevel(
@@ -240,6 +277,7 @@ export function modelConnectRequest(input: {
         supportsImages: form.supportsImages,
         maxImagesPerPrompt:
           form.supportsImages && !form.maxImagesPerPrompt.trim() ? null : maxImagesPerPrompt,
+        pricing,
         ...makeDefault,
         apiKey: form.apiKey.trim() || undefined,
         label,

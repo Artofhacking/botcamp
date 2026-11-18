@@ -173,6 +173,7 @@ export function modelsForRequest(
       acceptsImages: request.model.acceptsImages,
       maxTokens: request.model.maxTokens,
       contextWindow: request.model.contextWindow,
+      pricing: request.model.pricing,
     });
   }
   return catalogModels();

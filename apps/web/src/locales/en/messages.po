@@ -1176,6 +1176,10 @@ msgstr "Builds, tests, and ships software."
 msgid "Built-in"
 msgstr "Built-in"
 
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Cached input price per 1M tokens (USD)"
+msgstr "Cached input price per 1M tokens (USD)"
+
 #: src/pages/shell/chat-header.tsx
 msgid "Call"
 msgstr "Call"
@@ -2989,6 +2993,10 @@ msgstr "Enter a whole number from 1 to 1000 for the image limit."
 msgid "Enter an API key before testing."
 msgstr "Enter an API key before testing."
 
+#: src/pages/model-settings/use-model-settings.ts
+msgid "Enter both input and output prices, or leave all prices blank."
+msgstr "Enter both input and output prices, or leave all prices blank."
+
 #: src/components/ComputerProviderSettings.tsx
 msgid "Environment ID"
 msgstr "Environment ID"
@@ -3524,6 +3532,10 @@ msgstr "Include API keys"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Incoming call"
 msgstr "Incoming call"
+
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Input price per 1M tokens (USD)"
+msgstr "Input price per 1M tokens (USD)"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -4707,6 +4719,10 @@ msgstr "Original message unavailable"
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Other model…"
 msgstr "Other model…"
+
+#: src/pages/model-settings/compatible-model-fields.tsx
+msgid "Output price per 1M tokens (USD)"
+msgstr "Output price per 1M tokens (USD)"
 
 #: src/components/pages/SharePopover.tsx
 #: src/lib/identity-display.ts
