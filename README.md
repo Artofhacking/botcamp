@@ -3,6 +3,9 @@
 BotCamp is an AI agent workspace. Bots keep their own conversations, memory, routines,
 and computers; the product runs as a web console, an Electron desktop app, and an Android shell.
 
+BotCamp is a modified fork of [Rakazo](https://github.com/elie222/rakazo), used under the
+Apache License 2.0.
+
 ## Layout
 
 - `apps/web` — the console UI
@@ -60,7 +63,10 @@ cd android
 ./build-apk.sh
 ```
 
-## License
+## Origin and license
 
-Apache-2.0. BotCamp is based on Rakazo; the original copyright notices remain in
-[`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).
+BotCamp is a modified fork of [Rakazo](https://github.com/elie222/rakazo), an open-source,
+self-hosted AI agent workspace. It is distributed under the Apache License 2.0, the same license
+as the upstream project. The upstream copyright notice is kept in [`LICENSE`](./LICENSE) and the
+attributions, including Rakazo's third-party notices, are in [`NOTICE`](./NOTICE). BotCamp is not
+affiliated with or endorsed by the Rakazo project.
