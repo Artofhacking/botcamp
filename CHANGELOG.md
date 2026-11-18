@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-11-18
+
+### Changed
+
+- A model with a price set on the operator page is now billed at that price, even when the gateway it runs through reports a different charge. The price applies to every call on that model, including calls that use a stored connection's key.
+
+### Added
+
+- The operator page has a price row for the model that reads images.
+
 ## [2.4.1] - 2026-11-18
 
 ### Added
