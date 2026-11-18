@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-11-18
+
+### Added
+
+- The operator page can price each model on the deployment's model list: input, cached input, and output, in USD per million tokens. A price can also have peak rates for set UTC weekday hours, with dates that stay off-peak. Calls on a priced model are recorded with an estimated cost at the rate in force when the call started.
+
 ## [2.4.0] - 2026-11-18
 
 ### Added
