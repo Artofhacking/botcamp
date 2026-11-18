@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { ModelConnectInputSchema, OPENAI_COMPATIBLE_PROVIDER_ID } from "@botcamp/contracts";
 import {
+  calculateCost,
   createModels,
   fauxAssistantMessage,
   fauxProvider,
@@ -27,6 +28,7 @@ import {
   registerOpenAiCompatibleRuntime,
   verifyOpenAiCompatibleApiKey,
 } from "./pi-openai-compatible-provider.js";
+import { normalizePiUsage } from "./pi-usage.js";
 
 const savedPrivateHosts =
   process.env.BOTCAMP_OPENAI_COMPAT_PRIVATE_HOSTS ?? process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS;
@@ -77,6 +79,67 @@ describe("model connect", () => {
         cacheCapabilities: { ...cacheCapabilities, retentionMode: "forever" },
       }).success,
     ).toBe(false);
+  });
+  it("keeps a price per model id and costs usage from it", () => {
+    const base = {
+      provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+      baseUrl: "http://127.0.0.1:8000/v1",
+    };
+    const first = connectAsOwner({
+      ...base,
+      modelId: "fixture-a",
+      pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+    });
+    const second = connectAsOwner(
+      {
+        ...base,
+        modelId: "fixture-b",
+        pricing: { inputPerMillion: 1, outputPerMillion: 2, cacheReadPerMillion: 0.1 },
+      },
+      first,
+    );
+    const saved = parseModelSecret(second);
+    expect(saved.kind === "openai_compatible" && saved.modelPricing).toEqual({
+      "fixture-a": { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+      "fixture-b": { inputPerMillion: 1, outputPerMillion: 2, cacheReadPerMillion: 0.1 },
+    });
+    // Omitted keeps a model's price; null clears only that model's.
+    const kept = parseModelSecret(connectAsOwner({ ...base, modelId: "fixture-a" }, second));
+    expect(kept.kind === "openai_compatible" && kept.modelPricing?.["fixture-a"]).toBeTruthy();
+    const cleared = parseModelSecret(
+      connectAsOwner({ ...base, modelId: "fixture-a", pricing: null }, second),
+    );
+    expect(cleared.kind === "openai_compatible" && Object.keys(cleared.modelPricing ?? {})).toEqual(
+      ["fixture-b"],
+    );
+
+    const models = registerOpenAiCompatibleRuntime(builtinModels(), {
+      ...base,
+      modelId: "fixture-a",
+      allowPrivate: true,
+      pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+    });
+    const model = models.getModel(OPENAI_COMPATIBLE_PROVIDER_ID, "fixture-a");
+    expect(model?.cost).toEqual({ input: 0.3, output: 1.2, cacheRead: 0.3, cacheWrite: 0 });
+    const usage = {
+      input: 1_000_000,
+      output: 500_000,
+      cacheRead: 1_000_000,
+      cacheWrite: 0,
+      totalTokens: 2_500_000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    };
+    calculateCost(model!, usage);
+    const costed = normalizePiUsage(usage, model!);
+    expect(costed.costSource).toBe("pi-catalog-estimate");
+    // Cached input falls back to the input rate: 0.3 + 0.3 + 0.6.
+    expect(costed.costUsd).toBeCloseTo(1.2, 9);
+    const unpriced = registerOpenAiCompatibleRuntime(builtinModels(), {
+      ...base,
+      modelId: "fixture-c",
+      allowPrivate: true,
+    }).getModel(OPENAI_COMPATIBLE_PROVIDER_ID, "fixture-c");
+    expect(normalizePiUsage(usage, unpriced!).costUsd).toBeNull();
   });
   it("stores generic limits with hosted credentials and preserves them when rotating the key", () => {
     const plaintext = connectAsOwner({

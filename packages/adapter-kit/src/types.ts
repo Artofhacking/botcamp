@@ -3,6 +3,7 @@ import type {
   CacheCapabilities as ConnectionCacheCapabilities,
   ConnectionCatalogItem,
   ModelApiProtocol,
+  ModelPricing,
   PurchaseCardField,
   SandboxKind,
 } from "@botcamp/contracts";
@@ -495,6 +496,8 @@ export interface AgentRunModel {
   acceptsImages?: boolean;
   /** Maximum number of image inputs the model connection accepts in one request. */
   maxImagesPerPrompt?: number;
+  /** Owner-entered price for a custom connection's model; usage is costed from it. */
+  pricing?: ModelPricing;
   /** Maximum completion tokens sent to the model endpoint. */
   maxTokens?: number;
   /** Generic connection context window, overriding catalog limits when configured. */

@@ -1577,6 +1577,22 @@ export function modelOutputLeavesInputRoom(
   return typeof maxTokens !== "number" || contextWindow === undefined || maxTokens < contextWindow;
 }
 
+/** USD per million tokens one model is billed at. Cached input defaults to the input rate. */
+export const ModelPricingSchema = z.object({
+  inputPerMillion: z.number().nonnegative().max(100_000),
+  outputPerMillion: z.number().nonnegative().max(100_000),
+  cacheReadPerMillion: z.number().nonnegative().max(100_000).optional(),
+});
+export type ModelPricing = z.infer<typeof ModelPricingSchema>;
+
+/** A price field as typed: blank is unset, anything else must be a non-negative number. */
+export function parseModelPrice(value: string): number | null | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100_000 ? parsed : undefined;
+}
+
 /** Wire protocol selected for one OpenAI-compatible connection. */
 export const ModelApiProtocolSchema = z.enum([
   "chat-completions",
@@ -1605,6 +1621,8 @@ export const ModelCredentialSchema = z.object({
   maxTokens: z.number().int().min(1).max(MAX_MODEL_MAX_TOKENS).optional(),
   supportsImages: z.boolean().optional(),
   maxImagesPerPrompt: z.number().int().min(1).max(1000).optional(),
+  /** Openai-compatible only; the price saved for `modelId`. */
+  pricing: ModelPricingSchema.optional(),
   thinkingLevels: z.array(ThinkingLevelSchema).optional(),
   /** Openai-compatible only; always contains `modelId` when set. */
   enabledModelIds: z.array(z.string()).optional(),
@@ -1686,6 +1704,8 @@ export const ModelConnectInputSchema = z
     maxTokens: z.number().int().min(1).max(MAX_MODEL_MAX_TOKENS).nullable().optional(),
     supportsImages: z.boolean().optional(),
     maxImagesPerPrompt: z.number().int().min(1).max(1000).nullable().optional(),
+    /** Openai-compatible only; the price for `modelId`. Null clears it, omitted keeps it. */
+    pricing: ModelPricingSchema.nullable().optional(),
     enabledModelIds: z
       .array(z.string().trim().min(1).max(512))
       .max(MAX_ENABLED_MODEL_IDS)

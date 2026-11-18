@@ -44,6 +44,9 @@ function draft(overrides: Partial<ConnectionFormDraft> = {}): ConnectionFormDraf
     contextWindow: "262144",
     supportsImages: false,
     maxImagesPerPrompt: "",
+    inputPrice: "",
+    outputPrice: "",
+    cachedInputPrice: "",
     accountId: "",
     gatewayId: "",
     ...overrides,
@@ -117,6 +120,9 @@ describe("connectionFormFields", () => {
       contextWindow: "262144",
       supportsImages: false,
       maxImagesPerPrompt: "",
+      inputPrice: "",
+      outputPrice: "",
+      cachedInputPrice: "",
       accountId: "",
       gatewayId: "",
     });
@@ -273,6 +279,49 @@ describe("modelConnectRequest", () => {
         credentialId: null,
       }),
     ).toEqual({ status: "invalid", field: "contextWindow" });
+    expect(
+      modelConnectRequest({
+        form: { ...form, inputPrice: "0.3" },
+        selected: compatible,
+        credentialId: null,
+      }),
+    ).toEqual({ status: "invalid", field: "pricing" });
+    expect(
+      modelConnectRequest({
+        form: { ...form, inputPrice: "0.3", outputPrice: "-1" },
+        selected: compatible,
+        credentialId: null,
+      }),
+    ).toEqual({ status: "invalid", field: "pricing" });
+  });
+
+  it("sends a compatible model's price, and null when every price field is blank", () => {
+    const compatible = { provider: COMPATIBLE, id: "openai-compatible" };
+    const form = draft({ baseUrl: "http://h/v1", modelId: "m", maxTokens: "4096" });
+    const priced = modelConnectRequest({
+      form: { ...form, inputPrice: "0.3", outputPrice: "1.2", cachedInputPrice: "0.03" },
+      selected: compatible,
+      credentialId: null,
+    });
+    expect(priced.status === "ready" && priced.input.pricing).toEqual({
+      inputPerMillion: 0.3,
+      outputPerMillion: 1.2,
+      cacheReadPerMillion: 0.03,
+    });
+    const blank = modelConnectRequest({ form, selected: compatible, credentialId: null });
+    expect(blank.status === "ready" && blank.input.pricing).toBeNull();
+    expect(
+      connectionFormFields({
+        catalog,
+        provider: COMPATIBLE,
+        modelId: "m",
+        credential: credential({
+          provider: COMPATIBLE,
+          modelId: "m",
+          pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+        }),
+      }),
+    ).toMatchObject({ inputPrice: "0.3", outputPrice: "1.2", cachedInputPrice: "" });
   });
 
   it("connects a catalog key with the clamped effort and the makeDefault target", () => {
@@ -383,6 +432,7 @@ describe("modelConnectRequest", () => {
         contextWindow: 262_144,
         supportsImages: true,
         maxImagesPerPrompt: null,
+        pricing: null,
         apiKey: "key",
         label: "OpenAI-compatible",
         credentialId: "credential-fixture",

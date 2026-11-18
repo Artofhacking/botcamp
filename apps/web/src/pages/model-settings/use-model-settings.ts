@@ -117,6 +117,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
   const [contextWindow, setContextWindow] = useState(String(DEFAULT_MODEL_CONTEXT_WINDOW));
   const [supportsImages, setSupportsImages] = useState(false);
   const [maxImagesPerPrompt, setMaxImagesPerPrompt] = useState("");
+  const [inputPrice, setInputPrice] = useState("");
+  const [outputPrice, setOutputPrice] = useState("");
+  const [cachedInputPrice, setCachedInputPrice] = useState("");
   const [{ models: probeModels, probing }, setProbe] = useState(initialModelProbeState);
   const [modelProbe] = useState(() => createModelProbe(setProbe));
   const resetOpenAiCompatibleProbe = modelProbe.reset;
@@ -238,6 +241,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     setContextWindow(fields.contextWindow);
     setSupportsImages(fields.supportsImages);
     setMaxImagesPerPrompt(fields.maxImagesPerPrompt);
+    setInputPrice(fields.inputPrice);
+    setOutputPrice(fields.outputPrice);
+    setCachedInputPrice(fields.cachedInputPrice);
     setAccountId(fields.accountId);
     setGatewayId(fields.gatewayId);
   }
@@ -395,6 +401,11 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
         reasoning ? compatibleThinkingLevels(apiProtocol) : [],
       ) as ThinkingLevel | null,
     );
+    // A price belongs to the model it was saved with.
+    const price = credential?.modelId === nextModelId ? credential.pricing : undefined;
+    setInputPrice(String(price?.inputPerMillion ?? ""));
+    setOutputPrice(String(price?.outputPerMillion ?? ""));
+    setCachedInputPrice(String(price?.cacheReadPerMillion ?? ""));
   }
 
   /** Opens a connection (by id) or a new one (null) for the provider. */
@@ -553,6 +564,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
         contextWindow,
         supportsImages,
         maxImagesPerPrompt,
+        inputPrice,
+        outputPrice,
+        cachedInputPrice,
         accountId,
         gatewayId,
       },
@@ -569,7 +583,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
           ? t`Enter a whole number from 1 to ${MAX_MODEL_MAX_TOKENS} for maximum output tokens.`
           : request.field === "maxImagesPerPrompt"
             ? t`Enter a whole number from 1 to 1000 for the image limit.`
-            : t`Enter a whole number from 1 to ${MAX_MODEL_CONTEXT_WINDOW} for the context limit.`,
+            : request.field === "pricing"
+              ? t`Enter both input and output prices, or leave all prices blank.`
+              : t`Enter a whole number from 1 to ${MAX_MODEL_CONTEXT_WINDOW} for the context limit.`,
       );
       return;
     }
@@ -698,6 +714,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     isOpenAiCompatible,
     loading,
     maxImagesPerPrompt,
+    inputPrice,
+    outputPrice,
+    cachedInputPrice,
     maxTokens,
     me,
     modelId,
@@ -729,6 +748,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     setError,
     setGatewayId,
     setMaxImagesPerPrompt,
+    setInputPrice,
+    setOutputPrice,
+    setCachedInputPrice,
     setMaxTokens,
     setModelId,
     setNotice,
