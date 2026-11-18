@@ -141,7 +141,7 @@ describe("model connect", () => {
     const flat = priced({ inputPerMillion: 0.3, outputPerMillion: 1.2 });
     expect(flat.cost).toEqual({ input: 0.3, output: 1.2, cacheRead: 0.3, cacheWrite: 0 });
     const flatCost = costAt(flat, new Date("2026-11-18T03:00:00Z"));
-    expect(flatCost.costSource).toBe("pi-catalog-estimate");
+    expect(flatCost.costSource).toBe("configured-price");
     // Cached input falls back to the input rate: 0.3 + 0.3 + 0.6.
     expect(flatCost.costUsd).toBeCloseTo(1.2, 9);
 

@@ -2,7 +2,14 @@
 //
 // Deliberately plain HTTP + JSON rather than another RPC surface: the console is one page,
 // it ships with no build step, and every route here is gated on RAKAZO_ADMIN_EMAILS.
-import { listDeploymentModels, replaceDeploymentModels } from "@botcamp/adapters";
+import {
+  DEPLOYMENT_IMAGE_MODEL,
+  deploymentImageModelPricing,
+  listDeploymentModels,
+  parseImageModelPricing,
+  replaceDeploymentModels,
+  saveDeploymentImageModelPricing,
+} from "@botcamp/adapters";
 import type { PrismaClient } from "@botcamp/db";
 import {
   containerCostYuan,
@@ -297,16 +304,33 @@ export function adminConsoleRoutes(deps: AdminConsoleDeps) {
   app.get("/admin/api/models", async (c) =>
     runAsSystem("operator console model list", async () => {
       const models = await listDeploymentModels(deps.prisma);
-      return c.json({ models });
+      const imageModel = {
+        ...DEPLOYMENT_IMAGE_MODEL,
+        pricing: await deploymentImageModelPricing(deps.prisma),
+      };
+      return c.json({ models, imageModel });
     }),
   );
 
   app.put("/admin/api/models", async (c) =>
     runAsSystem("operator console model order", async () => {
-      const body = (await c.req.json().catch(() => null)) as { models?: unknown } | null;
+      const body = (await c.req.json().catch(() => null)) as {
+        models?: unknown;
+        imageModelPricing?: unknown;
+      } | null;
+      // Check the image price first, so a bad one does not leave the list saved without it.
+      const image = parseImageModelPricing(body?.imageModelPricing);
+      if (!image.ok) return c.json({ error: image.error }, 400);
       const saved = await replaceDeploymentModels(deps.prisma, body?.models);
       if (!Array.isArray(saved)) return c.json(saved, 400);
-      return c.json({ models: saved });
+      if (image.pricing !== undefined) {
+        await saveDeploymentImageModelPricing(deps.prisma, image.pricing);
+      }
+      const imageModel = {
+        ...DEPLOYMENT_IMAGE_MODEL,
+        pricing: await deploymentImageModelPricing(deps.prisma),
+      };
+      return c.json({ models: saved, imageModel });
     }),
   );
 

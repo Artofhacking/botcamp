@@ -19,7 +19,7 @@ import { Agent } from "undici";
 import { withChatCompletionsCompatibility } from "./chat-completions-compat.js";
 import type { ContextBudget } from "./context-selection.js";
 import { withGoogleToolHistory } from "./google-tool-history.js";
-import { costCeiling, modelPricedAt } from "./model-call-pricing.js";
+import { costCeiling, hasSetPrice, modelPricedAt } from "./model-call-pricing.js";
 import { estimateModelContextTokens } from "./model-context.js";
 import { openRouterInferenceFetch } from "./openrouter-usage.js";
 import { requestedPiCacheWriteRetention, resolvePiCacheRetention } from "./pi-cache-retention.js";
@@ -71,7 +71,9 @@ export function normalizePiUsage(
     (model.cost.cacheRead === 0 || cacheReadTokens !== null) &&
     (model.cost.cacheWrite === 0 || cacheWriteTokens !== null);
   const rejected = rejectedRequests.has(reported);
-  const providerCost = reportedCosts.get(reported);
+  // A set price is the model's list price and wins over what a gateway charged.
+  const setPrice = costKnown && hasSetPrice(model.cost);
+  const providerCost = setPrice ? undefined : reportedCosts.get(reported);
   return {
     providerRequestId: reportedRequestIds.get(reported) ?? null,
     inputTokens,
@@ -88,13 +90,16 @@ export function normalizePiUsage(
         : null),
     costSource: rejected
       ? "provider-rejection"
-      : providerCost !== undefined
-        ? "provider-reported"
-        : costKnown
-          ? "pi-catalog-estimate"
-          : null,
+      : setPrice
+        ? "configured-price"
+        : providerCost !== undefined
+          ? "provider-reported"
+          : costKnown
+            ? "pi-catalog-estimate"
+            : null,
     pricingSnapshot: model.cost ? JSON.parse(JSON.stringify(model.cost)) : null,
-    pricingVersion: providerCost !== undefined ? null : costKnown ? "pi-ai-1.3.0" : null,
+    pricingVersion:
+      setPrice || providerCost !== undefined ? null : costKnown ? "pi-ai-1.3.0" : null,
     usageSource: rejected
       ? "provider-rejected"
       : reported.size

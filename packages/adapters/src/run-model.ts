@@ -218,10 +218,8 @@ export async function resolveModelKey(...args: Parameters<typeof resolveModelKey
     retireOAuth: subscription?.retireOAuth ?? material.retireOAuth,
     redact: [...material.redact, ...(subscription?.redact ?? [])],
     baseUrl: material.baseUrl ?? deploymentEndpoint.baseUrl,
-    // A deployment model has no connection of its own; its price is on the admin list.
-    pricing:
-      material.pricing ??
-      (credential ? undefined : await deploymentModelPricing(deps.prisma, provider, modelId)),
+    // A connection's own price comes first, then the price on the deployment model list.
+    pricing: material.pricing ?? (await deploymentModelPricing(deps.prisma, provider, modelId)),
     callObserver,
   };
 }

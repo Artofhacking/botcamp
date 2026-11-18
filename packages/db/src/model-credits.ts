@@ -203,7 +203,7 @@ export function settleModelCredits(
   return prisma.$transaction((tx) => settleModelCreditsTx(tx, reservationId, costUsd, false, now));
 }
 
-/** A provider cost or a proven pre-generation stop can finalize accounting. */
+/** A provider cost, a price the operator set, or a proven pre-generation stop finalizes accounting. */
 export function hasFinalModelCost(
   usage: Pick<AgentUsage, "costUsd" | "costSource" | "usageSource">,
 ): boolean {
@@ -212,6 +212,7 @@ export function hasFinalModelCost(
     Number.isFinite(usage.costUsd) &&
     usage.costUsd >= 0 &&
     (usage.costSource === "provider-reported" ||
+      usage.costSource === "configured-price" ||
       (usage.costUsd === 0 &&
         ["not-started", "provider-rejected"].includes(usage.usageSource ?? "")))
   );

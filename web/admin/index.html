@@ -319,6 +319,7 @@
       };
       let users = [];
       let models = [];
+      let imageModel = null;
       let liveTimer = 0;
 
       async function api(path, init) {
@@ -384,31 +385,46 @@
           .join("");
       }
 
+      function priceCells(model) {
+        return `<td><div class="prices">
+              <input class="price" type="number" min="0" step="any" data-price="inputPerMillion" value="${escapeHtml(model.pricing?.inputPerMillion ?? "")}" placeholder="输入" aria-label="输入单价 ${escapeHtml(model.modelId)}" />
+              <input class="price" type="number" min="0" step="any" data-price="cacheReadPerMillion" value="${escapeHtml(model.pricing?.cacheReadPerMillion ?? "")}" placeholder="缓存" aria-label="缓存输入单价 ${escapeHtml(model.modelId)}" />
+              <input class="price" type="number" min="0" step="any" data-price="outputPerMillion" value="${escapeHtml(model.pricing?.outputPerMillion ?? "")}" placeholder="输出" aria-label="输出单价 ${escapeHtml(model.modelId)}" />
+              ${model.pricing?.peak ? '<span class="muted">另有高峰价</span>' : ""}
+            </div></td>`;
+      }
+
       function renderModels() {
         const body = document.getElementById("model-rows");
         if (!models.length) {
           body.innerHTML = '<tr><td colspan="6" class="muted">还没有模型</td></tr>';
           return;
         }
+        // The image model is outside the order; it reads every picture and only its price is set here.
+        const imageRow = imageModel
+          ? `<tr data-image>
+            <td>读图</td>
+            <td>${escapeHtml(MODEL_SOURCES[imageModel.provider] || imageModel.provider)}</td>
+            <td><span class="muted">${escapeHtml(imageModel.modelId)}</span></td>
+            ${priceCells(imageModel)}
+            <td></td>
+            <td></td>
+          </tr>`
+          : "";
         body.innerHTML = models.map((model, index) => {
           const source = MODEL_SOURCES[model.provider] || model.provider;
           return `<tr>
             <td>${index + 1}</td>
             <td>${escapeHtml(source)}</td>
             <td><span class="muted">${escapeHtml(model.modelId)}</span></td>
-            <td><div class="prices">
-              <input class="price" type="number" min="0" step="any" data-price="inputPerMillion" value="${escapeHtml(model.pricing?.inputPerMillion ?? "")}" placeholder="输入" aria-label="输入单价 ${escapeHtml(model.modelId)}" />
-              <input class="price" type="number" min="0" step="any" data-price="cacheReadPerMillion" value="${escapeHtml(model.pricing?.cacheReadPerMillion ?? "")}" placeholder="缓存" aria-label="缓存输入单价 ${escapeHtml(model.modelId)}" />
-              <input class="price" type="number" min="0" step="any" data-price="outputPerMillion" value="${escapeHtml(model.pricing?.outputPerMillion ?? "")}" placeholder="输出" aria-label="输出单价 ${escapeHtml(model.modelId)}" />
-              ${model.pricing?.peak ? '<span class="muted">另有高峰价</span>' : ""}
-            </div></td>
+            ${priceCells(model)}
             <td><input type="checkbox" data-enabled ${model.enabled ? "checked" : ""} aria-label="启用 ${escapeHtml(source)} ${escapeHtml(model.modelId)}" /></td>
             <td><div class="row-actions">
               <button class="ghost" type="button" data-move="up" ${index === 0 ? "disabled" : ""}>上移</button>
               <button class="ghost" type="button" data-move="down" ${index === models.length - 1 ? "disabled" : ""}>下移</button>
             </div></td>
           </tr>`;
-        }).join("");
+        }).join("") + imageRow;
       }
 
       function renderRows() {
@@ -492,6 +508,7 @@
           try {
             const modelList = await api("/admin/api/models");
             models = modelList.models || [];
+            imageModel = modelList.imageModel || null;
           } catch (error) {
             models = [];
             toast(String(error.message || error), true);
@@ -556,17 +573,19 @@
         const input = event.target.closest("[data-price]");
         if (!input) return;
         const row = input.closest("tr");
+        const image = row.hasAttribute("data-image");
         const index = Array.from(row.parentNode.children).indexOf(row);
-        if (!models[index]) return;
+        const target = image ? imageModel : models[index];
+        if (!target) return;
         const field = (name) => row.querySelector(`[data-price="${name}"]`).value.trim();
         const inputRate = field("inputPerMillion");
         const outputRate = field("outputPerMillion");
         const cacheRate = field("cacheReadPerMillion");
         // The peak schedule has no fields here; editing the rates keeps it.
-        const peak = models[index].pricing?.peak;
+        const peak = target.pricing?.peak;
         // All blank clears the price. A missing rate is sent as-is, and the server says what is missing.
-        models[index] = {
-          ...models[index],
+        const next = {
+          ...target,
           pricing:
             !inputRate && !outputRate && !cacheRate
               ? null
@@ -577,6 +596,8 @@
                   ...(peak ? { peak } : {}),
                 },
         };
+        if (image) imageModel = next;
+        else models[index] = next;
       });
       document.getElementById("model-rows").addEventListener("change", (event) => {
         const input = event.target.closest("[data-enabled]");
@@ -600,9 +621,11 @@
                 enabled: model.enabled,
                 pricing: model.pricing ?? null,
               })),
+              ...(imageModel ? { imageModelPricing: imageModel.pricing ?? null } : {}),
             }),
           });
           models = saved.models || models;
+          imageModel = saved.imageModel || imageModel;
           renderModels();
           toast("模型已保存");
         } catch (error) {
