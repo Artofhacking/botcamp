@@ -270,4 +270,41 @@ describe("personal chat messages", () => {
       "chat app paused",
     );
   });
+
+  it("asks for a typing ticket and starts and clears the bubble", async () => {
+    const paths: string[] = [];
+    const bodies: unknown[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      paths.push(new URL(url).pathname);
+      bodies.push(JSON.parse(String(init?.body)));
+      if (String(url).endsWith("/ilink/bot/getconfig")) {
+        return jsonResponse({ ret: 0, typing_ticket: "ticket-1" });
+      }
+      return jsonResponse({ ret: 0 });
+    });
+    const client = createIlinkClient(fetchImpl as typeof fetch);
+
+    await expect(client.typingTicket(session, "user-1", "ctx-1")).resolves.toBe("ticket-1");
+    await client.sendTyping(session, "user-1", "ticket-1", "typing");
+    await client.sendTyping(session, "user-1", "ticket-1", "cancel");
+
+    expect(paths).toEqual([
+      "/ilink/bot/getconfig",
+      "/ilink/bot/sendtyping",
+      "/ilink/bot/sendtyping",
+    ]);
+    expect(bodies[0]).toMatchObject({ ilink_user_id: "user-1", context_token: "ctx-1" });
+    expect(bodies[1]).toMatchObject({
+      ilink_user_id: "user-1",
+      typing_ticket: "ticket-1",
+      status: 1,
+    });
+    expect(bodies[2]).toMatchObject({ typing_ticket: "ticket-1", status: 2 });
+  });
+
+  it("shows no bubble when the chat service has no ticket for that person", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ ret: 0 }));
+    const client = createIlinkClient(fetchImpl as typeof fetch);
+    await expect(client.typingTicket(session, "user-1", "ctx-1")).resolves.toBeNull();
+  });
 });

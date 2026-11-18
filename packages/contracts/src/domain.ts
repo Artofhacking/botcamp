@@ -166,6 +166,8 @@ export const ChatAlertSchema = z
     botId: Id.optional(),
     threadId: Id,
     groupId: Id.optional(),
+    /** The message the alert is about; opening the chat scrolls to it. */
+    messageId: Id.optional(),
   })
   .refine((alert) => alert.kind !== "mention" || alert.groupId !== undefined, {
     message: "A mention alert names its group.",

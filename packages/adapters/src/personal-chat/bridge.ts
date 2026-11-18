@@ -14,6 +14,8 @@ const LOGIN_TTL_MS = 3 * 60_000;
 const LEASE_MS = 90_000;
 const PAUSE_MS = 60 * 60_000;
 const WATCH_INTERVAL_MS = 10_000;
+/** The chat service hands out one ticket per conversation; keep it while it lasts. */
+const TYPING_TICKET_TTL_MS = 12 * 60 * 60_000;
 
 export interface PersonalChatActor {
   userId: string;
@@ -71,6 +73,7 @@ export class PersonalChatBridge {
   private sink: ((event: MessagingInboundMessage) => Promise<void>) | undefined;
   private abort: AbortController | undefined;
   private readonly loops = new Map<string, AbortController>();
+  private readonly typingTickets = new Map<string, { ticket: string; expiresAt: number }>();
 
   constructor(
     private readonly prisma: PrismaClient,
@@ -206,6 +209,9 @@ export class PersonalChatBridge {
     });
     await this.prisma.chatToolLink.delete({ where: { id: link.id } });
     await this.secrets.delete(link.ciphertext, link.id).catch(() => undefined);
+    for (const key of this.typingTickets.keys()) {
+      if (key.startsWith(`${link.id}:`)) this.typingTickets.delete(key);
+    }
     this.loops.get(link.id)?.abort();
     this.loops.delete(link.id);
   }
@@ -229,7 +235,47 @@ export class PersonalChatBridge {
       body,
       session.contextTokens[parsed.peerId],
     );
+    // The reply itself ends the wait; cancel the bubble in the background so a
+    // slow chat service never delays the outbox marking this send done.
+    void this.stopTyping(threadId).catch(() => undefined);
     return { handle };
+  }
+
+  /** Show "typing" in the person's chat while their reply is being written. */
+  async startTyping(threadId: string): Promise<void> {
+    const target = await this.typingTarget(threadId);
+    if (target)
+      await this.client.sendTyping(target.session, target.peerId, target.ticket, "typing");
+  }
+
+  async stopTyping(threadId: string): Promise<void> {
+    const target = await this.typingTarget(threadId);
+    if (target)
+      await this.client.sendTyping(target.session, target.peerId, target.ticket, "cancel");
+  }
+
+  /** The peer, session and ticket a typing call needs; null when this chat cannot show one. */
+  private async typingTarget(
+    threadId: string,
+  ): Promise<{ session: IlinkSession; peerId: string; ticket: string } | null> {
+    const parsed = parsePersonalChatThreadId(threadId);
+    if (!parsed || parsed.provider !== PERSONAL_CHAT_PROVIDER) return null;
+    const link = await this.prisma.chatToolLink.findFirst({
+      where: { provider: parsed.provider, accountId: parsed.accountId },
+    });
+    if (!link) return null;
+    const session = readSession(await this.secrets.load(link.ciphertext, link.id));
+    const contextToken = session.contextTokens[parsed.peerId];
+    if (!contextToken) return null;
+    const cacheKey = `${link.id}:${parsed.peerId}`;
+    const cached = this.typingTickets.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { session, peerId: parsed.peerId, ticket: cached.ticket };
+    }
+    const ticket = await this.client.typingTicket(session, parsed.peerId, contextToken);
+    if (!ticket) return null;
+    this.typingTickets.set(cacheKey, { ticket, expiresAt: Date.now() + TYPING_TICKET_TTL_MS });
+    return { session, peerId: parsed.peerId, ticket };
   }
 
   async openDirect(provider: string, address: string, context: AdapterContext): Promise<string> {

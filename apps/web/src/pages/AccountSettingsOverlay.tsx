@@ -447,8 +447,8 @@ export function UsageSettingsPanel({
       {weekly ? (
         <div className="space-y-3">
           {[
-            { label: "周额度", percent: weekly.percent },
-            { label: "大容器时长", percent: weekly.coreHoursPercent },
+            { label: t`Weekly quota`, percent: weekly.percent },
+            { label: t`Large container time`, percent: weekly.coreHoursPercent },
           ].map((row) => (
             <div key={row.label} className="rounded-xl border border-border px-4 py-3">
               <div className="flex items-baseline justify-between">
@@ -466,7 +466,7 @@ export function UsageSettingsPanel({
             </div>
           ))}
           <p className="text-[12.5px] text-muted-foreground">
-            {`${resetLabel(weekly.resetsAt, i18n.locale)} 重置`}
+            {t`Resets ${resetLabel(weekly.resetsAt, i18n.locale)}`}
           </p>
         </div>
       ) : null}

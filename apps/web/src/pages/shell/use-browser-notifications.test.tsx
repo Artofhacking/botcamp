@@ -29,7 +29,9 @@ let streams: Array<{ push: (frame: Frame) => void; fail: (error: unknown) => voi
 let signals: AbortSignal[];
 let focused: boolean;
 let visible: boolean;
-let openChat: ReturnType<typeof vi.fn<(alert: ChatAlert) => void>>;
+let openChat: ReturnType<
+  typeof vi.fn<(target: Pick<ChatAlert, "botId" | "groupId" | "messageId">) => void>
+>;
 let root: Root;
 
 function stream(): AsyncIterable<Frame> {
@@ -126,7 +128,7 @@ beforeEach(() => {
   signals = [];
   focused = true;
   visible = true;
-  openChat = vi.fn<(alert: ChatAlert) => void>();
+  openChat = vi.fn<(target: Pick<ChatAlert, "botId" | "groupId" | "messageId">) => void>();
   vi.spyOn(document, "visibilityState", "get").mockImplementation(() =>
     visible ? "visible" : "hidden",
   );
@@ -139,6 +141,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  delete window.botcampAndroid;
 });
 
 describe("useBrowserNotifications chat alerts", () => {
@@ -171,6 +174,32 @@ describe("useBrowserNotifications chat alerts", () => {
     expect(shown()).toEqual([["Ada mentioned you in Team", "Ship it?", "thread-g:mention"]]);
   });
 
+  it("posts a mention through the Android shell and lets its tap open the group", async () => {
+    const showNotification = vi.fn();
+    window.botcampAndroid = {
+      notificationPermission: () => "granted",
+      showNotification,
+    };
+    vi.stubGlobal("Notification", undefined);
+    await open({ botId: "bot-a" });
+    await send({
+      kind: "mention",
+      botId: undefined,
+      groupId: "group-g",
+      threadId: "thread-g",
+      title: "Ada mentioned you in Team",
+      body: "Ship it?",
+    });
+    expect(showNotification).toHaveBeenCalledWith(
+      "Ada mentioned you in Team",
+      "Ship it?",
+      "thread-g:mention",
+      "group-g",
+      "",
+    );
+    expect(FakeNotification.shown).toEqual([]);
+  });
+
   it("opens the alerted chat when clicked", async () => {
     const focus = vi.spyOn(window, "focus").mockImplementation(() => undefined);
     await open({ botId: "bot-a" });
@@ -180,6 +209,16 @@ describe("useBrowserNotifications chat alerts", () => {
     expect(focus).toHaveBeenCalled();
     expect(openChat).toHaveBeenCalledWith(expect.objectContaining({ groupId: "group-g" }));
     expect(notification!.closed).toBe(true);
+  });
+
+  it("opens the chat at the reply the alert names", async () => {
+    vi.spyOn(window, "focus").mockImplementation(() => undefined);
+    await open({ botId: "bot-a" });
+    await send({ messageId: "message-b" });
+    FakeNotification.shown[0]!.onclick!();
+    expect(openChat).toHaveBeenCalledWith(
+      expect.objectContaining({ botId: "bot-b", messageId: "message-b" }),
+    );
   });
 
   it("leaves the open chat to its own stream", async () => {

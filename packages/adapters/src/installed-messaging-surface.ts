@@ -130,6 +130,18 @@ export class InstalledMessagingSurface implements MessagingSurface {
     );
   }
 
+  async stopTyping(threadId: string, context: AdapterContext): Promise<void> {
+    const scoped = await this.resolve(threadId, context);
+    if (!scoped) {
+      await this.fallback?.stopTyping?.(threadId, context);
+      return;
+    }
+    await this.withSurface(
+      scoped.installation,
+      (surface) => surface.stopTyping?.(scoped.threadId, context) ?? Promise.resolve(),
+    );
+  }
+
   async fetchThreadHistory(
     threadId: string,
     options: { before: string; limit: number },

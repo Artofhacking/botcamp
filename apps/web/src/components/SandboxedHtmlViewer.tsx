@@ -1,5 +1,6 @@
 import { HTML_VIEWER_PATH } from "@botcamp/contracts/content-security-policy";
 import { useEffect, useRef, useState } from "react";
+import { appAssetPath } from "../lib/static-host-route";
 
 export const PREVIEW_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data: blob:; font-src data:; form-action 'none'; base-uri 'none'";
@@ -67,7 +68,7 @@ export function SandboxedHtmlViewer({
     <iframe
       ref={frame}
       title={title}
-      src={HTML_VIEWER_PATH}
+      src={appAssetPath(HTML_VIEWER_PATH)}
       onLoad={() => setLoads((count) => count + 1)}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"

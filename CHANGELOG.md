@@ -6,6 +6,72 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.7] - 2026-11-17
+
+### Fixed
+
+- Pages a bot made now show when the console is served from a subpath. Shared page links, pages opened in a chat, and HTML previews had shown the site's home page in place of the page.
+
+## [2.3.6] - 2026-11-17
+
+### Fixed
+
+- Clicking a notification about a bot's reply now opens that chat scrolled to the reply, instead of only bringing the app forward.
+
+## [2.3.5] - 2026-11-17
+
+### Fixed
+
+- A light or dark appearance chosen in settings now stays after the app reloads, instead of falling back to System.
+- About, Usage, and the main bot setting now show in the interface language. In English they no longer show Chinese text, and in Chinese the webhook routine keeps its technical `key` and `header` labels as written.
+- Starting work on a team computer no longer fails with "only one big container can run at a time" when the container it names is that same computer.
+
+## [2.3.4] - 2026-11-16
+
+### Fixed
+
+- A bot working on a chat message no longer posts a draft answer and then repeats it. The complete answer arrives once, when the work is done; anything it says earlier is a short status note, not a conclusion, and thinking stays private.
+
+## [2.3.3] - 2026-11-16
+
+### Fixed
+
+- A linked WeChat chat now shows the typing indicator while the bot is writing a reply, and clears it when the reply arrives or the run ends without one, so a longer run no longer looks like nothing happened.
+
+## [2.3.2] - 2026-11-14
+
+### Changed
+
+- The **Recruit** window is now a large, searchable catalog. Filter the roles by name or summary, and the list loads sixty cards at a time, so it stays usable as the set of bots to hire grows.
+
+## [2.3.1] - 2026-11-14
+
+### Fixed
+
+- The bot list could come up empty after a deploy: the runtime database login had no permission to call the shared-group policy helper, so listing bots and opening a group failed. The migration grants it, and an affected deployment recovers on the next migrate and restart.
+
+## [2.3.0] - 2026-11-14
+
+### Added
+
+- The sidebar's **+** menu now has **Recruit**, a window of ready-made bots. **Software Engineer** and **Gold-Medal Editor** arrive with their own summary, avatar color, and instructions, so adding one opens a bot that already knows the job; rename or edit it like any other bot.
+
+### Changed
+
+- The **+** menu now only starts something new: **New bot**, **Recruit**, **New group chat**, and **New shared group**. The search field and the list of existing bots are gone from it; the roster and its search remain the way to open a bot.
+
+## [2.2.2] - 2026-11-14
+
+### Changed
+
+- Every bot turn now opens with the same short stance: ask when it does not know, keep what the user told it instead of quietly rewriting it, say so when it disagrees, work out how to do the work itself, and finish by saying what the answer relied on and what was missing. Prompt lines that repeated another instruction are gone, and a live call now narrows the ask rule instead of forbidding it.
+
+## [2.2.1] - 2026-11-14
+
+### Added
+
+- The Android app shows chat alerts as system notifications while it is running, including when someone names you in a shared group; tap one to open that chat. The updated app is on the download page.
+
 ## [2.2.0] - 2026-11-14
 
 ### Added

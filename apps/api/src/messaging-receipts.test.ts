@@ -17,6 +17,7 @@ function fakeMessaging() {
     acknowledge: vi.fn(
       async (_threadId: string, _handle: string, _context: AdapterContext) => undefined,
     ),
+    stopTyping: vi.fn(async (_threadId: string, _context: AdapterContext) => undefined),
   };
 }
 
@@ -106,11 +107,12 @@ describe("createMessagingReceipts", () => {
     });
 
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(error.mock.calls.map(([, cause]) => (cause as Error).message)).toEqual([
+    expect(error.mock.calls.map(([, cause]) => (cause as Error).message)).toContain(
       "missing_scope",
-      "missing_scope",
+    );
+    expect(error.mock.calls.map(([, cause]) => (cause as Error).message)).toContain(
       "database unavailable",
-    ]);
+    );
   });
 
   it("sends nothing for platforms without a receipt", async () => {
@@ -121,9 +123,61 @@ describe("createMessagingReceipts", () => {
     receipts.acknowledge("sendblue:dm-1", "h-1", unhandled);
 
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(messaging.acknowledge.mock.calls.map(([threadId]) => threadId)).toEqual([
-      "sendblue:dm-1",
-    ]);
+    expect(new Set(messaging.acknowledge.mock.calls.map(([threadId]) => threadId))).toEqual(
+      new Set(["sendblue:dm-1"]),
+    );
+  });
+
+  it("keeps one typing bubble up until that thread's reply goes out", async () => {
+    const messaging = fakeMessaging();
+    const receipts = createMessagingReceipts(messaging);
+    let replied = false;
+    receipts.acknowledge("sendblue:dm-1", "h-1", async () => replied);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(messaging.acknowledge.mock.calls.length).toBe(2);
+    expect(messaging.stopTyping).not.toHaveBeenCalled();
+
+    replied = true;
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(messaging.acknowledge.mock.calls.length).toBe(2);
+    expect(messaging.stopTyping).toHaveBeenCalledWith("sendblue:dm-1", expect.anything());
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(messaging.acknowledge.mock.calls.length).toBe(2);
+    expect(messaging.stopTyping).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the bubble up while any queued message on the thread waits", async () => {
+    const messaging = fakeMessaging();
+    const receipts = createMessagingReceipts(messaging);
+    let secondReplied = false;
+    receipts.acknowledge("sendblue:dm-1", "h-1", async () => true);
+    receipts.acknowledge("sendblue:dm-1", "h-2", async () => secondReplied);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(messaging.stopTyping).not.toHaveBeenCalled();
+
+    secondReplied = true;
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(messaging.stopTyping).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the bubble fade when the surface cannot clear it", async () => {
+    const messaging = fakeMessaging();
+    const receipts = createMessagingReceipts({
+      platforms: messaging.platforms,
+      acknowledge: messaging.acknowledge,
+    });
+    let replied = false;
+    receipts.acknowledge("sendblue:dm-1", "h-1", async () => replied);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(messaging.acknowledge).toHaveBeenCalledTimes(2);
+
+    replied = true;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(messaging.acknowledge).toHaveBeenCalledTimes(2);
   });
 
   it("starts the send timeout when the delayed reaction goes out", async () => {

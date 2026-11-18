@@ -85,6 +85,14 @@ export interface IlinkClient {
     contextToken?: string,
   ): Promise<string>;
   notify(session: IlinkSession, started: boolean): Promise<void>;
+  /** The ticket the chat service requires before it shows a typing bubble. */
+  typingTicket(session: IlinkSession, peerId: string, contextToken: string): Promise<string | null>;
+  sendTyping(
+    session: IlinkSession,
+    peerId: string,
+    ticket: string,
+    state: "typing" | "cancel",
+  ): Promise<void>;
 }
 
 /** Only the bot service's own hosts. A login redirect must not become a request to anywhere else. */
@@ -108,6 +116,10 @@ export function createIlinkClient(fetchImpl: typeof fetch = fetch): IlinkClient 
     sendText: (session, peerId, text, contextToken) =>
       sendText(fetchImpl, session, peerId, text, contextToken),
     notify: (session, started) => notify(fetchImpl, session, started),
+    typingTicket: (session, peerId, contextToken) =>
+      typingTicket(fetchImpl, session, peerId, contextToken),
+    sendTyping: (session, peerId, ticket, state) =>
+      sendTyping(fetchImpl, session, peerId, ticket, state),
   };
 }
 
@@ -238,6 +250,49 @@ async function notify(fetchImpl: typeof fetch, session: IlinkSession, started: b
     session.baseUrl,
     started ? "/ilink/bot/msg/notifystart" : "/ilink/bot/msg/notifystop",
     { base_info: baseInfo() },
+    session.token,
+  );
+  assertOk(payload);
+}
+
+async function typingTicket(
+  fetchImpl: typeof fetch,
+  session: IlinkSession,
+  peerId: string,
+  contextToken: string,
+): Promise<string | null> {
+  const payload = await postJson(
+    fetchImpl,
+    session.baseUrl,
+    "/ilink/bot/getconfig",
+    {
+      ilink_user_id: peerId,
+      context_token: contextToken,
+      base_info: baseInfo(),
+    },
+    session.token,
+  );
+  assertOk(payload);
+  return textField(payload, "typing_ticket") ?? null;
+}
+
+async function sendTyping(
+  fetchImpl: typeof fetch,
+  session: IlinkSession,
+  peerId: string,
+  ticket: string,
+  state: "typing" | "cancel",
+) {
+  const payload = await postJson(
+    fetchImpl,
+    session.baseUrl,
+    "/ilink/bot/sendtyping",
+    {
+      ilink_user_id: peerId,
+      typing_ticket: ticket,
+      status: state === "typing" ? 1 : 2,
+      base_info: baseInfo(),
+    },
     session.token,
   );
   assertOk(payload);

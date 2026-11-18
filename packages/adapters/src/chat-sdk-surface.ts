@@ -327,6 +327,21 @@ export class ChatSdkMessagingSurface implements MessagingSurface {
     await raceWithSignal(sends[receipt](), context.signal);
   }
 
+  async stopTyping(threadId: string, context: AdapterContext): Promise<void> {
+    const mounted = this.byProvider.get(providerOfThreadId(threadId));
+    if (!mounted) return;
+    if (mounted.platform.capabilities.receipt !== "typing") return;
+    await this.ensureInitialized();
+    const endTyping = mounted.platform.adapter.endTyping;
+    if (!endTyping) return;
+    // Optional in the SDK: many platforms clear the bubble when the reply
+    // lands, and the ones that do not simply never get this call.
+    await raceWithSignal(
+      endTyping.call(mounted.platform.adapter, toAdapterThreadId(mounted, threadId)),
+      context.signal,
+    );
+  }
+
   async fetchThreadHistory(
     threadId: string,
     options: { before: string; limit: number },

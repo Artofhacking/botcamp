@@ -199,8 +199,14 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
       <SettingsRow
         label={
           <div>
-            <p>检查更新</p>
-            {upToDate ? <p className="text-[13px] text-muted-foreground">已是最新版本</p> : null}
+            <p>
+              <Trans>Check for updates</Trans>
+            </p>
+            {upToDate ? (
+              <p className="text-[13px] text-muted-foreground">
+                <Trans>Up to date</Trans>
+              </p>
+            ) : null}
             {downloading ? (
               <p className="text-[13px] text-muted-foreground">{Math.round(state.percent ?? 0)}%</p>
             ) : null}
@@ -218,7 +224,15 @@ function InstalledUpdate({ platform, version }: { platform: ClientPlatform; vers
             disabled={checking || downloading}
             onClick={() => void act(ready ? "install" : "check")}
           >
-            {ready ? "重启并更新" : downloading ? "下载中…" : checking ? "检查中…" : "检查更新"}
+            {ready ? (
+              <Trans>Restart to update</Trans>
+            ) : downloading ? (
+              <Trans>Downloading…</Trans>
+            ) : checking ? (
+              <Trans>Checking…</Trans>
+            ) : (
+              <Trans>Check for updates</Trans>
+            )}
           </Button>
         }
       />
@@ -253,18 +267,24 @@ function RefreshPage() {
     <SettingsRow
       label={
         <div>
-          <p>刷新网页</p>
-          {current ? <p className="text-[13px] text-muted-foreground">网页已是最新版本</p> : null}
+          <p>
+            <Trans>Refresh page</Trans>
+          </p>
+          {current ? (
+            <p className="text-[13px] text-muted-foreground">
+              <Trans>This page is the newest version</Trans>
+            </p>
+          ) : null}
           {failed ? (
             <p role="alert" className="text-[13px] text-destructive">
-              刷新失败，请稍后再试
+              <Trans>Couldn't refresh. Try again later.</Trans>
             </p>
           ) : null}
         </div>
       }
       control={
         <Button variant="secondary" size="sm" disabled={busy} onClick={() => void refresh()}>
-          {busy ? "刷新中…" : "刷新页面"}
+          {busy ? <Trans>Refreshing…</Trans> : <Trans>Refresh</Trans>}
         </Button>
       }
     />

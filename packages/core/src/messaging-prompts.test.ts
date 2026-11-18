@@ -52,4 +52,10 @@ describe("sync_channels", () => {
     );
     expect(formatLinkedChatChannels([])).toBeUndefined();
   });
+
+  it("keeps the chat answer to one final message and updates to what changed", () => {
+    expect(messagingDmSurfaceNote()).toContain("one final reply");
+    expect(messagingDmSurfaceNote()).toContain("never a conclusion, a partial answer");
+    expect(messagingDmSurfaceNote()).toContain("say only what changed");
+  });
 });

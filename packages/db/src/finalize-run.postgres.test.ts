@@ -120,7 +120,10 @@ describePostgres("finalizing a run (PostgreSQL)", () => {
         }),
       );
 
-      await expect(finalized).resolves.toEqual({ continuationRunId: expect.any(String) });
+      await expect(finalized).resolves.toEqual({
+        continuationRunId: expect.any(String),
+        messageId: expect.any(String),
+      });
       await reader;
       expect(await system.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
         status: "completed",

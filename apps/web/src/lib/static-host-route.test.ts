@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptHashRoute,
+  appAssetPath,
   brandIconSrc,
   directShareUrl,
   documentPath,
@@ -20,6 +21,12 @@ describe("site home", () => {
     expect(brandIconSrc("/")).toBe("/icon-192.png");
     expect(brandIconSrc("/console/")).toBe("/console/icon-192.png");
     expect(brandIconSrc("/console")).toBe("/console/icon-192.png");
+  });
+
+  it("serves the console's own files from its base", () => {
+    expect(appAssetPath("/html-viewer.html", "/")).toBe("/html-viewer.html");
+    expect(appAssetPath("/html-viewer.html", CONSOLE)).toBe("/console/html-viewer.html");
+    expect(appAssetPath("favicon-32x32.png", "/console")).toBe("/console/favicon-32x32.png");
   });
 });
 
