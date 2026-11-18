@@ -1,5 +1,6 @@
 import type { SecretStore } from "@botcamp/adapter-kit";
-import { canonicalPiProviderId, usableModelId } from "@botcamp/contracts";
+import type { ModelPricing } from "@botcamp/contracts";
+import { canonicalPiProviderId, ModelPricingSchema, usableModelId } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
 import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
@@ -62,14 +63,24 @@ export type DeploymentModelSlot = {
   provider: string;
   modelId: string;
   enabled: boolean;
+  pricing?: ModelPricing | null;
 };
 
 const MAX_MODELS = 8;
 
+type StoredSlot = Omit<DeploymentModelSlot, "pricing"> & { pricing?: unknown };
+
 type ModelTable = {
-  findMany(args: { orderBy: { position: "asc" } }): Promise<DeploymentModelSlot[]>;
+  findMany(args: { orderBy: { position: "asc" } }): Promise<StoredSlot[]>;
+  findUnique?(args: {
+    where: { provider_modelId: { provider: string; modelId: string } };
+    select: { pricing: true };
+  }): Promise<{ pricing: unknown } | null>;
   count(): Promise<number>;
-  createMany(args: { data: DeploymentModelSlot[]; skipDuplicates?: boolean }): Promise<unknown>;
+  createMany(args: {
+    data: Array<Omit<DeploymentModelSlot, "pricing"> & { pricing?: ModelPricing }>;
+    skipDuplicates?: boolean;
+  }): Promise<unknown>;
   deleteMany(): Promise<unknown>;
 };
 
@@ -102,11 +113,34 @@ export async function ensureInitialDeploymentModels(prisma: ModelClient): Promis
   });
 }
 
+/** A stored price that no longer parses is treated as none, so the model still runs. */
+function storedPricing(value: unknown): ModelPricing | null {
+  const parsed = ModelPricingSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function slotOf(row: StoredSlot): DeploymentModelSlot {
+  return { ...row, pricing: storedPricing(row.pricing) };
+}
+
 export async function listDeploymentModels(prisma: ModelClient): Promise<DeploymentModelSlot[]> {
   const table = tableOf(prisma);
   if (!table) return [];
   await ensureInitialDeploymentModels(prisma);
-  return table.findMany({ orderBy: { position: "asc" } });
+  return (await table.findMany({ orderBy: { position: "asc" } })).map(slotOf);
+}
+
+/** The price an operator saved for a deployment model, if any. */
+export async function deploymentModelPricing(
+  prisma: ModelClient,
+  provider: string,
+  modelId: string,
+): Promise<ModelPricing | undefined> {
+  const row = await tableOf(prisma)?.findUnique?.({
+    where: { provider_modelId: { provider, modelId } },
+    select: { pricing: true },
+  });
+  return storedPricing(row?.pricing) ?? undefined;
 }
 
 export function parseDeploymentModelList(
@@ -119,7 +153,12 @@ export function parseDeploymentModelList(
   const seen = new Set<string>();
   for (const [position, entry] of input.entries()) {
     if (!entry || typeof entry !== "object") return { ok: false, error: "each model is an object" };
-    const record = entry as { provider?: unknown; modelId?: unknown; enabled?: unknown };
+    const record = entry as {
+      provider?: unknown;
+      modelId?: unknown;
+      enabled?: unknown;
+      pricing?: unknown;
+    };
     const provider = canonicalPiProviderId(
       typeof record.provider === "string" ? record.provider.trim() : "",
     );
@@ -130,10 +169,23 @@ export function parseDeploymentModelList(
     if (typeof record.enabled !== "boolean") {
       return { ok: false, error: "enabled must be true or false" };
     }
+    const pricing =
+      record.pricing === undefined || record.pricing === null
+        ? null
+        : ModelPricingSchema.safeParse(record.pricing);
+    if (pricing && !pricing.success) {
+      return { ok: false, error: "a price needs input and output rates of 0 or more" };
+    }
     const key = `${provider}\n${modelId}`;
     if (seen.has(key)) return { ok: false, error: "each model is listed once" };
     seen.add(key);
-    models.push({ position, provider, modelId, enabled: record.enabled });
+    models.push({
+      position,
+      provider,
+      modelId,
+      enabled: record.enabled,
+      pricing: pricing ? pricing.data : null,
+    });
   }
   if (!models.some((model) => model.enabled)) {
     return { ok: false, error: "enable at least one model" };
@@ -154,7 +206,10 @@ export async function replaceDeploymentModels(
     const next = tableOf(tx);
     if (!next?.deleteMany) throw new Error("model list is unavailable");
     await next.deleteMany();
-    await next.createMany({ data: models });
+    // Prisma rejects a bare null for a JSON column, so an unpriced row leaves it unset.
+    await next.createMany({
+      data: models.map(({ pricing, ...slot }) => (pricing ? { ...slot, pricing } : slot)),
+    });
   });
   return models;
 }
@@ -195,7 +250,7 @@ export async function runnableDeploymentModels(
   const table = tableOf(deps.prisma);
   if (!table) return null;
   await ensureInitialDeploymentModels(deps.prisma);
-  const rows = await table.findMany({ orderBy: { position: "asc" } });
+  const rows = (await table.findMany({ orderBy: { position: "asc" } })).map(slotOf);
   if (rows.length === 0) return null;
   const skipProviders = new Set<string>();
   const openCodeRow = rows.find((row) => row.enabled && row.provider === OPENCODE_GO_PROVIDER);

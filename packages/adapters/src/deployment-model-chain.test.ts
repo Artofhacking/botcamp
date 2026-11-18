@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DEPLOYMENT_IMAGE_MODEL,
   deploymentImageChannelActive,
+  deploymentModelPricing,
   INITIAL_DEPLOYMENT_MODELS,
+  listDeploymentModels,
   parseDeploymentModelList,
   selectableDeploymentModels,
 } from "./deployment-model-chain.js";
@@ -150,7 +152,78 @@ describe("deployment model list", () => {
           enabled: true,
         },
         { position: 1, provider: "opencode-go", modelId: "deepseek-v4.1-flash", enabled: false },
-      ],
+      ].map((model) => ({ ...model, pricing: null })),
     });
+  });
+
+  it("keeps a valid price per model and refuses a partial one", () => {
+    const parsed = parseDeploymentModelList([
+      {
+        provider: "openai-compatible",
+        modelId: "fixture-model",
+        enabled: true,
+        pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+      },
+    ]);
+    expect(parsed.ok && parsed.models[0]?.pricing).toEqual({
+      inputPerMillion: 0.3,
+      outputPerMillion: 1.2,
+    });
+    expect(
+      parseDeploymentModelList([
+        {
+          provider: "openai-compatible",
+          modelId: "fixture-model",
+          enabled: true,
+          pricing: { inputPerMillion: 0.3, outputPerMillion: null },
+        },
+      ]),
+    ).toEqual({ ok: false, error: "a price needs input and output rates of 0 or more" });
+  });
+
+  it("reads a saved price and treats an unreadable one as none", async () => {
+    const stored = [
+      {
+        position: 0,
+        provider: "openai-compatible",
+        modelId: "priced",
+        enabled: true,
+        pricing: { inputPerMillion: 1, outputPerMillion: 2 },
+      },
+      {
+        position: 1,
+        provider: "openai-compatible",
+        modelId: "broken",
+        enabled: true,
+        pricing: { inputPerMillion: "x" },
+      },
+    ];
+    const prisma = {
+      deploymentModelChoice: {
+        findMany: vi.fn().mockResolvedValue(stored),
+        findUnique: vi.fn(
+          async (args: { where: { provider_modelId: { modelId: string } } }) =>
+            stored.find((row) => row.modelId === args.where.provider_modelId.modelId) ?? null,
+        ),
+        count: vi.fn().mockResolvedValue(stored.length),
+        createMany: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      secret: {} as never,
+    };
+    await expect(deploymentModelPricing(prisma, "openai-compatible", "priced")).resolves.toEqual({
+      inputPerMillion: 1,
+      outputPerMillion: 2,
+    });
+    await expect(
+      deploymentModelPricing(prisma, "openai-compatible", "broken"),
+    ).resolves.toBeUndefined();
+    await expect(
+      deploymentModelPricing(prisma, "openai-compatible", "missing"),
+    ).resolves.toBeUndefined();
+    expect((await listDeploymentModels(prisma)).map((model) => model.pricing)).toEqual([
+      { inputPerMillion: 1, outputPerMillion: 2 },
+      null,
+    ]);
   });
 });

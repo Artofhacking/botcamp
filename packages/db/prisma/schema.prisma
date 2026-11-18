@@ -577,6 +577,8 @@ model DeploymentModelChoice {
   provider String
   modelId  String
   enabled  Boolean @default(true)
+  /// USD per million tokens for this model; null leaves its calls unpriced.
+  pricing  Json?
 
   @@unique([provider, modelId])
   @@map("deployment_model_choices")
