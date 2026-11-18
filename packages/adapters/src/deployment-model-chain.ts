@@ -2,6 +2,7 @@ import type { SecretStore } from "@botcamp/adapter-kit";
 import type { ModelPricing } from "@botcamp/contracts";
 import { canonicalPiProviderId, ModelPricingSchema, usableModelId } from "@botcamp/contracts";
 import type { PrismaClient } from "@botcamp/db";
+import { Prisma } from "@botcamp/db";
 import { getLogger } from "@botcamp/logging";
 import { getEnvApiKey } from "@earendil-works/pi-ai/compat";
 import { findConnectedModelCredential } from "./model-selection.js";
@@ -84,8 +85,21 @@ type ModelTable = {
   deleteMany(): Promise<unknown>;
 };
 
+type SettingsTable = {
+  findUnique(args: {
+    where: { id: "default" };
+    select: { imageModelPricing: true };
+  }): Promise<{ imageModelPricing: unknown } | null>;
+  upsert(args: {
+    where: { id: "default" };
+    create: { id: "default"; imageModelPricing: ModelPricing | typeof Prisma.DbNull };
+    update: { imageModelPricing: ModelPricing | typeof Prisma.DbNull };
+  }): Promise<unknown>;
+};
+
 type ModelClient = {
   deploymentModelChoice?: ModelTable;
+  deploymentSettings?: SettingsTable;
   $transaction?<T>(fn: (tx: ModelClient) => Promise<T>): Promise<T>;
   secret: PrismaClient["secret"];
 };
@@ -130,6 +144,42 @@ export async function listDeploymentModels(prisma: ModelClient): Promise<Deploym
   return (await table.findMany({ orderBy: { position: "asc" } })).map(slotOf);
 }
 
+/** The price an operator saved for the model that reads images. */
+export async function deploymentImageModelPricing(
+  prisma: ModelClient,
+): Promise<ModelPricing | null> {
+  const row = await prisma.deploymentSettings?.findUnique({
+    where: { id: "default" },
+    select: { imageModelPricing: true },
+  });
+  return storedPricing(row?.imageModelPricing);
+}
+
+/** Null clears the image model's price. */
+export async function saveDeploymentImageModelPricing(
+  prisma: ModelClient,
+  pricing: ModelPricing | null,
+): Promise<void> {
+  const value = pricing ?? Prisma.DbNull;
+  await prisma.deploymentSettings?.upsert({
+    where: { id: "default" },
+    create: { id: "default", imageModelPricing: value },
+    update: { imageModelPricing: value },
+  });
+}
+
+/** Undefined keeps the saved price, null clears it, and anything else must be a valid price. */
+export function parseImageModelPricing(
+  input: unknown,
+): { ok: true; pricing: ModelPricing | null | undefined } | { ok: false; error: string } {
+  if (input === undefined) return { ok: true, pricing: undefined };
+  if (input === null) return { ok: true, pricing: null };
+  const parsed = ModelPricingSchema.safeParse(input);
+  return parsed.success
+    ? { ok: true, pricing: parsed.data }
+    : { ok: false, error: "a price needs input and output rates of 0 or more" };
+}
+
 /** The price an operator saved for a deployment model, if any. */
 export async function deploymentModelPricing(
   prisma: ModelClient,
@@ -140,7 +190,13 @@ export async function deploymentModelPricing(
     where: { provider_modelId: { provider, modelId } },
     select: { pricing: true },
   });
-  return storedPricing(row?.pricing) ?? undefined;
+  const listed = storedPricing(row?.pricing);
+  if (listed) return listed;
+  // The image model is kept off the text list, so its price is stored on its own.
+  if (provider === DEPLOYMENT_IMAGE_MODEL.provider && modelId === DEPLOYMENT_IMAGE_MODEL.modelId) {
+    return (await deploymentImageModelPricing(prisma)) ?? undefined;
+  }
+  return undefined;
 }
 
 export function parseDeploymentModelList(

@@ -9,9 +9,16 @@ type ModelCost = Model<Api>["cost"];
  * cost object, so every copy a run makes still finds its schedule.
  */
 const schedules = new WeakMap<ModelCost, ModelPricing>();
+/** Costs built from a price someone set, which outranks what a gateway reports. */
+const setPrices = new WeakSet<ModelCost>();
+
+/** Whether this cost came from a price set on the model list or a connection. */
+export function hasSetPrice(cost: ModelCost): boolean {
+  return setPrices.has(cost);
+}
 
 export function costOfRates(rates: ModelRates): ModelCost {
-  return {
+  const cost = {
     input: rates.inputPerMillion,
     output: rates.outputPerMillion,
     cacheRead: rates.cacheReadPerMillion ?? rates.inputPerMillion,
@@ -19,6 +26,8 @@ export function costOfRates(rates: ModelRates): ModelCost {
     // and most compatible servers report none.
     cacheWrite: 0,
   };
+  setPrices.add(cost);
+  return cost;
 }
 
 /** The off-peak (or all-day) cost of a price. `modelPricedAt` applies its peak rates per call. */

@@ -565,6 +565,8 @@ model DeploymentSettings {
   computerProvider                String?
   /// That provider's encrypted connection settings, owned by the deployment rather than a user.
   computerProviderCipher          String?
+  /// USD per million tokens for the model that reads images; null leaves its calls unpriced.
+  imageModelPricing               Json?
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt
 

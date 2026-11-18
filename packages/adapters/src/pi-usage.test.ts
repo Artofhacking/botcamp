@@ -2,9 +2,11 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { AgentRuntimeEvent, AgentUsage } from "@botcamp/adapter-kit";
 import type { Api, Context, Model } from "@earendil-works/pi-ai";
+import { calculateCost } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { Agent } from "undici";
 import { describe, expect, it, vi } from "vitest";
+import { costOfPricing } from "./model-call-pricing.js";
 import {
   createOpenAiCompatibleFetch,
   registerOpenAiCompatibleRuntime,
@@ -285,6 +287,44 @@ describe("Pi usage accounting", () => {
       expect(normalizePiUsage(undefined, model, fields)).toMatchObject({ costUsd, costSource });
     },
   );
+  it("costs a call at its set price even when the gateway reports a charge", async () => {
+    const fields = new Set() as Parameters<typeof normalizePiUsage>[2];
+    const wrapped = usageReportingFetch(
+      async () =>
+        new Response('data: {"usage":{"cost":0.125},"choices":[]}\n\n', {
+          headers: { "content-type": "text/event-stream" },
+        }),
+      fields!,
+    );
+    await (await wrapped("https://model.example.test/v1")).text();
+    const usage = {
+      input: 1_000_000,
+      output: 500_000,
+      cacheRead: 1_000_000,
+      cacheWrite: 0,
+      totalTokens: 2_500_000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    };
+    const base = builtinModels().getModel("openrouter", "openai/gpt-6-luna")!;
+    // A catalog model keeps the gateway's charge.
+    expect(normalizePiUsage(usage, base, fields)).toMatchObject({
+      costUsd: 0.125,
+      costSource: "provider-reported",
+    });
+    const priced = {
+      ...base,
+      cost: costOfPricing({
+        inputPerMillion: 0.3,
+        outputPerMillion: 1.2,
+        cacheReadPerMillion: 0.006,
+      }),
+    };
+    calculateCost(priced, usage);
+    const costed = normalizePiUsage(usage, priced, fields);
+    expect(costed.costSource).toBe("configured-price");
+    // 0.3 input + 0.006 cached + 0.6 output, not the gateway's 0.125.
+    expect(costed.costUsd).toBeCloseTo(0.906, 9);
+  });
   it("retains a provider cost receipt when a stream throws after reporting it", async () => {
     const afterCall = vi.fn();
     const events: AgentRuntimeEvent[] = [];
