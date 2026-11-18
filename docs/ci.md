@@ -66,7 +66,7 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 | `publish-playwright-report.yml` | After the `ci` workflow completes. Publishes the report. |
 | `nightly-verification.yml` | Nightly, and manual. Refreshes the web screenshot baseline. |
 | `desktop-unsigned.yml` | Manual. macOS arm64 (ad-hoc signed) and unsigned Windows. Inputs can override the desktop version, limit the platform, and upload the update feed. The `publish` input works only on `main`. Artifacts also stay on the workflow run. The download page is a separate edit. |
-| `desktop-macos-screenshot.yml` | Pull requests and `main` when desktop setup files change. |
+| `desktop-macos-screenshot.yml` | Pull requests and `main` when desktop setup or icon files change. Packages the Mac app and checks its icon. |
 | `build-win.yml` | Manual. Checks out this repo beside the upstream desktop tree named in the workflow. Current installers are `desktop-unsigned.yml`. |
 | `computer-replay.yml` | Pull requests that change the computer image or its supervisor, and manual runs. |
 | `topology-verification.yml` | Manual production-topology smoke. |

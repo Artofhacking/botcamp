@@ -582,6 +582,11 @@ export interface MessagingSurface {
    */
   acknowledge(threadId: string, handle: string, context: AdapterContext): Promise<void>;
   /**
+   * Clear the typing receipt for a thread once its reply is out. Absent when
+   * the platform expires the receipt on its own.
+   */
+  stopTyping?(threadId: string, context: AdapterContext): Promise<void>;
+  /**
    * Up to `limit` messages posted in a thread before the `before` handle,
    * oldest first, normalized like inbound events. Absent when no platform can.
    */

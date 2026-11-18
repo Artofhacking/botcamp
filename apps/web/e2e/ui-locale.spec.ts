@@ -7,7 +7,9 @@ test("language picker offers Simplified Chinese and English", async ({ page }, t
   const settings = await openUserSettings(page);
   const picker = settings.getByTestId("ui-locale-select");
   await picker.click();
-  await expect(page.getByRole("option")).toHaveText(["简体中文", "English"]);
+  // The timezone picker's native options share the "option" role, so look only in the open menu.
+  const languages = page.getByRole("listbox");
+  await expect(languages.getByRole("option")).toHaveText(["简体中文", "English"]);
   await page.getByRole("option", { name: "简体中文", exact: true }).click();
   await expect(settings.getByRole("heading", { name: "通用", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "账户", exact: true })).toBeVisible();
@@ -21,7 +23,7 @@ test("language picker offers Simplified Chinese and English", async ({ page }, t
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   await expect(page.getByTestId("ui-locale-select")).toHaveText("简体中文");
   await page.getByTestId("ui-locale-select").click();
-  await expect(page.getByRole("option")).toHaveText(["简体中文", "English"]);
+  await expect(languages.getByRole("option")).toHaveText(["简体中文", "English"]);
   await page.getByRole("option", { name: "English", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { name: "General", exact: true })).toBeVisible();

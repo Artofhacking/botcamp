@@ -269,7 +269,10 @@ describePostgres("steering after a run ends without completing (PostgreSQL)", ()
       }),
     );
 
-    expect(result).toEqual({ continuationRunId: expect.any(String) });
+    expect(result).toEqual({
+      continuationRunId: expect.any(String),
+      messageId: expect.any(String),
+    });
     const continuation = await system.run.findUniqueOrThrow({
       where: { id: (result as { continuationRunId: string }).continuationRunId },
     });

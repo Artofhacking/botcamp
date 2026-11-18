@@ -23,11 +23,18 @@ printf 'from-tag\n' >"$origin/.env.example"
 printf 'from-tag-config\n' >"$origin/apps/web/public/config.js"
 git -C "$origin" -c commit.gpgsign=false add .
 git -C "$origin" -c commit.gpgsign=false commit -q -m a
+git -C "$origin" branch -M main
 git -C "$origin" tag v1.2.3
 printf 'export const marker = "branch"\n' >"$origin/apps/api/src/index.ts"
 git -C "$origin" -c commit.gpgsign=false add .
 git -C "$origin" -c commit.gpgsign=false commit -q -m b
 git -C "$origin" tag -a v1.2.4 -m v1.2.4
+git -C "$origin" checkout -q -b side
+printf 'export const marker = "side"\n' >"$origin/apps/api/src/index.ts"
+git -C "$origin" -c commit.gpgsign=false add .
+git -C "$origin" -c commit.gpgsign=false commit -q -m side
+git -C "$origin" tag v1.2.5
+git -C "$origin" checkout -q main
 
 checkout="$scratch/checkout"
 mkdir -p "$checkout/apps/api/src" "$checkout/apps/web/public" "$checkout/data/homes" "$checkout/node_modules" "$checkout/apps/api/dist"
@@ -78,6 +85,11 @@ grep -q 'Build does not match' "$scratch/err" || fail "build edit was not report
 grep -q 'branch' "$checkout/apps/api/src/index.ts" || fail "annotated tag was not checked out"
 [[ "$(cat "$checkout/.env")" == "keep-env" ]] || fail ".env was replaced by the second tag"
 if "$script" require "$checkout" >"$scratch/out" 2>"$scratch/err"; then fail "the old seal was kept"; fi
+
+if "$script" deploy "$checkout" v1.2.5 >"$scratch/out" 2>"$scratch/err"; then fail "a tag off main was accepted"; fi
+grep -q 'A release tag must point at a commit on main' "$scratch/err" || fail "off-main tag refusal did not name the rule"
+grep -q 'branch' "$checkout/apps/api/src/index.ts" || fail "a tag off main changed the checkout"
+[[ "$(cat "$checkout/.env")" == "keep-env" ]] || fail "a tag off main replaced .env"
 
 sha="$(git -C "$origin" rev-parse HEAD)"
 if "$script" deploy "$checkout" "$sha" >"$scratch/out" 2>"$scratch/err"; then fail "a commit was accepted"; fi

@@ -1,10 +1,10 @@
 import type { SecretStore } from "@botcamp/adapter-kit";
 import type { PrismaClient } from "@botcamp/db";
 import { describe, expect, it, vi } from "vitest";
-import { PersonalChatBridge, PersonalChatError } from "./bridge.js";
+import { PersonalChatBridge, PersonalChatError, personalChatThreadId } from "./bridge.js";
 import type { FeishuClient, FeishuLogin, FeishuSession } from "./feishu.js";
 import { FeishuProtocolError } from "./feishu.js";
-import type { IlinkClient } from "./ilink.js";
+import type { IlinkClient, IlinkSession } from "./ilink.js";
 
 const actor = { userId: "user-1", spaceId: "space-1" };
 const session = {
@@ -341,5 +341,87 @@ describe("one bot, one Feishu", () => {
       "ou_user",
       "hello",
     );
+  });
+});
+
+describe("WeChat typing", () => {
+  const threadId = personalChatThreadId(session.accountId, session.userId);
+
+  function linked() {
+    const { prisma, secrets } = stores();
+    prisma.chatToolLink.findFirst.mockResolvedValue({
+      id: "link-1",
+      ciphertext: "secret",
+      provider: "weixin",
+      accountId: session.accountId,
+    });
+    secrets.load.mockResolvedValue(
+      JSON.stringify({ ...session, contextTokens: { [session.userId]: "ctx-1" } }),
+    );
+    const typingTicket = vi.fn(async () => "ticket-1");
+    const sendTyping = vi.fn(
+      async (
+        _session: IlinkSession,
+        _peerId: string,
+        _ticket: string,
+        _state: "typing" | "cancel",
+      ) => undefined,
+    );
+    const sendText = vi.fn(async () => "handle-1");
+    return { prisma, secrets, typingTicket, sendTyping, sendText };
+  }
+
+  it("asks for one ticket and keeps the bubble up", async () => {
+    const { prisma, secrets, typingTicket, sendTyping } = linked();
+    const subject = bridge(prisma, secrets, { typingTicket, sendTyping });
+
+    await subject.startTyping(threadId);
+    await subject.startTyping(threadId);
+
+    expect(typingTicket).toHaveBeenCalledTimes(1);
+    expect(typingTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ token: session.token }),
+      session.userId,
+      "ctx-1",
+    );
+    expect(
+      sendTyping.mock.calls.map(([, peerId, ticket, state]) => [peerId, ticket, state]),
+    ).toEqual([
+      [session.userId, "ticket-1", "typing"],
+      [session.userId, "ticket-1", "typing"],
+    ]);
+  });
+
+  it("clears the bubble when the reply goes out", async () => {
+    const { prisma, secrets, typingTicket, sendTyping, sendText } = linked();
+    const subject = bridge(prisma, secrets, { typingTicket, sendTyping, sendText });
+
+    await subject.startTyping(threadId);
+    await subject.send(threadId, "hello");
+
+    expect(sendText).toHaveBeenCalledWith(
+      expect.objectContaining({ token: session.token }),
+      session.userId,
+      "hello",
+      "ctx-1",
+    );
+    await vi.waitFor(() =>
+      expect(sendTyping).toHaveBeenLastCalledWith(
+        expect.objectContaining({ token: session.token }),
+        session.userId,
+        "ticket-1",
+        "cancel",
+      ),
+    );
+  });
+
+  it("shows no bubble before that person has written", async () => {
+    const { prisma, secrets, typingTicket, sendTyping } = linked();
+    secrets.load.mockResolvedValue(JSON.stringify(session));
+
+    await bridge(prisma, secrets, { typingTicket, sendTyping }).startTyping(threadId);
+
+    expect(typingTicket).not.toHaveBeenCalled();
+    expect(sendTyping).not.toHaveBeenCalled();
   });
 });

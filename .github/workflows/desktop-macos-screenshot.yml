@@ -4,7 +4,6 @@ on:
     branches: [main]
     paths: &desktop-setup-paths
       - ".github/workflows/desktop-macos-screenshot.yml"
-      - "apps/desktop/e2e/setup.spec.ts"
       - "apps/desktop/package.json"
       - "apps/desktop/assets/**"
       - "packages/ui-tokens/assets/**"
@@ -24,7 +23,7 @@ concurrency:
 
 jobs:
   screenshot:
-    name: macOS setup screenshot
+    name: macOS package
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -38,32 +37,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @botcamp/desktop build
-      - name: Verify packaged Tahoe icon and legacy fallback
+      - name: Verify the packaged Mac icon
         run: |
           pnpm --filter @botcamp/web build
           CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @botcamp/desktop exec electron-builder --mac --dir --publish never -c.mac.identity=null -c.mac.notarize=false
-          xcrun assetutil --info apps/desktop/out/mac-arm64/BotCamp.app/Contents/Resources/Assets.car > "$RUNNER_TEMP/icon-assets.json"
-          jq -e 'any(.[]; .Name == "Icon" and .AssetType == "IconImageStack") and any(.[]; .Name == "Icon_Assets/orange-bot" and .AssetType == "Image")' "$RUNNER_TEMP/icon-assets.json"
-          iconutil -c iconset apps/desktop/out/mac-arm64/BotCamp.app/Contents/Resources/icon.icns -o "$RUNNER_TEMP/fallback.iconset"
-          sips -s format png "$RUNNER_TEMP/fallback.iconset/icon_128x128@2x.png" --out "$RUNNER_TEMP/fallback-decoded.png"
-          test -s "$RUNNER_TEMP/fallback-decoded.png"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' apps/desktop/out/mac-arm64/BotCamp.app/Contents/Info.plist)" = Icon
+          app=apps/desktop/out/mac-arm64/BotCamp.app/Contents
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$app/Info.plist")" = icon.icns
+          iconutil -c iconset "$app/Resources/icon.icns" -o "$RUNNER_TEMP/icon.iconset"
+          sips -s format png "$RUNNER_TEMP/icon.iconset/icon_128x128@2x.png" --out "$RUNNER_TEMP/icon-decoded.png"
+          test -s "$RUNNER_TEMP/icon-decoded.png"
         env:
           RAKAZO_ALLOW_DEV_SECRETS: "1"
-      - name: Capture packaged macOS setup window and Dock
-        env:
-          RAKAZO_E2E_EXECUTABLE: out/mac-arm64/BotCamp.app/Contents/MacOS/BotCamp
-        run: >-
-          pnpm --filter @botcamp/desktop exec playwright test
-          --config e2e/playwright.config.ts setup.spec.ts
-          --grep "the server chooser offers BotCamp Cloud first, with local and existing instances"
-      - name: Upload native macOS setup screenshot
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: desktop-e2e-macos-screenshot
-          path: |
-            apps/desktop/e2e/screenshots/08-setup-macos-native-controls.png
-            apps/desktop/e2e/screenshots/09-macos-dock.png
-          if-no-files-found: error
-          retention-days: 1

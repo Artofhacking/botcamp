@@ -16,13 +16,27 @@ export function runAllowsSilentEmpty(trigger: string): boolean {
 }
 
 /**
+ * Whether text written before a tool call arrives in a chat that cannot edit
+ * what it already sent. Such a chat gets the final answer once, after the work
+ * is done; a half-written conclusion cannot be taken back.
+ */
+export function runHoldsMidTurnNarration(trigger: string): boolean {
+  return trigger === "messaging";
+}
+
+/**
  * Whether text written before a tool call may become a durable mid-turn chat bubble.
  * Routine and bot-to-bot runs hold it back, using the last segment as the final reply
  * only when the model supplies none and has not explicitly chosen silence.
  * Background runs never promote it.
  */
 export function runPromotesMidTurnNarration(trigger: string): boolean {
-  return trigger !== "routine" && trigger !== "bot_message" && !isBackgroundRunTrigger(trigger);
+  return (
+    trigger !== "routine" &&
+    trigger !== "bot_message" &&
+    !isBackgroundRunTrigger(trigger) &&
+    !runHoldsMidTurnNarration(trigger)
+  );
 }
 
 export const TICKET_SILENT_REPLY_GUIDANCE =

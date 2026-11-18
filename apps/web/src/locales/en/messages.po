@@ -436,6 +436,10 @@ msgstr "A sign-in tab opened at <0>{0}</0>. Enter this code there — this windo
 msgid "A subscription credential is stored securely."
 msgstr "A subscription credential is stored securely."
 
+#: src/pages/settings-nav.ts
+msgid "About"
+msgstr "About"
+
 #: src/pages/KnowledgeSection.tsx
 msgid "About {kb} KB of memory no longer reaches the bot."
 msgstr "About {kb} KB of memory no longer reaches the bot."
@@ -503,6 +507,7 @@ msgstr "Activity"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/SharedGroupPanel.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Add"
 msgstr "Add"
 
@@ -510,6 +515,10 @@ msgstr "Add"
 #: src/pages/GroupPanel.tsx
 msgid "Add {0} to the group"
 msgstr "Add {0} to the group"
+
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Add {name}"
+msgstr "Add {name}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add a command to run"
@@ -1158,6 +1167,10 @@ msgstr "Brain label"
 msgid "Browse MCP servers"
 msgstr "Browse MCP servers"
 
+#: src/pages/shell/recruit-presets.ts
+msgid "Builds, tests, and ships software."
+msgstr "Builds, tests, and ships software."
+
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Built-in"
@@ -1330,6 +1343,7 @@ msgstr "Check every"
 msgid "Check failed: {0}"
 msgstr "Check failed: {0}"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/DesktopUpdates.tsx
 msgid "Check for updates"
 msgstr "Check for updates"
@@ -1367,7 +1381,9 @@ msgstr "Checking computer setup…"
 msgid "Checking connection…"
 msgstr "Checking connection…"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/DesktopUpdates.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "Checking…"
@@ -1818,6 +1834,7 @@ msgstr "Continue with {0}"
 msgid "Conversations"
 msgstr "Conversations"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
@@ -1830,6 +1847,7 @@ msgstr "Conversations"
 msgid "Copied"
 msgstr "Copied"
 
+#: src/components/AboutBotCamp.tsx
 #: src/components/vault/VaultItemDetail.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -1966,6 +1984,7 @@ msgstr "Could not continue"
 
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/create-bot-dialog.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Could not create bot"
 msgstr "Could not create bot"
 
@@ -2405,6 +2424,10 @@ msgstr "Could not update the default memory scope"
 msgid "Could not verify computer setup ({failureMessage}). Fix the connection, then check again."
 msgstr "Could not verify computer setup ({failureMessage}). Fix the connection, then check again."
 
+#: src/components/AboutBotCamp.tsx
+msgid "Couldn't check for updates. Try again later."
+msgstr "Couldn't check for updates. Try again later."
+
 #: src/components/pages/SharePopover.tsx
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "Couldn't copy. Select the link and copy it."
@@ -2432,6 +2455,10 @@ msgstr "Couldn't load this page. Try again."
 #: src/pages/PaymentWalletSettingsPanel.tsx
 msgid "Couldn't load your wallet"
 msgstr "Couldn't load your wallet"
+
+#: src/components/DesktopUpdates.tsx
+msgid "Couldn't refresh. Try again later."
+msgstr "Couldn't refresh. Try again later."
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
@@ -2528,6 +2555,10 @@ msgstr "Cron"
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron expression"
 msgstr "Cron expression"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Current"
+msgstr "Current"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/AccountSettingsOverlay.tsx
@@ -2842,6 +2873,7 @@ msgstr "Done"
 msgid "Downgrade at renewal"
 msgstr "Downgrade at renewal"
 
+#: src/components/AboutBotCamp.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Download"
@@ -2863,6 +2895,10 @@ msgstr "Download CSV"
 #: src/components/pages/DownloadPdfButton.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
+
+#: src/components/DesktopUpdates.tsx
+msgid "Downloading…"
+msgstr "Downloading…"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Draft skill"
@@ -3274,6 +3310,10 @@ msgstr "Give a friend {weeks} weeks free"
 msgid "Go home"
 msgstr "Go home"
 
+#: src/pages/shell/recruit-presets.ts
+msgid "Gold-Medal Editor"
+msgstr "Gold-Medal Editor"
+
 #: src/pages/AdminAccessPage.tsx
 msgid "Grant"
 msgstr "Grant"
@@ -3581,6 +3621,10 @@ msgstr "Isolated"
 msgid "Isolated preview — no access to your account"
 msgstr "Isolated preview — no access to your account"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "It can create, configure, archive, and delete other bots."
+msgstr "It can create, configure, archive, and delete other bots."
+
 #: src/components/pages/PageViewHost.tsx
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "It may have been deleted, or it belongs to someone else."
@@ -3633,6 +3677,10 @@ msgstr "Label"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
 msgstr "Language"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Large container time"
+msgstr "Large container time"
 
 #. placeholder {0}: new Date(state.checkedAt).toLocaleString()
 #: src/pages/RoutineEditor.tsx
@@ -3789,9 +3837,17 @@ msgstr "Low"
 msgid "Low"
 msgstr "Low"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Main bot"
+msgstr "Main bot"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Main model"
 msgstr "Main model"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Make main bot"
+msgstr "Make main bot"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
@@ -4202,8 +4258,8 @@ msgid "New API key"
 msgstr "New API key"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New bot"
 msgstr "New bot"
 
@@ -4224,7 +4280,7 @@ msgid "New group"
 msgstr "New group"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New group chat"
 msgstr "New group chat"
 
@@ -4252,7 +4308,7 @@ msgstr "New section"
 
 #: src/pages/SharedGroupPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-menu.tsx
 msgid "New shared group"
 msgstr "New shared group"
 
@@ -4297,7 +4353,7 @@ msgid "No bots"
 msgstr "No bots"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "No bots match"
 msgstr "No bots match"
 
@@ -5064,6 +5120,11 @@ msgstr "Recreate a computer that is not working."
 msgid "Recreating the computer"
 msgstr "Recreating the computer"
 
+#: src/pages/shell/create-menu.tsx
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Recruit"
+msgstr "Recruit"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Recruiting & HR"
 msgstr "Recruiting & HR"
@@ -5074,6 +5135,7 @@ msgid "Redirect URI"
 msgstr "Redirect URI"
 
 #: src/App.tsx
+#: src/components/DesktopUpdates.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/components/ModelCredits.tsx
 msgid "Refresh"
@@ -5083,10 +5145,15 @@ msgstr "Refresh"
 msgid "Refresh credits"
 msgstr "Refresh credits"
 
+#: src/components/DesktopUpdates.tsx
+msgid "Refresh page"
+msgstr "Refresh page"
+
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
 msgstr "Refresh view"
 
+#: src/components/DesktopUpdates.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refreshing…"
 msgstr "Refreshing…"
@@ -5298,6 +5365,11 @@ msgstr "Reset password"
 #: src/pages/Auth.tsx
 msgid "Reset your password"
 msgstr "Reset your password"
+
+#. placeholder {0}: resetLabel(weekly.resetsAt, i18n.locale)
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Resets {0}"
+msgstr "Resets {0}"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Resetting…"
@@ -5560,7 +5632,6 @@ msgstr "Screen not connected"
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SharedGroupPanel.tsx
-#: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 #: src/pages/shell/command-palette.tsx
 #: src/pages/shell/shell-sidebar.tsx
@@ -5576,6 +5647,10 @@ msgstr "Search apps"
 #: src/pages/Artifacts.tsx
 msgid "Search artifacts…"
 msgstr "Search artifacts…"
+
+#: src/pages/shell/recruit-dialog.tsx
+msgid "Search bots"
+msgstr "Search bots"
 
 #: src/pages/shell/command-palette.tsx
 msgid "Search bots, actions, and settings"
@@ -5785,6 +5860,7 @@ msgstr "Show list"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/shell/recruit-dialog.tsx
 msgid "Show more"
 msgstr "Show more"
 
@@ -5912,6 +5988,10 @@ msgstr "Slack not enabled"
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr "Slide up to lock"
+
+#: src/pages/shell/recruit-presets.ts
+msgid "Software Engineer"
+msgstr "Software Engineer"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
@@ -6228,6 +6308,10 @@ msgstr "The code expired"
 msgid "The connection timed out."
 msgstr "The connection timed out."
 
+#: src/pages/shell/bot-panel.tsx
+msgid "The main bot manages your other bots. An account has one at a time."
+msgstr "The main bot manages your other bots. An account has one at a time."
+
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model hit its output limit before finishing its reply."
@@ -6407,6 +6491,10 @@ msgstr "This page couldn't be shown."
 msgid "This page couldn't load"
 msgstr "This page couldn't load"
 
+#: src/components/DesktopUpdates.tsx
+msgid "This page is the newest version"
+msgstr "This page is the newest version"
+
 #: src/components/pages/PageViewHost.tsx
 #: src/pages/SharedPage.tsx
 msgid "This page isn't available"
@@ -6493,10 +6581,6 @@ msgstr "To {0}"
 #: src/lib/ticket-status.ts
 msgid "To do"
 msgstr "To do"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "To:"
-msgstr "To:"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/chat-context.tsx
@@ -6585,6 +6669,10 @@ msgstr "Try the test again."
 msgid "Tuesday"
 msgstr "Tuesday"
 
+#: src/pages/shell/recruit-presets.ts
+msgid "Turns drafts into finished writing."
+msgstr "Turns drafts into finished writing."
+
 #: src/components/vault/VaultItemDetail.tsx
 #: src/components/vault/VaultItemEditor.tsx
 msgid "Type"
@@ -6633,6 +6721,11 @@ msgstr "Unread"
 #: src/pages/shell/use-composer-actions.ts
 msgid "Unsupported file type: {0}"
 msgstr "Unsupported file type: {0}"
+
+#: src/components/AboutBotCamp.tsx
+#: src/components/DesktopUpdates.tsx
+msgid "Up to date"
+msgstr "Up to date"
 
 #: src/components/ModelCredits.tsx
 msgid "Update"
@@ -6821,6 +6914,11 @@ msgstr "Verifying…"
 msgid "Version"
 msgstr "Version"
 
+#. placeholder {0}: release.version
+#: src/components/AboutBotCamp.tsx
+msgid "Version {0} is available"
+msgstr "Version {0} is available"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "View all"
 msgstr "View all"
@@ -6860,6 +6958,10 @@ msgstr "Wake"
 msgid "Wallet"
 msgstr "Wallet"
 
+#: src/components/AboutBotCamp.tsx
+msgid "Web"
+msgstr "Web"
+
 #: src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"
 msgstr "Web, desktop and mobile"
@@ -6889,6 +6991,10 @@ msgstr "Weekdays"
 #: src/lib/cron.ts
 msgid "Weekends"
 msgstr "Weekends"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Weekly quota"
+msgstr "Weekly quota"
 
 #: src/components/SignupSurvey.tsx
 msgid "Welcome to BotCamp"
@@ -7008,6 +7114,14 @@ msgstr "Yesterday"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "You"
 msgstr "You"
+
+#: src/pages/shell/recruit-presets.ts
+msgid "You are a software engineer. Read the code before you change it, make the smallest change that solves the request, and run the tests that cover it. When you finish, say what changed and what you could not verify."
+msgstr "You are a software engineer. Read the code before you change it, make the smallest change that solves the request, and run the tests that cover it. When you finish, say what changed and what you could not verify."
+
+#: src/pages/shell/recruit-presets.ts
+msgid "You are an award-winning editor. Cut what does not earn its place, keep the author's voice, and fix the structure before the wording. When you finish, list the edits that matter and why."
+msgstr "You are an award-winning editor. Cut what does not earn its place, keep the author's voice, and fix the structure before the wording. When you finish, list the edits that matter and why."
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this tab if it does not redirect automatically."

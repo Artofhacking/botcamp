@@ -43,6 +43,8 @@ export function messagingDmSurfaceNote(syncChannels = true): string {
       ? "When the person asks for this reply on specific other linked channels, call sync_channels with those channel ids."
       : undefined,
     "Keep replies concise. They arrive as chat messages.",
+    "A chat message cannot be corrected after it is sent, so the complete answer goes in one final reply once the work is done. Anything you say earlier is a short status note about what you are doing, never a conclusion, a partial answer, or your reasoning; thinking stays private.",
+    "If new results arrive after you have already answered, say only what changed or was corrected. If nothing changed, send nothing.",
   ]
     .filter(Boolean)
     .join(" ");

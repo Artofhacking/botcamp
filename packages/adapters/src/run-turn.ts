@@ -66,6 +66,7 @@ import {
   completionMessageSegments,
   emptyDelegatedToolTurnShouldFail,
   runAllowsSilentEmpty,
+  runHoldsMidTurnNarration,
   runPromotesMidTurnNarration,
   TOOL_STEPS_WITHOUT_RESPONSE,
 } from "./run-replies.js";
@@ -426,8 +427,9 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
   await ctx.computer.get("takeover");
   const safeReason = redactSecrets(event.reason, ctx.secrets);
   // Publish pending narration as tagged mid-turn progress so reconciliation
-  // does not treat pre-takeover text as the delegated final result.
-  await publishMidTurnNarration(ctx);
+  // does not treat pre-takeover text as the delegated final result. The run
+  // pauses here, so a chat channel needs it now rather than in a final reply.
+  await publishMidTurnNarration(ctx, false, true);
   if (reply.assembled.trim()) {
     const narration = clampUserProgressMessage(redactSecrets(reply.assembled, ctx.secrets));
     if (narration && canPublishDurableNarration(ctx)) {
@@ -781,7 +783,9 @@ export async function completeRun(ctx: RunContext) {
     reply.currentTextSegment = reply.assembled;
   }
   flushPendingTools(reply);
-  if (reply.supersedeAt !== undefined) {
+  // An append-only chat holds the earlier text until the run ends, so it was
+  // never on screen; cutting it off would answer with the update alone.
+  if (reply.supersedeAt !== undefined && !runHoldsMidTurnNarration(run.trigger)) {
     // Keep the answer that followed the last background result; the earlier text was
     // already on screen and repeating it in one bubble is the duplicate reply.
     const superseded = reply.assembled.slice(reply.supersedeAt).trim();
@@ -892,6 +896,7 @@ export async function completeRun(ctx: RunContext) {
       botId: bot.id,
       threadId: thread.id,
       runId: run.id,
+      ...(completed.messageId ? { messageId: completed.messageId } : {}),
     });
   }
   // Last, and never fatal: the run is already finalized, so a failure here must not reach

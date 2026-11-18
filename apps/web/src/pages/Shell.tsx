@@ -87,6 +87,7 @@ import { ComputerOverlay } from "./shell/computer-overlay";
 import { ComputerPanel } from "./shell/computer-panel";
 import type { CreateBotDialogInput } from "./shell/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/import-setup-card";
+import type { RecruitBotInput } from "./shell/recruit-dialog";
 import { ShellDialogs, useShellDialogs } from "./shell/shell-dialogs";
 import { AppOverlays, preloadSettingsOverlay, SettingsOverlays } from "./shell/shell-overlays";
 import { cycleBotId, useShellShortcuts } from "./shell/shell-shortcuts";
@@ -423,8 +424,9 @@ function SpaceShell() {
       openChat: (alert) => {
         setMobileSidebarOpen(false);
         // A mention alert names its group; only a run alert can name a bot alone.
-        if (alert.groupId) navigate(`/app/g/${alert.groupId}`);
-        else if (alert.botId) navigate(`/app/${alert.botId}`);
+        const at = alert.messageId ? `?m=${encodeURIComponent(alert.messageId)}` : "";
+        if (alert.groupId) navigate(`/app/g/${alert.groupId}${at}`);
+        else if (alert.botId) navigate(`/app/${alert.botId}${at}`);
       },
     },
   );
@@ -967,6 +969,13 @@ function SpaceShell() {
     await refreshBots().catch(() => undefined);
   }
 
+  async function recruitBot(input: RecruitBotInput) {
+    const bot = await rpc.bots.create({ ...input, notifyOnFinish: true });
+    openCreatedBot(bot);
+    dialogs.setRecruitOpen(false);
+    await refreshBots().catch(() => undefined);
+  }
+
   const contextBot =
     botMenu?.kind === "bot" ? bots.find((bot) => bot.id === botMenu.id) : undefined;
   const contextGroup =
@@ -1025,6 +1034,7 @@ function SpaceShell() {
         setPanel={setPanel}
         navigate={navigate}
         setCreateBotOpen={dialogs.setCreateBotOpen}
+        setRecruitOpen={dialogs.setRecruitOpen}
         roster={
           <SidebarRoster
             mini={miniSidebar}
@@ -1366,6 +1376,7 @@ function SpaceShell() {
           openSpaceSettings={openSpaceSettings}
           closeMobileSidebar={() => setMobileSidebarOpen(false)}
           createBot={createBot}
+          recruitBot={recruitBot}
           botAvatarSet={bootstrapMe?.botAvatarSet ?? DEFAULT_NEW_BOT_AVATAR_SET}
           clearOpenThread={() => {
             thread.resetHistory();

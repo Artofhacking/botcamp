@@ -21,7 +21,7 @@ function installWindowsAgent() {
 
 function checkButtons(root: ParentNode): HTMLButtonElement[] {
   return [...root.querySelectorAll("button")].filter((item) =>
-    item.textContent?.includes("检查更新"),
+    item.textContent?.includes("Check for updates"),
   );
 }
 
@@ -104,16 +104,16 @@ it("checks the installed desktop release and offers that platform's installer", 
     await view.show();
     expect(view.container.textContent).toContain("Windows · 0.7.1");
     expect(view.container.textContent).not.toContain("20261105134607");
-    expect(view.container.textContent).not.toContain("网页端");
+    expect(view.container.textContent).not.toContain("Web");
     const button = [...view.container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("检查更新"),
+      item.textContent?.includes("Check for updates"),
     );
     expect(button).toBeTruthy();
     await act(async () => {
       button?.click();
     });
-    expect(view.container.textContent).toContain("有新版本 0.7.2");
-    expect(view.container.textContent).not.toContain("已是最新版本");
+    expect(view.container.textContent).toContain("Version 0.7.2 is available");
+    expect(view.container.textContent).not.toContain("Up to date");
     expect(checkButtons(view.container)).toHaveLength(0);
     expect(view.container.querySelector("a")?.getAttribute("href")).toBe(
       "https://downloads.test/BotCamp-Setup-0.7.2.exe",
@@ -134,7 +134,7 @@ it("names the web console without a version or an update button", async () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(view.container.textContent).toContain("网页端");
+    expect(view.container.textContent).toContain("Web");
     expect(view.container.textContent).not.toContain("20261105134607");
     expect(view.container.textContent).not.toContain("Windows");
     expect(view.container.querySelector("button")).toBeNull();
@@ -186,8 +186,8 @@ it("shows one check for an installed app that has no auto-update feed", async ()
     expect(view.container.textContent).not.toContain("Desktop app");
     const buttons = checkButtons(view.container);
     expect(buttons).toHaveLength(1);
-    expect(buttons[0]?.textContent).toContain("检查更新");
-    expect(view.container.textContent).not.toContain("网页端");
+    expect(buttons[0]?.textContent).toContain("Check for updates");
+    expect(view.container.textContent).not.toContain("Web");
   } finally {
     await view.cleanup();
   }
@@ -215,7 +215,7 @@ it("offers a newer Windows installer without moving the Mac release", async () =
     await act(async () => {
       checkButtons(windows.container)[0]?.click();
     });
-    expect(windows.container.textContent).toContain("有新版本 0.7.3");
+    expect(windows.container.textContent).toContain("Version 0.7.3 is available");
     expect(windows.container.querySelector("a")?.getAttribute("href")).toBe(
       "https://downloads.test/BotCamp-Setup-0.7.3.exe",
     );
@@ -223,7 +223,7 @@ it("offers a newer Windows installer without moving the Mac release", async () =
     await act(async () => {
       checkButtons(mac.container)[0]?.click();
     });
-    expect(mac.container.textContent).toContain("已是最新版本");
+    expect(mac.container.textContent).toContain("Up to date");
     expect(mac.container.querySelector("a")).toBeNull();
   } finally {
     await windows.cleanup();
@@ -253,7 +253,7 @@ it("downloads a newer build inside an app that has an update feed", async () => 
     expect(view.container.textContent).toContain("Windows · 0.7.3");
     expect(view.container.querySelector("a")).toBeNull();
     const button = [...view.container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("重启并更新"),
+      item.textContent?.includes("Restart to update"),
     );
     expect(button).toBeTruthy();
     await act(async () => {
@@ -288,7 +288,7 @@ it("downloads a newer Mac build inside the app", async () => {
     await view.show();
     expect(view.container.textContent).toContain("macOS · 0.7.7");
     expect(view.container.querySelector("a")).toBeNull();
-    expect(view.container.textContent).toContain("重启并更新");
+    expect(view.container.textContent).toContain("Restart to update");
     expect(view.container.textContent).not.toContain("打开安装包");
   } finally {
     await view.cleanup();
@@ -312,7 +312,7 @@ it("does not send a Windows app to another platform's installer", async () => {
     await act(async () => {
       checkButtons(view.container)[0]?.click();
     });
-    expect(view.container.textContent).toContain("检查更新失败，请稍后再试");
+    expect(view.container.textContent).toContain("Couldn't check for updates. Try again later.");
     expect(view.container.querySelector("a")).toBeNull();
     expect(view.container.textContent).not.toContain("有新版本");
   } finally {
@@ -345,7 +345,7 @@ it("checks the Android release against the Android installer", async () => {
     await act(async () => {
       button?.click();
     });
-    expect(view.container.textContent).toContain("有新版本 2.1.2");
+    expect(view.container.textContent).toContain("Version 2.1.2 is available");
     expect(view.container.querySelector("a")?.getAttribute("href")).toBe(
       "https://downloads.test/BotCamp-2.1.2.apk",
     );
@@ -367,7 +367,7 @@ it("hands the build over for a bug report instead of asking the user to retype i
   try {
     await view.show();
     const copy = [...view.container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("复制"),
+      item.textContent?.includes("Copy"),
     );
     expect(copy).toBeTruthy();
     await act(async () => {
@@ -442,7 +442,7 @@ it("refreshes the page onto the build the web server serves now", async () => {
       await Promise.resolve();
     });
     const refresh = [...view.container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("刷新页面"),
+      item.textContent?.includes("Refresh"),
     );
     expect(refresh).toBeTruthy();
     await act(async () => {
@@ -450,7 +450,7 @@ it("refreshes the page onto the build the web server serves now", async () => {
       await Promise.resolve();
     });
     expect(reload).toHaveBeenCalledTimes(1);
-    expect(view.container.textContent).not.toContain("网页已是最新版本");
+    expect(view.container.textContent).not.toContain("This page is the newest version");
   } finally {
     await view.cleanup();
   }
@@ -489,14 +489,14 @@ it("says the page is already current instead of reloading onto the build it runs
       await Promise.resolve();
     });
     const refresh = [...view.container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("刷新页面"),
+      item.textContent?.includes("Refresh"),
     );
     await act(async () => {
       refresh?.click();
       await Promise.resolve();
     });
     expect(reload).not.toHaveBeenCalled();
-    expect(view.container.textContent).toContain("网页已是最新版本");
+    expect(view.container.textContent).toContain("This page is the newest version");
   } finally {
     await view.cleanup();
   }
