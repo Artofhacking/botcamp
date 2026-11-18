@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # The API host may run only a vX.Y.Z tag fetched from GitHub.
-# A branch, a commit, and a file copied onto the checkout are refused.
+# That tag must point at a commit already on main. Production runs that one commit.
+# It does not follow the moving tip of main, and it does not run a commit main does not contain.
+# A branch, a commit, a file copied onto the checkout, and a tag off main are refused
+# before the checkout changes.
 # .env, node_modules, data, and apps/web/public/config.js stay on the host.
 set -euo pipefail
 
@@ -174,6 +177,12 @@ case "$cmd" in
     git -C "$work/repo" fetch --depth 1 --quiet "$remote" "refs/tags/${tag}:refs/tags/${tag}" \
       || die "Could not fetch tag ${tag}."
     commit="$(git -C "$work/repo" rev-parse "${tag}^{commit}")"
+    # The tag fetch is shallow. Main is fetched in full so a commit on main is an ancestor
+    # and a side commit is refused before the checkout changes.
+    git -C "$work/repo" fetch --quiet "$remote" "refs/heads/main:refs/heads/main" \
+      || die "Could not fetch main."
+    git -C "$work/repo" merge-base --is-ancestor "$commit" main \
+      || die "Refusing ${tag}. A release tag must point at a commit on main."
     mkdir -p "$work/tree"
     git -C "$work/repo" archive "$commit" | tar -x -C "$work/tree"
     unlock_files "$checkout"
