@@ -241,7 +241,7 @@ it("treats cross-space communication as on unless turned off", async () => {
   expect(onSave).toHaveBeenCalledWith({ crossSpaceCommunication: false });
 });
 
-it("opens the Feishu code straight away on a bot that is not primary", async () => {
+it("lists Feishu first on a bot that is not primary, then opens its code", async () => {
   const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
   start.mockClear();
   start.mockResolvedValue({
@@ -257,11 +257,17 @@ it("opens the Feishu code straight away on a bot that is not primary", async () 
   );
   await act(async () => link?.click());
   await flush();
-  await flush();
-  expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "feishu" });
+  expect(start).not.toHaveBeenCalled();
   const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
   expect(names).not.toContain("WeChat");
-  expect(container.querySelector('button[aria-label="Back"]')).toBeNull();
+  const feishu = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Feishu",
+  );
+  await act(async () => feishu?.click());
+  await flush();
+  await flush();
+  expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "feishu" });
+  expect(container.querySelector('button[aria-label="Back"]')).not.toBeNull();
   expect(container.querySelector('img[alt="Chat app code"]')).not.toBeNull();
 });
 
@@ -310,7 +316,7 @@ it("links a chat app from the primary bot", async () => {
   expect(code?.getAttribute("src")).not.toBe("https://liteapp.weixin.qq.com/q/abc");
 });
 
-it("lists a linked WeChat channel and opens the Feishu code next", async () => {
+it("lists a linked WeChat channel and offers Feishu next", async () => {
   const list = rpc.messaging.chatTools.list as ReturnType<typeof vi.fn>;
   list.mockResolvedValueOnce([{ provider: "weixin", address: "wx-user", botId: "bot-1" }]);
   await renderSettings(
@@ -333,8 +339,9 @@ it("lists a linked WeChat channel and opens the Feishu code next", async () => {
   start.mockClear();
   await act(async () => link?.click());
   await flush();
-  expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "feishu" });
+  expect(start).not.toHaveBeenCalled();
   const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
+  expect(names).toContain("Feishu");
   expect(names).not.toContain("WeChat");
   await act(async () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
