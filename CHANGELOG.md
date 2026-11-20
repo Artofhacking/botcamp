@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Every bot can link its own Feishu bot from its settings. Choosing **Link** shows a Feishu code; scanning it creates a Feishu app named after the bot and saves its credentials, so nothing is typed in. Each bot's Feishu chat stays separate. WeChat stays on the primary bot. See [Self-host integrations](./docs/self-host-integrations.md).
 - An operator can let one account use its own models. Tick **自带模型** next to the user on the operator page. That account can then connect a provider in **Settings → Models** and switch a single bot to it under the bot's **Advanced → Model**. Bots left on **Default** keep the deployment's models. Usage on the account's own connection is recorded but does not count against the weekly allowance. See [Models](./docs/self-host-models.md).
 
 ### Self-host upgrade notes
