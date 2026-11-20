@@ -84,7 +84,7 @@ function returnTargets(callbackURLs: readonly string[]): URL[] {
   return callbackURLs.map((url) => new URL(ssoBrowserURL(url), window.location.href));
 }
 
-/** Desktop SSO finishes in the system browser and comes back on rakazo://. */
+/** Desktop SSO finishes in the system browser and comes back on botcamp://. */
 async function runSystemBrowserSso(
   begin: (disableRedirect: boolean, callbackURL: (url: string) => string) => Promise<SsoResult>,
   callbackURLs: readonly string[],

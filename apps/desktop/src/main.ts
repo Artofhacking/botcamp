@@ -1370,7 +1370,7 @@ function flushDesktopLinks(win: BrowserWindow): void {
 }
 
 function registerDesktopProtocol(): void {
-  // End-to-end launches must not take the machine's rakazo:// handler.
+  // End-to-end launches must not take the machine's botcamp:// handler.
   if (process.env.RAKAZO_PERFORMANCE_USER_DATA || process.env.RAKAZO_E2E_EXECUTABLE) return;
   const registration = desktopProtocolRegistration(app.isPackaged, process.execPath, process.argv);
   if (!registration) return;

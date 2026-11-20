@@ -27,7 +27,7 @@ describe("desktop child windows", () => {
   it("ignores blank, malformed, and non-web targets", () => {
     expect(systemBrowserUrl("about:blank")).toBeNull();
     expect(systemBrowserUrl("not a url")).toBeNull();
-    expect(systemBrowserUrl("rakazo://sso")).toBeNull();
+    expect(systemBrowserUrl("botcamp://sso")).toBeNull();
   });
 });
 

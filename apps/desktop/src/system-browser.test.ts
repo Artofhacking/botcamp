@@ -74,7 +74,7 @@ describe("signed-in Chrome", () => {
     expect(
       preferredChromeOpenArgs(context({ platform: "win32" }), "https://botcamp.example/"),
     ).toBeNull();
-    expect(preferredChromeOpenArgs(context(), "rakazo://sso")).toBeNull();
+    expect(preferredChromeOpenArgs(context(), "botcamp://sso")).toBeNull();
   });
 
   it("uses the pinned launch and falls back when that launch fails", async () => {
