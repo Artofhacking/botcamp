@@ -256,6 +256,7 @@ export function isThreadSnapshotEvent(event: ProductEvent): boolean {
     event.type === "agent.tool.completed" ||
     event.type === "thread.message.created" ||
     event.type === "thread.message.updated" ||
+    event.type === "thread.message.deleted" ||
     event.type === "thread.message.reaction" ||
     event.type === "run.started" ||
     event.type === "run.waiting_input" ||
@@ -535,6 +536,16 @@ export function reduceThreadSnapshot(
     return { ...prev, cursor: event.seq, messages: [...without, next, ...kept] };
   }
 
+  if (event.type === "thread.message.deleted") {
+    const ids = new Set(
+      Array.isArray(event.payload.messageIds) ? event.payload.messageIds.map(String) : [],
+    );
+    return {
+      ...prev,
+      cursor: event.seq,
+      messages: prev.messages.filter((message) => !ids.has(message.id)),
+    };
+  }
   if (event.type === "thread.cloud_agent") {
     return {
       ...prev,

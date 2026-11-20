@@ -1011,7 +1011,20 @@ export interface MessagingOutboundStatus {
   status: string;
 }
 
-export type MessagingInboundEvent = MessagingInboundMessage | MessagingOutboundStatus;
+/** The sender took back one of their messages (Feishu "recall", ...). */
+export interface MessagingInboundRecall {
+  type: "recall";
+  provider: string;
+  /** Provider id of the message that was taken back, as its inbound event carried it. */
+  handle: string;
+  threadId: string;
+  from: string;
+}
+
+export type MessagingInboundEvent =
+  | MessagingInboundMessage
+  | MessagingOutboundStatus
+  | MessagingInboundRecall;
 
 export interface WebSearchCapabilities {
   search: boolean;

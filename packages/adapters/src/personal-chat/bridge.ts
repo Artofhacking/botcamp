@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
-import type { AdapterContext, MessagingInboundMessage, SecretStore } from "@botcamp/adapter-kit";
+import type {
+  AdapterContext,
+  MessagingInboundMessage,
+  MessagingInboundRecall,
+  SecretStore,
+} from "@botcamp/adapter-kit";
 import { linkableChatApps } from "@botcamp/core";
 import type { PrismaClient } from "@botcamp/db";
 import { runAsSystem } from "@botcamp/db";
@@ -70,7 +75,9 @@ export class PersonalChatBridge {
   private readonly owner = randomBytes(8).toString("hex");
   private readonly client: IlinkClient;
   private readonly feishu: FeishuClient;
-  private sink: ((event: MessagingInboundMessage) => Promise<void>) | undefined;
+  private sink:
+    | ((event: MessagingInboundMessage | MessagingInboundRecall) => Promise<void>)
+    | undefined;
   private abort: AbortController | undefined;
   private readonly loops = new Map<string, AbortController>();
   private readonly typingTickets = new Map<string, { ticket: string; expiresAt: number }>();
@@ -85,7 +92,7 @@ export class PersonalChatBridge {
     this.feishu = feishu ?? createFeishuClient();
   }
 
-  onInbound(sink: (event: MessagingInboundMessage) => Promise<void>) {
+  onInbound(sink: (event: MessagingInboundMessage | MessagingInboundRecall) => Promise<void>) {
     this.sink = sink;
   }
 
@@ -219,6 +226,18 @@ export class PersonalChatBridge {
     }
     this.loops.get(link.id)?.abort();
     this.loops.delete(link.id);
+  }
+
+  /** Takes back a reply this bridge sent. Only Feishu can. */
+  async deleteMessage(threadId: string, handle: string): Promise<void> {
+    const parsed = parsePersonalChatThreadId(threadId);
+    if (parsed?.provider !== FEISHU_CHAT_PROVIDER) return;
+    const link = await this.prisma.chatToolLink.findFirst({
+      where: { provider: parsed.provider, accountId: parsed.accountId },
+    });
+    if (!link) return;
+    const session = readFeishuSession(await this.secrets.load(link.ciphertext, link.id));
+    await this.feishu.recall(session, handle);
   }
 
   async send(threadId: string, body: string): Promise<{ handle: string }> {
@@ -670,8 +689,11 @@ export class PersonalChatBridge {
         });
     }, 30_000);
     try {
-      await this.feishu.listen(session, listenAbort.signal, (message) =>
-        this.acceptFeishu(claimed, session, message),
+      await this.feishu.listen(
+        session,
+        listenAbort.signal,
+        (message) => this.acceptFeishu(claimed, session, message),
+        (messageId) => this.acceptFeishuRecall(claimed, session, messageId),
       );
     } finally {
       live = false;
@@ -716,6 +738,26 @@ export class PersonalChatBridge {
       });
     } catch (error) {
       getLogger().error("chat app receive failed", error);
+    }
+  }
+
+  /** The event names no sender, so it can only be the person bound to this app. */
+  private async acceptFeishuRecall(
+    link: { accountId: string },
+    session: FeishuSession,
+    messageId: string,
+  ) {
+    if (!session.userOpenId) return;
+    try {
+      await this.sink?.({
+        type: "recall",
+        provider: FEISHU_CHAT_PROVIDER,
+        handle: messageId,
+        threadId: personalChatThreadId(link.accountId, session.userOpenId, FEISHU_CHAT_PROVIDER),
+        from: session.userOpenId,
+      });
+    } catch (error) {
+      getLogger().error("chat app recall failed", error);
     }
   }
 

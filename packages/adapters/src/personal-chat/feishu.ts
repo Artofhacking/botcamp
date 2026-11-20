@@ -12,7 +12,7 @@ const ADDONS = {
   scopes: {
     tenant: ["im:message", "im:message:send_as_bot", "im:message.p2p_msg:readonly"],
   },
-  events: { items: { tenant: ["im.message.receive_v1"] } },
+  events: { items: { tenant: ["im.message.receive_v1", "im.message.recalled_v1"] } },
 };
 
 export class FeishuProtocolError extends Error {
@@ -56,11 +56,23 @@ export interface FeishuClient {
   begin(appName?: string): Promise<{ login: FeishuLogin; image: string; expiresInMs: number }>;
   poll(login: FeishuLogin): Promise<FeishuPoll>;
   sendText(session: FeishuSession, peerId: string, text: string): Promise<string>;
+  /** Takes back a message this app sent. */
+  recall(session: FeishuSession, messageId: string): Promise<void>;
   listen(
     session: FeishuSession,
     signal: AbortSignal,
     onMessage: (message: FeishuInbound) => Promise<void>,
+    onRecall?: (messageId: string) => Promise<void>,
   ): Promise<void>;
+}
+
+/** A message its sender took back. Admins removing it are not the person changing their mind. */
+export function readFeishuRecall(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const event = data as { message_id?: unknown; recall_type?: unknown };
+  if (typeof event.message_id !== "string" || !event.message_id) return null;
+  if (event.recall_type !== undefined && event.recall_type !== "message_owner") return null;
+  return event.message_id;
 }
 
 /** Direct text only. Rooms, the bot's own copies, and other people's chats are ignored. */
@@ -101,7 +113,8 @@ export function createFeishuClient(fetchImpl: typeof fetch = fetch): FeishuClien
     begin: (appName) => begin(fetchImpl, appName),
     poll: (login) => poll(fetchImpl, login, tokens),
     sendText: (session, peerId, text) => sendText(fetchImpl, tokens, session, peerId, text),
-    listen: (session, signal, onMessage) => listen(session, signal, onMessage),
+    recall: (session, messageId) => recall(fetchImpl, tokens, session, messageId),
+    listen: (session, signal, onMessage, onRecall) => listen(session, signal, onMessage, onRecall),
   };
 }
 
@@ -219,10 +232,38 @@ async function sendText(
   return messageId;
 }
 
+async function recall(
+  fetchImpl: typeof fetch,
+  tokens: Map<string, { token: string; until: number }>,
+  session: FeishuSession,
+  messageId: string,
+): Promise<void> {
+  const token = await tenantToken(
+    fetchImpl,
+    tokens,
+    session.openBase,
+    session.appId,
+    session.appSecret,
+  );
+  const response = await fetchImpl(
+    `${session.openBase}/open-apis/im/v1/messages/${encodeURIComponent(messageId)}`,
+    {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  const payload = await readJson(response);
+  if (fieldNumber(payload, "code") !== 0) {
+    throw new FeishuProtocolError("Feishu did not take the message back");
+  }
+}
+
 async function listen(
   session: FeishuSession,
   signal: AbortSignal,
   onMessage: (message: FeishuInbound) => Promise<void>,
+  onRecall?: (messageId: string) => Promise<void>,
 ): Promise<void> {
   if (signal.aborted) return;
   if (!/^cli_[0-9a-f]{16}$/i.test(session.appId)) {
@@ -246,6 +287,11 @@ async function listen(
       const message = readFeishuDirectMessage(data, session.userOpenId, session.botOpenId);
       if (!message) return;
       void onMessage(message).catch(() => undefined);
+    },
+    "im.message.recalled_v1": (data) => {
+      const messageId = readFeishuRecall(data);
+      if (!messageId || !onRecall) return;
+      void onRecall(messageId).catch(() => undefined);
     },
   });
   await new Promise<void>((resolve, reject) => {

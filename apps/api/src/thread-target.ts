@@ -1669,6 +1669,8 @@ export function cancelThreadRuns(
     | { kind: "bot"; botId: string; threadId: string }
     | { kind: "group"; memberBotIds: string[]; threadId: string; spaceId?: string },
   note?: { botId: string },
+  /** Cancel only these runs, and keep the thread's pending steering. */
+  onlyRunIds?: readonly string[],
 ) {
   const eventSpaceId = target.kind === "group" && target.spaceId ? target.spaceId : actor.spaceId;
   return async (tx: Prisma.TransactionClient) => {
@@ -1677,18 +1679,21 @@ export function cancelThreadRuns(
       where: {
         threadId: target.threadId,
         status: { in: [...ACTIVE_RUN_STATUSES] },
+        ...(onlyRunIds ? { id: { in: [...onlyRunIds] } } : {}),
       },
       data: { status: "cancelled", completedAt: new Date() },
       select: { id: true, botId: true, userId: true, spaceId: true },
     });
     const ids = cancelled.map((run) => run.id);
     await clearEndedRunState(tx, ids);
-    await tx.steeringMessage.deleteMany({
-      where: {
-        botId: { in: target.kind === "bot" ? [target.botId] : target.memberBotIds },
-        message: { threadId: target.threadId },
-      },
-    });
+    if (!onlyRunIds) {
+      await tx.steeringMessage.deleteMany({
+        where: {
+          botId: { in: target.kind === "bot" ? [target.botId] : target.memberBotIds },
+          message: { threadId: target.threadId },
+        },
+      });
+    }
     // Snapshot teardown coordinates before commit. Once cancellation becomes
     // visible, a worker can release its lease / execution columns immediately; a
     // later lookup would then miss the sandbox work this request must stop.

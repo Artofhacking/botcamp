@@ -9,6 +9,7 @@ import {
 
 const sdk = vi.hoisted(() => ({
   deliver: undefined as ((data: unknown) => void) | undefined,
+  recalled: undefined as ((data: unknown) => void) | undefined,
 }));
 
 vi.mock("@larksuiteoapi/node-sdk", () => ({
@@ -16,6 +17,7 @@ vi.mock("@larksuiteoapi/node-sdk", () => ({
   EventDispatcher: class {
     register(handles: Record<string, (data: unknown) => void>) {
       sdk.deliver = handles["im.message.receive_v1"];
+      sdk.recalled = handles["im.message.recalled_v1"];
       return this;
     }
   },
@@ -99,7 +101,7 @@ describe("feishu confirm page", () => {
       scopes: {
         tenant: ["im:message", "im:message:send_as_bot", "im:message.p2p_msg:readonly"],
       },
-      events: { items: { tenant: ["im.message.receive_v1"] } },
+      events: { items: { tenant: ["im.message.receive_v1", "im.message.recalled_v1"] } },
     });
     expect(started.login).toMatchObject({
       deviceCode: "device-1",
@@ -334,6 +336,38 @@ describe("feishu messages", () => {
       return new Promise(() => undefined);
     });
     expect(seen).toEqual(["om_1"]);
+  });
+
+  it("passes on what the person took back, not what an admin removed", async () => {
+    const client = createFeishuClient(vi.fn() as typeof fetch);
+    const controller = new AbortController();
+    const recalled: string[] = [];
+    await client.listen(
+      session,
+      controller.signal,
+      async () => {
+        sdk.recalled?.({ message_id: "om_admin", recall_type: "enterprise_manager" });
+        sdk.recalled?.({ message_id: "om_1", recall_type: "message_owner" });
+        controller.abort();
+      },
+      async (messageId) => {
+        recalled.push(messageId);
+      },
+    );
+    expect(recalled).toEqual(["om_1"]);
+  });
+
+  it("takes back a sent reply", async () => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/tenant_access_token/internal")) {
+        return jsonResponse({ code: 0, tenant_access_token: "t-1", expire: 7200 });
+      }
+      expect(url).toBe("https://open.feishu.cn/open-apis/im/v1/messages/om_sent");
+      expect(init?.method).toBe("DELETE");
+      return jsonResponse({ code: 0 });
+    });
+    await createFeishuClient(fetchImpl as typeof fetch).recall(session, "om_sent");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("refuses an app id the long connection cannot use", async () => {
