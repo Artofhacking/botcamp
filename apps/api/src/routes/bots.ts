@@ -33,6 +33,7 @@ import {
   ComputerLimitError,
   commitBotUpdate,
   createSharedGroupRepos,
+  customModelsAllowed,
   InstructionConflictError,
   IsolationError,
   recordSecurityEvent,
@@ -56,6 +57,7 @@ import type { RouterContext } from "./context.js";
 import {
   computerContext,
   isRecordNotFound,
+  managedModelsOnly,
   modelSetup,
   THREAD_MESSAGE_PAGE_SIZE,
 } from "./shared.js";
@@ -399,6 +401,15 @@ export function botsRoutes(ctx: RouterContext) {
             select: { id: true },
           });
           if (!section) throw new IsolationError();
+        }
+        // On a managed deployment only an account an admin granted may give a bot its own model.
+        if (
+          managedModelsOnly() &&
+          input.modelProvider &&
+          (input.modelProvider !== existing.modelProvider || input.modelId !== existing.modelId) &&
+          !(await customModelsAllowed(deps.prisma, context.actor.userId))
+        ) {
+          throw new ORPCError("FORBIDDEN");
         }
         const modelChange = await validateBotModelChange(botModelValidation(context.actor), {
           userId: context.actor.userId,

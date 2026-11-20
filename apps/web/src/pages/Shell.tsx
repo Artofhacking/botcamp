@@ -874,6 +874,7 @@ function SpaceShell() {
     computer: computersAreUnavailable(bootstrapMe?.sandboxProvider),
     billing: bootstrapMe?.billingEnabled === true,
     updates: Boolean(desktopBridge()?.update),
+    customModels: bootstrapMe?.customModels === true,
   });
   const paletteActions: CommandPaletteAction[] = [
     {

@@ -2622,6 +2622,7 @@ msgstr "Decline"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Default"
 msgstr "Default"
 
@@ -4087,6 +4088,7 @@ msgstr "Mode"
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Model"
 msgstr "Model"
 

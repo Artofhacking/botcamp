@@ -304,3 +304,24 @@ it("offers Wallet only when the deployment has a wallet provider", async () => {
     await cleanup();
   }
 });
+
+it("shows Models where the deployment hides it only to an account granted its own models", async () => {
+  window.__BOTCAMP_UI__ = { hiddenSections: ["models"] };
+  try {
+    const hidden = await render({ space: acme, section: "models" });
+    try {
+      expect(hidden.container.querySelector('[data-testid="settings-nav-models"]')).toBeNull();
+    } finally {
+      await hidden.cleanup();
+    }
+    const granted = await render({ space: acme, section: "models", customModels: true });
+    try {
+      expect(granted.container.querySelector('[data-testid="settings-nav-models"]')).not.toBeNull();
+      expect(granted.container.querySelector("h2")?.textContent).toBe("Models");
+    } finally {
+      await granted.cleanup();
+    }
+  } finally {
+    window.__BOTCAMP_UI__ = undefined;
+  }
+});

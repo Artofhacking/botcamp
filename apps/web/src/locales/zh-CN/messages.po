@@ -2622,6 +2622,7 @@ msgstr "拒绝"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Default"
 msgstr "默认"
 
@@ -4087,6 +4088,7 @@ msgstr "模式"
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Model"
 msgstr "模型"
 

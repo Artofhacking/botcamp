@@ -202,6 +202,7 @@ export async function consumeRunEvents(
           runId,
           parentRunId: runId,
           operationId: runId,
+          quotaExempt: ctx.quotaExempt,
         });
       } else if (event.type === "done") {
         recordExplicitNoResponse(reply, event.text ?? "");

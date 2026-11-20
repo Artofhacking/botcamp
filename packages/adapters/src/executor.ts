@@ -43,6 +43,7 @@ import {
 import type { ThreadEvents } from "@botcamp/db";
 import {
   availableInSpace,
+  customModelsAllowed,
   effectiveMemoryScope,
   isPartialReplyClientNonce,
   isTooManyDatabaseConnections,
@@ -932,7 +933,13 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         let managedChain = false;
         let chainFallbacks: ModelRoleChoice[] | undefined;
         let managedModels: Awaited<ReturnType<typeof runnableDeploymentModels>> = null;
-        if (!scripted) {
+        // A bot its owner switched to their own connection skips the deployment list,
+        // once an admin has allowed that account to.
+        const ownModel =
+          !scripted &&
+          Boolean(overrideCredential) &&
+          (await customModelsAllowed(deps.prisma, run.userId));
+        if (!scripted && !ownModel) {
           try {
             managedModels = await runnableDeploymentModels(deps, run);
           } catch (error) {
@@ -1616,6 +1623,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
 
         const ctx: RunContext = {
           deps,
+          quotaExempt: ownModel,
           providers: { web, mediaGeneration, browser, cloudAgent },
           run,
           runId,
@@ -1918,6 +1926,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                   runId,
                   parentRunId: runId,
                   operationId: runId,
+                  quotaExempt: ownModel,
                 });
               },
               prompt,

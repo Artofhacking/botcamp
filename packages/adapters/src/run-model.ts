@@ -12,7 +12,7 @@ import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@botcamp/contracts";
 import { MISSING_MODEL_RUN_ERROR } from "@botcamp/core";
-import { assertWithinWeeklyQuota } from "@botcamp/db";
+import { assertWithinWeeklyQuota, customModelsAllowed } from "@botcamp/db";
 import { cloudflareProviderEnv } from "./cloudflare-ai-gateway.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { deploymentModelPricing } from "./deployment-model-chain.js";
@@ -207,7 +207,10 @@ export async function resolveModelKey(...args: Parameters<typeof resolveModelKey
       ? await hostedModelCreditObserver(deps.prisma, scope)
       : undefined;
   // Spend is checked here, the one place every run resolves a model before calling it.
-  await assertWithinWeeklyQuota(deps.prisma, userId);
+  // A granted account's own connection is paid for by that account, so it is not limited.
+  if (!(credential && (await customModelsAllowed(deps.prisma, userId)))) {
+    await assertWithinWeeklyQuota(deps.prisma, userId);
+  }
   return {
     ...material,
     apiKey: subscription?.oauth

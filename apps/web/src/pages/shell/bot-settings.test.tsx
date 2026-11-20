@@ -335,3 +335,39 @@ it("defaults daily check-ins on and saves the opt-out", async () => {
   await flush();
   expect(onSave).toHaveBeenCalledWith({ dailyCheckIns: false });
 });
+
+describe("own model", () => {
+  const connection = {
+    id: "cred-1",
+    label: "My server",
+    provider: "openai-compatible",
+    modelId: "my-model",
+    defaultModel: "my-model",
+    enabledModelIds: ["my-model"],
+  };
+
+  it("hides the model picker from an account without the grant", async () => {
+    vi.mocked(rpc.models.credentials).mockResolvedValueOnce([connection] as never);
+    vi.mocked(rpc.me).mockResolvedValueOnce({ customModels: false } as never);
+    await renderSettings(vi.fn(async () => undefined));
+    expect(container.querySelector('select[id$="-model"]')).toBeNull();
+  });
+
+  it("lets a granted account switch one bot to its own connection", async () => {
+    vi.mocked(rpc.models.credentials).mockResolvedValueOnce([connection] as never);
+    vi.mocked(rpc.me).mockResolvedValueOnce({ customModels: true } as never);
+    const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
+    await renderSettings(onSave);
+    const picker = container.querySelector<HTMLSelectElement>('select[id$="-model"]');
+    expect(picker).not.toBeNull();
+    expect(picker?.value).toBe("");
+    const own = [...(picker?.options ?? [])].find((option) => option.value !== "");
+    await submitToolName(picker!, own!.value);
+    const save = [...container.querySelectorAll("button")].find((b) => b.textContent === "Save");
+    await act(async () => save!.click());
+    expect(onSave.mock.calls.at(-1)?.[0]).toMatchObject({
+      modelProvider: "openai-compatible",
+      modelId: "my-model",
+    });
+  });
+});

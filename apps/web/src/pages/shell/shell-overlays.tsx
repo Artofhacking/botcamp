@@ -165,6 +165,7 @@ export function SettingsOverlays({
           }
           messagingEnabled={messagingEnabled}
           paymentWalletProvider={bootstrapMe?.paymentWalletProvider ?? null}
+          customModels={bootstrapMe?.customModels === true}
           timezone={bootstrapMe?.timezone ?? null}
           onTimezoneChange={async (timezone) => {
             const nextMe = await rpc.preferences.update({ timezone });

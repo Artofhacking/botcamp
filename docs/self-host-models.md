@@ -24,6 +24,13 @@ A failure of the vision call does not move those images to a listed model. Text 
 the list and can still move to a text backup. The vision call waits four minutes for the
 response to start. Text calls keep the shorter header budget.
 
+With `MANAGED_MODELS_ONLY` set, an operator can still let one account use its own models: tick
+**自带模型** next to the user in the operator page. That account then sees **Settings → Models**
+to connect a provider, and a **Model** choice in each bot's **Advanced** tab. A bot left on
+**Default** keeps the deployment list. A bot switched to one of the account's connections runs only
+on it, and its usage is recorded but does not count against the weekly allowance. Taking the grant
+away keeps those connections but sends every bot back to the deployment list on its next run.
+
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
 `PI_DEFAULT_PROVIDER=amazon-bedrock`, `PI_DEFAULT_MODEL` and `AWS_REGION`. With an instance

@@ -123,6 +123,7 @@ export function adminConsoleRoutes(deps: AdminConsoleDeps) {
           plan: true,
           weeklyCoreSecondsQuota: true,
           weeklyCreditQuota: true,
+          customModelsAllowed: true,
         },
         orderBy: { createdAt: "desc" },
         take: 200,
@@ -199,6 +200,7 @@ export function adminConsoleRoutes(deps: AdminConsoleDeps) {
           bots: botsByUser.get(user.id) ?? 0,
           plan: planOf(user.plan).id,
           planLabel: planOf(user.plan).label,
+          customModels: user.customModelsAllowed,
           weeklyTokens: Number(user.weeklyTokenQuota),
           listValueYuan: Number(listValueYuan(user.weeklyTokenQuota).toFixed(2)),
           listValueUsd: Number(listValueUsd(user.weeklyTokenQuota).toFixed(2)),
@@ -331,6 +333,21 @@ export function adminConsoleRoutes(deps: AdminConsoleDeps) {
         pricing: await deploymentImageModelPricing(deps.prisma),
       };
       return c.json({ models: saved, imageModel });
+    }),
+  );
+
+  app.patch("/admin/api/users/:id/custom-models", async (c) =>
+    runAsSystem("operator console custom models grant", async () => {
+      const id = c.req.param("id");
+      const body = (await c.req.json().catch(() => null)) as { allowed?: unknown } | null;
+      if (typeof body?.allowed !== "boolean") {
+        return c.json({ error: "allowed must be a boolean" }, 400);
+      }
+      const updated = await deps.prisma.user
+        .update({ where: { id }, data: { customModelsAllowed: body.allowed } })
+        .catch(() => null);
+      if (!updated) return c.json({ error: "no such user" }, 404);
+      return c.json({ id, customModels: body.allowed });
     }),
   );
 

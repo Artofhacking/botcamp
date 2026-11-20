@@ -58,7 +58,7 @@ export async function weeklyTokensUsed(
   now: Date = new Date(),
 ): Promise<bigint> {
   const summed = await prisma.usageRecord.aggregate({
-    where: { userId, createdAt: { gte: weekStart(now) } },
+    where: { userId, createdAt: { gte: weekStart(now) }, quotaExempt: false },
     _sum: { totalTokens: true },
   });
   return BigInt(summed._sum.totalTokens ?? 0);
@@ -84,7 +84,7 @@ export async function weeklyPointsUsed(
   const window = quotaWindow(now, anchor);
   const [tokens, containers] = await Promise.all([
     prisma.usageRecord.aggregate({
-      where: { userId, createdAt: { gte: window.start } },
+      where: { userId, createdAt: { gte: window.start }, quotaExempt: false },
       _sum: {
         inputTokens: true,
         cacheReadTokens: true,
@@ -119,7 +119,7 @@ export async function weeklyCreditsUsed(
   const week = { gte: weekStart(now) };
   const [tokens, containers] = await Promise.all([
     prisma.usageRecord.aggregate({
-      where: { userId, createdAt: week },
+      where: { userId, createdAt: week, quotaExempt: false },
       _sum: {
         inputTokens: true,
         cacheReadTokens: true,
@@ -139,6 +139,18 @@ export async function weeklyCreditsUsed(
   const tokenYuan = tokenCostYuan(tokens._sum);
   const containerYuan = containerCostYuan("big", containers._sum.coreSeconds ?? 0);
   return toCredits(tokenYuan + containerYuan);
+}
+
+/** Whether an admin let this user run a bot on a model connection of their own. */
+export async function customModelsAllowed(
+  prisma: Pick<PrismaClient, "user">,
+  userId: string,
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { customModelsAllowed: true },
+  });
+  return user?.customModelsAllowed === true;
 }
 
 export class WeeklyQuotaExceededError extends Error {

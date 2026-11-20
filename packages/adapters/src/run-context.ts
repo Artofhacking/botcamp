@@ -271,6 +271,8 @@ export interface RunProviders {
  */
 export interface RunContext {
   deps: ExecutorDeps;
+  /** The run is on the owner's own connection, so its usage stays out of the weekly allowance. */
+  quotaExempt?: boolean;
   providers: RunProviders;
   run: Run;
   runId: string;

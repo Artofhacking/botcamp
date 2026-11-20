@@ -48,6 +48,7 @@ export function SettingsOverlay({
   canConfigureComputers = false,
   messagingEnabled = false,
   paymentWalletProvider = null,
+  customModels = false,
   memoryConfig,
   onMemoryConfigChange,
   onClose,
@@ -76,6 +77,8 @@ export function SettingsOverlay({
   messagingEnabled?: boolean;
   /** The wallet this deployment lets bots spend from; none hides Wallet. */
   paymentWalletProvider?: { id: string; name: string } | null;
+  /** An admin let this account connect its own models for its bots. */
+  customModels?: boolean;
   memoryConfig: SpaceMemoryConfig | null | undefined;
   onMemoryConfigChange: (config: SpaceMemoryConfig | null) => void;
   onClose: () => void;
@@ -101,7 +104,7 @@ export function SettingsOverlay({
   // A section that isn't available yet (billing before its flag loads) shows General until it is.
   const section =
     (requestedSection === "computer" && !showComputer) ||
-    (requestedSection === "models" && sectionHidden("models")) ||
+    (requestedSection === "models" && sectionHidden("models") && !customModels) ||
     (requestedSection === "voice" && sectionHidden("voice")) ||
     (requestedSection === "billing" && !billingEnabled) ||
     (requestedSection === "messaging" && !messagingEnabled) ||
@@ -145,6 +148,7 @@ export function SettingsOverlay({
     computer: showComputer,
     billing: billingEnabled,
     updates: showUpdates,
+    customModels,
   });
 
   useEffect(() => {
@@ -395,7 +399,14 @@ export function SettingsOverlay({
                   {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
                   {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
                   {section === "models" ? (
-                    <ModelSettingsOverlay embedded scope="account" onClose={requestClose} />
+                    <ModelSettingsOverlay
+                      embedded
+                      scope="account"
+                      onClose={requestClose}
+                      // Where the deployment picks every model, a granted account only
+                      // connects its own for the bots it switches to them.
+                      providersOnly={sectionHidden("models")}
+                    />
                   ) : null}
                   {section === "memory" ? (
                     <MemorySettingsOverlay
