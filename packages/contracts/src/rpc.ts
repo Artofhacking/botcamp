@@ -1228,7 +1228,7 @@ export const appContract = {
         .output(MessagingLinkedIdentitySchema),
       unlink: oc.input(z.object({ identityId: Id })).output(z.object({ ok: z.literal(true) })),
     },
-    /** QR link for the primary bot. One row per channel; provider selects which one to remove. */
+    /** QR link for a bot. WeChat is the primary bot's; any bot can link its own Feishu. One row per channel; provider selects which one to remove. */
     chatTools: {
       list: oc.input(z.object({ botId: Id })).output(z.array(ChatToolLinkSchema)),
       start: oc.input(z.object({ botId: Id, provider: z.string().trim().min(1).max(64) })).output(

@@ -390,7 +390,7 @@ describe("messaging.chatTools", () => {
     });
     expect(response.status).toBe(400);
     const body = (await response.json()) as { json?: { message?: string } };
-    expect(body.json?.message).toBe("Only the primary bot can link a chat app.");
+    expect(body.json?.message).toBe("Only the primary bot can link WeChat.");
   });
 });
 
@@ -1039,6 +1039,6 @@ describe("messaging.chatTools", () => {
     });
     expect(response.status).toBe(400);
     const body = (await response.json()) as { json?: { message?: string } };
-    expect(body.json?.message).toBe("Only the primary bot can link a chat app.");
+    expect(body.json?.message).toBe("Only the primary bot can link WeChat.");
   });
 });

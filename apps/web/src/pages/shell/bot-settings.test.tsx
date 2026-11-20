@@ -241,13 +241,37 @@ it("treats cross-space communication as on unless turned off", async () => {
   expect(onSave).toHaveBeenCalledWith({ crossSpaceCommunication: false });
 });
 
-it("links a chat app from the primary bot and hides it on the others", async () => {
-  const list = rpc.messaging.chatTools.list as ReturnType<typeof vi.fn>;
-  list.mockClear();
+it("lists Feishu first on a bot that is not primary, then opens its code", async () => {
+  const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
+  start.mockClear();
+  start.mockResolvedValue({
+    loginId: "login-2",
+    image: "https://open.feishu.cn/page/cli?user_code=abc",
+    expiresAt: "2026-11-10T00:00:00.000Z",
+  });
   await renderSettings(vi.fn(async () => undefined));
-  expect(container.querySelector("[data-testid=chat-tool-link]")).toBeNull();
-  expect(list).not.toHaveBeenCalled();
+  await flush();
+  const row = container.querySelector("[data-testid=chat-tool-link]");
+  const link = [...(row?.querySelectorAll("button") ?? [])].find(
+    (button) => button.textContent === "Link",
+  );
+  await act(async () => link?.click());
+  await flush();
+  expect(start).not.toHaveBeenCalled();
+  const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
+  expect(names).not.toContain("WeChat");
+  const feishu = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Feishu",
+  );
+  await act(async () => feishu?.click());
+  await flush();
+  await flush();
+  expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "feishu" });
+  expect(container.querySelector('button[aria-label="Back"]')).not.toBeNull();
+  expect(container.querySelector('img[alt="Chat app code"]')).not.toBeNull();
+});
 
+it("links a chat app from the primary bot", async () => {
   await renderSettings(
     vi.fn(async () => undefined),
     { ...bot, isPrimary: true },
@@ -292,7 +316,7 @@ it("links a chat app from the primary bot and hides it on the others", async () 
   expect(code?.getAttribute("src")).not.toBe("https://liteapp.weixin.qq.com/q/abc");
 });
 
-it("lists a linked WeChat channel and still offers another", async () => {
+it("lists a linked WeChat channel and offers Feishu next", async () => {
   const list = rpc.messaging.chatTools.list as ReturnType<typeof vi.fn>;
   list.mockResolvedValueOnce([{ provider: "weixin", address: "wx-user", botId: "bot-1" }]);
   await renderSettings(
@@ -311,11 +335,18 @@ it("lists a linked WeChat channel and still offers another", async () => {
   );
   expect(unlink).toBeDefined();
   expect(link).toBeDefined();
+  const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
+  start.mockClear();
   await act(async () => link?.click());
   await flush();
+  expect(start).not.toHaveBeenCalled();
   const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
   expect(names).toContain("Feishu");
   expect(names).not.toContain("WeChat");
+  await act(async () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+  await flush();
   const unlinkRpc = rpc.messaging.chatTools.unlink as ReturnType<typeof vi.fn>;
   await act(async () => unlink?.click());
   await flush();

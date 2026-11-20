@@ -1,4 +1,4 @@
-import { linkableChatApps, messagingProviderName } from "@botcamp/core";
+import { linkableChatAppsFor, messagingProviderName } from "@botcamp/core";
 import {
   Button,
   Dialog,
@@ -67,8 +67,9 @@ function isTransportError(error: unknown): boolean {
   return code === "TIMEOUT" || code === "BAD_GATEWAY" || code === "GATEWAY_TIMEOUT";
 }
 
-/** QR link for the primary bot. Other bots render nothing, but the hooks still run. */
+/** QR link for a bot. The primary bot also offers WeChat; every bot can link its own Feishu. */
 export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: boolean }) {
+  const apps = linkableChatAppsFor(Boolean(isPrimary));
   const { t } = useLingui();
   const [rows, setRows] = useState<ChatToolRow[] | null>(null);
   const [image, setImage] = useState<string | null>(null);
@@ -85,7 +86,6 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   copy.current = { expired: t`The code expired`, already: t`Already linked` };
 
   useEffect(() => {
-    if (!isPrimary) return;
     let stop = false;
     void rpc.messaging.chatTools
       .list({ botId })
@@ -98,7 +98,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     return () => {
       stop = true;
     };
-  }, [botId, isPrimary]);
+  }, [botId]);
 
   useEffect(() => {
     if (!image) {
@@ -115,7 +115,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   }, [image]);
 
   useEffect(() => {
-    if (!isPrimary || !open || !loginId || needPin) return;
+    if (!open || !loginId || needPin) return;
     const controller = new AbortController();
     const current = loginId;
     const applyPoll = (result: ChatToolPoll): boolean => {
@@ -158,12 +158,10 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
       }
     })();
     return () => controller.abort();
-  }, [isPrimary, open, loginId, needPin]);
-
-  if (!isPrimary) return null;
+  }, [open, loginId, needPin]);
 
   const linked = rows ?? [];
-  const remaining = linkableChatApps().filter((id) => !linked.some((row) => row.provider === id));
+  const remaining = apps.filter((id) => !linked.some((row) => row.provider === id));
 
   async function choose(id: string) {
     setBusy(true);

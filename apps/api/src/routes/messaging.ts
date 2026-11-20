@@ -397,7 +397,7 @@ async function chatToolCall<T>(run: () => Promise<T>): Promise<T> {
 function chatToolMessage(code: PersonalChatError["code"]): string {
   switch (code) {
     case "not_primary":
-      return "Only the primary bot can link a chat app.";
+      return "Only the primary bot can link WeChat.";
     case "already_linked":
       return "That bot is already linked to a chat app; unlink it first.";
     case "expired":

@@ -52,7 +52,8 @@ export type FeishuPoll =
   | { kind: "confirmed"; session: FeishuSession };
 
 export interface FeishuClient {
-  begin(): Promise<{ login: FeishuLogin; image: string; expiresInMs: number }>;
+  /** appName is the suggested name for the new Feishu app. */
+  begin(appName?: string): Promise<{ login: FeishuLogin; image: string; expiresInMs: number }>;
   poll(login: FeishuLogin): Promise<FeishuPoll>;
   sendText(session: FeishuSession, peerId: string, text: string): Promise<string>;
   listen(
@@ -97,7 +98,7 @@ export function readFeishuDirectMessage(
 export function createFeishuClient(fetchImpl: typeof fetch = fetch): FeishuClient {
   const tokens = new Map<string, { token: string; until: number }>();
   return {
-    begin: () => begin(fetchImpl),
+    begin: (appName) => begin(fetchImpl, appName),
     poll: (login) => poll(fetchImpl, login, tokens),
     sendText: (session, peerId, text) => sendText(fetchImpl, tokens, session, peerId, text),
     listen: (session, signal, onMessage) => listen(session, signal, onMessage),
@@ -106,6 +107,7 @@ export function createFeishuClient(fetchImpl: typeof fetch = fetch): FeishuClien
 
 async function begin(
   fetchImpl: typeof fetch,
+  appName?: string,
 ): Promise<{ login: FeishuLogin; image: string; expiresInMs: number }> {
   const payload = await postForm(fetchImpl, `${FEISHU_ACCOUNTS}${REGISTRATION_PATH}`, {
     action: "begin",
@@ -122,7 +124,7 @@ async function begin(
       ? feishuPage(`${FEISHU_OPEN}/page/cli?user_code=${encodeURIComponent(userCode)}`)
       : null);
   if (!deviceCode || !page) throw new FeishuProtocolError("Feishu did not return a code");
-  const image = registrationPage(page);
+  const image = registrationPage(page, appName);
   const expiresIn = positiveInt(fieldNumber(payload, "expires_in"), 600);
   return {
     login: {
@@ -277,16 +279,22 @@ async function listen(
   });
 }
 
-function registrationPage(page: string): string {
+function registrationPage(page: string, appName?: string): string {
   const url = new URL(page);
   url.searchParams.set("from", "sdk");
   url.searchParams.set("source", "node-sdk/botcamp");
   url.searchParams.set("tp", "sdk");
-  url.searchParams.set("name", "BotCamp");
+  url.searchParams.set("name", appLabel(appName));
   url.searchParams.set("addons", encodeAddons(ADDONS));
   const image = feishuPage(url.toString());
   if (!image) throw new FeishuProtocolError("Feishu did not return a code");
   return image;
+}
+
+/** The bot's name, so each linked bot shows up in Feishu under its own name. */
+function appLabel(name: string | undefined): string {
+  const clean = (name ?? "").replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
+  return clean ? [...clean].slice(0, 32).join("") : "BotCamp";
 }
 
 function encodeAddons(addons: unknown): string {

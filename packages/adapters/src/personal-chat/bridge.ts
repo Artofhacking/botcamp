@@ -108,15 +108,20 @@ export class PersonalChatBridge {
   }> {
     const bot = await this.prisma.bot.findFirst({
       where: { id: botId, userId: actor.userId, spaceId: actor.spaceId, archivedAt: null },
-      select: { id: true, isPrimary: true },
+      select: { id: true, isPrimary: true, name: true },
     });
-    if (!bot?.isPrimary) throw new PersonalChatError("not_primary");
+    if (!bot) throw new PersonalChatError("not_found");
+    // Each Feishu link creates its own app, so any bot can have one. WeChat links
+    // the person's own account, which only one bot can hold.
+    if (provider !== FEISHU_CHAT_PROVIDER && !bot.isPrimary) {
+      throw new PersonalChatError("not_primary");
+    }
     if (await this.alreadyLinked(actor, botId, provider)) {
       throw new PersonalChatError("already_linked");
     }
     if (!linkableChatApps().includes(provider)) throw new PersonalChatError("unavailable");
     await this.clearLogins(actor, botId);
-    if (provider === FEISHU_CHAT_PROVIDER) return this.startFeishu(actor, botId);
+    if (provider === FEISHU_CHAT_PROVIDER) return this.startFeishu(actor, botId, bot.name);
     const qr = await this.client.fetchQr();
     if (qr.image.length > 1_000_000) throw new PersonalChatError("unavailable");
     const id = randomBytes(16).toString("hex");
@@ -524,10 +529,10 @@ export class PersonalChatBridge {
     };
   }
 
-  private async startFeishu(actor: PersonalChatActor, botId: string) {
+  private async startFeishu(actor: PersonalChatActor, botId: string, botName: string) {
     let started: { login: FeishuLogin; image: string; expiresInMs: number };
     try {
-      started = await this.feishu.begin();
+      started = await this.feishu.begin(botName);
     } catch (error) {
       if (error instanceof FeishuProtocolError) throw new PersonalChatError("unavailable");
       throw error;
