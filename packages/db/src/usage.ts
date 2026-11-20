@@ -12,6 +12,8 @@ export interface UsageAttribution {
   parentRunId?: string;
   operationId?: string;
   operationKind?: UsageOperationKind;
+  /** Paid for on the user's own connection, so the weekly allowance leaves it out. */
+  quotaExempt?: boolean;
 }
 
 /** Usage is financial history, independent from message clearing or bot deletion. */
@@ -51,6 +53,7 @@ export async function recordUsage(
     callId: event.callId ?? null,
     operationKind: attribution.operationKind ?? event.operationKind ?? "answer",
     agentId: event.agentId ?? null,
+    quotaExempt: attribution.quotaExempt === true,
   };
   return withTransactionRetry(() =>
     prisma.$transaction(async (tx) => {

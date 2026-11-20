@@ -44,6 +44,8 @@ model User {
   quotaAnchorAt           DateTime?
   /// Weekly credit grant and the balance consumed this week, both in credits (¥0.01 each).
   weeklyCreditQuota       BigInt                 @default(300)
+  /// An admin let this user switch a bot to a model on their own connection.
+  customModelsAllowed     Boolean                @default(false)
   /// IANA timezone such as "Pacific/Auckland". Null until set; bots then get UTC only.
   timezone                    String?
   /// The app language last chosen: "en" or "zh-CN". Null until an app reports it;
@@ -1790,6 +1792,8 @@ model UsageRecord {
   callId             String?  @unique
   operationId        String?
   operationKind      String   @default("answer")
+  /// Spent on the user's own connection, so it does not count against the weekly allowance.
+  quotaExempt        Boolean  @default(false)
   /// Durable attribution, deliberately without lifecycle foreign keys.
   parentRunId        String?
   agentId            String?

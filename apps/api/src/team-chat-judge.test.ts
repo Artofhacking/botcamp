@@ -201,6 +201,7 @@ describe("team chat engagement judge", () => {
           cacheWrite1hTokens: null,
           reasoningTokens: null,
           totalTokens: null,
+          quotaExempt: false,
           costUsd: null,
           costSource: null,
           pricingVersion: null,

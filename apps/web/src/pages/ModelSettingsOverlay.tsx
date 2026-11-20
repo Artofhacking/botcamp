@@ -43,8 +43,11 @@ export function ModelSettingsOverlay({
   onClose,
   embedded = false,
   scope,
+  providersOnly = false,
 }: {
   onClose: () => void;
+  /** Only the account's connections, without the main and approval model lists. */
+  providersOnly?: boolean;
   /** Render the content only, inside the shared Settings shell's scroller. */
   embedded?: boolean;
   /**
@@ -289,44 +292,48 @@ export function ModelSettingsOverlay({
       ) : null}
       {me ? (
         <>
-          <ModelRoleSettings
-            userId={me.userId}
-            spaceId={me.spaceId}
-            scope={scope}
-            credentials={credentials}
-            title={t`Main model`}
-            defaultLabel={t`Choose a model`}
-            providers={providers}
-            providerLabel={providerLabel}
-            onConnect={(next, intent) => openConnection(next, intent, null, "main")}
-            onManage={(id, credentialId) =>
-              openConnection({ id, name: id }, null, credentialId, "main")
-            }
-            panel={connectionAt === "main" ? panelFor(true) : null}
-            thinking
-            onChanged={() => void refresh()}
-          />
-          {me.needsModel ? null : (
-            <SpaceBotsModelNotice
-              refreshKey={`${me.spaceId}:${me.defaultProvider ?? ""}:${me.defaultModel ?? ""}`}
-            />
+          {providersOnly ? null : (
+            <>
+              <ModelRoleSettings
+                userId={me.userId}
+                spaceId={me.spaceId}
+                scope={scope}
+                credentials={credentials}
+                title={t`Main model`}
+                defaultLabel={t`Choose a model`}
+                providers={providers}
+                providerLabel={providerLabel}
+                onConnect={(next, intent) => openConnection(next, intent, null, "main")}
+                onManage={(id, credentialId) =>
+                  openConnection({ id, name: id }, null, credentialId, "main")
+                }
+                panel={connectionAt === "main" ? panelFor(true) : null}
+                thinking
+                onChanged={() => void refresh()}
+              />
+              {me.needsModel ? null : (
+                <SpaceBotsModelNotice
+                  refreshKey={`${me.spaceId}:${me.defaultProvider ?? ""}:${me.defaultModel ?? ""}`}
+                />
+              )}
+              <ModelRoleSettings
+                userId={me.userId}
+                spaceId={me.spaceId}
+                scope={scope}
+                credentials={credentials}
+                modelRole="approval"
+                title={t`Approval model`}
+                defaultLabel={t`Choose a model`}
+                providers={providers}
+                providerLabel={providerLabel}
+                onConnect={(next, intent) => openConnection(next, intent, null, "approval")}
+                onManage={(id, credentialId) =>
+                  openConnection({ id, name: id }, null, credentialId, "approval")
+                }
+                panel={connectionAt === "approval" ? panelFor(true) : null}
+              />
+            </>
           )}
-          <ModelRoleSettings
-            userId={me.userId}
-            spaceId={me.spaceId}
-            scope={scope}
-            credentials={credentials}
-            modelRole="approval"
-            title={t`Approval model`}
-            defaultLabel={t`Choose a model`}
-            providers={providers}
-            providerLabel={providerLabel}
-            onConnect={(next, intent) => openConnection(next, intent, null, "approval")}
-            onManage={(id, credentialId) =>
-              openConnection({ id, name: id }, null, credentialId, "approval")
-            }
-            panel={connectionAt === "approval" ? panelFor(true) : null}
-          />
           {scope === "space" ? null : (
             <ProvidersSection
               credentials={credentials}

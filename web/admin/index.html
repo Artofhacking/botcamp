@@ -263,11 +263,12 @@
                 <th>本周用量</th>
                 <th>费用</th>
                 <th>周额度</th>
+                <th>自带模型</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="rows">
-              <tr><td colspan="8" class="muted">加载中…</td></tr>
+              <tr><td colspan="9" class="muted">加载中…</td></tr>
             </tbody>
           </table>
         </div>
@@ -430,7 +431,7 @@
       function renderRows() {
         const body = document.getElementById("rows");
         if (!users.length) {
-          body.innerHTML = '<tr><td colspan="8" class="muted">没有匹配的用户</td></tr>';
+          body.innerHTML = '<tr><td colspan="9" class="muted">没有匹配的用户</td></tr>';
           return;
         }
         body.innerHTML = users.map((user) => {
@@ -448,6 +449,7 @@
             </td>
             <td>${yuan(user.weekTotalYuan)}<div class="muted">模型 ${yuan(user.weekModelYuan)} · 容器 ${yuan(user.weekContainerYuan)}</div></td>
             <td class="quota">${fmt(user.weeklyTokenQuota)} tokens<div class="muted">${escapeHtml(allowanceHours(user.weeklyCoreHours))}</div></td>
+            <td><input type="checkbox" data-custom-models ${user.customModels ? "checked" : ""} aria-label="允许 ${escapeHtml(user.email)} 给 bot 用自己的模型" /></td>
             <td><button class="save" type="button" data-save>保存</button></td>
           </tr>`;
         }).join("");
@@ -526,6 +528,29 @@
           else showGate(message);
         }
       }
+
+      document.getElementById("rows").addEventListener("change", async (event) => {
+        const box = event.target.closest("[data-custom-models]");
+        if (!box) return;
+        const id = box.closest("tr").dataset.id;
+        const allowed = box.checked;
+        box.disabled = true;
+        try {
+          await api(`/admin/api/users/${encodeURIComponent(id)}/custom-models`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ allowed }),
+          });
+          const user = users.find((entry) => entry.id === id);
+          if (user) user.customModels = allowed;
+          toast(allowed ? "已允许自带模型" : "已收回自带模型");
+        } catch (error) {
+          box.checked = !allowed;
+          toast(String(error.message || error), true);
+        } finally {
+          box.disabled = false;
+        }
+      });
 
       document.getElementById("rows").addEventListener("click", async (event) => {
         const button = event.target.closest("[data-save]");

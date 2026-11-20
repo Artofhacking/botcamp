@@ -30,12 +30,16 @@ export function useSettingsNavItems(available: {
   computer: boolean;
   billing: boolean;
   updates: boolean;
+  /** An admin granted own model connections, which shows Models even where it is hidden. */
+  customModels?: boolean;
 }): SettingsNavItem[] {
   const { t } = useLingui();
   const hidden = (id: SettingsSection) => sectionHidden(id);
   return [
     { id: "general", label: t`General`, icon: Settings },
-    ...(hidden("models") ? [] : [{ id: "models" as const, label: t`Models`, icon: Cpu }]),
+    ...(hidden("models") && !available.customModels
+      ? []
+      : [{ id: "models" as const, label: t`Models`, icon: Cpu }]),
     ...(hidden("voice") ? [] : [{ id: "voice" as const, label: t`Voice`, icon: Volume2 }]),
     { id: "confirmations", label: t`Approvals`, icon: ShieldCheck },
     { id: "vault", label: t`Vault`, icon: KeyRound },

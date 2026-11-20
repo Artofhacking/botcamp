@@ -43,3 +43,17 @@ describe("weekly container usage", () => {
     expect(call.where.tier).toEqual({ in: ["big", "desktop"] });
   });
 });
+
+describe("own-connection usage", () => {
+  it("leaves usage on the user's own connection out of the weekly points", async () => {
+    const usageAggregate = vi.fn(async (_args: unknown) => zeroTokens);
+    const prisma = {
+      usageRecord: { aggregate: usageAggregate },
+      containerUsage: { aggregate: async () => ({ _sum: { coreSeconds: 0n } }) },
+      user: { findUnique: async () => ({ quotaAnchorAt: null, weeklyCreditQuota: 1000n }) },
+    };
+    await weeklyPointsUsed(prisma as never, "user-1");
+    const call = usageAggregate.mock.calls[0]?.[0] as { where: { quotaExempt: boolean } };
+    expect(call.where.quotaExempt).toBe(false);
+  });
+});

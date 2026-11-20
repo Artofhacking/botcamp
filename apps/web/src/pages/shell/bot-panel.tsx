@@ -255,9 +255,11 @@ export function BotSettings({
   const modelChoices = chatModelChoices(
     connectedOptions,
     selectedModelKey,
-    t`Space default`,
+    me?.customModels ? t`Default` : t`Space default`,
     defaultEntry?.images,
   );
+  // An admin grant lets a bot leave the deployment's model for one of the owner's connections.
+  const showModelPicker = me?.customModels === true && modelChoices.length > 1;
 
   const effectiveProvider = selectedModel?.provider ?? me?.defaultProvider ?? null;
   const effectiveModelId = selectedModel?.modelId ?? me?.defaultModel ?? null;
@@ -503,6 +505,16 @@ export function BotSettings({
             </Suspense>
           </ErrorBoundary>
           <div className="space-y-6 pt-6">
+            {showModelPicker ? (
+              <SettingsGroup label={t`Model`} plain>
+                <ChatModelPicker
+                  id={`${ids}-model`}
+                  choices={modelChoices}
+                  value={selectedModelKey}
+                  onChange={setModelKey}
+                />
+              </SettingsGroup>
+            ) : null}
             <SettingsGroup label={t`Permissions`}>
               <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
                 <label htmlFor={`${ids}-daily-check-ins`} className={rowLabelClass}>

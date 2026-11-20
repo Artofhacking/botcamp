@@ -36,6 +36,7 @@ export async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
         timezone: true,
         locale: true,
         botAvatarSet: true,
+        customModelsAllowed: true,
         signupSurvey: { select: { userId: true } },
       },
     }),
@@ -57,6 +58,7 @@ export async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     isDeploymentOwner: false,
     isAdmin: admin,
     needsModel: setup.needsModel,
+    customModels: user.customModelsAllowed,
     defaultProvider: managedModelsOnly()
       ? null
       : canonicalPiProviderId(setup.model?.provider ?? deps.env.defaultProvider),
