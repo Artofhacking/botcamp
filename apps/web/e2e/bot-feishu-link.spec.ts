@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, createNamedBot, signup } from "./helpers";
+import {
+  captureScreenshot,
+  completeOnboarding,
+  createNamedBot,
+  openBotPanelTab,
+  signup,
+} from "./helpers";
 
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "wait" });
@@ -37,7 +43,7 @@ test("a bot that is not primary opens its own Feishu code in one step", async ({
     route.fulfill(json({ status: "wait" })),
   );
 
-  await page.getByTestId("bot-settings-trigger").click();
+  await openBotPanelTab(page, "Advanced");
   const settings = page.getByTestId("bot-settings");
   const row = settings.getByTestId("chat-tool-link");
   await expect(row).toBeVisible();
