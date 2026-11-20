@@ -79,6 +79,12 @@ describePostgres("a chat message the person takes back (PostgreSQL)", () => {
   it("removes the message and its delivered reply, and takes the reply back in the chat", async () => {
     const { ids, threadId, say, recall, sourceOf, deleteMessage } = await setup();
     await say("om_keep", "earlier");
+    // Finished, so the next message starts its own run instead of joining this one.
+    const earlier = await sourceOf("om_keep");
+    await prisma.run.updateMany({
+      where: { sourceMessageId: earlier!.id },
+      data: { status: "completed" },
+    });
     await say("om_oops", "wrong chat");
     const source = await sourceOf("om_oops");
     const run = await prisma.run.findFirstOrThrow({ where: { sourceMessageId: source!.id } });
