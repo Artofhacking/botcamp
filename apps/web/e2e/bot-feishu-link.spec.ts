@@ -15,7 +15,7 @@ test.afterEach(async ({ page }) => {
  * E2E has no Feishu access, so the chat app RPCs are fulfilled with fixture data.
  * The settings row and the code dialog render as they would against a live server.
  */
-test("a bot that is not primary opens its own Feishu code in one step", async ({
+test("a bot that is not primary lists Feishu, then opens its own code", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -50,8 +50,9 @@ test("a bot that is not primary opens its own Feishu code in one step", async ({
   await row.getByRole("button", { name: "Link", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("img", { name: "Chat app code" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "WeChat" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Feishu", exact: true }).click();
+  await expect(dialog.getByRole("img", { name: "Chat app code" })).toBeVisible();
   expect(JSON.stringify(started)).toContain('"provider":"feishu"');
 
   await captureScreenshot(page, testInfo, "bot-feishu-link");

@@ -253,10 +253,8 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
             disabled={busy || rows === null}
             onClick={() => {
               setError(null);
+              setStep(loginId ? "code" : "choose");
               setOpen(true);
-              // One choice needs no list: go straight to the code.
-              if (!loginId && remaining.length === 1) void choose(remaining[0]!);
-              else setStep(loginId ? "code" : "choose");
             }}
           >
             <Trans>Link</Trans>
@@ -288,7 +286,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
         <DialogContent>
           <DialogHeader>
             <div className="flex items-center gap-2">
-              {step === "code" && remaining.length > 1 ? (
+              {step === "code" ? (
                 <Button
                   type="button"
                   variant="ghost"
