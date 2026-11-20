@@ -108,7 +108,7 @@ export interface RouterDeps {
   artifacts: ArtifactStore;
   dataDir: string;
   messagingInstallations?: MessagingInstallations;
-  /** QR linking for the primary bot. Absent in tests that replace the chat surface. */
+  /** QR linking for a bot's own chat apps. Absent in tests that replace the chat surface. */
   chatTools?: Pick<PersonalChatBridge, "list" | "start" | "poll" | "unlink">;
   messaging?: {
     enabled: boolean;

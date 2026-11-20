@@ -113,6 +113,20 @@ describe("feishu confirm page", () => {
     );
   });
 
+  it("names the new app after the bot", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        device_code: "device-1",
+        verification_uri_complete: "https://open.feishu.cn/page/cli?user_code=user-1",
+      }),
+    );
+    const client = createFeishuClient(fetchImpl as typeof fetch);
+    const named = new URL((await client.begin(" Research\u200b ")).image);
+    expect(named.searchParams.get("name")).toBe("Research");
+    const blank = new URL((await client.begin("  ")).image);
+    expect(blank.searchParams.get("name")).toBe("BotCamp");
+  });
+
   it("rejects a confirm page on any other host", async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({

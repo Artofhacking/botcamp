@@ -18,7 +18,15 @@ const session = {
 function stores() {
   const created: unknown[] = [];
   const prisma = {
-    bot: { findFirst: vi.fn(async () => ({ id: "bot-1", isPrimary: true })) },
+    bot: {
+      findFirst: vi.fn(
+        async (): Promise<{ id: string; isPrimary: boolean; name: string } | null> => ({
+          id: "bot-1",
+          isPrimary: true,
+          name: "Ada",
+        }),
+      ),
+    },
     chatToolLink: {
       findFirst: vi.fn(
         async (_args?: {
@@ -196,6 +204,31 @@ describe("one bot, one Feishu", () => {
         image: "https://open.feishu.cn/page/cli?user_code=abc",
       }),
     });
+  });
+
+  it("lets a bot that is not primary link its own Feishu app, named after the bot", async () => {
+    const { prisma, secrets } = stores();
+    prisma.bot.findFirst.mockResolvedValue({ id: "bot-2", isPrimary: false, name: "Research" });
+    const begin = vi.fn(async () => ({
+      login: feishuLogin,
+      image: "https://open.feishu.cn/page/cli?user_code=abc",
+      expiresInMs: 60_000,
+    }));
+    await bridge(prisma, secrets, {}, { begin }).start(actor, "bot-2", "feishu");
+    expect(begin).toHaveBeenCalledWith("Research");
+    expect(prisma.chatToolLogin.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ provider: "feishu", botId: "bot-2" }),
+    });
+  });
+
+  it("keeps WeChat on the primary bot", async () => {
+    const { prisma, secrets } = stores();
+    prisma.bot.findFirst.mockResolvedValue({ id: "bot-2", isPrimary: false, name: "Research" });
+    const fetchQr = vi.fn();
+    await expect(
+      bridge(prisma, secrets, { fetchQr }).start(actor, "bot-2", "weixin"),
+    ).rejects.toMatchObject({ code: "not_primary" });
+    expect(fetchQr).not.toHaveBeenCalled();
   });
 
   it("does not start Feishu when that bot already has Feishu", async () => {
