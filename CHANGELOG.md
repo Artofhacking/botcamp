@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-11-20
+
+### Fixed
+
+- Signing in on the Mac app in the system browser now returns to the app and finishes sign-in. Before, coming back to the app did nothing.
+
+### Self-host upgrade notes
+
+- The desktop app's return link is now `botcamp://` instead of `rakazo://`. Desktop builds older than this release cannot finish system-browser sign-in against this API, so publish the new desktop build together with this release.
+
 ## [2.4.2] - 2026-11-18
 
 ### Changed
