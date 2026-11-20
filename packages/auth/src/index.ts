@@ -239,7 +239,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     logger: env.logger,
     secret: env.secret,
     baseURL: env.baseURL,
-    trustedOrigins: [...buildTrustedOrigins(env), "rakazo://", "botcamp://"],
+    trustedOrigins: [...buildTrustedOrigins(env), "botcamp://"],
     account: {
       accountLinking: {
         enabled: true,

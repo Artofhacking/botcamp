@@ -301,7 +301,7 @@ it("finishes desktop SSO in the system browser and stores only a matching sessio
   await vi.waitFor(() => expect(open).toHaveBeenCalledWith(result.data.url));
   const params = new URL(callback).searchParams;
   const nonce = params.get("nonce") ?? "";
-  expect(new URL(callback).protocol).toBe("rakazo:");
+  expect(new URL(callback).protocol).toBe("botcamp:");
   expect(params.get("returnTo")).toBe("https://rakazo.example.test/app");
   emit({
     kind: "sso",

@@ -39,6 +39,14 @@
   },
   "build": {
     "appId": "site.botcamp.desktop",
+    "protocols": [
+      {
+        "name": "BotCamp",
+        "schemes": [
+          "botcamp"
+        ]
+      }
+    ],
     "directories": {
       "output": "out",
       "buildResources": "assets"

@@ -24,11 +24,11 @@ describe("desktop deep links", () => {
 
   it("rejects SSO links without a nonce or with a foreign scheme", () => {
     expect(parseDesktopDeepLink("https://app.example.test/sso")).toBeNull();
-    expect(parseDesktopDeepLink("rakazo://sso?returnTo=https://app.example.test/app")).toBeNull();
-    expect(parseDesktopDeepLink("rakazo://settings")).toBeNull();
+    expect(parseDesktopDeepLink("botcamp://sso?returnTo=https://app.example.test/app")).toBeNull();
+    expect(parseDesktopDeepLink("botcamp://settings")).toBeNull();
     expect(
       parseDesktopDeepLink(
-        `rakazo://sso?nonce=${nonce}&returnTo=javascript:alert(1)&cookie=better-auth.session_token=${token}`,
+        `botcamp://sso?nonce=${nonce}&returnTo=javascript:alert(1)&cookie=better-auth.session_token=${token}`,
       ),
     ).toBeNull();
   });
@@ -42,7 +42,7 @@ describe("desktop deep links", () => {
 
   it("builds the MCP and Slack handoff when a code is present", () => {
     const params = new URLSearchParams({ code: "ac", state: "st" });
-    expect(desktopAppReturnUrl("mcp-oauth", params)).toBe("rakazo://mcp-oauth?state=st&code=ac");
+    expect(desktopAppReturnUrl("mcp-oauth", params)).toBe("botcamp://mcp-oauth?state=st&code=ac");
     expect(parseDesktopDeepLink(desktopAppReturnUrl("slack-install", params)!)).toEqual({
       kind: "slack-install",
       state: "st",

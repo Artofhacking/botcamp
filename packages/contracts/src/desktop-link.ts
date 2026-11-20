@@ -1,5 +1,5 @@
 /** The desktop app's return scheme. The API already trusts this origin. */
-export const DESKTOP_APP_PROTOCOL = "rakazo:";
+export const DESKTOP_APP_PROTOCOL = "botcamp:";
 
 export type DesktopDeepLink =
   | {
@@ -37,7 +37,7 @@ export function sessionTokenFromSetCookie(header: string): string | null {
 }
 
 /**
- * A `rakazo://` return from the system browser. Anything else is ignored, including
+ * A `botcamp://` return from the system browser. Anything else is ignored, including
  * extra query fields, so a link cannot carry a payload the app did not ask for.
  */
 export function parseDesktopDeepLink(value: string): DesktopDeepLink | null {
@@ -94,7 +94,7 @@ export function parseDesktopDeepLink(value: string): DesktopDeepLink | null {
 
 /** Where desktop SSO asks the provider to return, so the OS opens this app. */
 export function ssoDesktopCallback(nonce: string, returnTo: string): string {
-  const url = new URL("rakazo://sso");
+  const url = new URL("botcamp://sso");
   url.searchParams.set("nonce", nonce);
   url.searchParams.set("returnTo", returnTo);
   return url.href;
@@ -105,7 +105,7 @@ export function desktopAppReturnUrl(
   kind: "mcp-oauth" | "slack-install",
   params: { get(name: string): string | null },
 ): string | null {
-  const url = new URL(`rakazo://${kind}`);
+  const url = new URL(`botcamp://${kind}`);
   for (const name of ["state", "code", "error"] as const) {
     const value = params.get(name);
     if (value) url.searchParams.set(name, value);

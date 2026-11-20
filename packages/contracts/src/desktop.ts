@@ -135,7 +135,7 @@ export interface BotCampDesktop {
     onEvent: (listener: (event: BotCampDesktopSpeechEvent) => void) => () => void;
   };
   /**
-   * Opens http(s) links in the system browser and receives `rakazo://` returns.
+   * Opens http(s) links in the system browser and receives `botcamp://` returns.
    * Absent on older desktop releases, which still open those links in the app.
    */
   links?: {

@@ -3,14 +3,14 @@ export function desktopProtocolRegistration(
   packaged: boolean,
   execPath: string,
   argv: readonly string[],
-): { scheme: "rakazo"; exec?: string; args?: string[] } | null {
-  if (packaged) return { scheme: "rakazo" };
+): { scheme: "botcamp"; exec?: string; args?: string[] } | null {
+  if (packaged) return { scheme: "botcamp" };
   const script = argv[1];
   if (!script) return null;
-  return { scheme: "rakazo", exec: execPath, args: [script] };
+  return { scheme: "botcamp", exec: execPath, args: [script] };
 }
 
-/** The `rakazo://` argument a second launch or a cold start was given. */
+/** The `botcamp://` argument a second launch or a cold start was given. */
 export function deepLinkFromArgv(argv: readonly string[]): string | null {
-  return argv.find((arg) => arg.startsWith("rakazo://")) ?? null;
+  return argv.find((arg) => arg.startsWith("botcamp://")) ?? null;
 }
