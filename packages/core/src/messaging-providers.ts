@@ -9,9 +9,14 @@ const PROVIDER_NAMES: Record<string, string> = {
   weixin: "WeChat",
 };
 
-/** Chat apps a primary bot can link, in the order the settings list shows them. */
+/** Chat apps a bot can link by scanning, in the order the settings list shows them. */
 export function linkableChatApps(): readonly string[] {
   return ["weixin", "feishu"];
+}
+
+/** Chat apps a bot other than the primary can link: each Feishu link is its own app. */
+export function linkableChatAppsFor(isPrimary: boolean): readonly string[] {
+  return isPrimary ? linkableChatApps() : ["feishu"];
 }
 
 /** User-facing name of a messaging provider (falls back to the raw id). */

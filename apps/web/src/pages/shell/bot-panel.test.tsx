@@ -123,6 +123,7 @@ vi.mock("./avatar-studio-popover", () => ({
   ),
 }));
 vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => <h3>Open work</h3> }));
+vi.mock("./chat-tool-link", () => ({ ChatToolLink: () => null }));
 vi.mock("../KnowledgeSection", () => ({
   KnowledgeSection: () => <h3>Memory and skills</h3>,
 }));
