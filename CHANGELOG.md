@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-11-21
+
+### Added
+
+- Recalling a message you sent to your bot in Feishu now removes it from the bot's chat too, together with the bot's replies to it. A reply still being written is stopped, and replies already sent to Feishu are recalled there.
+
+### Fixed
+
+- Files and images sent to a bot now reach its computer on the slim computer image. Before, copying them failed, and the bot kept looking for a picture that was never there. Reading files and listing folders on that image failed the same way and now work.
+
+### Self-host upgrade notes
+
+- Feishu bots linked before this release were registered without the recall event. Link them again for recalls to reach BotCamp.
+- Restart the computer supervisor with this release. Running computers keep running.
+
 ## [2.5.0] - 2026-11-20
 
 ### Added
