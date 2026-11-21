@@ -1,4 +1,4 @@
-import { linkableChatAppsFor, messagingProviderName } from "@botcamp/core";
+import { linkableChatApps, linkableChatAppsFor, messagingProviderName } from "@botcamp/core";
 import {
   Button,
   Dialog,
@@ -162,6 +162,8 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
 
   const linked = rows ?? [];
   const remaining = apps.filter((id) => !linked.some((row) => row.provider === id));
+  // An app only the main bot can link stays listed, disabled, so every bot shows the same choices.
+  const listed = linkableChatApps().filter((id) => remaining.includes(id) || !apps.includes(id));
 
   async function choose(id: string) {
     setBusy(true);
@@ -305,17 +307,27 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
           </DialogHeader>
           {step === "choose" ? (
             <div className="grid gap-2">
-              {remaining.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className="flex min-h-12 items-center rounded-xl bg-muted/50 px-4 text-start text-sm"
-                  disabled={busy}
-                  onClick={() => void choose(id)}
-                >
-                  {messagingProviderName(id)}
-                </button>
-              ))}
+              {listed.map((id) => {
+                const allowed = remaining.includes(id);
+                const noteId = `${botId}-${id}-unavailable`;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="flex min-h-12 flex-col items-start justify-center rounded-xl bg-muted/50 px-4 py-2 text-start text-sm disabled:opacity-50"
+                    disabled={busy || !allowed}
+                    aria-describedby={allowed ? undefined : noteId}
+                    onClick={() => void choose(id)}
+                  >
+                    {messagingProviderName(id)}
+                    {allowed ? null : (
+                      <span id={noteId} className="text-xs text-muted-foreground">
+                        <Trans>Only the main bot can link WeChat</Trans>
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">

@@ -241,7 +241,7 @@ it("treats cross-space communication as on unless turned off", async () => {
   expect(onSave).toHaveBeenCalledWith({ crossSpaceCommunication: false });
 });
 
-it("lists Feishu first on a bot that is not primary, then opens its code", async () => {
+it("lists WeChat disabled and Feishu on a bot that is not primary, then opens its code", async () => {
   const start = rpc.messaging.chatTools.start as ReturnType<typeof vi.fn>;
   start.mockClear();
   start.mockResolvedValue({
@@ -258,11 +258,15 @@ it("lists Feishu first on a bot that is not primary, then opens its code", async
   await act(async () => link?.click());
   await flush();
   expect(start).not.toHaveBeenCalled();
-  const names = [...container.querySelectorAll("button")].map((button) => button.textContent);
-  expect(names).not.toContain("WeChat");
+  const wechat = [...container.querySelectorAll("button")].find((button) =>
+    button.textContent?.startsWith("WeChat"),
+  );
+  expect(wechat?.disabled).toBe(true);
+  expect(wechat?.textContent).toContain("Only the main bot can link WeChat");
   const feishu = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Feishu",
   );
+  expect(feishu?.disabled).toBe(false);
   await act(async () => feishu?.click());
   await flush();
   await flush();
