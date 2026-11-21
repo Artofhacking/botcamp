@@ -798,12 +798,28 @@ describe("recent turn images", () => {
 
   it("hydrates recent user turns and leaves older ones as text", async () => {
     const hydrated = await withRecentTurnImages(depsWithImages(), history, messages, context, {
-      maxTurns: 2,
+      maxTurns: 3,
     });
 
     expect(hydrated.map((entry) => entry.images?.length ?? 0)).toEqual([0, 0, 1, 1, 0]);
     expect(hydrated[3]?.images?.[0]).toMatchObject({ name: "three.png", mimeType: "image/png" });
     expect(hydrated[0]?.content).toBe("[image: one.png]");
+  });
+
+  it("counts a user turn without images toward the window", async () => {
+    const later = [
+      ...history,
+      { id: "m6", role: "user" as const, content: "and the hotel?" },
+      { id: "m7", role: "user" as const, content: "thanks" },
+    ];
+    const laterMessages = [
+      ...messages,
+      { id: "m6", blocks: [{ kind: "text" as const, text: "and the hotel?" }] },
+      { id: "m7", blocks: [{ kind: "text" as const, text: "thanks" }] },
+    ];
+    await expect(
+      withRecentTurnImages(depsWithImages(), later, laterMessages, context, { maxTurns: 3 }),
+    ).resolves.toBe(later);
   });
 
   it("skips the current turn and stops at the image budget", async () => {
