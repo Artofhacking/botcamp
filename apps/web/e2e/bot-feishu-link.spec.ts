@@ -51,6 +51,7 @@ test("a bot that is not primary lists WeChat disabled, then opens its own Feishu
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("button", { name: /^WeChat/ })).toBeDisabled();
+  await captureScreenshot(page, testInfo, "bot-chat-app-list");
   await dialog.getByRole("button", { name: "Feishu", exact: true }).click();
   await expect(dialog.getByRole("img", { name: "Chat app code" })).toBeVisible();
   expect(JSON.stringify(started)).toContain('"provider":"feishu"');
