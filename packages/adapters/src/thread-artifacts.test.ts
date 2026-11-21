@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   attachWorkspaceFileToThread,
   currentTurnFilesInstruction,
+  listRecentThreadFiles,
   materializeCurrentTurnFiles,
   materializeRecentThreadFiles,
   recentThreadFilesInstruction,
@@ -486,6 +487,37 @@ describe("recent thread files", () => {
       "missing-0",
       ...(maxTurns === 1 ? [] : ["first", "second", "last"]),
     ]);
+  });
+
+  it("leaves out an attachment once later user turns push it out of the window", async () => {
+    const block: MessageBlock = {
+      kind: "image",
+      artifactId: "old-photo",
+      name: "photo.jpg",
+      mimeType: "image/jpeg",
+    };
+    const findMany = vi.fn();
+    const turns = ["photo", "a", "b", "c"];
+    const files = await listRecentThreadFiles(
+      { prisma: { artifact: { findMany } } as unknown as PrismaClient },
+      turns.map((id) => ({ id, role: "user" })),
+      turns.map((id) =>
+        id === "photo" ? { id, blocks: [block] } : { id, blocks: [{ kind: "text", text: id }] },
+      ),
+      {
+        context: {
+          operationId: "run",
+          traceId: "run",
+          spaceId: "space",
+          userId: "user",
+          botId: "bot",
+          signal: new AbortController().signal,
+        },
+        maxTurns: 3,
+      },
+    );
+    expect(files).toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
   });
 
   it("copies attachments from earlier turns the run is answering, skipping unreadable ones", async () => {

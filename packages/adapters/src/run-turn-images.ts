@@ -96,7 +96,7 @@ export async function loadCurrentTurnImages(
   return images.length ? images : undefined;
 }
 
-/** User turns whose attached images stay hydrated for the model. */
+/** The last user turns whose attachments stay in context; a turn without one still counts. */
 export const RECENT_TURN_IMAGE_TURNS = 3;
 
 /** Total hydrated history image bytes, matching the per-attachment ceiling. */
@@ -321,9 +321,9 @@ export async function withRecentTurnImages(
   for (let index = history.length - 1; index >= 0 && turns < maxTurns; index -= 1) {
     const entry = history[index];
     if (!entry?.id || entry.role !== "user" || entry.id === options.skipMessageId) continue;
+    turns += 1;
     const blocks = blocksByMessageId.get(entry.id);
     if (!blocks?.some((block) => block.kind === "image")) continue;
-    turns += 1;
     if (remainingImages <= 0 || remainingBytes <= 0) break;
     const loaded = await loadTurnImagesWithinBudget(deps, blocks, context, {
       remainingBytes,
