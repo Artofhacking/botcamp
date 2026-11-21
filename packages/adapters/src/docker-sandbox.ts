@@ -528,7 +528,10 @@ export class DockerSandboxProvider implements SandboxProvider {
       }),
       signal: context.signal,
     });
-    if (!res.ok) throw new Error(`sandbox file write failed: ${res.status}`);
+    if (!res.ok) {
+      const detail = await safeBody(res, context.signal);
+      throw new Error(`sandbox file write failed: ${res.status} ${detail}`.trim());
+    }
   }
 
   async *exportWorkspace(computer: ComputerRef, context: AdapterContext) {

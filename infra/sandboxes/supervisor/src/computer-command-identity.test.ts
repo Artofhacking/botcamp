@@ -97,7 +97,7 @@ describe("computer command identity", () => {
       content: Buffer.from("hello").toString("base64"),
     });
     expect(response.status).toBe(200);
-    expect(execs().at(-1)?.Cmd[0]).toBe("python3");
+    expect(execs().at(-1)?.Cmd[0]).toBe("sh");
     expectContainerUser();
   });
 });
