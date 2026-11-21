@@ -4603,6 +4603,10 @@ msgstr "单次购买，额度不会过期。"
 msgid "Only enter a code {codeHost} sent you."
 msgstr "只填写 {codeHost} 发送的验证码。"
 
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Only the main bot can link WeChat"
+msgstr "只有主 bot 能连接微信"
+
 #: src/components/pages/SharePopover.tsx
 msgid "Only you"
 msgstr "仅自己"

@@ -4603,6 +4603,10 @@ msgstr "One-time purchase. Credits do not expire."
 msgid "Only enter a code {codeHost} sent you."
 msgstr "Only enter a code {codeHost} sent you."
 
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Only the main bot can link WeChat"
+msgstr "Only the main bot can link WeChat"
+
 #: src/components/pages/SharePopover.tsx
 msgid "Only you"
 msgstr "Only you"
