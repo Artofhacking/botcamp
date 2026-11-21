@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-11-21
+
+### Changed
+
+- On a bot that is not the main bot, the chat app list now shows WeChat greyed out with a note that only the main bot can link it. Feishu stays selectable there.
+
 ## [2.5.1] - 2026-11-21
 
 ### Added
