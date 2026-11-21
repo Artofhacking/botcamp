@@ -892,3 +892,71 @@ export function isManagedComputer(
     info.Config.Image === image;
   return managed && hasComputerIdentity(labels, botId, spaceId);
 }
+
+// Workspace file access runs only POSIX sh and Debian base tools (coreutils, findutils), so it
+// works on every computer image, including ones without an interpreter.
+
+/** Exit code of `readWorkspaceFileArgv` when the file is larger than the limit. */
+export const WORKSPACE_FILE_TOO_LARGE_EXIT = 42;
+
+/** Prints the file as base64. A negative limit reads the whole file. */
+export function readWorkspaceFileArgv(target: string, maxBytes: number) {
+  const script = [
+    "target=$1 limit=$2",
+    'if [ "$limit" -ge 0 ]; then',
+    '  size=$(wc -c < "$target") || exit 1',
+    `  [ "$size" -le "$limit" ] || exit ${WORKSPACE_FILE_TOO_LARGE_EXIT}`,
+    "fi",
+    'base64 -w0 < "$target"',
+  ].join("\n");
+  return ["sh", "-c", script, "sh", target, String(maxBytes)];
+}
+
+/** Writes stdin to the file, creating its parent directories. */
+export function writeWorkspaceFileArgv(target: string, executable: boolean) {
+  const script = [
+    "set -e",
+    'mkdir -p "$(dirname "$1")"',
+    'cat > "$1"',
+    `chmod ${executable ? "700" : "600"} "$1"`,
+  ].join("\n");
+  return ["sh", "-c", script, "sh", target];
+}
+
+/** One NUL-terminated `type<TAB>size<TAB>mode<TAB>name` record per entry, symlinks skipped. */
+export function listWorkspaceDirectoryArgv(target: string) {
+  const script = [
+    '[ -d "$1" ] || { echo "not a directory: $1" >&2; exit 1; }',
+    "exec find \"$1\" -mindepth 1 -maxdepth 1 ! -type l -printf '%y\\t%s\\t%m\\t%f\\0'",
+  ].join("\n");
+  return ["sh", "-c", script, "sh", target];
+}
+
+export type WorkspaceDirectoryEntry = {
+  path: string;
+  kind: "dir" | "file";
+  size: number;
+  executable?: true;
+};
+
+export function parseWorkspaceDirectoryListing(
+  output: string,
+  relative: string,
+): WorkspaceDirectoryEntry[] {
+  const entries: WorkspaceDirectoryEntry[] = [];
+  for (const record of output.split("\0")) {
+    if (!record) continue;
+    const [type, size, mode, ...nameParts] = record.split("\t");
+    const name = nameParts.join("\t");
+    if (!type || !name) continue;
+    const kind = type === "d" ? "dir" : "file";
+    const executable = type === "f" && (Number.parseInt(mode ?? "0", 8) & 0o100) !== 0;
+    entries.push({
+      path: relative ? `${relative}/${name}` : name,
+      kind,
+      size: Number(size),
+      ...(executable ? { executable: true as const } : {}),
+    });
+  }
+  return entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}

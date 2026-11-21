@@ -95,14 +95,17 @@ import {
   isComputerControlUnavailable,
   isManagedComputer,
   labeledComputerBotId,
+  listWorkspaceDirectoryArgv,
   nextScreenIndex,
   normalizeWorkspaceRelative,
   oldestIdleScreen,
   pageBrowserDetached,
   pageBrowserNotReady,
   parseObservation,
+  parseWorkspaceDirectoryListing,
   preferComputerControl,
   quiesceBrowserProfilesCommand,
+  readWorkspaceFileArgv,
   releaseAssignedScreen,
   removeOwnedComputer,
   resetManagedScreensCommand,
@@ -115,8 +118,10 @@ import {
   teardownReleasedScreen,
   terminalCommand,
   toSandboxInput,
+  WORKSPACE_FILE_TOO_LARGE_EXIT,
   withKeyedLock,
   workspaceTarget,
+  writeWorkspaceFileArgv,
 } from "./supervisor-logic.js";
 
 loadRootEnv();
@@ -950,47 +955,19 @@ app.get("/computers/:id/files", async (c) => {
       if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 0)) {
         return c.json({ error: "invalid maxBytes" }, 400);
       }
-      const script = [
-        "import base64, sys",
-        "target, limit = sys.argv[1], int(sys.argv[2])",
-        "with open(target, 'rb') as source:",
-        "  content = source.read() if limit < 0 else source.read(limit + 1)",
-        "if limit >= 0 and len(content) > limit: sys.exit(42)",
-        "sys.stdout.write(base64.b64encode(content).decode())",
-      ].join("\n");
-      const result = await runContainerCommand(container, [
-        "python3",
-        "-c",
-        script,
-        target,
-        String(maxBytes ?? -1),
-      ]);
-      if (result.code === 42) {
+      const result = await runContainerCommand(
+        container,
+        readWorkspaceFileArgv(target, maxBytes ?? -1),
+      );
+      if (result.code === WORKSPACE_FILE_TOO_LARGE_EXIT) {
         return c.json({ error: `computer file exceeds ${maxBytes} bytes` }, 413);
       }
       if (result.code !== 0) return c.json({ error: result.stderr || "file not found" }, 404);
       return c.json({ content: result.stdout.trim() });
     }
-    const script = [
-      "import json, os, stat, sys",
-      "root, rel = sys.argv[1], sys.argv[2]",
-      "out = []",
-      "for item in os.scandir(root):",
-      "  if item.is_symlink(): continue",
-      "  info = item.stat(follow_symlinks=False)",
-      "  child = '/'.join(x for x in (rel, item.name) if x)",
-      "  out.append({'path': child, 'kind': 'dir' if item.is_dir(follow_symlinks=False) else 'file', 'size': info.st_size, **({'executable': True} if item.is_file(follow_symlinks=False) and bool(info.st_mode & stat.S_IXUSR) else {})})",
-      "print(json.dumps(sorted(out, key=lambda x: x['path'])))",
-    ].join("\n");
-    const result = await runContainerCommand(container, [
-      "python3",
-      "-c",
-      script,
-      target,
-      relative,
-    ]);
+    const result = await runContainerCommand(container, listWorkspaceDirectoryArgv(target));
     if (result.code !== 0) return c.json({ error: result.stderr || "directory not found" }, 404);
-    return c.json(JSON.parse(result.stdout));
+    return c.json(parseWorkspaceDirectoryListing(result.stdout, relative));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return c.json({ error: message }, 400);
@@ -2428,15 +2405,8 @@ async function writeContainerFile(
   content: Buffer,
   executable = false,
 ) {
-  const script = [
-    "import os, sys",
-    "target = sys.argv[1]",
-    "os.makedirs(os.path.dirname(target), exist_ok=True)",
-    "with open(target, 'wb') as f: f.write(sys.stdin.buffer.read())",
-    `os.chmod(target, ${executable ? "0o700" : "0o600"})`,
-  ].join("\n");
   const exec = await container.exec({
-    Cmd: ["python3", "-c", script, target],
+    Cmd: writeWorkspaceFileArgv(target, executable),
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
