@@ -2,9 +2,10 @@ import type {
   JobPublisher,
   MessagingInboundAttachment,
   MessagingInboundMessage,
+  MessagingInboundRecall,
   SandboxProvider,
 } from "@botcamp/adapter-kit";
-import { messagingDeliverJob, runContinueJob } from "@botcamp/adapter-kit";
+import { messagingDeliverJob, runContinueJob, runJobKey } from "@botcamp/adapter-kit";
 import type { MessageBlock } from "@botcamp/contracts";
 import { ATTACHMENT_MAX_COUNT, isAttachmentAudioMimeType } from "@botcamp/contracts";
 import type {
@@ -35,6 +36,7 @@ import type {
   ThreadEvents,
 } from "@botcamp/db";
 import {
+  appendEventInTransaction,
   createThreadMessage,
   crossSpaceCommunicationAllowed,
   messagingIdentityForBot,
@@ -64,7 +66,9 @@ export interface MessagingInboundDeps {
    * exact YES/NO owner commands and does not look for approval cards.
    */
   classifyApprovalReply?: (input: ChatApprovalClassifyInput) => Promise<ChatApprovalChoice>;
-  jobs: Pick<JobPublisher, "enqueue">;
+  jobs: Pick<JobPublisher, "enqueue"> & Partial<Pick<JobPublisher, "cancel">>;
+  /** Takes back a reply already delivered to the chat app. Absent when none can. */
+  deleteMessage?: (threadId: string, handle: string) => Promise<void>;
   sandbox: SandboxProvider;
   provision: (
     request: MessagingIdentityRequest,
@@ -133,7 +137,11 @@ type IdentityRow = {
  * fan out to every approved member bot's own thread.
  */
 export function createMessagingInboundHandler(deps: MessagingInboundDeps) {
-  return async (event: MessagingInboundMessage): Promise<void> => {
+  return async (event: MessagingInboundMessage | MessagingInboundRecall): Promise<void> => {
+    if (event.type === "recall") {
+      await recallDirectMessage(deps, event);
+      return;
+    }
     if (!event.isDirect) {
       await handleChannelEvent(deps, event);
       return;
@@ -269,6 +277,105 @@ async function handleDirectEvent(
     });
     await deps.jobs.enqueue(runContinueJob(sent.runId)).catch((error) => {
       getLogger().error("messaging inbound run enqueue error", error);
+    });
+  }
+}
+
+/**
+ * The person took back a message in their chat app: it leaves the conversation with every
+ * reply the bot wrote to it. A reply still being written is stopped, and replies already
+ * delivered are taken back in the chat app too.
+ */
+async function recallDirectMessage(
+  deps: MessagingInboundDeps,
+  event: MessagingInboundRecall,
+): Promise<void> {
+  const identity = await deps.prisma.messagingIdentity.findUnique({
+    where: { provider_address: { provider: event.provider, address: event.from } },
+  });
+  if (!identity) return;
+  const thread = await deps.prisma.thread.findFirst({
+    where: { botId: identity.botId },
+    select: { id: true },
+  });
+  if (!thread) return;
+  const target = { kind: "bot", botId: identity.botId, threadId: thread.id } as const;
+  const committed = await deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+    const message = await tx.message.findUnique({
+      where: {
+        threadId_clientNonce: {
+          threadId: thread.id,
+          clientNonce: `messaging:${event.provider}:${event.handle}`,
+        },
+      },
+      select: { id: true },
+    });
+    if (!message) return null;
+    // Only runs started for this message. A run it merely steered also answers other messages.
+    const runs = await tx.run.findMany({
+      where: { threadId: thread.id, sourceMessageId: message.id },
+      select: { id: true },
+    });
+    const runIds = runs.map((run) => run.id);
+    const stop = await cancelThreadRuns(identity, target, undefined, runIds)(tx);
+    const replies = runIds.length
+      ? await tx.message.findMany({
+          where: { threadId: thread.id, runId: { in: runIds }, role: "bot" },
+          select: { id: true },
+        })
+      : [];
+    const messageIds = [message.id, ...replies.map((reply) => reply.id)];
+    const replyIds = replies.map((reply) => reply.id);
+    const delivered = replyIds.length
+      ? await tx.messagingOutbound.findMany({
+          where: { sourceMessageId: { in: replyIds }, providerHandle: { not: null } },
+          select: { providerHandle: true },
+        })
+      : [];
+    if (replyIds.length) {
+      await tx.messagingOutbound.updateMany({
+        where: { sourceMessageId: { in: replyIds }, status: "pending" },
+        data: { status: "recalled", nextAttemptAt: null },
+      });
+    }
+    await tx.event.deleteMany({
+      where: {
+        threadId: thread.id,
+        type: "thread.message.created",
+        OR: messageIds.map((id) => ({ payload: { path: ["messageId"], equals: id } })),
+      },
+    });
+    await tx.message.deleteMany({ where: { id: { in: messageIds } } });
+    const removed = await appendEventInTransaction(tx, {
+      spaceId: identity.spaceId,
+      threadId: thread.id,
+      botId: identity.botId,
+      type: "thread.message.deleted",
+      payload: { messageIds },
+    });
+    return {
+      stop,
+      eventSeq: removed.seq,
+      handles: delivered.flatMap((row) => (row.providerHandle ? [row.providerHandle] : [])),
+    };
+  });
+  if (!committed) return;
+  await deps.events.notify(thread.id, committed.eventSeq).catch((error) => {
+    getLogger().error("messaging recall realtime notification", error);
+  });
+  if (committed.stop.runIds.length) {
+    await Promise.all(
+      committed.stop.runIds.map((runId) =>
+        deps.jobs.cancel?.(runJobKey(runId)).catch(() => undefined),
+      ),
+    );
+    await finishThreadStop(deps, identity, target, committed.stop);
+  }
+  const chatThreadId = identity.dmThreadId ?? event.threadId;
+  for (const handle of committed.handles) {
+    await deps.deleteMessage?.(chatThreadId, handle).catch((error) => {
+      getLogger().error("messaging recall of a delivered reply failed", error);
     });
   }
 }

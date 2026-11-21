@@ -480,6 +480,26 @@ describe("thread event reduction", () => {
     expect(next).toMatchObject({ cursor: 12, messages: [], olderCursor: null, run: null });
   });
 
+  it("drops a taken-back message and its replies, keeping the rest", () => {
+    const initial = snapshot([
+      message("keep", [{ kind: "text", text: "earlier" }], 1),
+      message("asked", [{ kind: "text", text: "oops" }], 2),
+      message("answer", [{ kind: "text", text: "reply" }], 3),
+    ]);
+    const next = reduceThreadSnapshot(
+      initial,
+      event({
+        type: "thread.message.deleted",
+        seq: 9,
+        runId: undefined,
+        payload: { messageIds: ["asked", "answer"] },
+      }),
+    );
+    expect(next?.cursor).toBe(9);
+    expect(next?.messages.map((item) => item.id)).toEqual(["keep"]);
+    expect(isThreadSnapshotEvent(event({ type: "thread.message.deleted" }))).toBe(true);
+  });
+
   it("routes clear and terminal events through the snapshot reducer", () => {
     expect(
       isThreadSnapshotEvent(event({ type: "thread.cleared", seq: 12, runId: undefined })),

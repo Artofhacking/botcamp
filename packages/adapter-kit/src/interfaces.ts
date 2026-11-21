@@ -582,6 +582,11 @@ export interface MessagingSurface {
    */
   acknowledge(threadId: string, handle: string, context: AdapterContext): Promise<void>;
   /**
+   * Take back a message this surface sent (`handle` is its send result). Absent
+   * when no hosted platform can.
+   */
+  deleteMessage?(threadId: string, handle: string, context: AdapterContext): Promise<void>;
+  /**
    * Clear the typing receipt for a thread once its reply is out. Absent when
    * the platform expires the receipt on its own.
    */

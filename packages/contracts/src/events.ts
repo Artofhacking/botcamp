@@ -9,6 +9,7 @@ export const ProductEventType = z.enum([
   "thread.message.created",
   "thread.cleared",
   "thread.message.updated",
+  "thread.message.deleted",
   "thread.message.reaction",
   "thread.progress",
   "thread.artifact",

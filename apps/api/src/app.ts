@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import type {
   AgentContextStrategy,
@@ -1251,6 +1252,20 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         signupAllowlist: env.signupAllowlist,
       },
       acknowledge: receipts?.acknowledge,
+      ...(messaging.deleteMessage
+        ? {
+            deleteMessage: (threadId: string, handle: string) => {
+              const operationId = `messaging.recall:${randomUUID()}`;
+              return messaging.deleteMessage!(threadId, handle, {
+                operationId,
+                traceId: operationId,
+                spaceId: "",
+                userId: "",
+                signal: AbortSignal.timeout(15_000),
+              });
+            },
+          }
+        : {}),
       storeAttachment: ({ spaceId, userId, ...input }) =>
         storeInboundAttachment(
           { prisma, artifacts, maxUploadSizeBytes: env.maxUploadSizeBytes },
@@ -1530,8 +1545,12 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       }
     }
     const handleInbound = async (event: MessagingInboundEvent) => {
-      if (event.type !== "message") {
+      if (event.type === "status") {
         await applyMessagingOutboundStatus(prisma, event);
+        return;
+      }
+      if (event.type === "recall") {
+        await inbound(event);
         return;
       }
       if (event.installationBotId && !event.isDirect) {

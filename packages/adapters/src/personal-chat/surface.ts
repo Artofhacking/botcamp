@@ -79,6 +79,11 @@ export class PersonalChatSurface implements MessagingSurface {
     return this.fallback?.acknowledge(threadId, handle, context) ?? Promise.resolve();
   }
 
+  deleteMessage(threadId: string, handle: string) {
+    if (parsePersonalChatThreadId(threadId)) return this.bridge.deleteMessage(threadId, handle);
+    return Promise.resolve();
+  }
+
   stopTyping(threadId: string, context: AdapterContext) {
     const personal = parsePersonalChatThreadId(threadId);
     if (personal) {
