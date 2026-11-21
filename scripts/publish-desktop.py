@@ -8,6 +8,7 @@ and then confirms the public address really serves it.
 
     COS_SECRET_ID, COS_SECRET_KEY   credentials, stored as repository secrets
     COS_BUCKET, COS_REGION          where the feed lives, stored as repository variables
+    COS_ENDPOINT                    upload endpoint; defaults to the bucket's global acceleration
 
     python scripts/publish-desktop.py --version 0.7.6 --platform mac
 
@@ -32,6 +33,9 @@ DEFAULTS = {
     "base": "https://camp.aigc.sx.cn/botcamp/updates/desktop/",
     "bucket": "botcamp-1307257815",
     "region": "ap-guangzhou",
+    # The runners are far from the bucket. Direct uploads crawl until the bucket drops them as
+    # too slow, so they go through global acceleration, which the bucket has enabled.
+    "endpoint": "cos.accelerate.myqcloud.com",
 }
 
 # What each platform publishes. electron-builder names the manifest after the target.
@@ -58,10 +62,11 @@ CONTENT_TYPES = {
 IMMUTABLE = "public, max-age=31536000, immutable"
 REVALIDATE = "no-cache"
 
-# The bucket is in Guangzhou and the runners are not. A multipart upload of a 150 MB
-# installer fails part by part there, so send each file in one request: one failure is
-# then one retry of that file instead of sixteen minutes of stalled parts.
-UPLOAD_TIMEOUT_SECONDS = 900
+# Large files go in parts, several at a time. A failed attempt resumes from the parts that
+# already landed instead of starting the file over.
+PART_SIZE_MB = 8
+PART_THREADS = 4
+UPLOAD_TIMEOUT_SECONDS = 300
 UPLOAD_ATTEMPTS = 4
 
 
@@ -107,6 +112,7 @@ def upload(files: list[Path], prefix: str) -> None:
     secret_key = os.environ.get("COS_SECRET_KEY")
     bucket = os.environ.get("COS_BUCKET") or DEFAULTS["bucket"]
     region = os.environ.get("COS_REGION") or DEFAULTS["region"]
+    endpoint = os.environ.get("COS_ENDPOINT") or DEFAULTS["endpoint"]
     for name, value in (
         ("COS_SECRET_ID", secret_id),
         ("COS_SECRET_KEY", secret_key),
@@ -114,16 +120,14 @@ def upload(files: list[Path], prefix: str) -> None:
         if not value:
             fail(f"{name} is not set")
 
-    try:
-        config = CosConfig(
-            Region=region,
-            SecretId=secret_id,
-            SecretKey=secret_key,
-            Scheme="https",
-            Timeout=UPLOAD_TIMEOUT_SECONDS,
-        )
-    except TypeError:  # Older SDKs do not take a timeout; the rest still applies.
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Scheme="https")
+    config = CosConfig(
+        Region=region,
+        SecretId=secret_id,
+        SecretKey=secret_key,
+        Scheme="https",
+        Endpoint=endpoint,
+        Timeout=UPLOAD_TIMEOUT_SECONDS,
+    )
     client = CosS3Client(config)
     # A small object first: when the runner cannot reach the bucket at all, say so in
     # seconds instead of after a dozen parts have timed out.
@@ -154,7 +158,7 @@ def put(
     headers: dict[str, str],
     body: bytes | None = None,
 ) -> None:
-    """Uploads one object in a single request, retrying the whole object when it fails."""
+    """Uploads one object, retrying with backoff. A retried multipart upload resumes."""
     from qcloud_cos.cos_exception import CosClientError, CosServiceError
 
     delay = 5
@@ -163,9 +167,15 @@ def put(
             if path is None:
                 client.put_object(Bucket=bucket, Key=key, Body=body, **headers)
             else:
-                # One request: a multipart part that times out fails the whole upload.
-                with path.open("rb") as source:
-                    client.put_object(Bucket=bucket, Key=key, Body=source, **headers)
+                # The SDK finds the unfinished upload for this key and sends only missing parts.
+                client.upload_file(
+                    Bucket=bucket,
+                    Key=key,
+                    LocalFilePath=str(path),
+                    PartSize=PART_SIZE_MB,
+                    MAXThread=PART_THREADS,
+                    **headers,
+                )
             return
         except (CosClientError, CosServiceError) as error:
             if attempt == UPLOAD_ATTEMPTS:
