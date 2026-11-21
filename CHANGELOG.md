@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-11-21
+
+### Fixed
+
+- A file or picture sent to a bot now stays in its context for the next three messages and then drops. Before, it stayed until another attachment arrived, so a bot kept bringing up a picture sent days earlier.
+
 ## [2.5.2] - 2026-11-21
 
 ### Changed
