@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.4] - 2026-11-23
+
+### Added
+
+- Linking Feishu to a bot now offers **Open in browser** under the code, so you can confirm the link on the same computer instead of scanning. The desktop app opens it in your default browser.
+
 ## [2.5.3] - 2026-11-21
 
 ### Fixed
