@@ -4660,6 +4660,10 @@ msgstr "打开电脑设置"
 msgid "Open external link?"
 msgstr "打开外部链接？"
 
+#: src/pages/shell/chat-tool-link.tsx
+msgid "Open in browser"
+msgstr "在浏览器中打开"
+
 #: src/pages/shell/computer-panel.tsx
 msgid "Open in full window"
 msgstr "在完整窗口中打开"

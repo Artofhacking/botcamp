@@ -197,6 +197,7 @@ describe("one bot, one Feishu", () => {
     );
     expect(fetchQr).not.toHaveBeenCalled();
     expect(started.image).toBe("https://open.feishu.cn/page/cli?user_code=abc");
+    expect(started.url).toBe("https://open.feishu.cn/page/cli?user_code=abc");
     expect(prisma.chatToolLogin.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         provider: "feishu",

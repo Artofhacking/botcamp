@@ -46,6 +46,7 @@ vi.mock("@botcamp/ui-web", () => ({
     size: _size,
     ...props
   }: ComponentProps<"button"> & { variant?: string; size?: string }) => <button {...props} />,
+  buttonVariants: () => "",
   Input: (props: ComponentProps<"input">) => <input {...props} />,
   Textarea: (props: ComponentProps<"textarea">) => <textarea {...props} />,
   NativeSelect: ({ size: _size, ...props }: ComponentProps<"select"> & { size?: string }) => (
@@ -247,6 +248,7 @@ it("lists WeChat disabled and Feishu on a bot that is not primary, then opens it
   start.mockResolvedValue({
     loginId: "login-2",
     image: "https://open.feishu.cn/page/cli?user_code=abc",
+    url: "https://open.feishu.cn/page/cli?user_code=abc",
     expiresAt: "2026-11-10T00:00:00.000Z",
   });
   await renderSettings(vi.fn(async () => undefined));
@@ -273,6 +275,11 @@ it("lists WeChat disabled and Feishu on a bot that is not primary, then opens it
   expect(start).toHaveBeenCalledWith({ botId: "bot-1", provider: "feishu" });
   expect(container.querySelector('button[aria-label="Back"]')).not.toBeNull();
   expect(container.querySelector('img[alt="Chat app code"]')).not.toBeNull();
+  const browser = [...container.querySelectorAll("a")].find(
+    (anchor) => anchor.textContent === "Open in browser",
+  );
+  expect(browser?.getAttribute("href")).toBe("https://open.feishu.cn/page/cli?user_code=abc");
+  expect(browser?.getAttribute("target")).toBe("_blank");
 });
 
 it("links a chat app from the primary bot", async () => {
@@ -318,6 +325,9 @@ it("links a chat app from the primary bot", async () => {
   expect(code?.getAttribute("alt")).toBe("Chat app code");
   expect(code?.getAttribute("src")?.startsWith("data:image/svg+xml")).toBe(true);
   expect(code?.getAttribute("src")).not.toBe("https://liteapp.weixin.qq.com/q/abc");
+  expect(
+    [...container.querySelectorAll("a")].some((anchor) => anchor.textContent === "Open in browser"),
+  ).toBe(false);
 });
 
 it("lists a linked WeChat channel and offers Feishu next", async () => {

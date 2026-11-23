@@ -1,6 +1,7 @@
 import { linkableChatApps, linkableChatAppsFor, messagingProviderName } from "@botcamp/core";
 import {
   Button,
+  buttonVariants,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -74,6 +75,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   const [rows, setRows] = useState<ChatToolRow[] | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [src, setSrc] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
   const [loginId, setLoginId] = useState<string | null>(null);
   const [needPin, setNeedPin] = useState(false);
   const [pin, setPin] = useState("");
@@ -173,6 +175,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
     try {
       const started = await rpc.messaging.chatTools.start({ botId, provider: id });
       setImage(started.image);
+      setUrl(started.url ?? null);
       setLoginId(started.loginId);
       setNeedPin(false);
       setPin("");
@@ -187,6 +190,7 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
   function back() {
     setLoginId(null);
     setImage(null);
+    setUrl(null);
     setNeedPin(false);
     setPin("");
     setError(null);
@@ -340,6 +344,16 @@ export function ChatToolLink({ botId, isPrimary }: { botId: string; isPrimary?: 
               ) : (
                 <div className="size-64 max-w-full rounded-xl bg-muted/50" />
               )}
+              {src && url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonVariants({ variant: "link", size: "sm" })}
+                >
+                  <Trans>Open in browser</Trans>
+                </a>
+              ) : null}
               {needPin ? (
                 <form
                   className="flex w-full items-center gap-2"
