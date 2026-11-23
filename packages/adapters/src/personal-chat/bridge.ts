@@ -111,6 +111,7 @@ export class PersonalChatBridge {
   ): Promise<{
     loginId: string;
     image: string;
+    url?: string;
     expiresAt: string;
   }> {
     const bot = await this.prisma.bot.findFirst({
@@ -579,7 +580,13 @@ export class PersonalChatBridge {
       await this.secrets.delete(sealed.ciphertext, id).catch(() => undefined);
       throw error;
     }
-    return { loginId: id, image: started.image, expiresAt: expiresAt.toISOString() };
+    // The code is Feishu's confirm page, which also works when opened in a browser.
+    return {
+      loginId: id,
+      image: started.image,
+      url: started.image,
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 
   private async pollFeishu(

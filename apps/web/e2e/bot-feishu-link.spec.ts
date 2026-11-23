@@ -35,6 +35,7 @@ test("a bot that is not primary lists WeChat disabled, then opens its own Feishu
       json({
         loginId: "login-e2e",
         image: "https://open.feishu.cn/page/cli?user_code=e2e",
+        url: "https://open.feishu.cn/page/cli?user_code=e2e",
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
       }),
     );
@@ -54,6 +55,10 @@ test("a bot that is not primary lists WeChat disabled, then opens its own Feishu
   await captureScreenshot(page, testInfo, "bot-chat-app-list");
   await dialog.getByRole("button", { name: "Feishu", exact: true }).click();
   await expect(dialog.getByRole("img", { name: "Chat app code" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Open in browser" })).toHaveAttribute(
+    "href",
+    "https://open.feishu.cn/page/cli?user_code=e2e",
+  );
   expect(JSON.stringify(started)).toContain('"provider":"feishu"');
 
   await captureScreenshot(page, testInfo, "bot-feishu-link");

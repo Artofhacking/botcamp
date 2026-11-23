@@ -1235,6 +1235,8 @@ export const appContract = {
         z.object({
           loginId: z.string(),
           image: z.string(),
+          /** A page that confirms the link in a browser, for apps that offer one. */
+          url: z.string().url().optional(),
           expiresAt: z.string(),
         }),
       ),
