@@ -96,8 +96,9 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await rpc(page, "threads/send", { botId: bot.id, text: "keep working until I stop you" });
     await page.getByRole("button", { name: "Activity", exact: true }).click();
     await page.reload();
-    await expect(page.getByRole("status", { name: "Loading activity…" })).toBeHidden();
-    await expect(page.locator("aside").getByRole("button", { name: /^Bot, / })).toBeVisible();
+    const activity = page.getByTestId("activity-list");
+    await activity.getByRole("button", { name: /^Working\b/ }).click();
+    await expect(activity.getByRole("button", { name: /^Bot, / })).toBeVisible();
     await expectReadableNames(page.locator("body"));
     await captureScreenshot(page, testInfo, "readable-names-activity");
   } finally {

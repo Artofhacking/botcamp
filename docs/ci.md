@@ -63,8 +63,8 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 | `ci.yml` | Pull requests and pushes to `main`. |
 | `publish-server-image.yml` | Called by `ci.yml` on green main. Also tag pushes `v*`, manual runs, and pull requests that change image definitions. |
 | `playwright.yml` | Called by `ci.yml` and by the nightly run. Also manual. |
-| `publish-playwright-report.yml` | After the `ci` workflow completes. Publishes the report. |
-| `nightly-verification.yml` | Nightly, and manual. Refreshes the web screenshot baseline. |
+| `publish-playwright-report.yml` | After pull-request CI completes. Publishes the screenshot gallery when configured. |
+| `nightly-verification.yml` | Nightly, and manual. Runs the full Web E2E suite and uploads the combined report to GitHub Actions. |
 | `desktop-unsigned.yml` | Manual. macOS arm64 (ad-hoc signed) and unsigned Windows. Inputs can override the desktop version, limit the platform, and upload the update feed. The `publish` input works only on `main`. Artifacts also stay on the workflow run. The download page is a separate edit. |
 | `desktop-macos-screenshot.yml` | Pull requests and `main` when desktop setup or icon files change. Packages the Mac app and checks its icon. |
 | `build-win.yml` | Manual. Checks out this repo beside the upstream desktop tree named in the workflow. Current installers are `desktop-unsigned.yml`. |
@@ -73,6 +73,8 @@ Image builds use `DEPOT_PROJECT_ID` when that repository variable is set, and Gi
 | `review-bot.yml` | Comment on a pull request, to hand a blocked review to the next bot. It does not check out the pull request. |
 | `weekly-dependencies.yml` | Weekly, and manual. Opens a dependency pull request. |
 | `model-catalog-bump.yml` | Weekly, and manual. Opens a model-catalog pull request. |
+
+Set the repository variable `PLAYWRIGHT_PUBLIC_BASE_URL` to enable the external Playwright dashboard and pull-request screenshot gallery. Publication uses the `S3_BUCKET`, `S3_ENDPOINT`, and `S3_REGION` variables and the `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` secrets. GitHub Actions retains the reports for nightly runs and pull requests that run Web E2E even when external publication is disabled.
 
 ## Releases
 
