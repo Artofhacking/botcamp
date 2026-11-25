@@ -200,14 +200,13 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await expect(messagingSettings.getByText("424242, Lead")).toBeVisible();
   await expect(messagingSettings.getByText("Family")).toBeVisible();
   await expect(messagingSettings.getByText("Dana's Assistant")).toBeVisible();
-  // Scoped to the panel: the settings nav has its own 승인 (Approvals).
-  await expect(messagingSettings.getByRole("button", { name: "审批" })).toHaveCount(2);
+  await expect(messagingSettings.getByRole("button", { name: "批准", exact: true })).toHaveCount(2);
 
   await messagingSettings.getByRole("button", { name: "连接聊天应用" }).click();
   await page.getByRole("menuitem", { name: "iMessage", exact: true }).click();
   await expect(page.getByTestId("messaging-link-code")).toContainText("ABCD-2345");
   await expect(page.getByTestId("messaging-link-code")).toContainText("+15550001111");
-  await captureScreenshot(page, testInfo, "messaging-settings-ko");
+  await captureScreenshot(page, testInfo, "messaging-settings-zh");
 });
 
 test("Slack setup has one Connect action that opens workspace authorization", async ({

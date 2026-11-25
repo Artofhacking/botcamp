@@ -11,6 +11,17 @@ async function sendComposerMessage(page: Page, composer: Locator, text: string) 
   await expect(composer).toHaveValue("");
 }
 
+async function sendMessageAndLocateReply(page: Page) {
+  const composer = page.getByRole("combobox", { name: /^Message/ });
+  await sendComposerMessage(page, composer, "Remember that our meeting is on Monday.");
+  const reply = page.getByTestId("message-bot-bubble").filter({
+    hasText: "noted — i will keep that in memory.",
+  });
+  const row = page.getByTestId("transcript").locator("[data-message-id]").filter({ has: reply });
+  await expect(row).toBeVisible();
+  return row;
+}
+
 async function revealHoverRail(row: Locator): Promise<Locator> {
   const rail = row.getByTestId("message-hover-rail");
   await expect
@@ -141,16 +152,7 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
 
   const transcript = page.getByTestId("transcript");
 
-  // Empty start: no Fresh-start greeting. Answer the focus card so a plain
-  // bot text bubble exists for hover layout checks.
-  await expect(page.getByText("What do you want me on first?", { exact: true })).toBeVisible({
-    timeout: 20_000,
-  });
-  await page.getByRole("button", { name: /Day-to-day work/ }).click();
-  const botText = page.getByText(/Got it\./);
-  await expect(botText).toBeVisible({ timeout: 20_000 });
-  const botRow = transcript.locator(`[data-message-id]`).filter({ has: botText }).first();
-  await expect(botRow).toBeVisible();
+  const botRow = await sendMessageAndLocateReply(page);
   await expectRailAtRest(page, botRow);
   await captureScreenshot(page, testInfo, "message-actions-rest-desktop");
 
@@ -383,7 +385,7 @@ test("a message with an attachment centers hover actions on its text bubble", as
   await expect
     .poll(async () => {
       const bubbleBox = await row.getByTestId("message-user-bubble").boundingBox();
-      const fileBox = await row.getByRole("button", { name: /notes\.txt/ }).boundingBox();
+      const fileBox = await row.getByRole("button", { name: "Preview notes.txt" }).boundingBox();
       return bubbleBox && fileBox ? fileBox.y - (bubbleBox.y + bubbleBox.height) : null;
     })
     .toBeGreaterThanOrEqual(6);
@@ -409,17 +411,7 @@ test.describe("touch message actions", () => {
     expect(
       await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches),
     ).toBe(false);
-    await expect(page.getByText("What do you want me on first?", { exact: true })).toBeVisible({
-      timeout: 20_000,
-    });
-    await page.getByRole("button", { name: /Day-to-day work/ }).click();
-    const botText = page.getByText(/Got it\./);
-    await expect(botText).toBeVisible({ timeout: 20_000 });
-    const row = page
-      .getByTestId("transcript")
-      .locator("[data-message-id]")
-      .filter({ has: botText })
-      .first();
+    const row = await sendMessageAndLocateReply(page);
     const rail = row.getByTestId("message-hover-rail");
     await expect(rail).toHaveCSS("opacity", "1");
     await expect(rail.getByRole("button", { name: "Reply", exact: true })).toBeVisible();
@@ -460,17 +452,7 @@ test.describe("touch message actions", () => {
 test("a reaction receipt refreshes live work and exposes Stop", async ({ page }, testInfo) => {
   await signup(page, `reaction-work-${Date.now()}@rakazo.test`, "password12", "Reaction Work");
   await completeOnboarding(page);
-  await expect(page.getByText("What do you want me on first?", { exact: true })).toBeVisible({
-    timeout: 20_000,
-  });
-  await page.getByRole("button", { name: /Day-to-day work/ }).click();
-  const botText = page.getByText(/Got it\./);
-  await expect(botText).toBeVisible({ timeout: 20_000 });
-  const row = page
-    .getByTestId("transcript")
-    .locator("[data-message-id]")
-    .filter({ has: botText })
-    .first();
+  const row = await sendMessageAndLocateReply(page);
   const botId = activeBotId(page);
   let reacted = false;
   // No run events are emitted: the receipt alone must refresh the active state.

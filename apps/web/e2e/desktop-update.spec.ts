@@ -15,7 +15,7 @@ test("desktop update can be checked, deferred, and installed from settings", asy
       message: null as string | null,
       checkedAt: "2026-01-01T00:00:00.000Z",
     };
-    Object.defineProperty(window, "rakazoDesktop", {
+    Object.defineProperty(window, "botcampDesktop", {
       value: {
         platform: "darwin",
         window: {
@@ -63,10 +63,10 @@ test("desktop update can be checked, deferred, and installed from settings", asy
   await expect(page.getByRole("complementary", { name: "Desktop update" })).toHaveCount(0);
   await openUserSettings(page, "updates");
   const settings = page.getByTestId("desktop-update-settings");
-  await expect(settings.getByText("v0.1.2")).toBeVisible();
+  await expect(settings.getByText("macOS · 0.1.2", { exact: true })).toBeVisible();
   await expect(settings.getByText("Up to date", { exact: true })).toHaveCount(0);
   await settings.getByRole("button", { name: "Check for updates" }).click();
-  await expect(settings.getByRole("status")).toHaveText("Up to date");
+  await expect(settings.getByText("Up to date", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Check for updates" }).click();
   await expect(settings.getByRole("button", { name: "Downloading…" })).toBeDisabled();
   await page.keyboard.press("Escape");
