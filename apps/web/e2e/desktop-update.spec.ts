@@ -61,8 +61,8 @@ test("desktop update can be checked, deferred, and installed from settings", asy
   await signup(page, `desktop-update-${stamp}@rakazo.test`, "password12", "Update Tester");
   await completeOnboarding(page);
   await expect(page.getByRole("complementary", { name: "Desktop update" })).toHaveCount(0);
-  await openUserSettings(page, "updates");
-  const settings = page.getByTestId("desktop-update-settings");
+  const settings = await openUserSettings(page, "updates");
+  await expect(settings).toHaveAccessibleName("About");
   await expect(settings.getByText("macOS · 0.1.2", { exact: true })).toBeVisible();
   await expect(settings.getByText("Up to date", { exact: true })).toHaveCount(0);
   await settings.getByRole("button", { name: "Check for updates" }).click();
